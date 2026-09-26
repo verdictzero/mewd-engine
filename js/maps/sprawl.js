@@ -222,18 +222,22 @@ export function sprawlDoc() {
   const plateau = sector(rect(0, 0, S, S), {
     name: 'the plateau', floor: CLIFF_H, ceil: CLIFF_H + 1024, floorTex: 'GRASS5', wallTex: 'NONE', lowerTex: 'LWNCLIF1', light: 0.84,
   });
-  /* the floor of the world, 686 down: the roads. Its edges are the cliff,
-     lawn on top, LWNCLIF1 on two sides and LWNCLIF2 on the other two */
-  /* its ring has a vertex every 1024 along each side, so the cliff can
-     change face and slip its offset from one stretch to the next and not
-     read as one picture repeated */
-  const ringPts = [];
-  const along = (from, to) => { const n = Math.round(Math.hypot(to[0] - from[0], to[1] - from[1]) / 1024); for (let k = 0; k < n; k++) ringPts.push([from[0] + (to[0] - from[0]) * k / n, from[1] + (to[1] - from[1]) * k / n]); };
-  along([RIM, RIM], [S - RIM, RIM]); along([S - RIM, RIM], [S - RIM, S - RIM]); along([S - RIM, S - RIM], [RIM, S - RIM]); along([RIM, S - RIM], [RIM, RIM]);
-  const ground = sector(ringPts, {
-    name: 'the roads', floor: 0, ceil: CLIFF_H, floorTex: 'ASPHALT1', wallTex: 'LWNCLIF1', lowerTex: 'LWNCLIF1', upperTex: 'NONE', light: 0.78,
+  /* the floor of the world, 686 down: the roads. Its edges are ONE rock
+     face all the way round, the pack's big cliff (CLIFF2, 1024 across
+     and 1024 tall, hung from the top so its grass lip meets the plateau)
+     — one line a side, so there is no seam anywhere along it. The roads
+     are lit brighter than the blocks: ASPHALT1 is a dark picture */
+  const ground = sector(rect(RIM, RIM, S - RIM, S - RIM), {
+    name: 'the roads', floor: 0, ceil: CLIFF_H, floorTex: 'ASPHALT1', wallTex: 'CLIFF2', lowerTex: 'CLIFF2', upperTex: 'NONE', light: 1.0,
   });
-  ringPts.forEach((p, k) => line(p, ringPts[(k + 1) % ringPts.length], { lowerTex: k % 2 ? 'LWNCLIF2' : 'LWNCLIF1', xoff: (k * 97) % 256 }));
+  /* a verge of earth and grass where the cliff meets the road, as four
+     strips clear of the cliff by a unit so they do not touch it */
+  const VG = 160;
+  for (const [a0, b0, a1, b1] of [[RIM + 1, RIM + 1, S - RIM - 1, RIM + VG], [RIM + 1, S - RIM - VG, S - RIM - 1, S - RIM - 1],
+                                  [RIM + 1, RIM + VG + 1, RIM + VG, S - RIM - VG - 1], [S - RIM - VG, RIM + VG + 1, S - RIM - 1, S - RIM - VG - 1]]) {
+    const vg = sector(rect(a0, b0, a1, b1), { name: 'verge', floor: 0, floorTex: 'DIRT_01', lowerTex: 'DIRT_02', light: 0.9 });
+    scatter(inSectors(vg), [{ type: 'PLANT:grass', w: 5 }, { type: 'PLANT:fern', w: 3 }, { type: 'PLANT:bush_small_1', w: 1 }], 30, 40, 0.6, { name: 'verge grass' });
+  }
 
   /* THE HORIZON, on the plateau: what stands nearer the edge is seen
      over it from the streets, and what stands back is seen over what is
@@ -242,7 +246,10 @@ export function sprawlDoc() {
      them whose face is not drawn (lowerTex NONE), so they float. */
   const third = (S - 2 * RIM) / 3;
   const horizon = (side, k, near, far, cloud) => {
-    const a = RIM + k * third + 32, b = RIM + (k + 1) * third - 32;
+    /* butted end to end, so there is no slit of sky between them; the
+       north and south rows run on past the corners to close them */
+    const ns = side === 'n' || side === 's';
+    const a = RIM + k * third - (ns && k === 0 ? 96 : 0), b = RIM + (k + 1) * third + (ns && k === 2 ? 96 : 0);
     const at = (off, w, tex, face, floor = CLIFF_H, props = {}) => {
       const P = { name: 'horizon', floorTex: 'GRASS5', wallTex: 'GRASS5', lowerTex: 'NONE', light: 0.84, ...props };
       if (side === 'n') return sign(a, S - RIM + off, b, S - RIM + off + w, tex, floor, 's', P);
@@ -251,13 +258,20 @@ export function sprawlDoc() {
       return sign(RIM - off - w, a, RIM - off, b, tex, floor, 'e', P);
     };
     if (near) at(48, 24, near, side);
-    if (far) at(160, 24, far, side);
-    if (cloud) at(232, 24, cloud, side, CLIFF_H + 200);
+    /* the far layers only behind a SHORT near one (the 128-tall tree
+       line and ruins): behind a 512-tall one they are never seen. The
+       clouds float high and are fully lit, so the sky behind them does
+       not turn them into dark hills */
+    if (far) at(200, 24, far, side);
+    /* (the pack's two cloud strips were here, floating over the
+       mountains, and against the sky they read as dark hills however
+       they were lit; they hang in the test chamber instead) */
+    void cloud;
   };
-  horizon('n', 0, 'TREEBACK', null, null);   horizon('n', 1, 'MEADOWBG', 'MOUNTBG', 'CLOUDS02'); horizon('n', 2, 'TREEBACK', null, null);
+  horizon('n', 0, 'TREEBACK', null, null);  horizon('n', 1, 'TREELINE', 'MOUNTBG', 'CLOUDS02'); horizon('n', 2, 'MEADOWBG', null, null);
   horizon('s', 0, 'TREELINE', 'MOUNTBG', 'CLOUDS01'); horizon('s', 1, 'RUINLINE', 'MNTN0001', 'CLOUDS02'); horizon('s', 2, 'TREELINE', 'MOUNTBG', 'CLOUDS01');
-  horizon('e', 0, 'MEADOWBG', 'MOUNTBG', 'CLOUDS02'); horizon('e', 1, 'TREEBACK', null, null); horizon('e', 2, 'MEADOWBG', 'MNTN0001', 'CLOUDS01');
-  horizon('w', 0, 'TREEBACK', null, null);   horizon('w', 1, 'TREELINE', 'MOUNTBG', 'CLOUDS02'); horizon('w', 2, 'MEADOWBG', 'MNTN0001', 'CLOUDS01');
+  horizon('e', 0, 'MEADOWBG', null, null);  horizon('e', 1, 'TREEBACK', null, null); horizon('e', 2, 'TREELINE', 'MNTN0001', 'CLOUDS01');
+  horizon('w', 0, 'TREEBACK', null, null);  horizon('w', 1, 'TREELINE', 'MOUNTBG', 'CLOUDS02'); horizon('w', 2, 'MEADOWBG', null, null);
   /* and firs along the plateau's edge, seen against the sky */
   for (let t = RIM + 256; t < S - RIM - 256; t += 640) {
     for (const [x, y] of [[t, RIM - 96], [t, S - RIM + 96], [RIM - 96, t], [S - RIM + 96, t]]) plant(pick(FIRS), x + (rnd() - 0.5) * 120, y + (rnd() - 0.5) * 60, 1 + rnd() * 0.3);
@@ -277,7 +291,9 @@ export function sprawlDoc() {
       thing('STREETLAMP', x0 + t, y1 - 48, { angle: Math.PI / 2 });
       thing('STREETLAMP', x0 + 48, y0 + t, { angle: Math.PI });
       thing('STREETLAMP', x1 - 48, y0 + t, { angle: 0 });
-      if (t + step / 2 < BLOCK) {
+      /* no tree at a side's middle: that is where the crossing and the
+         district's way in are, and a tree stood square in every one */
+      if (t + step / 2 < BLOCK && Math.abs(t + step / 2 - BLOCK / 2) > 200) {
         plant(pick(STREET), x0 + t + step / 2, y0 + 96);
         plant(pick(STREET), x0 + t + step / 2, y1 - 96);
         plant(pick(STREET), x0 + 96, y0 + t + step / 2);
@@ -286,6 +302,22 @@ export function sprawlDoc() {
     }
   }
   const B = (i, j) => blocks[j * 4 + i];
+  /* THE ROAD MARKINGS: a dashed centre line down every road, of the
+     pale paving, stopping short of each junction and each crossing; and
+     a hatched box junction where you start */
+  const roadMid = k => (k === 0 ? RIM + ROAD / 2 : blockAt(k - 1) + BLOCK + ROAD / 2);
+  for (let k = 0; k <= 4; k++) {
+    const c = roadMid(k);
+    for (let m = 0; m < 4; m++) {
+      const lo = blockAt(m), hi = lo + BLOCK;
+      for (let t = lo + 160; t + 192 < hi - 160; t += 448) {
+        if (Math.abs(t + 96 - (lo + BLOCK / 2)) < 256) continue;
+        sector(rect(c - 16, t, c + 16, t + 192), { name: 'road line', floor: 0, floorTex: 'OFCCEIL1', lowerTex: 'CONC_2', light: 1.1 });
+        sector(rect(t, c - 16, t + 192, c + 16), { name: 'road line', floor: 0, floorTex: 'OFCCEIL1', lowerTex: 'CONC_2', light: 1.1 });
+      }
+    }
+  }
+  sector(rect(SPRAWL_START[0] - 256, SPRAWL_START[1] - 256, SPRAWL_START[0] + 256, SPRAWL_START[1] + 256), { name: 'box junction', floor: 0, floorTex: 'PARKLOT3', lowerTex: 'CONC_2', light: 1.0 });
   /* the crossings: a strip of pavement across each road at each block corner */
   for (let k = 0; k <= 4; k++) {
     const r = k === 0 ? RIM : blockAt(k - 1) + BLOCK;
@@ -309,7 +341,7 @@ export function sprawlDoc() {
     /* the pond: a paved ring, a bank, the water sunk in a rock lip */
     sector(octagon(cx, cy, 640), { name: 'pond paving', floor: CURB, floorTex: 'XTX_1', lowerTex: 'CONC_2', light: 0.84 });
     sector(octagon(cx, cy, 520), { name: 'pond bank', floor: CURB - 4, floorTex: 'DIRT_01', lowerTex: 'DIRT_02', wallTex: 'DIRT_02', light: 0.82 });
-    sector(octagon(cx, cy, 440), { name: 'pond', floor: -32, floorTex: 'WAT201', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.82 });
+    sector(octagon(cx, cy, 440), { name: 'pond', floor: -20, floorTex: 'WAT201', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.72 });
     /* hedges: raised sectors of ivy, too tall to step onto */
     for (const [hx0, hy0, hx1, hy1] of [[b.ix0 + 256, b.iy0 + 256, b.ix0 + 1088, b.iy0 + 320], [b.ix1 - 1088, b.iy0 + 256, b.ix1 - 256, b.iy0 + 320],
                                         [b.ix0 + 256, b.iy1 - 320, b.ix0 + 1088, b.iy1 - 256], [b.ix1 - 1088, b.iy1 - 320, b.ix1 - 256, b.iy1 - 256],
@@ -369,7 +401,7 @@ export function sprawlDoc() {
           prop(px, cyk, px + cw, cyk + 8, f, f + 112, 'OFCCUB01', 'OFCCUB03');
           prop(face > 0 ? px : px + cw - 8, cyk, face > 0 ? px + 8 : px + cw, cyk + ch, f, f + 112, 'OFCCUB01', 'OFCCUB03');
           const dx = px + cw / 2;
-          prop(dx - 80, cyk + 16, dx + 80, cyk + 72, f, f + 36, 'OFCDESK2', 'OFCDESK1');
+          prop(dx - 80, cyk + 16, dx + 80, cyk + 72, f, f + 36, 'OFCCUB03', face > 0 ? 'OFCDESK2' : 'OFCDESK1');
         }
       }
     }
@@ -388,7 +420,7 @@ export function sprawlDoc() {
     /* a pattern of inlaid squares down the middle, slab paving round them */
     for (let k = 0; k < 5; k++) {
       const x = b.ix0 + 256 + k * 512;
-      sector(rect(x, b.iy0 + 256, x + 320, b.iy0 + 576), { name: 'inlay', floor: CURB, floorTex: k % 2 ? 'DIAG_1' : 'DIAG_2', lowerTex: 'CONC_4', light: 0.84 });
+      sector(rect(x, b.iy0 + 256, x + 320, b.iy0 + 576), { name: 'inlay', floor: CURB, floorTex: k === 2 ? 'DIAG_1' : k % 2 ? 'CONC_5' : 'XTX_1', lowerTex: 'CONC_4', light: 0.84 });
       sector(rect(x, b.iy0 + 832, x + 320, b.iy0 + 1152), { name: 'paving', floor: CURB, floorTex: 'XTX_1', lowerTex: 'CONC_4', light: 0.84 });
     }
     /* the stage: two steps of concrete up, ribbed pillars either side
@@ -501,7 +533,7 @@ export function sprawlDoc() {
     const terrace = sector(rect(x0 - 96, y0 - 96, x1 + 96, y1 + 96), { name: 'mansion terrace', floor: CURB + 16, floorTex: 'XTX_1', lowerTex: 'CONC_5', wallTex: 'CONC_5', light: 0.82 });
     /* the walls are one row of the pack's panelling: 256 tall */
     const house = building(x0, y0, x1, y1, {
-      name: 'mansion', floor: f, ceil: f + 256, floorTex: 'OFCCARP1', ceilTex: 'OFCDESK2', wallTex: 'MANINT1', facade: 'CONC_1', roofTex: 'CONC_3', doorFloor: 'XTX_1', light: 0.9, lightColor: '#ffd8a8',
+      name: 'mansion', floor: f, ceil: f + 256, floorTex: 'OFCCARP1', ceilTex: 'MANINT1', wallTex: 'MANINT1', facade: 'CONC_1', roofTex: 'CONC_3', doorFloor: 'XTX_1', light: 0.9, lightColor: '#ffd8a8',
     }, [{ side: 's', at: (x0 + x1) / 2, w: 128, tex: 'DR1_01' }, { side: 'e', at: (y0 + y1) / 2, tex: 'DR1_01' }], terrace);
     for (let x = x0 + 160; x + 128 < x1 - 128; x += 320) {
       if (Math.abs(x + 64 - (x0 + x1) / 2) < 200) continue;
@@ -534,10 +566,10 @@ export function sprawlDoc() {
     for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) {
       if ((r === 1 || r === 2) && (c === 2)) continue;                      // the pavilion
       const x = b.ix0 + 320 + c * 512, y = b.iy0 + 384 + r * 640;
-      prop(x, y, x + 256, y + 128, CURB, CURB + 40, 'OFCDESK2', 'OFCDESK1');
+      prop(x, y, x + 256, y + 128, CURB, CURB + 40, 'MANINT1', 'OFCDESK2');
       prop(x, y + 112, x + 16, y + 128, CURB, CURB + 128, 'METALP1', 'METALP1');
       prop(x + 240, y + 112, x + 256, y + 128, CURB, CURB + 128, 'METALP1', 'METALP1');
-      prop(x - 16, y + 64, x + 272, y + 136, CURB + 128, CURB + 136, 'OFCCUB01', 'OFCCUB01');
+      prop(x - 16, y + 64, x + 272, y + 144, CURB + 128, CURB + 144, 'OFCCUB03', 'OFCCUB01');
       if (c < 4) plant(pick(STREET), x + 384, y + 64);
     }
     /* a pavilion in the middle: four ribbed pillars and a slab of roof over a paved square */
@@ -550,50 +582,65 @@ export function sprawlDoc() {
   /* ---- 0,2 THE WOOD: firs, scrub, a dirt track, a green mist ------- */
   {
     const b = B(0, 2);
-    const wood = sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'the wood', floor: CURB, floorTex: 'GRASS1', lowerTex: 'DIRT_02', wallTex: 'DIRT_02', light: 0.62,
-                                                             fog: { color: '#5a6a48', density: 12 } });
+    const WF = { color: '#6a7a58', density: 22 };
+    const wood = sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'the wood', floor: CURB, floorTex: 'GRASS1', lowerTex: 'DIRT_02', wallTex: 'DIRT_02', light: 0.64, fog: WF });
     const mid = (b.iy0 + b.iy1) / 2;
-    sector(rect(b.ix0 + 64, mid - 80, b.ix1 - 64, mid + 80), { name: 'track', floor: CURB, floorTex: 'DIRT1', lowerTex: 'DIRT_02', light: 0.64, fog: { color: '#5a6a48', density: 12 } });
+    sector(rect(b.ix0 + 64, mid - 80, b.ix1 - 64, mid + 80), { name: 'track', floor: CURB, floorTex: 'DIRT_01', lowerTex: 'DIRT_02', light: 0.72, fog: WF });
     /* a mossy outcrop in a clearing */
     const ox = b.ix0 + 2100, oy = b.iy0 + 2200;
-    sector(octagon(ox, oy, 300), { name: 'clearing', floor: CURB, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', light: 0.66, fog: { color: '#5a6a48', density: 12 } });
-    sector(octagon(ox, oy, 120, 6), { name: 'outcrop', floor: CURB + 40, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.66, fog: { color: '#5a6a48', density: 12 } });
+    sector(octagon(ox, oy, 300), { name: 'clearing', floor: CURB, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', light: 0.82, fog: WF });
+    sector(octagon(ox, oy, 150, 7), { name: 'outcrop', floor: CURB + 20, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.9, fog: WF });
+    sector(octagon(ox + 20, oy - 10, 80, 5), { name: 'outcrop top', floor: CURB + 40, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.9, fog: WF });
     scatter(inSectors(wood), [{ type: 'PLANT:fir_tall_1', w: 22 }, { type: 'PLANT:fir_tall_2', w: 22 }, { type: 'PLANT:fir_medium', w: 16 }, { type: 'PLANT:fir_young', w: 14 },
-                              { type: 'PLANT:bush_large_1', w: 8 }, { type: 'PLANT:bush_small_1', w: 6 }], 40, 64, 0.55, { name: 'firs', scaleMin: 0.9, scaleMax: 1.2 });
+                              { type: 'PLANT:bush_large_1', w: 8 }, { type: 'PLANT:bush_small_1', w: 6 }], 75, 48, 0.4, { name: 'firs', scaleMin: 0.9, scaleMax: 1.25 });
     scatter(inSectors(wood), [{ type: 'PLANT:grass', w: 5 }, { type: 'PLANT:fern', w: 4 }, { type: 'PLANT:bush_small_2', w: 1 }], 50, 30, 0.6, { name: 'undergrowth' });
   }
 
-  /* ---- 1,2 THE QUARRY: an open pit, a rock face, a waterfall -------- */
+  /* ---- 1,2 THE QUARRY: an open pit, a crag in two tiers, a waterfall */
   {
     const b = B(1, 2);
-    sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'quarry floor', floor: CURB, floorTex: 'DIRT2', lowerTex: 'CLIFF2A', wallTex: 'CLIFF2A', light: 0.78 });
-    /* the pit: six terraces down, each a step a person can take, faced
-       by the pack's three rock faces in turn, to a pool at the bottom */
-    const FACES = ['CLIFF2A', 'CLIFF2B', 'CLIFF2C'];
-    const FLOORS = ['DIRT2', 'DIRT3', 'DIRT_01', 'ROCK_01', 'DIRT_02', 'ROCK_01'];
+    sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'quarry floor', floor: CURB, floorTex: 'DIRT3', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.8 });
+    /* the pit: eight benches down, 24 each so a person can climb them,
+       faced in plain rock (the cliff pictures carry a grass lip at their
+       top, which on a 24-high step is all of them you see), the spoil a
+       patch of the orange dirt, a pool at the bottom */
     const px0 = b.ix0 + 96, py0 = b.iy0 + 96, px1 = b.ix1 - 96, py1 = b.iy0 + 1500;
+    sector(rect(b.ix1 - 520, b.iy0 + 1540, b.ix1 - 120, b.iy0 + 1740), { name: 'spoil', floor: CURB, floorTex: 'DIRT2', lowerTex: 'ROCK_01', light: 0.8 });
+    const FLOORS = ['DIRT3', 'DIRT_01', 'ROCK_01', 'DIRT_02', 'ROCK_01', 'DIRT_01', 'ROCK_01', 'DIRT_02'];
     let z = CURB;
-    for (let k = 0; k < 6; k++) {
+    for (let k = 0; k < 8; k++) {
       z -= 24;
-      const inset = k * 112;
+      const inset = k * 64;
       sector(rect(px0 + inset, py0 + inset, px1 - inset, py1 - inset), {
-        name: `terrace ${k + 1}`, floor: z, floorTex: FLOORS[k], lowerTex: FACES[k % 3], wallTex: FACES[k % 3], light: 0.76,
+        name: `bench ${k + 1}`, floor: z, floorTex: FLOORS[k], lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.78 - k * 0.02,
       });
     }
-    sector(rect(px0 + 6 * 112 + 128, py0 + 6 * 112 + 128, px1 - 6 * 112 - 128, py1 - 6 * 112 - 128), { name: 'quarry pool', floor: z - 40, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.78 });
-    /* the rock face on the north half: a mass of rock 512 up, the tall
-       cliff picture on its faces, and a notch cut in its front where
-       the waterfall comes down into a pool */
-    const mx0 = b.ix0 + 96, my0 = b.iy0 + 1800, mx1 = b.ix1 - 96, my1 = b.iy1 - 96, top = CURB + 512;
+    sector(rect(px0 + 8 * 64, py0 + 8 * 64, px1 - 8 * 64, py1 - 8 * 64), { name: 'quarry pool', floor: z - 20, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.62 });
+    /* THE CRAG on the north half, in two tiers: a lower one 384 up faced
+       in the pack's rock cliff, a notch cut in its front where the fall
+       comes down, and a higher one set back, 256 more, over a pool on
+       the lower one's top that the fall is fed from — so the water comes
+       from somewhere, down the upper face into the pool and over the lip
+       into the notch */
+    const mx0 = b.ix0 + 96, my0 = b.iy0 + 1800, mx1 = b.ix1 - 96, my1 = b.iy1 - 96;
+    const t1 = CURB + 384, t2 = t1 + 256;
     const nx0 = (mx0 + mx1) / 2 - 96, nx1 = (mx0 + mx1) / 2 + 96, ny1 = my0 + 192;
-    const mass = [[mx0, my0], [nx0, my0], [nx0, ny1], [nx1, ny1], [nx1, my0], [mx1, my0], [mx1, my1], [mx0, my1]];
-    sector(mass, { name: 'rock face', floor: top, floorTex: 'MOSS_01', lowerTex: 'CLIFF1', wallTex: 'CLIFF1', light: 0.8 });
-    /* the notch's three faces are the waterfall, the back and sides
-       of the mass the pack's other cliff, and the pool fills the notch */
+    const lower = [[mx0, my0], [nx0, my0], [nx0, ny1], [nx1, ny1], [nx1, my0], [mx1, my0], [mx1, my1], [mx0, my1]];
+    sector(lower, { name: 'crag', floor: t1, floorTex: 'MOSS_01', lowerTex: 'CLIFF2A', wallTex: 'CLIFF2A', light: 0.84 });
     line([nx0, my0], [nx0, ny1], { lowerTex: 'WFALLA1' }); line([nx0, ny1], [nx1, ny1], { lowerTex: 'WFALLA1' }); line([nx1, ny1], [nx1, my0], { lowerTex: 'WFALLA1' });
-    line([mx1, my0], [mx1, my1], { lowerTex: 'CLIFF2' }); line([mx1, my1], [mx0, my1], { lowerTex: 'CLIFF2' }); line([mx0, my1], [mx0, my0], { lowerTex: 'CLIFF2' });
-    sector(rect(nx0, my0, nx1, ny1), { name: 'plunge pool', floor: CURB - 48, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.8 });
-    scatter(inRect(mx0 + 64, my0 + 64, mx1 - 64, my1 - 64), [{ type: 'PLANT:fir_young', w: 2 }, { type: 'PLANT:bush_small_1', w: 1 }, { type: 'PLANT:grass', w: 3 }], 8, 90, 0.4, { name: 'on the rock' });
+    /* its sides are the lawn-topped cliff, the lip meeting the moss on
+       top; its back, seen from the road to the north, the tall crag */
+    line([mx1, my0], [mx1, my1], { lowerTex: 'LWNCLIF2' }); line([mx1, my1], [mx0, my1], { lowerTex: 'CLIFF1' }); line([mx0, my1], [mx0, my0], { lowerTex: 'LWNCLIF1' });
+    sector(rect(nx0, my0, nx1, ny1), { name: 'plunge pool', floor: CURB - 16, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.7 });
+    /* the upper tier, its front split where the fall comes over it */
+    const ux0 = mx0 + 320, uy0 = my0 + 512, ux1 = mx1 - 320, uy1 = my1 - 192;
+    sector([[ux0, uy0], [nx0, uy0], [nx1, uy0], [ux1, uy0], [ux1, uy1], [ux0, uy1]],
+           { name: 'upper crag', floor: t2, floorTex: 'MOSS_01', lowerTex: 'CLIFF2C', wallTex: 'CLIFF2C', light: 0.86 });
+    line([nx0, uy0], [nx1, uy0], { lowerTex: 'WFALLA1' });
+    line([ux1, uy0], [ux1, uy1], { lowerTex: 'CLIFF2B' }); line([ux0, uy1], [ux0, uy0], { lowerTex: 'CLIFF2B' });
+    /* and the pool on the lower tier between them, to the lip */
+    sector(rect(nx0 - 64, ny1 + 32, nx1 + 64, uy0 - 32), { name: 'upper pool', floor: t1 - 12, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.72 });
+    scatter(inRect(mx0 + 64, my0 + 64, mx1 - 64, my1 - 64), [{ type: 'PLANT:fir_young', w: 2 }, { type: 'PLANT:fir_medium', w: 1 }, { type: 'PLANT:bush_small_1', w: 2 }, { type: 'PLANT:grass', w: 4 }], 16, 70, 0.5, { name: 'on the crag' });
   }
 
   /* ---- 2,2 THE BRUTALIST HALL: pillars, a pit, a light well --------- */
@@ -601,20 +648,32 @@ export function sprawlDoc() {
     const b = B(2, 2);
     const x0 = b.ix0 + 128, y0 = b.iy0 + 128, x1 = b.ix1 - 128, y1 = b.iy1 - 128, f = CURB;
     const hall = building(x0, y0, x1, y1, {
-      name: 'brutalist hall', floor: f, ceil: f + 448, floorTex: 'CONC_4', ceilTex: 'CONC_7', wallTex: 'CONC_4', facade: 'CONC_7', roofTex: 'CONC_3', doorH: 256, doorFloor: 'CONC_4', light: 0.5,
+      name: 'brutalist hall', floor: f, ceil: f + 448, floorTex: 'CONC_4', ceilTex: 'CONC_5', wallTex: 'CONC_4', facade: 'CONC_7', roofTex: 'CONC_3', doorH: 256, doorFloor: 'CONC_4', light: 0.5,
       fog: { color: '#3c3a36', density: 14 },
     }, [{ side: 's', at: (x0 + x1) / 2, w: 256 }, { side: 'n', at: (x0 + x1) / 2, w: 256 }, { side: 'e', at: (y0 + y1) / 2, w: 192 }, { side: 'w', at: (y0 + y1) / 2, w: 192 }], b.walk);
     const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    /* the facade's windows: two bands of the green-glass panel, set in
+       the rib so the long blank walls have a storey height to them */
+    for (const zz of [f + 272, f + 96]) {
+      for (let x = x0 + 192; x + 128 < x1 - 128; x += 256) {
+        if (Math.abs(x + 64 - mx) < 256) continue;
+        panel(x, y0 - 12, 128, zz, 128, 'OP_WIND2'); panel(x, y1, 128, zz, 128, 'OP_WIND2');
+      }
+      for (let y = y0 + 192; y + 128 < y1 - 128; y += 256) {
+        if (Math.abs(y + 64 - my) < 224) continue;
+        panel(x0 - 12, y, 128, zz, 128, 'OP_WIND2', 'y'); panel(x1, y, 128, zz, 128, 'OP_WIND2', 'y');
+      }
+    }
     /* the pillars: sectors shut floor to ceiling, ribbed */
     for (let x = x0 + 384; x < x1 - 256; x += 512) for (let y = y0 + 384; y < y1 - 256; y += 512) {
       if (Math.abs(x - mx) < 320 && Math.abs(y - my) < 320) continue;
       sector(rect(x - 48, y - 48, x + 48, y + 48), { name: 'pillar', outdoor: false, floor: f, ceil: f, floorTex: 'CONC_4', ceilTex: 'CONC_7', wallTex: 'CONC_7', light: 0.5 });
     }
     /* a light well over the middle: a hole in the roof, open to the sky */
-    const well = building(mx - 288, my - 288, mx + 288, my + 288, { name: 'light well', outdoor: true, floor: f, ceil: f + 448, floorTex: 'DIAG_1', ceilTex: 'SKY', wallTex: 'CONC_4', facade: 'CONC_4', roofTex: 'CONC_3', light: 0.8 },
+    const well = building(mx - 288, my - 288, mx + 288, my + 288, { name: 'light well', outdoor: true, floor: f, ceil: f + 448, floorTex: 'CONC_3', ceilTex: 'SKY', wallTex: 'CONC_4', facade: 'CONC_4', roofTex: 'CONC_3', light: 0.8 },
       [{ side: 's', at: mx, w: 384, h: 384 }, { side: 'n', at: mx, w: 384, h: 384 }, { side: 'e', at: my, w: 384, h: 384 }, { side: 'w', at: my, w: 384, h: 384 }], hall);
     /* and a pit sunk in it */
-    sector(rect(mx - 160, my - 160, mx + 160, my + 160), { name: 'pit', outdoor: true, floor: f - 64, ceil: f + 448, floorTex: 'DIAG_2', ceilTex: 'SKY', wallTex: 'CONC_4', lowerTex: 'CAUTSTR2', light: 0.7 });
+    sector(rect(mx - 160, my - 160, mx + 160, my + 160), { name: 'pit', outdoor: true, floor: f - 24, ceil: f + 448, floorTex: 'DIAG_2', ceilTex: 'SKY', wallTex: 'CONC_4', lowerTex: 'CAUTSTR2', light: 0.7 });
     scatter(inSectors(hall), [{ type: 'SHOPPER', w: 1 }, { type: 'TOWNIE', w: 1 }], 1.5, 200, 0.3, { name: 'wanderers' });
     void well;
   }
@@ -624,16 +683,16 @@ export function sprawlDoc() {
     const b = B(3, 2);
     const yard = sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'yard', floor: CURB, floorTex: 'CONC_3', lowerTex: 'CONC_4', wallTex: 'CONC_4', light: 0.76 });
     const mx = (b.ix0 + b.ix1) / 2;
-    sector(rect(mx - 96, b.iy0 + 128, mx + 96, b.iy1 - 640), { name: 'channel', floor: CURB - 48, floorTex: 'WAT201', lowerTex: 'CONC_4', wallTex: 'CONC_4', light: 0.74 });
+    sector(rect(mx - 96, b.iy0 + 128, mx + 96, b.iy1 - 640), { name: 'channel', floor: CURB - 16, floorTex: 'WAT201', lowerTex: 'CONC_4', wallTex: 'CONC_4', light: 0.74 });
     for (const [px0, px1] of [[b.ix0 + 128, mx - 256], [mx + 256, b.ix1 - 128]]) {
       for (let y = b.iy0 + 192; y + 640 < b.iy1 - 640; y += 832) {
         sector(rect(px0, y, px1, y + 640), { name: 'pad', floor: CURB + 8, floorTex: 'METALP1', lowerTex: 'CAUTSTR2', light: 0.78 });
         /* containers: riveted plate, a roller shutter on the end */
         for (let x = px0 + 64; x + 480 < px1; x += 544) {
           const h = rnd() < 0.5 ? 128 : 256;
-          prop(x, y + 96, x + 480, y + 288, CURB + 8, CURB + 8 + h, 'METALP1', 'METALP1');
+          prop(x, y + 96, x + 480, y + 288, CURB + 8, CURB + 8 + h, pick(['METALP1', 'OPBLANK', 'OP_BLNK3']), 'METALP1');
           panel(x + 32, y + 84, 128, CURB + 8, 128, 'DOOR0001'); panel(x + 320, y + 84, 128, CURB + 8, 128, 'DOOR0001');
-          if (rnd() < 0.6) prop(x, y + 352, x + 480, y + 544, CURB + 8, CURB + 136, 'METALP1', 'METALP1');
+          if (rnd() < 0.6) prop(x, y + 352, x + 480, y + 544, CURB + 8, CURB + 136, pick(['OPBLANK', 'METALP1', 'OP_BLNK2']), 'METALP1');
         }
       }
     }
@@ -648,15 +707,25 @@ export function sprawlDoc() {
   {
     const b = B(0, 3);
     const m = sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'meadow', floor: CURB, floorTex: 'GRASS5', lowerTex: 'DIRT_01', wallTex: 'DIRT_01', light: 0.86 });
-    for (const [px, py, w, h, tex] of [[400, 500, 900, 700, 'GRASS6'], [1500, 1400, 1000, 800, 'GRASS6'], [600, 1900, 700, 600, 'LAWN1'], [1900, 300, 600, 500, 'DIRT3']]) {
+    for (const [px, py, w, h, tex] of [[400, 500, 900, 700, 'GRASS6'], [1500, 2300, 800, 400, 'GRASS6'], [600, 1900, 700, 600, 'LAWN1'], [1900, 300, 600, 500, 'DIRT3']]) {
       sector(rect(b.ix0 + px, b.iy0 + py, b.ix0 + px + w, b.iy0 + py + h), { name: 'meadow patch', floor: CURB, floorTex: tex, lowerTex: 'DIRT_01', light: 0.86 });
     }
-    for (let k = 0; k < 9; k++) {
-      const x = b.ix0 + 200 + rnd() * 2400, y = b.iy0 + 200 + rnd() * 2400, w = 64 + rnd() * 160, h = 64 + rnd() * 160;
-      prop(x, y, x + w, y + h, CURB, CURB + 24 + Math.round(rnd() * 72), 'ROCK_01', 'MOSS_01');
+    /* outcrops: low mounds of mossy rock, two steps each, as sectors so
+       they are lit like the ground they rise from */
+    for (const [ox, oy, r] of [[b.ix0 + 500, b.iy0 + 1500, 150], [b.ix0 + 2550, b.iy0 + 1150, 120], [b.ix0 + 2600, b.iy0 + 2300, 170], [b.ix0 + 900, b.iy0 + 350, 110]]) {
+      sector(octagon(ox, oy, r, 7), { name: 'outcrop', floor: CURB + 20, floorTex: 'MOSS_01', lowerTex: 'ROCK_01', light: 0.92 });
+      sector(octagon(ox + 10, oy - 10, r * 0.55, 6), { name: 'outcrop top', floor: CURB + 40, floorTex: 'ROCK_01', lowerTex: 'ROCK_01', light: 0.92 });
     }
+    /* a ring of standing stones on the rise in the middle */
+    const scx = b.ix0 + 1900, scy = b.iy0 + 1350;
+    sector(octagon(scx, scy, 420, 12), { name: 'stone circle', floor: CURB + 16, floorTex: 'LAWN1', lowerTex: 'DIRT_01', light: 0.9 });
+    for (let k = 0; k < 9; k++) {
+      const a = k / 9 * Math.PI * 2, x = scx + Math.cos(a) * 300, y = scy + Math.sin(a) * 300, hgt = 112 + (k % 3) * 40;
+      prop(x - 24, y - 16, x + 24, y + 16, CURB + 16, CURB + 16 + hgt, 'CONC_7', 'MOSS_01');
+    }
+    prop(scx - 64, scy - 32, scx + 64, scy + 32, CURB + 16, CURB + 56, 'ROCK_01', 'MOSS_01');
     scatter(inSectors(m), [{ type: 'TOWNIE', w: 1 }], 0.8, 300, 0.2, { name: 'walkers' });
-    scatter(inSectors(m), [{ type: 'PLANT:fir_tall_2', w: 1 }, { type: 'PLANT:street_broad', w: 1 }, { type: 'PLANT:bush_large_1', w: 2 }], 1.5, 300, 0.2, { name: 'lone trees' });
+    scatter(inSectors(m), [{ type: 'PLANT:fir_tall_2', w: 1 }, { type: 'PLANT:street_broad', w: 1 }, { type: 'PLANT:street_big', w: 1 }, { type: 'PLANT:bush_large_1', w: 3 }, { type: 'PLANT:bush_large_2', w: 2 }], 5, 180, 0.6, { name: 'copses' });
     scatter(inSectors(m), [{ type: 'PLANT:grass', w: 6 }, { type: 'PLANT:fern', w: 2 }, { type: 'PLANT:bush_small_1', w: 1 }], 40, 36, 0.5, { name: 'meadow grass' });
   }
 
@@ -666,7 +735,7 @@ export function sprawlDoc() {
     const x0 = b.ix0 + 256, y0 = b.iy0 + 256, x1 = b.ix1 - 256, y1 = b.iy1 - 256, f = CURB;
     sector(rect(b.ix0 + 64, b.iy0 + 64, b.ix1 - 64, b.iy1 - 64), { name: 'test apron', floor: CURB, floorTex: '64TEST', lowerTex: '64TEST', wallTex: '64TEST', light: 0.82 });
     const lab = building(x0, y0, x1, y1, {
-      name: 'test chamber', floor: f, ceil: f + 384, floorTex: '256TEST', ceilTex: '512TEST', wallTex: '128TEST', facade: '128TEST', roofTex: '512TEST', doorFloor: '64TEST', light: 0.92,
+      name: 'test chamber', floor: f, ceil: f + 384, floorTex: '256TEST', ceilTex: '512TEST', wallTex: '128TEST', facade: '128TEST', roofTex: '512TEST', doorFloor: '64TEST', light: 1.0,
     }, [{ side: 's', at: (x0 + x1) / 2, w: 192 }], b.walk);
     /* the sixteen debug panels, a gallery round the walls */
     let k = 0;
@@ -680,34 +749,47 @@ export function sprawlDoc() {
     /* the odd ones out on the west wall: the squirrel, the cubicle
        chip, the test card at its own size, the badge */
     panel(x0 + 12, y0 + 512, 128, f + 96, 128, 'SQUIRREL', 'y');
-    panel(x0 + 12, y0 + 768, 64, f + 96, 64, 'OFCCUB02', 'y');
+    panel(x0 + 12, y0 + 768, 128, f + 96, 128, 'OFCCUB02', 'y');
     panel(x0 + 12, y0 + 960, 423, f + 64, 240, 'TESTPA00', 'y');
     panel(x0 + 12, y0 + 1500, 625, f + 96, 300, 'GZDOOM', 'y');
+    /* and the pack's two cloud strips, high round the top of the room
+       like a painted sky: 1024 and 512 across, their clouds at the top */
+    panel(x0 + 320, y1 - 24, 1024, f + 240, 144, 'CLOUDS02');
+    panel(x1 - 24, y0 + 512, 512, f + 240, 144, 'CLOUDS01', 'y');
     /* test blocks on the floor, one of each size, and the four
        coloured checkers of the XTX set on plinths */
     const T = ['64TEST', '128TEST', '256TEST', '512TEST'];
     T.forEach((t, n) => { const s = 64 << n, x = x0 + 320 + n * 520, y = (y0 + y1) / 2 - s / 2; prop(x, y, x + s, y + s, f, f + s, t, t); });
-    ['XTX_5', 'XTX_6', 'XTX_7', 'XTX_8'].forEach((t, n) => prop(x0 + 320 + n * 320, y0 + 320, x0 + 448 + n * 320, y0 + 448, f, f + 128, t, t));
+    ['XTX_5', 'XTX_6', 'XTX_7', 'XTX_8'].forEach((t, n) => prop(x0 + 320 + n * 320, y1 - 640, x0 + 448 + n * 320, y1 - 512, f, f + 128, t, t));
     scatter(inSectors(lab), [{ type: 'SHOPPER', w: 1 }], 1, 260, 0.1, { name: 'testers' });
   }
 
-  /* ---- 2,3 THE LAKE: a shore, open water, islands ------------------ */
+  /* ---- 2,3 THE LAKE: a shore, shallows, deep water, islands, a jetty */
   {
     const b = B(2, 3);
-    sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'shore', floor: CURB, floorTex: 'DIRT_01', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.86 });
+    const LF = { color: '#a8b8b0', density: 6 };
+    const shoreS = sector(rect(b.ix0, b.iy0, b.ix1, b.iy1), { name: 'shore', floor: CURB, floorTex: 'DIRT3', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.86 });
     const lx0 = b.ix0 + 320, ly0 = b.iy0 + 320, lx1 = b.ix1 - 320, ly1 = b.iy1 - 320;
     const cx = (lx0 + lx1) / 2, cy = (ly0 + ly1) / 2, rx = (lx1 - lx0) / 2, ry = (ly1 - ly0) / 2;
-    const shore = Array.from({ length: 16 }, (_, k) => [Math.round(cx + rx * Math.cos(k * Math.PI / 8)), Math.round(cy + ry * Math.sin(k * Math.PI / 8))]);
-    sector(shore, { name: 'lake', floor: -40, floorTex: 'WAT201', lowerTex: 'ROCK_01', wallTex: 'ROCK_01', light: 0.86, fog: { color: '#a8b8b0', density: 6 } });
-    for (const [ix, iy, r] of [[cx - 500, cy + 300, 220], [cx + 450, cy - 350, 160]]) {
-      sector(octagon(ix, iy, r, 8, 0), { name: 'island', floor: CURB, floorTex: 'GRASS5', lowerTex: 'ROCK_01', light: 0.86, fog: { color: '#a8b8b0', density: 6 } });
+    const ring = (dr, n = 16) => Array.from({ length: n }, (_, k) => [Math.round(cx + (rx - dr) * Math.cos(k * 2 * Math.PI / n)), Math.round(cy + (ry - dr) * Math.sin(k * 2 * Math.PI / n))]);
+    /* the water steps down so it can be waded out of: a beach, shallows,
+       then the deep; the water's picture is bright, so it is lit down */
+    sector(ring(0), { name: 'beach', floor: CURB - 8, floorTex: 'DIRT_01', lowerTex: 'ROCK_01', light: 0.84, fog: LF });
+    sector(ring(96), { name: 'shallows', floor: -12, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.62, fog: LF });
+    sector(ring(352), { name: 'lake', floor: -36, floorTex: 'WAT201', lowerTex: 'ROCK_01', light: 0.56, fog: LF });
+    /* the islands: grass on a rock lip, a tree and a bush each */
+    for (const [ix, iy, r] of [[cx - 350, cy + 200, 180], [cx + 320, cy - 240, 140]]) {
+      sector(octagon(ix, iy, r, 10, 0), { name: 'island', floor: -12, floorTex: 'DIRT_01', lowerTex: 'ROCK_01', light: 0.86, fog: LF });
+      sector(octagon(ix, iy, r - 40, 10, 0), { name: 'island grass', floor: CURB, floorTex: 'GRASS5', lowerTex: 'DIRT_02', light: 0.9, fog: LF });
       plant(pick(FIRS), ix, iy, 1.1);
-      plant('bush_small_1', ix + r * 0.5, iy - r * 0.3);
+      plant('bush_small_1', ix + r * 0.4, iy - r * 0.3);
+      plant('bush_large_1', ix - r * 0.35, iy + r * 0.2);
     }
-    /* a jetty of decking out over the water */
-    prop(cx - 48, ly0 - 128, cx + 48, cy - 400, CURB - 8, CURB + 8, 'OFCDESK1', 'OFCDESK1');
-    scatter(inRect(b.ix0 + 32, b.iy0 + 32, b.ix1 - 32, b.iy0 + 280), [{ type: 'TOWNIE', w: 1 }], 6, 150, 0.4, { name: 'bathers' });
-    scatter(inRect(b.ix0 + 32, b.iy1 - 280, b.ix1 - 32, b.iy1 - 32), [{ type: 'PLANT:fir_medium', w: 1 }, { type: 'PLANT:fir_tall_1', w: 1 }], 8, 120, 0.4, { name: 'north shore' });
+    /* a jetty of decking out over the shallows into the deep, as a
+       sector, standing on the water */
+    sector(rect(cx - 48, ly0 + 110, cx + 48, ly0 + 330), { name: 'jetty', floor: CURB, floorTex: 'OFCDESK2', lowerTex: 'MANINT1', light: 0.86, fog: LF });
+    scatter(inRect(b.ix0 + 32, b.iy0 + 32, b.ix1 - 32, b.iy0 + 280), [{ type: 'TOWNIE', w: 1 }], 5, 150, 0.4, { name: 'bathers' });
+    scatter(inSectors(shoreS), [{ type: 'PLANT:fir_medium', w: 2 }, { type: 'PLANT:fir_tall_1', w: 1 }, { type: 'PLANT:street_round', w: 1 }, { type: 'PLANT:bush_small_2', w: 2 }], 6, 110, 0.5, { name: 'shore trees' });
   }
 
   /* ---- 3,3 THE RUINS: roofless shells in the moss ------------------ */
@@ -717,16 +799,30 @@ export function sprawlDoc() {
                                                          fog: { color: '#8c8878', density: 8 } });
     for (const [sx, sy, w, h] of [[256, 256, 896, 704], [1408, 384, 1024, 896], [384, 1408, 1152, 1024], [1792, 1664, 768, 832]]) {
       const x0 = b.ix0 + sx, y0 = b.iy0 + sy, x1 = x0 + w, y1 = y0 + h, t = 32;
-      sector(rect(x0 + t, y0 + t, x1 - t, y1 - t), { name: 'shell floor', floor: CURB, floorTex: pick(['CONC_5', 'XTX_1', 'DIRT_01']), lowerTex: 'CONC_7', light: 0.66, fog: { color: '#8c8878', density: 8 } });
-      const wallH = () => CURB + 64 + Math.round(rnd() * 200);
-      const TEX = ['CONC_7', 'CONC_5', 'IVY1', 'CONC_4'];
+      sector(rect(x0 + t, y0 + t, x1 - t, y1 - t), { name: 'shell floor', floor: CURB, floorTex: pick(['CONC_5', 'DIRT1', 'MOSS_01']), lowerTex: 'CONC_7', light: 0.66, fog: { color: '#8c8878', density: 8 } });
+      const TEX = ['CONC_7', 'CONC_5', 'CONC_4'];
+      /* A WALL THAT HAS FALLEN: runs of different lengths, each a step
+         up or down from the last, a whole stretch of one material with
+         ivy taking some of it, gaps where it came down, and the rubble
+         of it lying at its foot */
       const run = (ax, ay, bx, by, horiz) => {
         const len = horiz ? bx - ax : by - ay;
-        for (let s = 0; s < len; s += 128) {
-          if (rnd() < 0.22) continue;
-          const e = Math.min(len, s + 128);
-          if (horiz) prop(ax + s, ay, ax + e, ay + t, CURB, wallH(), pick(TEX), 'MOSS_01');
-          else prop(ax, ay + s, ax + t, ay + e, CURB, wallH(), pick(TEX), 'MOSS_01');
+        let hgt = 96 + rnd() * 160;
+        const tex = pick(TEX);
+        for (let s = 0; s < len;) {
+          const piece = 64 + Math.round(rnd() * 3) * 64;
+          const e = Math.min(len, s + piece);
+          hgt = Math.max(24, Math.min(288, hgt + (rnd() - 0.55) * 96));
+          if (rnd() < 0.18) {
+            /* the gap, and what fell out of it */
+            const rx = horiz ? ax + s + 16 : ax + (rnd() < 0.5 ? -40 : t + 8), ry = horiz ? ay + (rnd() < 0.5 ? -40 : t + 8) : ay + s + 16;
+            prop(rx, ry, rx + 32 + rnd() * 24, ry + 32, CURB, CURB + 12 + Math.round(rnd() * 16), tex, 'MOSS_01');
+          } else {
+            const T = rnd() < 0.25 ? 'IVY1' : tex;
+            if (horiz) prop(ax + s, ay, ax + e, ay + t, CURB, CURB + Math.round(hgt), T, 'MOSS_01');
+            else prop(ax, ay + s, ax + t, ay + e, CURB, CURB + Math.round(hgt), T, 'MOSS_01');
+          }
+          s = e;
         }
       };
       run(x0, y0, x1, y0, true); run(x0, y1 - t, x1, y1 - t, true);

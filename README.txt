@@ -5719,20 +5719,22 @@ editor document built in code, the same every time.
 
   THE LAYOUT  sixteen blocks, 3200 units square, on a four by four grid
               with roads 768 wide, about half a kilometre across, on a
-              floor sunk 686 units into a grass plateau. The plateau's
-              inner face is the pack's lawn-topped cliff (LWNCLIF1 and
-              2, 686 tall, so one fits exactly; the two alternate every
-              1024 along the rim, offset, so it is not one picture
-              repeated), and the plateau has NO outer wall (wallTex
-              NONE): what is past it is the sky. On the plateau, seen
-              over the cliff edge from the streets, stand the pack's
-              painted horizons — a tree line or a meadow at the edge
-              (512 tall), mountains behind (256), and clouds (128) on a
-              raised strip over the mountains whose face is not drawn,
-              so they float — and firs along the edge. You start at the
-              crossroads in the middle. Every block has a pavement with
-              the user's photographed street lamps and street trees,
-              and a crossing at each corner.
+              floor sunk 686 units into a grass plateau. The cliff all
+              round is ONE face of the pack's big rock cliff (CLIFF2),
+              one line a side so it has no seam, with a verge of earth,
+              grass and ferns at its foot. The plateau has no outer wall
+              (wallTex NONE): what is past it is the sky. On it, seen
+              over the cliff edge from the streets and butted end to end
+              so no slit of sky shows between them, stand the pack's
+              painted horizons — a tree line, a meadow, ruins — with
+              mountains behind the short ones (behind the 512-tall ones
+              they would never be seen), and firs along the edge. The
+              roads are lit up (ASPHALT1 is a dark picture), dashed down
+              the middle, with a hatched box junction at the crossroads
+              where you start. Every block has a pavement with the
+              user's photographed street lamps and street trees — none
+              at a side's middle, where the crossing and the district's
+              way in are — and a crossing at each corner.
   THE SCALE   where every texture goes is decided by what it is, at its
               own size: the pack is 2 pixels to the unit, so a 256-pixel
               panel is 128 units, and the walls, doors, screens and
@@ -5765,18 +5767,27 @@ editor document built in code, the same every time.
                 panelling, windows, a courtyard with a fountain reached
                 by arches) · the market square (wood counters, metal
                 posts, cloth awnings, a pavilion)
-                the wood (firs, undergrowth, a track, a mossy outcrop,
-                green mist) · the quarry (a pit of six climbable
-                terraces faced in the three rock faces to a pool, and a
-                rock mass 512 up faced in the tall cliff, with the
-                waterfall coming down a notch into a plunge pool) · the
-                brutalist hall (ribbed facade, pillars, a light well
-                open to the sky with a pit in it) · the yard (pads, a
-                channel, containers with roller shutters, a shed)
-                the meadow · the test chamber (the TEST and DEBUG sets,
-                the four checkers on plinths, the squirrel, the test
-                card, the badge) · the lake with islands and a jetty ·
-                the ruins
+                the wood (dense firs, undergrowth, a track, a mossy
+                outcrop in a clearing, green mist) · the quarry (a pit of
+                eight climbable benches faced in plain rock to a pool;
+                a crag in two tiers — the rock cliff in front, the
+                lawn-topped cliff on its sides, the tall crag behind —
+                with the waterfall coming down the upper face into a
+                pool and over the lip into a notch) · the brutalist hall
+                (ribbed facade with two bands of windows, pillars, a
+                light well open to the sky with a pit in it) · the yard
+                (pads, a channel, containers in three metals with roller
+                shutters, a shed)
+                the meadow (grass patches, mossy outcrops, copses, a
+                ring of standing stones) · the test chamber (the TEST and
+                DEBUG sets, the four checkers on plinths, the squirrel,
+                the test card, the badge, the two cloud strips round the
+                top like a painted sky) · the lake (a beach, shallows,
+                deep water, green islands, a decking jetty, a wooded
+                shore) · the ruins (fallen walls whose height wanders,
+                ivy, rubble at their feet)
+  NO TRAPS    every drop into water or a pit is 24 or less, so anything
+              you step down into you can step out of.
   ITS ASSETS  every texture in the pack, every animated run (the smoke
               test checks this); the BSKY2 skybox; the wood's firs,
               bushes, ferns and grass and the six street trees; the
