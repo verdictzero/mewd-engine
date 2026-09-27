@@ -72,7 +72,10 @@
 #ed-top .spacer { flex: 1; }
 
 /* ---------- the workspace ---------- */
-#ed-main { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
+/* the tabs down the left, the views, the inspector down the right */
+#ed-main { display: grid; grid-template-columns: 280px minmax(0, 1fr) 300px; min-height: 0; }
+#ed-main.notabs { grid-template-columns: 0 minmax(0, 1fr) 300px; }
+#ed-main.notabs #ed-side { display: none; }
 #ed-views { position: relative; display: grid; min-width: 0; min-height: 0; background: #07090b; }
 #ed-views.split { grid-template-columns: 1fr 1fr; }
 #ed-views.only2d { grid-template-columns: 1fr; }
@@ -113,9 +116,18 @@
 .ed-view canvas.ed-gizmo { inset: auto; top: 8px; right: 8px; width: 84px; height: 84px; pointer-events: none; }
 
 /* ---------- the side panel ---------- */
-#ed-side {
+#ed-side, #ed-inspside {
   display: grid; grid-template-rows: auto 1fr; min-height: 0;
-  background: var(--panel); border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+#ed-side { border-right: 1px solid var(--line); }
+#ed-inspside { border-left: 1px solid var(--line); }
+/* the inspector is always showing */
+#ed-inspside .ed-pane { display: block; }
+.ed-panehead {
+  height: 30px; line-height: 30px; padding: 0 10px; border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; color: #fff;
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 .ed-tabs { display: flex; border-bottom: 1px solid var(--line); }
 .ed-tabs button {
@@ -308,8 +320,12 @@
 }
 /* narrow: the panel goes under the views instead of beside them */
 @media (max-width: 900px) {
-  #ed-main { grid-template-columns: 1fr; grid-template-rows: 1fr minmax(0, 38vh); }
-  #ed-side { border-left: 0; border-top: 1px solid var(--line); }
+  #ed-main { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr minmax(0, 38vh); }
+  #ed-views { grid-column: 1 / -1; grid-row: 1; }
+  #ed-main.notabs { grid-template-columns: 0 1fr; }
+  #ed-main.notabs #ed-inspside { grid-column: 1 / -1; }
+  #ed-side, #ed-inspside { grid-row: 2; border-left: 0; border-right: 0; border-top: 1px solid var(--line); }
+  #ed-side { border-right: 1px solid var(--line); }
   /* the key help is for a keyboard, and there is no room for it */
   .ed-view .help { display: none; }
 }

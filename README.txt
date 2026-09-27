@@ -5625,6 +5625,14 @@ Doom Builder:
   are one undo, and leave ordinary sectors behind — the rooms either
   side get the new corners, so everything still meets.
 
+  TWO PANELS. The inspector has the right-hand side to itself and is
+  always showing what is selected; the tabs — Textures, Things, Scatter,
+  Map — are down the left, so a texture or a thing can be picked with
+  the selection's properties still in view. Tabs in the toolbar puts
+  the left panel away for more room to draw (remembered); clicking a
+  texture field in the inspector brings it back. On a narrow screen the
+  two sit side by side under the views.
+
   BACK TO THE EDITOR FROM A TEST RUN. Play (F5) opens the game on the
   map with a "◀ EDITOR F2" chip at the top of the screen (tap it) and
   BACK TO EDITOR in the pause menu (Esc); F2 goes back from anywhere.

@@ -15131,6 +15131,14 @@ section('layers and steps');
     check('the inspector has the step generator', /stepsBlock\(s\)/.test(rdL('js/editor/ui.js')));
   }
 
+  /* TWO PANELS: the inspector on the right, the tabs on the left */
+  {
+    const ui = rdL('js/editor/ui.js'), css = rdL('css/editor.css');
+    check('the inspector is a panel of its own down the right, the tabs down the left, and the left one can be put away',
+      /id: 'ed-inspside'/.test(ui) && /h\('div', \{ id: 'ed-main' \}, side, views, inspSide\)/.test(ui) &&
+      !/\['insp', 'Inspect'\]/.test(ui) && /grid-template-columns: 280px minmax\(0, 1fr\) 300px/.test(css) && /#ed-main\.notabs/.test(css));
+  }
+
   /* BACK TO THE EDITOR from a test run */
   {
     const html = rdL('index.html'), mainJ = rdL('js/main.js');

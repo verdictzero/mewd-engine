@@ -1692,10 +1692,10 @@ export async function startEditor() {
       const el = document.activeElement;
       if (e.key === 'Escape') el.blur();
       /* Enter commits a field and gives the keys back to the map */
-      if (e.key === 'Enter' && el.closest?.('#ed-side')) { el.blur(); e.preventDefault(); }
+      if (e.key === 'Enter' && el.closest?.('#ed-side, #ed-inspside')) { el.blur(); e.preventDefault(); }
       /* and Ctrl+Z is the map's undo, as it always is in Doom Builder —
          the field commits what was typed first */
-      if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && el.closest?.('#ed-side') && el.type !== 'text') {
+      if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && el.closest?.('#ed-side, #ed-inspside') && el.type !== 'text') {
         e.preventDefault(); el.blur();
         if (e.key.toLowerCase() === 'y' || e.shiftKey) ed.redo(); else ed.undo();
       }

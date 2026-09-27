@@ -140,6 +140,15 @@ export function buildUI(ed) {
     h('button', { class: 'ed-btn', title: 'Layer down (Alt+PgDn)', onclick: () => ed.setLayer(ed.layer - 1) }, '▼'),
     layerLbl,
     h('button', { class: 'ed-btn', title: 'Layer up (Alt+PgUp)', onclick: () => ed.setLayer(ed.layer + 1) }, '▲'));
+  /* THE LEFT PANEL (textures, things, scatter, map) can be put away for
+     more room to draw; the inspector on the right stays. Remembered. */
+  let tabsHidden = false;
+  try { tabsHidden = localStorage.getItem('gss-edit:tabs') === 'off'; } catch (e) { /* private mode */ }
+  const tabsBtn = h('button', { class: 'ed-btn', title: 'Show or hide the left panel: textures, things, scatter, map', onclick: () => {
+    tabsHidden = !tabsHidden;
+    try { localStorage.setItem('gss-edit:tabs', tabsHidden ? 'off' : 'on'); } catch (e) { /* private mode */ }
+    refreshBar();
+  } }, 'Tabs');
   const layoutBtns = {
     combined: h('button', { class: 'ed-btn', title: 'Both at once: 3D with the plan inset (Tab swaps them)', onclick: () => ed.setLayout(ed.layout === 'combined' ? 'combined2d' : 'combined') }, 'Combined'),
     only2d: h('button', { class: 'ed-btn', title: '2D only (Tab)', onclick: () => ed.setLayout('only2d') }, '2D'),
@@ -215,7 +224,7 @@ export function buildUI(ed) {
     h('span', { class: 'sep' }),
     layerBox,
     h('span', { class: 'sep' }),
-    layoutBtns.combined, layoutBtns.split, layoutBtns.only2d, layoutBtns.only3d,
+    tabsBtn, layoutBtns.combined, layoutBtns.split, layoutBtns.only2d, layoutBtns.only3d,
     h('span', { class: 'spacer' }),
     h('button', { class: 'ed-btn play', title: 'Test the map (F5)', onclick: () => ed.play() }, '▶ PLAY', h('kbd', {}, 'F5')),
   );
@@ -255,8 +264,13 @@ export function buildUI(ed) {
     map: h('div', { class: 'ed-pane ed-insp' }),
   };
   const tabBtns = {};
+  /* TWO PANELS, at the user's request: the INSPECTOR on its own down the
+     right, always showing what is selected, and the tabs — textures,
+     things, scatter, the map — down the left. Asking for the inspector
+     is only a flash of it now: it is already there. */
   const showTab = t => {
-    for (const [k, p] of Object.entries(panes)) p.classList.toggle('on', k === t);
+    if (t === 'insp') { ui.flashInsp?.(); return; }
+    for (const [k, p] of Object.entries(panes)) if (k !== 'insp') p.classList.toggle('on', k === t);
     for (const [k, b] of Object.entries(tabBtns)) b.classList.toggle('on', k === t);
     ui.tab = t;
     if (t === 'map') renderMap();
@@ -265,10 +279,11 @@ export function buildUI(ed) {
   };
   ui.showTab = showTab;
   const tabs = h('div', { class: 'ed-tabs' },
-    ...[['insp', 'Inspect'], ['tex', 'Textures'], ['things', 'Things'], ['scatter', 'Scatter'], ['map', 'Map']].map(([k, n]) =>
+    ...[['tex', 'Textures'], ['things', 'Things'], ['scatter', 'Scatter'], ['map', 'Map']].map(([k, n]) =>
       (tabBtns[k] = h('button', { onclick: () => showTab(k) }, n))));
-  tabBtns.insp.classList.add('on');
-  const side = h('div', { id: 'ed-side' }, tabs, h('div', { style: 'min-height:0;display:grid' }, ...Object.values(panes)));
+  const side = h('div', { id: 'ed-side' }, tabs, h('div', { style: 'min-height:0;display:grid' }, panes.tex, panes.things, panes.scatter, panes.map));
+  showTab('tex');
+  const inspSide = h('div', { id: 'ed-inspside' }, h('div', { class: 'ed-panehead' }, 'Inspector'), panes.insp);
 
   /* ------------------------------------------------------------------
      THE STATUS LINE
@@ -310,7 +325,8 @@ export function buildUI(ed) {
   };
   const toast = h('div', { id: 'ed-toast' });
 
-  root.append(top, h('div', { id: 'ed-main' }, views, side), status, toast);
+  const mainEl = h('div', { id: 'ed-main' }, side, views, inspSide);
+  root.append(top, mainEl, status, toast);
 
   let toastT = 0;
   ui.flashInsp = () => { panes.insp.classList.remove('flash'); void panes.insp.offsetWidth; panes.insp.classList.add('flash'); };
@@ -335,6 +351,8 @@ export function buildUI(ed) {
     sidesIn.hidden = !ed.shapeSides;
     if (ed.shapeSides) sidesIn.value = String(ed.shapeSides);
     snapBtn.classList.toggle('on', ed.snap);
+    tabsBtn.classList.toggle('on', !tabsHidden);
+    mainEl?.classList.toggle('notabs', tabsHidden);
     layerLbl.textContent = `Layer ${ed.layer}`;
     layerLbl.classList.toggle('up', ed.layer !== 0);
     snapBtn.firstChild.textContent = ed.snap ? 'Snap on' : 'Snap off';
@@ -362,7 +380,7 @@ export function buildUI(ed) {
   const chk = (value, onset) => h('input', { type: 'checkbox', ...(value ? { checked: true } : {}), onchange: e => onset(e.target.checked) });
   const texField = (value, field, label, { allowNone = false } = {}) => {
     const el = h('div', { class: 'ed-tex' + (ui.picking?.field === field ? ' picking' : ''), title: 'click to pick from the browser',
-      onclick: () => { ui.picking = { field, label, allowNone }; showTab('tex'); renderTex(); } },
+      onclick: () => { ui.picking = { field, label, allowNone }; if (tabsHidden) { tabsHidden = false; refreshBar(); } showTab('tex'); renderTex(); } },
       swatch(ed, value), h('span', {}, value || (allowNone ? '— same as wall —' : '—')));
     return row(label, el);
   };
