@@ -14517,6 +14517,12 @@ section('the texture pack');
       wu.length && Math.abs((Math.max(...wu) - Math.min(...wu)) - 97 / 128) < 1e-6, `${Math.max(...wu) - Math.min(...wu)}`);
     {
       const v3g = src('js/editor/view3d.js');
+      check('Blender\'s axes through 0,0,0 in 3D — X red, Y green, Z blue — the origin marked, and a gizmo in the corner',
+        /AXIS_X = 0xff3352, AXIS_Y = 0x8bdc00/.test(v3g) && /function buildAxes\(\)/.test(v3g) && /line\(AXIS_Z, \[0, -AXIS_LEN, 0\]/.test(v3g) &&
+        /drawGizmo\(\)/.test(v3g) && /canvas\.ed-gizmo/.test(src('css/editor.css')));
+      const v2g = src('js/editor/view2d.js');
+      check('and on the plan: the two axes, the origin ringed, an arrow back to it when it is off the screen, and the key',
+        /drawAxes\(\)/.test(v2g) && /strokeStyle = AXIS_X/.test(v2g) && /strokeStyle = AXIS_Y/.test(v2g) && /THE WAY BACK/.test(v2g) && /fillText\('0,0,0'/.test(v2g));
       check('the 3D view lays the plan\'s grid on the floor under the mouse while drawing, and H hides it',
         /function buildGrid\(\)/.test(v3g) && /this\.placeGrid\(\)/.test(v3g) && /GRID_MODES = \['draw', 'rect'/.test(v3g) && /c === 'KeyH'/.test(v3g) &&
         /u\.step\.value = step/.test(v3g));

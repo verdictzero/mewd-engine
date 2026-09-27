@@ -5527,12 +5527,23 @@ Doom Builder:
   tab and drawn by js/mapgeo.js. A linedef standing on its own is a
   wall sector when the map is built, and is left out.
 
-  THE 3D VIEW'S DRAWING GRID: in the modes that put something down
-  (draw, shape, vertices, things, props, scatter) the plan's grid lies
-  on the floor under the mouse — a line every grid step, a bright one
-  every eight, the map's axes in yellow — fading out away from the
-  cursor, so a corner clicked in 3D lands where you can see it will.
-  H hides it and brings it back.
+  THE GRID AND THE AXES, Blender's way, so you always know where you
+  are. In 3D the plan's grid lies on the ground at height 0, laid out
+  from the origin — a line every grid step, a bright one every eight —
+  and fades into the distance round the camera; the X axis is red, the
+  Y axis green and Z (up) blue, through 0,0,0, which has a white dot
+  on it you can see through walls. The gizmo in the top right corner
+  shows which way X, Y and Z point from where you are looking. In the
+  modes that put something down (draw, shape, vertices, things, props,
+  scatter) the grid comes up to the floor under the mouse and fades
+  round the cursor instead, so a corner clicked in 3D lands where you
+  can see it will. H hides the grid, the axes and the gizmo, and brings
+  them back.
+  On the plan the X axis is red along y = 0 and the Y axis green along
+  x = 0, the origin is ringed and labelled 0,0,0, and when it is off the
+  screen an arrow on the edge points back to it with how far it is. The
+  key in the bottom left corner shows X and Y (and Z, the dot, coming
+  up out of the screen).
 
   A NEW MAP IS BRIGHT: its ground is full bright (255), with a little
   white ambient light everywhere (World: 35), and walled round 256 high

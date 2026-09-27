@@ -109,6 +109,8 @@
   pointer-events: none; text-align: right; text-shadow: 0 1px 2px #000; white-space: pre;
 }
 #ed-3d-wrap.look { cursor: none; }
+/* the axes gizmo, top right of the 3D view (View3D.drawGizmo) */
+.ed-view canvas.ed-gizmo { inset: auto; top: 8px; right: 8px; width: 84px; height: 84px; pointer-events: none; }
 
 /* ---------- the side panel ---------- */
 #ed-side {

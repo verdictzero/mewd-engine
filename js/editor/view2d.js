@@ -27,6 +27,9 @@ import { exteriorWall } from './view3d.js';
 
 const PICK_PX = 8;           // how near, in pixels, counts as on it
 
+/* BLENDER'S AXIS COLOURS, as the 3D view has them (js/editor/view3d.js) */
+const AXIS_X = '#ff3352', AXIS_Y = '#8bdc00', AXIS_Z = '#4aa8ff';
+
 export class View2D {
   constructor(ed, canvas) {
     this.ed = ed;
@@ -746,6 +749,7 @@ export class View2D {
         g.fillText(`${+len.toFixed(1)}  ${+ang.toFixed(1)}°`, this.sx((a[0] + b[0]) / 2) + 6, this.sy((a[1] + b[1]) / 2) - 6);
       }
     }
+    this.drawAxes();
     /* and the snapped cursor, in the drawing modes */
     if (ed.cursor && (['draw', 'rect', 'props', 'things', 'scatter', 'vertices'].includes(ed.mode) && !dr || dr?.type === 'move' && dr.moved)) {
       const x = this.sx(ed.cursor[0]), y = this.sy(ed.cursor[1]);
@@ -758,6 +762,54 @@ export class View2D {
         g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 7, y); g.lineTo(x, y + 7); g.lineTo(x - 7, y); g.closePath(); g.stroke();
       }
     }
+  }
+
+  /** THE AXES AND THE ORIGIN, Blender's colours, over the map: X red
+   *  along y = 0, Y green along x = 0, a ring on 0,0 — or, when 0,0 is
+   *  off the screen, an arrow at the edge pointing back to it — and the
+   *  two directions in the corner. */
+  drawAxes() {
+    const g = this.g;
+    const ox = Math.round(this.sx(0)) + 0.5, oy = Math.round(this.sy(0)) + 0.5;
+    g.save();
+    g.lineWidth = 1.5;
+    g.globalAlpha = 0.8;
+    if (oy >= 0 && oy <= this.h) { g.strokeStyle = AXIS_X; g.beginPath(); g.moveTo(0, oy); g.lineTo(this.w, oy); g.stroke(); }
+    if (ox >= 0 && ox <= this.w) { g.strokeStyle = AXIS_Y; g.beginPath(); g.moveTo(ox, 0); g.lineTo(ox, this.h); g.stroke(); }
+    g.globalAlpha = 1;
+    g.font = 'bold 11px ui-monospace, monospace'; g.textBaseline = 'middle';
+    const inside = ox >= 0 && ox <= this.w && oy >= 0 && oy <= this.h;
+    if (inside) {
+      g.strokeStyle = '#ffffff'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(ox, oy, 6, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = '#ffffff'; g.fillRect(ox - 1.5, oy - 1.5, 3, 3);
+      g.fillStyle = '#e8eef2'; g.textAlign = 'left'; g.fillText('0,0,0', ox + 9, oy - 10);
+    } else {
+      /* THE WAY BACK: an arrow on the edge, on the line from the middle
+         of the view to the origin, and how far it is */
+      const cx = this.w / 2, cy = this.h / 2, dx = ox - cx, dy = oy - cy;
+      const m = 22, t = Math.min((cx - m) / Math.max(1e-6, Math.abs(dx)), (cy - m) / Math.max(1e-6, Math.abs(dy)));
+      const ex = cx + dx * t, ey = cy + dy * t, a = Math.atan2(dy, dx);
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.moveTo(ex + Math.cos(a) * 10, ey + Math.sin(a) * 10);
+      g.lineTo(ex + Math.cos(a + 2.5) * 8, ey + Math.sin(a + 2.5) * 8);
+      g.lineTo(ex + Math.cos(a - 2.5) * 8, ey + Math.sin(a - 2.5) * 8);
+      g.closePath(); g.fill();
+      const far = Math.round(Math.hypot(this.mx(cx), this.my(cy)));
+      g.fillStyle = '#e8eef2'; g.textAlign = ex > cx ? 'right' : 'left';
+      g.fillText(`0,0 · ${far}`, ex + (ex > cx ? -14 : 14), ey + (ey > cy ? -12 : 12));
+    }
+    /* the corner key: which way X and Y run on the plan */
+    const kx = 16, ky = this.h - 34, L = 26;
+    g.lineWidth = 2;
+    g.strokeStyle = AXIS_X; g.beginPath(); g.moveTo(kx, ky); g.lineTo(kx + L, ky); g.stroke();
+    g.strokeStyle = AXIS_Y; g.beginPath(); g.moveTo(kx, ky); g.lineTo(kx, ky - L); g.stroke();
+    g.textAlign = 'center';
+    g.fillStyle = AXIS_X; g.fillText('X', kx + L + 8, ky);
+    g.fillStyle = AXIS_Y; g.fillText('Y', kx, ky - L - 8);
+    g.fillStyle = AXIS_Z; g.beginPath(); g.arc(kx, ky, 3.5, 0, Math.PI * 2); g.fill();
+    g.restore();
   }
 
   drawGrid() {
@@ -778,12 +830,6 @@ export class View2D {
        every eighth a shade stronger */
     lineSet(step, '#18222b');
     lineSet(major, '#26343f');
-    /* the origin */
-    g.strokeStyle = '#2a3a44';
-    g.beginPath();
-    g.moveTo(Math.round(this.sx(0)) + 0.5, 0); g.lineTo(Math.round(this.sx(0)) + 0.5, this.h);
-    g.moveTo(0, Math.round(this.sy(0)) + 0.5); g.lineTo(this.w, Math.round(this.sy(0)) + 0.5);
-    g.stroke();
     /* ZOOMED OUT PAST THE GRID: the lines drawn are coarser than the
        snap, and it says so rather than leaving you to wonder why a
        corner lands between them */

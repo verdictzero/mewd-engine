@@ -117,12 +117,22 @@ export class View3D {
       new THREE.LineBasicMaterial({ color: 0x8fb3a0, transparent: true, opacity: 0.35 }));
     this.scene.add(this.edges);
     this.fullbright = false;
-    /* THE DRAWING GRID: the plan's grid laid on the floor under the
-       mouse, in the modes that put something down, so a corner clicked
-       in 3D lands where you can see it will */
+    /* THE GRID AND THE AXES, Blender's way: the plan's grid on the
+       ground at height 0, laid from the origin, fading into the
+       distance; the X axis red, the Y axis green and Z — up — blue,
+       through 0,0,0, and a mark on the origin itself. While something
+       is being drawn on a floor that is not at 0, the grid comes up to
+       that floor, so a corner clicked in 3D lands where you can see it
+       will. */
     this.grid = buildGrid();
-    this.scene.add(this.grid);
+    this.axes = buildAxes();
+    this.scene.add(this.grid, this.axes);
     this.showGrid = true;
+    /* and the gizmo in the corner: which way X, Y and Z are from here */
+    this.gizmo = document.createElement('canvas');
+    this.gizmo.className = 'ed-gizmo';
+    this.gizmo.width = this.gizmo.height = GIZMO * Math.min(2, devicePixelRatio || 1);
+    canvas.parentElement?.appendChild(this.gizmo);
 
     const ro = new ResizeObserver(() => this.resize());
     ro.observe(canvas.parentElement);
@@ -797,7 +807,7 @@ export class View3D {
     }
     if (this.visual && e.key === 'Escape') { this.toggleVisual(false); return true; }
     if (c === 'KeyF' && !ctrl) { this.toStart(); return true; }
-    if (c === 'KeyH' && !ctrl) { this.showGrid = !this.showGrid; ed.say(`3D grid ${this.showGrid ? 'on' : 'off'}`); return true; }
+    if (c === 'KeyH' && !ctrl) { this.showGrid = !this.showGrid; ed.say(`3D grid and axes ${this.showGrid ? 'on' : 'off'}`); return true; }
 
     const h = this.hover;
     if (ctrl && c === 'KeyC' && h?.kind === 'surface') {
@@ -1007,26 +1017,73 @@ export class View3D {
     this.handles.visible = hp.length > 0;
   }
 
-  /** The drawing grid, where it is wanted: on the floor at the cursor
-   *  (or under the camera), at the plan's grid size. */
+  /** The grid and the axes, every frame: the grid on the ground at 0 —
+   *  or, while drawing, on the floor under the cursor — at the plan's
+   *  grid size, sized to reach the horizon from wherever the camera is,
+   *  and the gizmo turned to match the camera. */
   placeGrid() {
     const ed = this.ed, g = this.grid, c = this.cam;
-    const on = this.showGrid && GRID_MODES.includes(ed.mode) && !this.visual;
-    g.visible = on;
+    const on = this.showGrid;
+    g.visible = this.axes.visible = on;
+    this.gizmo.style.display = on ? '' : 'none';
     if (!on) return;
-    const at = ed.cursor && this.mouse ? ed.cursor : [c.x, c.y];
-    const z = this.drag?.a ? this.floorZ(this.drag.a[0], this.drag.a[1]) : this.floorZ(at[0], at[1]);
+    const drawing = GRID_MODES.includes(ed.mode) && !this.visual;
+    const at = drawing && ed.cursor && this.mouse ? ed.cursor : null;
+    let z = 0;
+    if (drawing) z = this.drag?.a ? this.floorZ(this.drag.a[0], this.drag.a[1]) : at ? this.floorZ(at[0], at[1]) : this.floorZ(c.x, c.y);
     const step = Math.max(1, ed.grid || 64);
-    /* big enough to reach the horizon from up high, drawn round the
-       camera so it never runs out */
-    const R = Math.max(4096, Math.min(40000, (c.z - z) * 40 + step * 64));
+    const up = Math.max(64, Math.abs(c.z - z));
+    const R = Math.max(8192, Math.min(60000, up * 60 + step * 96));
     g.position.set(c.x, z + 0.75, -c.y);
     g.scale.set(R, 1, R);
     const u = g.material.uniforms;
     u.step.value = step;
     u.major.value = step * (step >= 256 ? 4 : 8);
-    u.focus.value.set(at[0], -at[1]);
-    u.reach.value = Math.max(step * 48, 1536);
+    /* it fades round the cursor while drawing, round the camera
+       otherwise — further the higher it is, as Blender's does */
+    if (at) { u.focus.value.set(at[0], -at[1]); u.reach.value = Math.max(step * 48, 1536, up * 12); }
+    else { u.focus.value.set(c.x, -c.y); u.reach.value = Math.max(step * 64, 4096, up * 30); }
+    this.drawGizmo();
+  }
+
+  /** THE GIZMO: X, Y and Z as the camera sees them, the ones pointing
+   *  away drawn first and dimmer. */
+  drawGizmo() {
+    const cv = this.gizmo, g = cv.getContext('2d');
+    if (!g) return;
+    const k = cv.width / GIZMO, r = GIZMO / 2, L = r - 13;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, GIZMO, GIZMO);
+    g.fillStyle = 'rgba(12,16,20,0.55)';
+    g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2); g.fill();
+    const inv = this.camera.matrixWorldInverse.elements;
+    /* a map direction (x east, y north, z up) in the camera's frame */
+    const view = (x, y, z) => {
+      const X = x, Y = z, Z = -y;                 // map to the renderer's axes
+      return [inv[0] * X + inv[4] * Y + inv[8] * Z, inv[1] * X + inv[5] * Y + inv[9] * Z, inv[2] * X + inv[6] * Y + inv[10] * Z];
+    };
+    const ends = [];
+    for (const [name, col, v] of AXES) {
+      for (const sgn of [1, -1]) {
+        const [vx, vy, vz] = view(v[0] * sgn, v[1] * sgn, v[2] * sgn);
+        ends.push({ name, col, sgn, x: r + vx * L, y: r - vy * L, depth: vz });
+      }
+    }
+    ends.sort((a, b) => a.depth - b.depth);
+    g.font = 'bold 10px ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const e of ends) {
+      if (e.sgn > 0) {
+        g.strokeStyle = e.col; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(r, r); g.lineTo(e.x, e.y); g.stroke();
+        g.fillStyle = e.col;
+        g.beginPath(); g.arc(e.x, e.y, 8, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#0b0e11'; g.fillText(e.name, e.x, e.y + 0.5);
+      } else {
+        g.fillStyle = e.col; g.globalAlpha = 0.45;
+        g.beginPath(); g.arc(e.x, e.y, 6, 0, Math.PI * 2); g.fill();
+        g.globalAlpha = 1;
+      }
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -1076,7 +1133,43 @@ export class View3D {
    helpers
    --------------------------------------------------------------------- */
 
-/** The modes the 3D view shows its drawing grid in. */
+/* BLENDER'S AXIS COLOURS: X red, Y green, Z blue */
+export const AXIS_X = 0xff3352, AXIS_Y = 0x8bdc00, AXIS_Z = 0x4aa8ff;
+const AXES = [['X', '#ff3352', [1, 0, 0]], ['Y', '#8bdc00', [0, 1, 0]], ['Z', '#4aa8ff', [0, 0, 1]]];
+const GIZMO = 84;            // the gizmo's size, in CSS pixels
+const AXIS_LEN = 60000;
+
+/** THE THREE AXES through 0,0,0, as lines — X along the map's y = 0,
+ *  Y along its x = 0, Z straight up — with the origin marked: what the
+ *  grid's own axis lines are on the ground, standing in the air too, so
+ *  they show whatever height the ground is. */
+function buildAxes() {
+  const grp = new THREE.Group();
+  const line = (col, a, b, opacity) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b], 3));
+    const l = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity }));
+    l.frustumCulled = false;
+    return l;
+  };
+  /* map (x, y, z) is the renderer's (x, z, -y); a lift keeps them off
+     a floor at 0 */
+  grp.add(line(AXIS_X, [-AXIS_LEN, 1, 0], [AXIS_LEN, 1, 0], 0.9));
+  grp.add(line(AXIS_Y, [0, 1, AXIS_LEN], [0, 1, -AXIS_LEN], 0.9));
+  grp.add(line(AXIS_Z, [0, -AXIS_LEN, 0], [0, AXIS_LEN, 0], 1));
+  /* the origin: a dot, seen through anything, so you can always find
+     your way back to it */
+  const dot = new THREE.BufferGeometry();
+  dot.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, 0], 3));
+  const o = new THREE.Points(dot, new THREE.PointsMaterial({ color: 0xffffff, size: 9, sizeAttenuation: false, depthTest: false, transparent: true }));
+  o.renderOrder = 1004;
+  o.frustumCulled = false;
+  grp.add(o);
+  grp.name = 'axes';
+  return grp;
+}
+
+/** The modes in which the grid comes up to the floor being drawn on. */
 export const GRID_MODES = ['draw', 'rect', 'vertices', 'things', 'props', 'scatter'];
 
 /** THE DRAWING GRID: one square, scaled round the camera, whose shader
@@ -1092,7 +1185,7 @@ function buildGrid() {
       step: { value: 64 }, major: { value: 512 },
       focus: { value: new THREE.Vector2() }, reach: { value: 3072 },
       minor: { value: new THREE.Color(0x9fe8ff) }, majorCol: { value: new THREE.Color(0xffffff) },
-      axis: { value: new THREE.Color(0xffd23d) },
+      xAxis: { value: new THREE.Color(AXIS_X) }, yAxis: { value: new THREE.Color(AXIS_Y) },
     },
     vertexShader: `
       varying vec2 vP;
@@ -1104,7 +1197,7 @@ function buildGrid() {
     fragmentShader: `
       uniform float step, major, reach;
       uniform vec2 focus;
-      uniform vec3 minor, majorCol, axis;
+      uniform vec3 minor, majorCol, xAxis, yAxis;
       varying vec2 vP;
       float lines(vec2 p, float s, float px) {
         vec2 g = abs(fract(p / s - 0.5) - 0.5) * s / max(fwidth(p), vec2(1e-4));
@@ -1115,13 +1208,18 @@ function buildGrid() {
         float fine = 1.0 - smoothstep(0.25, 0.6, length(fwidth(vP)) / step);
         float a1 = lines(vP, step, 1.0) * fine;
         float a2 = lines(vP, major, 1.5);
+        /* the axes through the origin: X (the map's y = 0) red, Y (its
+           x = 0) green, two pixels wide and never faded quite out */
         vec2 ax = abs(vP) / max(fwidth(vP), vec2(1e-4));
-        float a3 = 1.0 - clamp(min(ax.x, ax.y) - 1.0, 0.0, 1.0);
+        float onX = 1.0 - clamp(ax.y - 1.5, 0.0, 1.0);
+        float onY = 1.0 - clamp(ax.x - 1.5, 0.0, 1.0);
         float fade = 1.0 - smoothstep(reach * 0.35, reach, distance(vP, focus));
         vec3 c = minor; float a = a1 * 0.38;
         if (a2 > 0.0) { c = mix(c, majorCol, a2); a = max(a, a2 * 0.7); }
-        if (a3 > 0.0) { c = mix(c, axis, a3); a = max(a, a3 * 0.85); }
         a *= fade;
+        float axFade = max(fade, 0.55);
+        if (onX > 0.0) { c = mix(c, xAxis, onX); a = max(a, onX * 0.95 * axFade); }
+        if (onY > 0.0) { c = mix(c, yAxis, onY); a = max(a, onY * 0.95 * axFade); }
         if (a < 0.01) discard;
         gl_FragColor = vec4(c, a);
       }`,
