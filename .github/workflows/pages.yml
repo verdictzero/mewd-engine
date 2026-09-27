@@ -11,9 +11,14 @@ on:
 permissions:
   contents: read
 
+# One queue per ref. A shared queue let the pull request's run, which
+# starts the moment the branch is pushed, cancel main's run a second
+# later, so main was tested and never published. A newer push to the
+# same pull request still cancels the older run; a run on main is never
+# cancelled, so a deploy is never cut off halfway.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
