@@ -59,14 +59,82 @@ export const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
 /** and the largest a custom one may be */
 export const GRID_MAX = 4096;
 
+/* THE SHAPES a drag draws in Shape mode (R), each fitted to the box
+   dragged out. `sides` is how many corners a round one is made of, or a
+   star's points; the toolbar changes it. */
+export const SHAPES = {
+  rect:     { name: 'Rectangle' },
+  ellipse:  { name: 'Ellipse', sides: 16 },
+  circle:   { name: 'Circle', sides: 16 },
+  polygon:  { name: 'Polygon', sides: 6 },
+  triangle: { name: 'Triangle' },
+  diamond:  { name: 'Diamond' },
+  star:     { name: 'Star', sides: 5 },
+  lshape:   { name: 'L-shape' },
+  arch:     { name: 'Half-round', sides: 12 },
+};
+export const SIDES_MIN = 3, SIDES_MAX = 64;
+
+/**
+ * The corners of shape `kind` in the box from corner `a` to corner `b`
+ * (either way round): anticlockwise, on whole units. A circle is the
+ * largest that fits the box, from the corner the drag started at.
+ */
+export function shapePoints(kind, a, b, sides) {
+  let x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+  if (kind === 'circle') {
+    const r = Math.min(x1 - x0, y1 - y0);
+    if (b[0] < a[0]) x0 = a[0] - r; else x0 = a[0];
+    if (b[1] < a[1]) y0 = a[1] - r; else y0 = a[1];
+    x1 = x0 + r; y1 = y0 + r;
+  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+  const n = Math.max(SIDES_MIN, Math.min(SIDES_MAX, Math.round(sides || SHAPES[kind]?.sides || 4)));
+  const round = (k, phase = Math.PI / 2, fx = rx, fy = ry) => Array.from({ length: k }, (_, i) => {
+    const t = phase + i * 2 * Math.PI / k;
+    return [cx + Math.cos(t) * fx, cy + Math.sin(t) * fy];
+  });
+  let pts;
+  switch (kind) {
+    case 'ellipse': case 'circle':
+      /* a flat on each side where the count allows it, as a room would be */
+      pts = round(n, n % 4 === 0 ? Math.PI / n : Math.PI / 2); break;
+    case 'polygon': pts = round(n); break;
+    case 'triangle': pts = [[x0, y0], [x1, y0], [cx, y1]]; break;
+    case 'diamond': pts = [[cx, y0], [x1, cy], [cx, y1], [x0, cy]]; break;
+    case 'star':
+      pts = Array.from({ length: n * 2 }, (_, i) => {
+        const t = Math.PI / 2 + i * Math.PI / n, k = i % 2 ? 0.45 : 1;
+        return [cx + Math.cos(t) * rx * k, cy + Math.sin(t) * ry * k];
+      });
+      break;
+    case 'lshape': {
+      const mx = x0 + (x1 - x0) / 2, my = y0 + (y1 - y0) / 2;
+      pts = [[x0, y0], [x1, y0], [x1, my], [mx, my], [mx, y1], [x0, y1]];
+      break;
+    }
+    case 'arch':
+      /* a flat side along the bottom of the box, round over the top */
+      pts = [[x1, y0], ...Array.from({ length: n - 1 }, (_, i) => { const t = (i + 1) * Math.PI / n; return [cx + Math.cos(t) * rx, y0 + Math.sin(t) * (y1 - y0)]; }), [x0, y0]];
+      break;
+    default: pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  }
+  pts = pts.map(([x, y]) => [Math.round(x), Math.round(y)]).filter((p, k, arr) => {
+    const q = arr[(k + 1) % arr.length];
+    return p[0] !== q[0] || p[1] !== q[1];
+  });
+  if (signedArea(pts) < 0) pts.reverse();
+  return pts;
+}
+
 export const MODES = {
   vertices: { key: 'V', name: 'Vertices' },
   lines:    { key: 'L', name: 'Lines' },
   sectors:  { key: 'S', name: 'Sectors' },
   things:   { key: 'T', name: 'Things' },
   props:    { key: 'P', name: 'Props' },
-  draw:     { key: 'D', name: 'Draw sectors' },
-  rect:     { key: 'R', name: 'Draw rectangle' },
+  draw:     { key: 'D', name: 'Draw lines and sectors' },
+  rect:     { key: 'R', name: 'Draw a shape' },
   scatter:  { key: 'X', name: 'Scatter' },
 };
 
@@ -89,6 +157,9 @@ export class Editor {
        the 3D view go into the same outline, so one room can be drawn
        half in each */
     this.path = [];
+    /* the shape Shape mode draws, and how many sides a round one has */
+    this.shape = 'rect';
+    this.shapeSides = null;
     /* and where the mouse is on the map, from whichever view it is in */
     this.cursor = null;
     this.propTex = 'GRIDWALL';
@@ -169,7 +240,12 @@ export class Editor {
   /** Every line in the map with the sectors on it, worked out once per
    *  change — both views ask for it on every mouse move. */
   lines() {
-    if (!this._lines || this._linesDoc !== this.doc) { this._lines = linesOf(this.doc); this._linesDoc = this.doc; }
+    if (!this._lines || this._linesDoc !== this.doc) {
+      /* and the linedefs of their own, with no sector on either side */
+      const own = (this.doc.linedefs || []).map(([a, b]) => ({ key: lineKey(a, b), a: Math.min(a, b), b: Math.max(a, b), sectors: [], free: true }));
+      this._lines = [...linesOf(this.doc), ...own];
+      this._linesDoc = this.doc;
+    }
     return this._lines;
   }
 
@@ -380,7 +456,9 @@ export class Editor {
         /* deleting a line MERGES the two sectors on it, the way it does
            in a Doom editor — or removes the one sector a one-sided line
            belongs to */
-        for (const key of ids) mergeAcross(d, key);
+        const own = new Set((d.linedefs || []).map(([a, b]) => lineKey(a, b)));
+        d.linedefs = (d.linedefs || []).filter(([a, b]) => !ids.has(lineKey(a, b)));
+        for (const key of ids) if (!own.has(key)) mergeAcross(d, key);
       }
     });
     this.clearSel();
@@ -448,28 +526,43 @@ export class Editor {
     let made = null;
     this.edit(label, d => {
       const idx = points.map(([x, y]) => vertexFor(d, x, y));
-      /* drop repeats a slow double-click leaves */
-      let ring = idx.filter((v, k, a) => v !== a[(k + 1) % a.length]);
-      if (ring.length < 3) return;
-      /* EVERY SECTOR WINDS ONE WAY, anticlockwise, whichever way it was
-         clicked — merging two across a shared line depends on it */
-      if (signedArea(ring.map(i => d.vertices[i])) < 0) ring = ring.reverse();
-      const pts = ring.map(i => d.vertices[i]);
-      const [cx, cy] = pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length], [0, 0]);
-      const parent = sectorContaining(d, cx, cy);
-      /* a deep copy: the parent's colours are its own, not shared */
-      const base = parent ? JSON.parse(JSON.stringify({ ...parent, id: undefined, verts: undefined, name: '', storeys: undefined }))
-        : { ...SECTOR_DEFAULTS };
-      made = { ...base, id: takeId(d), verts: ring };
-      /* DRAWN AGAINST THE PARENT'S OWN WALL, it is cut out of the parent
-         rather than laid over it — a room drawn in a corner of the field
-         takes that corner away from the field, as it does in Doom
-         Builder. Drawn clear of every wall, it is a hole, and the
-         compiler deals with holes. */
-      if (parent && !strictlyInside(pts, ringOf(d, parent))) cutFrom(d, parent, ring);
-      d.sectors.push(made);
+      made = insertSector(d, idx);
     });
     if (made) this.select('sector', [made.id]);
+    return made;
+  }
+
+  /**
+   * LINEDEFS OF THEIR OWN: a path finished open (Enter, a double-click
+   * or the right button) that splits no sector. Each leg is a linedef,
+   * cut where it crosses any line; and wherever the new ones close a
+   * shape, with each other or with the walls already there, that shape
+   * is a sector at once. What stays open stands as a wall when the map
+   * is built (linedefWalls in js/editor/doc.js).
+   */
+  addLinedefs(points) {
+    if (points.length < 2) return null;
+    let made = [], n = 0;
+    this.edit('draw linedefs', d => {
+      d.linedefs = d.linedefs || [];
+      const pts = withCrossings(d, points, false);
+      const idx = pts.map(([x, y]) => vertexFor(d, x, y));
+      for (let k = 0; k + 1 < idx.length; k++) {
+        const a = idx[k], b = idx[k + 1];
+        if (a === b) continue;
+        d.linedefs.push([a, b]);
+        n++;
+      }
+      made = closeLoops(d, insertSector);
+    });
+    if (made.length) {
+      this.select('sector', made);
+      this.say(`${made.length} sector${made.length > 1 ? 's' : ''} closed by the new line${n > 1 ? 's' : ''}`);
+    } else {
+      const k = this.doc.linedefs.slice(-n).map(([a, b]) => lineKey(a, b));
+      this.select('line', k);
+      this.say(`${n} linedef${n > 1 ? 's' : ''} — close a shape with more and it becomes a sector; left open, it stands as a wall`);
+    }
     return made;
   }
 
@@ -668,10 +761,27 @@ export class Editor {
       this.say(`too small for the ${this.grid} grid: drag further, or make the grid finer with [`);
       return null;
     }
-    const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
-    const s = this.addSector([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], 'draw rectangle');
-    if (s) this.say(`new sector ${s.id}, ${x1 - x0} by ${y1 - y0}`);
+    const kind = SHAPES[this.shape] ? this.shape : 'rect';
+    const pts = this.shapePoints(a, b);
+    if (pts.length < 3 || Math.abs(signedArea(pts)) < 1) { this.say('too small for that shape: drag further'); return null; }
+    const s = this.addSector(pts, `draw ${SHAPES[kind].name.toLowerCase()}`);
+    const w = Math.max(...pts.map(p => p[0])) - Math.min(...pts.map(p => p[0])), hgt = Math.max(...pts.map(p => p[1])) - Math.min(...pts.map(p => p[1]));
+    if (s) this.say(`new sector ${s.id}, ${kind === 'rect' ? '' : `${SHAPES[kind].name.toLowerCase()} `}${w} by ${hgt}`);
     return s;
+  }
+
+  /** The corners the current shape makes in the box from a to b. */
+  shapePoints(a, b) {
+    const kind = SHAPES[this.shape] ? this.shape : 'rect';
+    return shapePoints(kind, a, b, this.shapeSides ?? SHAPES[kind].sides);
+  }
+  setShape(kind, sides = null) {
+    if (!SHAPES[kind]) return;
+    this.shape = kind;
+    this.shapeSides = sides ?? SHAPES[kind].sides ?? null;
+    if (this.mode !== 'rect') this.setMode('rect');
+    this.emit('grid');
+    this.say(`${SHAPES[kind].name}${this.shapeSides ? `, ${this.shapeSides} ${kind === 'star' ? 'points' : 'sides'}` : ''}: drag it out`);
   }
 
   /* ------------------------------------------------------------------
@@ -805,8 +915,9 @@ export class Editor {
     const p = this.path;
     this.path = [];
     if (open && p.length >= 2 && this.splitByPath(p)) { /* done */ }
+    else if (open && p.length >= 2) this.addLinedefs(p);
     else if (p.length >= 3) this.addSector(p);
-    else if (p.length) this.say('a sector needs three corners — or draw from one wall to another to split a room');
+    else if (p.length) this.say('one corner is not a line — click another, then Enter for linedefs, or close the shape for a sector');
     this.emit('path');
     this.afterDraw();
   }
@@ -1040,7 +1151,122 @@ export function vertexFor(d, x, y) {
       }
     }
   }
+  splitLinedefsAt(d, i);
   return i;
+}
+
+/** Vertex `i`, if it lies along a linedef of its own, splits it in two,
+ *  each half keeping what the line said. */
+export function splitLinedefsAt(d, i) {
+  const [x, y] = d.vertices[i] || [];
+  if (x === undefined || !d.linedefs?.length) return;
+  for (let k = 0; k < d.linedefs.length; k++) {
+    const [p, q] = d.linedefs[k];
+    if (p === i || q === i) continue;
+    const a = d.vertices[p], b = d.vertices[q];
+    const { d: dist, t } = segDist(a[0], a[1], b[0], b[1], x, y);
+    if (dist < ON_LINE && t > 0.0001 && t < 0.9999) {
+      d.linedefs.splice(k, 1, [p, i], [i, q]);
+      const o = d.lines?.[lineKey(p, q)];
+      if (o) { d.lines[lineKey(p, i)] = { ...o }; d.lines[lineKey(i, q)] = { ...o }; delete d.lines[lineKey(p, q)]; }
+      return;
+    }
+  }
+}
+
+/** A drawn path with a corner put in wherever it crosses a line of the
+ *  map — a sector's or a linedef's — so nothing is drawn over a line. */
+export function withCrossings(d, points, closed = true) {
+  const segs = linesOf(d).map(l => [d.vertices[l.a], d.vertices[l.b]]);
+  for (const [a, b] of d.linedefs || []) segs.push([d.vertices[a], d.vertices[b]]);
+  const out = [];
+  const n = points.length;
+  for (let k = 0; k < n; k++) {
+    const p = points[k];
+    out.push(p);
+    if (!closed && k === n - 1) break;
+    const q = points[(k + 1) % n];
+    const hits = [];
+    for (const [a, b] of segs) {
+      if (!segCross(p[0], p[1], q[0], q[1], a[0], a[1], b[0], b[1])) continue;
+      const dx = q[0] - p[0], dy = q[1] - p[1], ex = b[0] - a[0], ey = b[1] - a[1];
+      const den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((a[0] - p[0]) * ey - (a[1] - p[1]) * ex) / den;
+      hits.push([t, +(p[0] + dx * t).toFixed(3), +(p[1] + dy * t).toFixed(3)]);
+    }
+    hits.sort((u, v) => u[0] - v[0]);
+    for (const [, x, y] of hits) out.push([x, y]);
+  }
+  return out;
+}
+
+/**
+ * CLOSING LOOPS, Doom Builder's way: wherever linedefs of their own now
+ * close a shape — among themselves, or against the walls of sectors —
+ * that shape is a sector. The map's lines are walked as a plane graph,
+ * face by face, and each bounded face with a linedef on its edge that
+ * is not a sector already becomes one; the linedefs round it are then
+ * its edges and stop being linedefs (compact drops them). Returns the
+ * ids of the sectors it made.
+ */
+export function closeLoops(d, insert) {
+  if (!d.linedefs?.length) return [];
+  const free = new Set(d.linedefs.map(([a, b]) => lineKey(a, b)));
+  const adj = new Map();
+  const link = (a, b) => {
+    if (a === b) return;
+    if (!adj.has(a)) adj.set(a, new Set());
+    if (!adj.has(b)) adj.set(b, new Set());
+    adj.get(a).add(b); adj.get(b).add(a);
+  };
+  for (const l of linesOf(d)) link(l.a, l.b);
+  for (const [a, b] of d.linedefs) link(a, b);
+  const V = d.vertices;
+  const ang = (a, b) => Math.atan2(V[b][1] - V[a][1], V[b][0] - V[a][0]);
+  /* each vertex's neighbours, anticlockwise */
+  const order = new Map();
+  for (const [v, ns] of adj) order.set(v, [...ns].sort((p, q) => ang(v, p) - ang(v, q)));
+  const seen = new Set();
+  const faces = [];
+  for (const [u0, ns] of order) {
+    for (const v0 of ns) {
+      if (seen.has(u0 + '>' + v0)) continue;
+      /* walk with the face on the left: at each corner, the next edge
+         clockwise from the one arrived along */
+      const ring = [];
+      let u = u0, v = v0, guard = 0;
+      while (!seen.has(u + '>' + v) && guard++ < 100000) {
+        seen.add(u + '>' + v);
+        ring.push(u);
+        const around = order.get(v);
+        const i = around.indexOf(u);
+        const w = around[(i - 1 + around.length) % around.length];
+        u = v; v = w;
+      }
+      if (u === u0 && v === v0) faces.push(ring);
+    }
+  }
+  const sectorSets = () => new Set(d.sectors.map(s => [...s.verts].sort((a, b) => a - b).join(',')));
+  const made = [];
+  for (let ring of faces) {
+    /* a spur into the face and back out of it is not part of its edge */
+    for (let again = true; again && ring.length > 3;) {
+      again = false;
+      for (let k = 0; k < ring.length; k++) {
+        const n = ring.length;
+        if (ring[(k - 1 + n) % n] === ring[(k + 1) % n]) { ring = ring.filter((_, i) => i !== k && i !== (k + 1) % n); again = true; break; }
+      }
+    }
+    if (ring.length < 3 || new Set(ring).size !== ring.length) continue;
+    const pts = ring.map(i => V[i]);
+    if (signedArea(pts) <= 0.25 || selfCrosses(pts)) continue;
+    if (!ring.some((v, k) => free.has(lineKey(v, ring[(k + 1) % ring.length])))) continue;
+    if (sectorSets().has([...ring].sort((a, b) => a - b).join(','))) continue;
+    const s = insert(d, ring);
+    if (s) made.push(s.id);
+  }
+  return made;
 }
 
 /** How near a line a point is ON it, in units. */
@@ -1125,6 +1351,36 @@ export function splitSector(d, S, path) {
   if (one.length < 3 || two.length < 3) return null;
   S.verts = one;
   const made = { ...JSON.parse(JSON.stringify({ ...S, verts: undefined, id: undefined, name: '' })), id: takeId(d), verts: two };
+  d.sectors.push(made);
+  return made;
+}
+
+/**
+ * A NEW SECTOR on the ring of vertex indices `idx`, as addSector makes
+ * one: wound anticlockwise, taking the heights and textures of the
+ * sector it is drawn in, and cut out of that one where it runs along its
+ * wall. Returns the sector, or null for fewer than three corners.
+ */
+export function insertSector(d, idx) {
+  /* drop repeats a slow double-click leaves */
+  let ring = idx.filter((v, k, a) => v !== a[(k + 1) % a.length]);
+  if (ring.length < 3) return null;
+  /* EVERY SECTOR WINDS ONE WAY, anticlockwise, whichever way it was
+     clicked — merging two across a shared line depends on it */
+  if (signedArea(ring.map(i => d.vertices[i])) < 0) ring = ring.reverse();
+  const pts = ring.map(i => d.vertices[i]);
+  const [cx, cy] = pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length], [0, 0]);
+  const parent = sectorContaining(d, cx, cy);
+  /* a deep copy: the parent's colours are its own, not shared */
+  const base = parent ? JSON.parse(JSON.stringify({ ...parent, id: undefined, verts: undefined, name: '', storeys: undefined }))
+    : { ...SECTOR_DEFAULTS };
+  const made = { ...base, id: takeId(d), verts: ring };
+  /* DRAWN AGAINST THE PARENT'S OWN WALL, it is cut out of the parent
+     rather than laid over it — a room drawn in a corner of the field
+     takes that corner away from the field, as it does in Doom
+     Builder. Drawn clear of every wall, it is a hole, and the
+     compiler deals with holes. */
+  if (parent && !strictlyInside(pts, ringOf(d, parent))) cutFrom(d, parent, ring);
   d.sectors.push(made);
   return made;
 }

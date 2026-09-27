@@ -5459,6 +5459,31 @@ Doom Builder:
   its own sector, keeping the room's heights and textures, and the
   pieces are selected. What lies outside every sector is not made.
 
+  LINEDEFS, SHAPES AND FINGERS, at the user's request, who still could
+  not draw what they wanted on the plan:
+    Draw (D), finished open — Enter, a double-click or the right
+      button — is LINEDEFS OF THEIR OWN (doc.linedefs, yellow on the
+      plan) unless it runs wall to wall across a room, which splits the
+      room as before. Each leg is cut wherever it crosses a line.
+      Wherever the new ones close a shape, among themselves or against
+      the walls already there, that shape becomes a sector at once
+      (closeLoops walks the map's lines as a plane graph, face by face).
+      What stays open stands as a wall when the map is built
+      (linedefWalls in js/editor/doc.js): a thin sector 8 thick, 128
+      high outdoors and floor to ceiling in a room, in the line's middle
+      texture — the line inspector sets its texture and height. Lines
+      mode selects them; Delete removes one without touching a sector.
+      One that would cross a wall or leave the map is listed as a
+      problem instead of built.
+    Shape (R) drags out the shape chosen beside its button: rectangle,
+      ellipse, circle, polygon, triangle, diamond, star, L-shape or
+      half-round, fitted to the box dragged (shapePoints). The number
+      beside it is a round shape's sides or a star's points. A drag on
+      the ground in Sectors mode draws the same shape.
+    A finger draws: the views take touches as pointer input
+      (touch-action: none), so a tablet taps corners and drags shapes
+      instead of scrolling the page.
+
   THE PLAN'S VIEWS. The selector on the plan (or K) shades every sector
   by its brightness, its floor or its ceiling, with the number on it —
   Doom Builder's brightness view, and its height views.

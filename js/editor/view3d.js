@@ -960,8 +960,10 @@ export class View3D {
     }
     const dr = this.drag;
     if (dr && (dr.type === 'rect' || dr.type === 'prop')) {
-      const c = [[dr.a[0], dr.a[1]], [dr.b[0], dr.a[1]], [dr.b[0], dr.b[1]], [dr.a[0], dr.b[1]]];
-      for (let i = 0; i < 4; i++) seg(c[i], c[(i + 1) % 4]);
+      /* the shape being dragged out, or a prop's box */
+      const c = dr.type === 'rect' && (dr.b[0] !== dr.a[0] || dr.b[1] !== dr.a[1]) ? ed.shapePoints(dr.a, dr.b)
+        : [[dr.a[0], dr.a[1]], [dr.b[0], dr.a[1]], [dr.b[0], dr.b[1]], [dr.a[0], dr.b[1]]];
+      for (let i = 0; i < c.length; i++) seg(c[i], c[(i + 1) % c.length]);
       if (dr.type === 'prop') for (const p of c) { const z = fz(p[0], p[1]); P(p[0], p[1], z); P(p[0], p[1], z + 64); }
     }
     if (dr?.type === 'brush') ring(P, dr.a[0], dr.a[1], Math.hypot(dr.b[0] - dr.a[0], dr.b[1] - dr.a[1]), fz);

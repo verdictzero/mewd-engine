@@ -65,6 +65,8 @@
 #ed-top select, #ed-top input[type=number] {
   height: 26px; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px;
 }
+#ed-top .ed-sides { width: 48px; }
+#ed-top .ed-sides[hidden] { display: none; }
 #ed-top .spacer { flex: 1; }
 
 /* ---------- the workspace ---------- */
@@ -95,7 +97,7 @@
 #ed-views.combined #ed-2d-wrap .help, #ed-views.combined2d #ed-3d-wrap .help { display: none; }
 .ed-view { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #ed-2d-wrap { border-right: 1px solid var(--line); }
-.ed-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ed-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .ed-view .tag {
   position: absolute; left: 8px; top: 6px; font: 10px var(--mono); letter-spacing: .1em;
   color: var(--dim); pointer-events: none; text-shadow: 0 1px 2px #000;

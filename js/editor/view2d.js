@@ -480,8 +480,9 @@ export class View2D {
       /* a building's outside wall is drawn like a one-sided wall, and a
          doorway in one dashed */
       const ext = exteriorWall(d, l), door = !ext && o?.opening;
-      g.strokeStyle = sel ? '#ff9d3d' : hov ? '#3ddc84' : o?.blocking ? '#ff6b6b' : ext ? '#f0dcb4' : door ? '#c9a46a' : l.sectors.length > 1 ? '#6d7a86' : '#e6edf0';
-      g.lineWidth = sel || hov ? 2.5 : ext ? 2 : l.sectors.length > 1 ? 1 : 1.6;
+      /* a linedef of its own, which stands as a wall: yellow, and thick */
+      g.strokeStyle = sel ? '#ff9d3d' : hov ? '#3ddc84' : l.free ? '#ffd23d' : o?.blocking ? '#ff6b6b' : ext ? '#f0dcb4' : door ? '#c9a46a' : l.sectors.length > 1 ? '#6d7a86' : '#e6edf0';
+      g.lineWidth = sel || hov ? 2.5 : l.free ? 3 : ext ? 2 : l.sectors.length > 1 ? 1 : 1.6;
       if (door) g.setLineDash([5, 4]);
       g.beginPath(); g.moveTo(this.sx(a[0]), this.sy(a[1])); g.lineTo(this.sx(b[0]), this.sy(b[1])); g.stroke();
       if (door) g.setLineDash([]);
@@ -615,7 +616,19 @@ export class View2D {
       g.fillStyle = '#e6ccff'; g.font = '11px ui-monospace, monospace';
       g.fillText(`r ${Math.round(r)}`, this.sx(dr.a[0]) + 6, this.sy(dr.a[1]) - 6);
     }
-    if (dr?.type === 'rect' || dr?.type === 'prop') {
+    if (dr?.type === 'rect' && (dr.b[0] !== dr.a[0] || dr.b[1] !== dr.a[1])) {
+      /* THE SHAPE being dragged out, as it will be made */
+      const pts = ed.shapePoints(dr.a, dr.b);
+      g.strokeStyle = '#ffb454'; g.fillStyle = 'rgba(255,180,84,0.12)'; g.lineWidth = 1.5;
+      g.beginPath();
+      pts.forEach(([x, y], k) => (k ? g.lineTo(this.sx(x), this.sy(y)) : g.moveTo(this.sx(x), this.sy(y))));
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#ffb454';
+      for (const [x, y] of pts) g.fillRect(this.sx(x) - 2, this.sy(y) - 2, 4, 4);
+      g.fillStyle = '#ffd9a6'; g.font = '11px ui-monospace, monospace';
+      g.fillText(`${Math.abs(dr.b[0] - dr.a[0])} × ${Math.abs(dr.b[1] - dr.a[1])}`, this.sx(Math.min(dr.a[0], dr.b[0])) + 4, this.sy(Math.max(dr.a[1], dr.b[1])) - 4);
+    }
+    if (dr?.type === 'prop') {
       g.strokeStyle = dr.type === 'prop' ? '#58b9ff' : '#ffb454'; g.fillStyle = dr.type === 'prop' ? 'rgba(88,185,255,0.12)' : 'rgba(255,180,84,0.12)';
       const x = this.sx(Math.min(dr.a[0], dr.b[0])), y = this.sy(Math.max(dr.a[1], dr.b[1]));
       const w = Math.abs(dr.b[0] - dr.a[0]) * this.scale, hh = Math.abs(dr.b[1] - dr.a[1]) * this.scale;

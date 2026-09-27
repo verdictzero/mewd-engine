@@ -13,14 +13,14 @@
    ===================================================================== */
 
 import { PACK, PACK_SKIES, animOf, ownImage } from '../texpack.js';
-import { THING_TYPES, problemsOf, ringOf, signedArea, COLOR_PARTS } from './doc.js';
+import { THING_TYPES, problemsOf, ringOf, signedArea, COLOR_PARTS, LINEDEF_THICK, LINEDEF_H } from './doc.js';
 import { openTextureEditor } from './texeditor.js';
-import { MODES, GRIDS, GRID_MAX, brightOf, isInside } from './editor.js';
+import { MODES, GRIDS, GRID_MAX, SHAPES, SIDES_MIN, SIDES_MAX, brightOf, isInside } from './editor.js';
 import { PRESETS, SCATTER_TYPES, PLANT_KINDS, SCATTER_MAX } from './scatter.js';
 import { plantColour } from './view2d.js';
 
 /* the mode buttons' own short names */
-const SHORT = { vertices: 'Verts', lines: 'Lines', sectors: 'Sectors', things: 'Things', props: 'Props', draw: 'Draw', rect: 'Rect', scatter: 'Scatter' };
+const SHORT = { vertices: 'Verts', lines: 'Lines', sectors: 'Sectors', things: 'Things', props: 'Props', draw: 'Draw', rect: 'Shape', scatter: 'Scatter' };
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -110,6 +110,13 @@ export function buildUI(ed) {
     return b;
   });
 
+  /* THE SHAPE Shape mode (R) drags out, and how many sides a round one
+     has — choosing one goes into Shape mode */
+  const shapeSel = h('select', { title: 'The shape a drag draws in Shape mode (R)', onchange: e => ed.setShape(e.target.value) },
+    ...Object.entries(SHAPES).map(([k, v]) => h('option', { value: k }, v.name)));
+  const sidesIn = h('input', { type: 'number', class: 'ed-sides', min: SIDES_MIN, max: SIDES_MAX, step: 1, title: 'Sides of a round shape, or a star\'s points',
+    onchange: e => { const n = Math.round(+e.target.value); if (n >= SIDES_MIN && n <= SIDES_MAX) ed.setShape(ed.shape, n); else refreshBar(); } });
+
   /* THE GRID: the ladder, a size of your own if you have one, and
      Custom… to type one — any whole number from 1 to GRID_MAX */
   const customOpt = h('option', { value: '' }, '');
@@ -191,6 +198,7 @@ export function buildUI(ed) {
     ]),
     h('span', { class: 'sep' }),
     ...modes,
+    shapeSel, sidesIn,
     h('span', { class: 'sep' }),
     gridSel, snapBtn,
     h('span', { class: 'sep' }),
@@ -271,7 +279,7 @@ export function buildUI(ed) {
       const l = ed.lines().find(q => q.key === hv.id);
       const [a, b] = String(hv.id).split(',').map(Number);
       const va = d.vertices[a], vb = d.vertices[b];
-      if (l && va && vb) t = `<b>Line ${hv.id}</b> · ${Math.round(Math.hypot(vb[0] - va[0], vb[1] - va[1]))} long · ${l.sectors.length > 1 ? 'two-sided' : 'one-sided'}${d.lines[hv.id]?.opening ? ' · doorway' : ''}`;
+      if (l && va && vb) t = `<b>${l.free ? 'Linedef' : 'Line'} ${hv.id}</b> · ${Math.round(Math.hypot(vb[0] - va[0], vb[1] - va[1]))} long · ${l.free ? 'on its own (a wall)' : l.sectors.length > 1 ? 'two-sided' : 'one-sided'}${d.lines[hv.id]?.opening ? ' · doorway' : ''}`;
     } else if (hv?.kind === 'thing') {
       const x = d.things.find(q => q.id === hv.id);
       if (x) t = `<b>${x.type === 'PLANT' ? x.kind : THING_TYPES[x.type]?.name || x.type}</b> #${x.id} · ${Math.round(x.x)}, ${Math.round(x.y)} · ${Math.round(((x.angle || 0) * 180 / Math.PI) % 360)}°`;
@@ -310,6 +318,9 @@ export function buildUI(ed) {
     customOpt.value = custom ? String(ed.grid) : '';
     customOpt.textContent = custom ? `grid ${ed.grid}` : '';
     gridSel.value = String(ed.grid);
+    shapeSel.value = ed.shape;
+    sidesIn.hidden = !ed.shapeSides;
+    if (ed.shapeSides) sidesIn.value = String(ed.shapeSides);
     snapBtn.classList.toggle('on', ed.snap);
     for (const [l, b] of Object.entries(layoutBtns)) b.classList.toggle('on', ed.layout === l);
     views.className = ed.layout;
@@ -451,6 +462,16 @@ export function buildUI(ed) {
       const [a, b] = key.split(',').map(Number);
       const va = d.vertices[a], vb = d.vertices[b];
       const len = va && vb ? Math.hypot(vb[0] - va[0], vb[1] - va[1]) : 0;
+      /* A LINEDEF OF ITS OWN: no sector either side yet. It stands as a
+         wall when the map is built, until it closes a shape. */
+      if (info?.free) {
+        put(p, head(`Linedef ${key}`),
+          h('p', { class: 'ed-note' }, `${Math.round(len)} units · on its own: it stands as a wall ${LINEDEF_THICK} thick, and when more lines close a shape with it, that shape becomes a sector.`),
+          texField(o.midTex, 'midTex', 'Wall texture', { allowNone: true }),
+          row('Wall height', num(o.wallH ?? '', v => each('wall height', x => { if (v > 0) x.wallH = v; else delete x.wallH; }), { step: 8 })),
+          h('p', { class: 'ed-note' }, `Empty height: ${LINEDEF_H} outdoors, floor to ceiling in a room. The whole run of joined linedefs takes the first one's texture and height. Delete removes it.`));
+        return;
+      }
       put(p, head(`Line ${key}`),
         h('p', { class: 'ed-note' }, `${Math.round(len)} units · ${info ? (info.sectors.length > 1 ? 'two-sided' : 'one-sided') : 'not on a sector'}`),
         row('Blocks walking', chk(o.blocking, v => each('line blocking', x => { if (v) x.blocking = true; else delete x.blocking; }))),
@@ -901,12 +922,12 @@ export function buildUI(ed) {
 
 const HELP2D = {
   vertices: 'click select · drag move · shift add · Del delete\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid',
-  lines: 'click select · drag move · Del joins sectors\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid',
+  lines: 'click select · drag move · Del joins sectors (or removes a yellow linedef) · D draws new linedefs\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid',
   sectors: 'drag on the ground: new sector · drag a room: move it · Insert/D: draw any shape\nclick select · dbl-click inspect · wheel zoom · right-drag/MMB pan · [ ] grid',
   things: 'dbl-click / Insert place · drag move · , . turn\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light',
   props: 'drag empty to draw a box · drag to move\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light',
-  draw: 'click corners · click the first to close a sector\nEnter / right-click / dbl-click: finish — wall to wall splits a room · Esc cancel',
-  rect: 'drag a rectangle into a new sector\nEsc cancel',
+  draw: 'click corners · click the first to close a sector · Backspace undoes a corner\nEnter / right-click / dbl-click: finish as linedefs — they close into a sector, split a room wall to wall, or stand as a wall · Esc cancel',
+  rect: 'drag out the shape chosen beside the Shape button (rectangle, ellipse, circle, polygon, star…)\nthe number sets a round shape\'s sides · Esc cancel',
 };
 
 function typeName(t) {

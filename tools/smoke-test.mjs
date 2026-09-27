@@ -13436,6 +13436,49 @@ await (async () => {
     check('and a new or opened map is framed on the plan and seen from its start in 3D',
       (edS.match(/this\.reframe\(\);/g) || []).length >= 3 && /reframe\(\) \{\s*this\.view2d\?\.frame\(\);\s*this\.view3d\?\.toStart\?\.\(\);/.test(edS));
   }
+  /* LINEDEFS AND SHAPES, which the user asked for by name: a path
+     finished open is linedefs of their own; they close into sectors
+     against each other or a wall; what is left open stands as a wall;
+     and Shape mode drags out more than rectangles. */
+  {
+    const mkL = () => { const e = new E.Editor(null); e.history = new D.History(D.newDoc('L', 2048)); e.said = []; e.say = m => e.said.push(m); e.setMode = m => { e.mode = m; }; return e; };
+    let e = mkL();
+    e.path = [[256, 256], [768, 256], [768, 640]]; e.closePath({ open: true });
+    check('a path finished open, splitting nothing, is linedefs of their own', e.doc.linedefs.length === 2 && e.doc.sectors.length === 1 && e.lines().filter(l => l.free).length === 2);
+    let c = D.compileDoc(e.doc);
+    check('and they stand as a wall 128 high outdoors, with nothing wrong', c.problems.length === 0 && c.level.sectors.length === 2 && c.level.sectors[1].floor === 128);
+    e.addLinedefs([[768, 640], [256, 640], [256, 256]]);
+    check('closing the shape with more lines makes it a sector, and they are its edges', e.doc.linedefs.length === 0 && e.doc.sectors.length === 2 && D.compileDoc(e.doc).problems.length === 0);
+    e = mkL(); e.addRect([256, 256], [1024, 1024]);
+    e.addLinedefs([[1024, 384], [1280, 384], [1280, 640], [1024, 640]]);
+    check('a U drawn against a room\'s wall closes into a sector beside it', e.doc.sectors.length === 3 && e.doc.linedefs.length === 0 && D.compileDoc(e.doc).problems.length === 0);
+    e = mkL(); e.addRect([512, 512], [1024, 1024]);
+    e.addLinedefs([[256, 768], [1280, 768]]);
+    check('a line drawn through a room splits it, and the ends outside stand as walls',
+      e.doc.sectors.length === 3 && e.doc.linedefs.length === 2 && D.compileDoc(e.doc).problems.length === 0);
+    e = mkL();
+    e.addLinedefs([[256, 256], [768, 768]]); e.addLinedefs([[256, 768], [768, 256]]);
+    check('two linedefs that cross are cut where they cross', e.doc.linedefs.length === 4 && D.compileDoc(e.doc).problems.length === 0);
+    e.select('line', [D.lineKey(...e.doc.linedefs[0])]); e.deleteSel();
+    check('and Delete takes a linedef away without touching a sector', e.doc.linedefs.length === 3 && e.doc.sectors.length === 1);
+    e = mkL(); e.addRect([256, 256], [1024, 1024]); e.setInside(true, new Set([e.doc.sectors[1].id]));
+    e.addLinedefs([[384, 512], [896, 512]]);
+    c = D.compileDoc(e.doc);
+    check('in a room a linedef wall runs floor to ceiling', c.problems.length === 0 && c.level.sectors.at(-1).floor === c.level.sectors.at(-1).ceil);
+    const saved = D.parseDoc(D.serialise(e.doc));
+    check('linedefs survive a save and a load', saved.linedefs.length === 1);
+    e.addLinedefs([[0, 1500], [3000, 1500]]);
+    check('a linedef off the edge of the map is said, not built', D.compileDoc(e.doc).problems.some(p => /linedef/.test(p.msg)));
+    const shapes = Object.keys(E.SHAPES).map(k => { const x = mkL(); x.emit = () => {}; x.setShape(k); const sct = x.addRect([256, 256], [1024, 768]); return [k, sct?.verts.length || 0, D.compileDoc(x.doc).problems.length]; });
+    check('every shape drags out into a sector the compiler takes', shapes.every(([, n, pr]) => n >= 3 && pr === 0) && shapes.length >= 8, JSON.stringify(shapes));
+    check('an ellipse has its sides, a star twice its points, a circle is round', (() => {
+      const P = (k, sd) => E.shapePoints(k, [0, 0], [512, 256], sd);
+      const ci = P('circle', 16), xs = ci.map(p => p[0]), ys = ci.map(p => p[1]);
+      return P('ellipse', 24).length === 24 && P('star', 7).length === 14 && Math.max(...xs) - Math.min(...xs) === Math.max(...ys) - Math.min(...ys);
+    })());
+    const cssE = fsE.readFileSync('css/editor.css', 'utf8');
+    check('a finger draws on the views instead of scrolling the page', /\.ed-view canvas \{[^}]*touch-action: none/.test(cssE));
+  }
   /* a drawn room's colours are its own */
   const edK = new E.Editor(null);
   edK.history = new D.History(D.newDoc('K', 2048));

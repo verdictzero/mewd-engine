@@ -324,6 +324,12 @@ export function newDoc(name = 'UNTITLED', size = 4096) {
     vertices: [[0, 0], [size, 0], [size, size], [0, size]],
     sectors: [{ id: 1, verts: [0, 1, 2, 3], ...SECTOR_DEFAULTS, name: 'ground' }],
     lines: {},
+    /* LINEDEFS OF THEIR OWN: lines drawn in Draw mode that close no
+       sector, as pairs of vertex indices. Where they close a loop they
+       become a sector (Editor.closeLoops); what is left stands as a wall
+       (linedefWalls, below). Their textures are line overrides, keyed by
+       lineKey like any other line's. */
+    linedefs: [],
     things: [{ id: 1, type: 'START', x: size / 2, y: size / 4, angle: Math.PI / 2 }],
     /* THE MAP'S OWN TEXTURES, made in the texture editor — see
        js/editor/texcompose.js */
@@ -475,9 +481,12 @@ export function compact(doc, weld = WELD) {
   /* a sector with no area is gone; a one-unit square is detail */
   doc.sectors = doc.sectors.filter(s => s.verts.length >= 3 &&
     Math.abs(signedArea(s.verts.map(i => V[i]))) > 0.25);
-  /* keep only the vertices somebody uses, in order */
+  /* keep only the vertices somebody uses, in order — a sector, or a
+     linedef of its own */
   const used = new Set();
   for (const s of doc.sectors) for (const v of s.verts) used.add(v);
+  const lds = (doc.linedefs || []).map(([a, b]) => [to[a], to[b]]).filter(([a, b]) => a !== b && a !== undefined && b !== undefined);
+  for (const [a, b] of lds) { used.add(a); used.add(b); }
   const remap = new Map();
   const nv = [];
   V.forEach((p, i) => { if (used.has(i) && to[i] === i) { remap.set(i, nv.length); nv.push([p[0], p[1]]); } });
@@ -488,6 +497,17 @@ export function compact(doc, weld = WELD) {
     const [a, b] = k.split(',').map(Number);
     const na = remap.get(to[a]), nb = remap.get(to[b]);
     if (na !== undefined && nb !== undefined && na !== nb) lines[lineKey(na, nb)] = v;
+  }
+  /* a linedef once: not twice, and not where a sector's edge already is */
+  const edges = new Set();
+  for (const s of doc.sectors) s.verts.forEach((v, k, r) => edges.add(lineKey(v, r[(k + 1) % r.length])));
+  const kept = new Set();
+  doc.linedefs = [];
+  for (const [a, b] of lds) {
+    const na = remap.get(a), nb = remap.get(b), k = lineKey(na, nb);
+    if (na === undefined || nb === undefined || na === nb || edges.has(k) || kept.has(k)) continue;
+    kept.add(k);
+    doc.linedefs.push([na, nb]);
   }
   doc.vertices = nv;
   doc.lines = lines;
@@ -554,6 +574,127 @@ export function problemsOf(doc) {
   if (!doc.things.some(t => t.type === 'START')) out.push({ kind: 'map', msg: 'there is no player start' });
   for (const t of doc.things) {
     if (!rings.some(r => pointInPoly(r, t.x, t.y))) out.push({ kind: 'thing', id: t.id, msg: `${t.type} ${t.id} is outside every sector` });
+  }
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   LINEDEFS AS WALLS
+   --------------------------------------------------------------------- */
+
+/** How thick a linedef of its own stands, and how tall outdoors (in a
+ *  room it goes floor to ceiling). A line override's `wallH` sets it. */
+export const LINEDEF_THICK = 8;
+export const LINEDEF_H = 128;
+
+/** The linedefs of a document as runs: the vertices of each chain of
+ *  them, broken wherever three meet or one touches a sector. */
+export function linedefChains(doc) {
+  const L = doc.linedefs || [];
+  if (!L.length) return [];
+  const adj = new Map();
+  const add = (a, b) => { if (!adj.has(a)) adj.set(a, []); adj.get(a).push(b); };
+  for (const [a, b] of L) { add(a, b); add(b, a); }
+  const onRing = new Set();
+  for (const s of doc.sectors) for (const v of s.verts) onRing.add(v);
+  const stop = v => (adj.get(v)?.length ?? 0) !== 2 || onRing.has(v);
+  const used = new Set();
+  const chains = [];
+  const walk = (a, b) => {
+    const out = [a, b];
+    used.add(lineKey(a, b));
+    let prev = a, cur = b;
+    while (!stop(cur)) {
+      const next = adj.get(cur).find(n => n !== prev && !used.has(lineKey(cur, n)));
+      if (next === undefined) break;
+      used.add(lineKey(cur, next));
+      out.push(next);
+      prev = cur; cur = next;
+    }
+    return out;
+  };
+  for (const v of adj.keys()) if (stop(v)) for (const n of adj.get(v)) if (!used.has(lineKey(v, n))) chains.push(walk(v, n));
+  /* what is left is loops with nothing touching them */
+  for (const [a, b] of L) if (!used.has(lineKey(a, b))) chains.push(walk(a, b));
+  return chains;
+}
+
+/** The outline of a wall along the points `P`, `w` either side, its
+ *  ends pulled in by `inA`/`inB` so it stops short of what it meets. */
+export function wallOutline(P, w, inA = 0, inB = 0) {
+  P = P.map(p => [...p]);
+  const n = P.length;
+  const pull = (i, j, by) => {
+    const dx = P[j][0] - P[i][0], dy = P[j][1] - P[i][1], L = Math.hypot(dx, dy);
+    if (L <= by + 1) return false;
+    P[i] = [P[i][0] + dx / L * by, P[i][1] + dy / L * by];
+    return true;
+  };
+  if (inA && !pull(0, 1, inA)) return null;
+  if (inB && !pull(n - 1, n - 2, inB)) return null;
+  const nrm = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return [-dy / L, dx / L]; };
+  const left = [], right = [];
+  for (let i = 0; i < n; i++) {
+    const n1 = i > 0 ? nrm(P[i - 1], P[i]) : null, n2 = i < n - 1 ? nrm(P[i], P[i + 1]) : null;
+    let m, k = w;
+    if (n1 && n2) {
+      m = [n1[0] + n2[0], n1[1] + n2[1]];
+      const L = Math.hypot(m[0], m[1]);
+      if (L < 1e-6) m = n1; else { m = [m[0] / L, m[1] / L]; k = Math.min(w / Math.max(0.2, m[0] * n1[0] + m[1] * n1[1]), w * 3); }
+    } else m = n1 || n2;
+    const r = v => +v.toFixed(2);
+    left.push([r(P[i][0] + m[0] * k), r(P[i][1] + m[1] * k)]);
+    right.push([r(P[i][0] - m[0] * k), r(P[i][1] - m[1] * k)]);
+  }
+  return [...left, ...right.reverse()];
+}
+
+/**
+ * THE DOCUMENT WITH ITS LINEDEFS STOOD UP AS WALLS: each run of them a
+ * thin sector (a hole in the one it stands in) raised LINEDEF_H, or to
+ * the ceiling in a room, faced in the line's middle texture or the
+ * room's walls. The document is not changed; a copy with the walls in
+ * it is returned. Anything that would cross a wall is left out and
+ * said in `problems`.
+ */
+export function linedefWalls(doc, problems = []) {
+  const chains = linedefChains(doc);
+  if (!chains.length) return doc;
+  const V = doc.vertices;
+  const rings = doc.sectors.map(s => ringOf(doc, s));
+  const onRing = new Set();
+  for (const s of doc.sectors) for (const v of s.verts) onRing.add(v);
+  const deg = new Map();
+  for (const [a, b] of doc.linedefs) for (const v of [a, b]) deg.set(v, (deg.get(v) || 0) + 1);
+  const out = { ...doc, vertices: V.map(p => [...p]), sectors: [...doc.sectors] };
+  const made = [];
+  let id = Math.max(doc.nextId | 0, 1) + 100000;
+  for (const ch of chains) {
+    const P = ch.map(i => V[i]);
+    const w = LINEDEF_THICK / 2;
+    const cut = v => (onRing.has(v) || (deg.get(v) || 0) > 1 ? w + 1 : 0);
+    const poly = wallOutline(P, w, cut(ch[0]), cut(ch[ch.length - 1]));
+    const key = lineKey(ch[0], ch[1]);
+    if (!poly) { problems.push({ kind: 'line', id: key, msg: `linedef ${key} is too short to stand as a wall` }); continue; }
+    /* the sector it stands in: the smallest one round its middle */
+    const mx = (P[0][0] + P[1][0]) / 2, my = (P[0][1] + P[1][1]) / 2;
+    let host = -1, ha = Infinity;
+    rings.forEach((r, i) => { if (r.length >= 3 && pointInPoly(r, mx, my)) { const a = Math.abs(signedArea(r)); if (a < ha) { ha = a; host = i; } } });
+    const crosses = (A, B) => A.some((p, i) => { const q = A[(i + 1) % A.length]; return B.some((u, j) => { const v = B[(j + 1) % B.length]; return segCross(p[0], p[1], q[0], q[1], u[0], u[1], v[0], v[1]); }); });
+    const bad = host < 0 || selfCrosses(poly) || !strictlyInside(poly, rings[host]) ||
+      rings.some((r, i) => i !== host && r.length >= 3 && (crosses(poly, r) || poly.some(([x, y]) => pointInPoly(r, x, y) && !holeIn(rings[host], r)))) ||
+      made.some(m => crosses(poly, m));
+    if (bad) { problems.push({ kind: 'line', id: key, msg: `linedef ${key} crosses a wall or leaves the map, so it does not stand — split it where it meets them` }); continue; }
+    made.push(poly);
+    const H = doc.sectors[host];
+    const o = (doc.lines || {})[key] || {};
+    const tex = o.midTex || H.wallTex || 'GRIDWALL';
+    const inside = H.ceilTex && H.ceilTex !== 'SKY';
+    const f = H.floor ?? 0, c = H.ceil ?? 1024;
+    const h = o.wallH ?? (inside ? c - f : LINEDEF_H);
+    const verts = poly.map(p => { out.vertices.push(p); return out.vertices.length - 1; });
+    out.sectors.push({ ...JSON.parse(JSON.stringify({ ...H, verts: undefined, storeys: undefined, floorSlope: undefined })),
+      id: id++, verts, name: 'linedef wall', floor: Math.min(c, f + h), floorTex: tex, wallTex: tex, lowerTex: tex, upperTex: tex });
   }
   return out;
 }
@@ -673,7 +814,9 @@ function sectorProps(s, poly) {
  *   picking to find its way back
  */
 export function compileDoc(doc) {
-  const problems = problemsOf(doc);
+  const wallProblems = [];
+  doc = linedefWalls(doc, wallProblems);
+  const problems = [...problemsOf(doc), ...wallProblems];
   const mb = new MapBuilder((doc.name || 'EDIT').slice(0, 16).toUpperCase());
   const V = doc.vertices;
 
@@ -1018,6 +1161,7 @@ export function parseDoc(text) {
   if (d.format !== DOC_FORMAT) throw new Error('not a gss-map file');
   if (!Array.isArray(d.vertices) || !Array.isArray(d.sectors)) throw new Error('the file has no vertices or sectors');
   d.lines = d.lines || {};
+  d.linedefs = d.linedefs || [];
   d.things = d.things || [];
   d.props = d.props || [];
   d.scatters = d.scatters || [];
