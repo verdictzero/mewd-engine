@@ -51,6 +51,7 @@ import { scatterFrom } from './scatter.js';
 import { registerTextures } from './texcompose.js';
 import { sprawlDoc } from '../maps/sprawl.js';
 import { mazeDoc, newMazeSeed } from '../maps/maze.js';
+import { jesseDoc } from '../maps/jesse.js';
 import { PACK_NAMES, loadPack, packNamesIn, PackAnimator } from '../texpack.js';
 
 /* where the editor keeps its work in the browser */
@@ -1195,9 +1196,12 @@ export class Editor {
   fileDemo(which = 'maze') {
     if (this.history.dirty && !confirm('Open the demo level? The current map is autosaved and can be undone back to.')) return;
     const seed = newMazeSeed();
-    this.replace(which === 'sprawl' ? sprawlDoc() : mazeDoc(seed), 'open demo');
+    let doc = which === 'sprawl' ? sprawlDoc() : which === 'jesse' ? jesseDoc(seed) : mazeDoc(seed);
+    if (which === 'jesse') { doc = { ...doc }; delete doc.jesse; }   // the generator's notes, not the map
+    this.replace(doc, 'open demo');
     this.reframe();
-    this.say(which === 'sprawl' ? 'opened the demo level, THE SPRAWL' : `opened a new maze (seed ${seed})`);
+    this.say(which === 'sprawl' ? 'opened the demo level, THE SPRAWL'
+      : which === 'jesse' ? `opened a new JESSE, the PvP maze (seed ${seed})` : `opened a new maze (seed ${seed})`);
   }
 
   /** A different map: all of it on the plan, and the 3D view at its start. */

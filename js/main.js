@@ -37,6 +37,7 @@ import { buildGrid } from './maps/grid.js';
 import { compileDoc, parseDoc } from './editor/doc.js';
 import { sprawlDoc } from './maps/sprawl.js';
 import { mazeDoc, newMazeSeed } from './maps/maze.js';
+import { jesseDoc, newJesseSeed } from './maps/jesse.js';
 import { registerTextures } from './editor/texcompose.js';
 import { loadPack, loadSky, packNamesIn, PackAnimator } from './texpack.js';
 import { Game } from './game.js';
@@ -1352,6 +1353,14 @@ function playedMap() {
   };
   if (q.has('grid')) return null;
   if (q.has('sprawl')) return sprawl();
+  /* JESSE, the PvP maze: a different one every time; ?jesse&seed=N
+     plays N again (js/maps/jesse.js) */
+  if (q.has('jesse')) {
+    const seed = q.has('seed') ? (+q.get('seed') >>> 0) || 1 : newJesseSeed();
+    const doc = jesseDoc(seed);
+    console.info(`JESSE, seed ${seed} (?jesse&seed=${seed} plays it again)`);
+    return { ...compileDoc(doc), doc };
+  }
   if (!q.has('play')) return maze();
   try {
     const text = localStorage.getItem('gss-edit:play');

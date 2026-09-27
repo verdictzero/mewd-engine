@@ -29,6 +29,23 @@ typed out a character at a time, the way the ship's computer in ALIEN
 talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
+JESSE, THE PvP MAZE (js/maps/jesse.js), typed as `jesse` at the
+terminal, or ?jesse (?jesse&seed=N plays one again), or File -> Open a
+new JESSE in the editor. Two fortifiable staging areas, one at each
+end, joined by a massive multithreaded maze, and a different one every
+time: 30-41 by 18-26 cells, cut into two to five zones along its length
+that are each carved by their own algorithm (backtracker, Prim, growing
+tree, binary tree, Kruskal) with their own walls, ground and share of
+loops; several openings on every seam between zones; open rooms,
+pillared halls and cloisters cleared across the corridors; and half the
+time the whole maze point-symmetric. Every cell is reachable (a flood
+knocks through anything cut off). The two bases are always mirror
+images: a fort wall lower than the hedges with two to four gates, low
+cover you can shoot over but not step onto, a tower up a stair that
+sees over the fort wall, crates and fuel cans to barricade with, and
+spawn pads for both teams in world.pvp. Same hedge-tile format as THE
+MAZE, so it opens in the editor like any map.
+
 WEAPON IMPACTS ARE DECALS AND NOTHING ELSE, at the user's request
 (js/decals.js). No puff and no sparks where a round lands: a decal. And
 every decal is a CUBE now — a box stood across the surface and drawn

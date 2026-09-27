@@ -523,6 +523,7 @@
   "js/main.js",
   "js/mapgeo.js",
   "js/maps/grid.js",
+  "js/maps/jesse.js",
   "js/maps/maze.js",
   "js/maps/rectmap.js",
   "js/maps/sellwrong.js",

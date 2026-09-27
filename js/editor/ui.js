@@ -163,6 +163,7 @@ export function buildUI(ed) {
       ['New from THE GRID', '', () => ed.fileNew(true)],
       ['Open demo: a new MAZE', '', () => ed.fileDemo()],
       ['Open THE SPRAWL', '', () => ed.fileDemo('sprawl')],
+      ['Open a new JESSE (PvP maze)', '', () => ed.fileDemo('jesse')],
       '-',
       ['Open…', 'Ctrl+O', () => ed.fileOpen()],
       ['Save as file', 'Ctrl+S', () => ed.fileSave()],

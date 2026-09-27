@@ -15085,6 +15085,72 @@ section('the maze');
    screen says so. So the COMPILED level is walked, every surface of it,
    and every name it wears is held to the pack. */
 /* ---------- layers, steps, and a snap that stays ---------- */
+
+section('jesse, the PvP maze');
+{
+  const JS = await import('../js/maps/jesse.js');
+  const DZ = await import('../js/editor/doc.js');
+  const fsJ = await import('node:fs');
+  const strip = d => { const o = { ...d }; delete o.jesse; return DZ.serialise(o); };
+  /* a small one to build, so the test does not spend a minute compiling */
+  const a = JS.jesseDoc(90210, { w: 22, h: 14 }), b = JS.jesseDoc(90210, { w: 22, h: 14 });
+  check('one seed, one JESSE', strip(a) === strip(b));
+  /* WILDLY DIFFERENT: across a dozen seeds, the sizes, the algorithms,
+     the zone counts and the symmetry all move */
+  const many = Array.from({ length: 12 }, (_, k) => JS.jesseDoc(1000 + k * 7919).jesse);
+  const sizes = new Set(many.map(j => j.W + 'x' + j.H)), algos = new Set(many.flatMap(j => j.zones.map(z => z.algo)));
+  const zoneCounts = new Set(many.map(j => j.zones.length)), sym = new Set(many.map(j => j.symmetric));
+  check('wildly different every time: size, zones, algorithms, symmetry',
+    sizes.size >= 8 && algos.size === JS.ALGOS.length && zoneCounts.size >= 3 && sym.size === 2,
+    `${sizes.size} sizes, ${[...algos]}, ${[...zoneCounts]} zone counts`);
+  const t0 = performance.now();
+  const out = DZ.compileDoc(a);
+  const L = out.level;
+  note('JESSE', `${a.jesse.W}x${a.jesse.H} cells, ${a.sectors.length} sectors, compiled in ${(performance.now() - t0).toFixed(0)}ms`);
+  check('it builds with no problems', !out.problems.length, out.problems.slice(0, 3).map(p => p.msg).join('; '));
+  /* TWO BASES, mirror images, each with gates, cover, a tower and stock */
+  const [A, B] = a.world.pvp.teams;
+  check('two teams, each with spawn pads and gates', A.spawns.length >= 5 && B.spawns.length === A.spawns.length && A.gates.length >= 1 && B.gates.length === A.gates.length);
+  const [MX, MY] = a.jesse.size;
+  check('the bases are point mirrors of each other',
+    A.spawns.every(([x, y], k) => Math.abs(MX - x - B.spawns[k][0]) <= 1 && Math.abs(MY - y - B.spawns[k][1]) <= 1));
+  check('every spawn pad is on a base floor', [...A.spawns, ...B.spawns].every(([x, y]) => L.sectorAt(x, y)?.floor === 0));
+  const floors = new Set(a.sectors.map(s => s.floor));
+  check('a fort wall under the hedges, cover you can shoot over but not step on, a tower up steps',
+    floors.has(JS.FORT_H) && floors.has(JS.COVER_H) && floors.has(JS.TOWER_H) && JS.COVER_H > 24 && JS.COVER_H < 49 &&
+    [24, 48, 72].every(h => floors.has(h)));
+  check('stock to fortify with: crates and fuel cans in both yards',
+    L.things.filter(t => t.type === 'CRATE').length >= 4 && L.things.filter(t => t.type === 'FUELCAN').length >= 4);
+  /* AND ONE BASE CAN REACH THE OTHER: flood the level's walkable ground
+     on a 32-unit lattice, stepping no more than 24 at a time */
+  const G = 32, NX = Math.ceil(MX / G), NY = Math.ceil(MY / G);
+  const fl = (i, j) => { const s = L.sectorAt(i * G + G / 2, j * G + G / 2); return s ? s.floor : 1e9; };
+  const cellOf = ([x, y]) => [Math.floor(x / G), Math.floor(y / G)];
+  const [si, sj] = cellOf(A.spawns[0]);
+  const seen = new Uint8Array(NX * NY), q = [[si, sj]];
+  seen[sj * NX + si] = 1;
+  while (q.length) {
+    const [i, j] = q.pop();
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ni = i + di, nj = j + dj;
+      if (ni < 0 || nj < 0 || ni >= NX || nj >= NY || seen[nj * NX + ni]) continue;
+      if (fl(ni, nj) - fl(i, j) > 24) continue;
+      seen[nj * NX + ni] = 1; q.push([ni, nj]);
+    }
+  }
+  check('you can walk from one base to the other, and up the tower',
+    B.spawns.every(p => { const [i, j] = cellOf(p); return seen[j * NX + i]; }) &&
+    (() => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) if (seen[j * NX + i] && fl(i, j) === JS.TOWER_H) return true; return false; })());
+  check('several threads: more than one way out of each base', A.gates.length + 0 >= 1 && many.every(j => j.base.gates >= 1));
+  const packSrc = fsJ.readFileSync('js/texpack-data.js', 'utf8');
+  const texs = new Set(a.sectors.flatMap(s => [s.floorTex, s.wallTex, s.lowerTex].filter(Boolean)));
+  check('every texture it wears is in the pack', [...texs].every(n => packSrc.includes(`"${n}"`) || packSrc.includes(`'${n}'`)), [...texs].join(' '));
+  const termSrc = fsJ.readFileSync('js/terminal.js', 'utf8'), mainSrc = fsJ.readFileSync('js/main.js', 'utf8');
+  check('`jesse` at the terminal opens it, and ?jesse goes straight there',
+    /JESSE_WORDS = \['JESSE'\]/.test(termSrc) && /location\.href = '\?jesse'/.test(termSrc) && /params\.has\('jesse'\)/.test(termSrc) &&
+    /q\.has\('jesse'\)/.test(mainSrc) && /jesseDoc\(seed\)/.test(mainSrc));
+}
+
 section('layers and steps');
 {
   const E = await import('../js/editor/editor.js');

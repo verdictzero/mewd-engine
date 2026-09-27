@@ -36,6 +36,8 @@ const $ = id => document.getElementById(id);
 const GAME_WORDS = ['G', 'GAME'];
 const EDIT_WORDS = ['E', 'EDIT'];
 const QUIT_WORDS = ['QUIT', 'EXIT'];
+/* JESSE, the PvP maze (js/maps/jesse.js): a new one every time */
+const JESSE_WORDS = ['JESSE'];
 const QUIT_URL = 'https://news.asr.institute';
 
 /* THE PROMPT, at the user's request: the interface's number and a
@@ -303,6 +305,11 @@ class Terminal {
     this.hist = this.history.length;
     if (GAME_WORDS.includes(entry)) { await this.open(); return; }
     if (EDIT_WORDS.includes(entry)) { await this.open('./editor/editor.js'); return; }
+    if (JESSE_WORDS.includes(entry)) {
+      await this.tell(['JESSE', 'GENERATING']);
+      location.href = '?jesse';
+      return;
+    }
     if (QUIT_WORDS.includes(entry)) {
       await this.tell(['GOODBYE']);
       location.href = QUIT_URL;
@@ -359,10 +366,10 @@ class Terminal {
    which js/main.js picks up on its own; `?demo` is the demo, THE MAZE
    (js/maps/maze.js) — the game's own world, a new one each time, and
    `?seed=N` maze N again; `?sprawl` is THE SPRAWL (js/maps/sprawl.js);
-   `?grid` is THE GRID, the test area it used to be. Anything else is the
-   terminal. */
+   `?grid` is THE GRID, the test area it used to be; `?jesse` is JESSE,
+   the PvP maze (js/maps/jesse.js). Anything else is the terminal. */
 const params = new URLSearchParams(location.search);
-if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid') || params.has('sprawl') || params.has('seed')) {
+if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid') || params.has('sprawl') || params.has('seed') || params.has('jesse')) {
   $('term').remove();
   const go = params.has('edit')
     ? import('./editor/editor.js').then(m => m.startEditor())
