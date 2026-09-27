@@ -1209,7 +1209,7 @@ export class Gunship {
       const yaw = this.yaw + this.tYaw + (rnd() - 0.5) * 2 * G.spread;
       const pitch = this.tPitch + this.rz + (rnd() - 0.5) * 2 * G.spread * 0.7;
       const dmg = Math.round(between(G.damage));
-      g.hitscan(shooter, yaw, G.range, dmg, { shot: true, pitch, from, spark: true });
+      g.hitscan(shooter, yaw, G.range, dmg, { shot: true, hot: true, pitch, from });
       if (g.tracers && g.lastHit) g.tracers.spawn(from, g.lastHit);
       this.rounds++;
     }

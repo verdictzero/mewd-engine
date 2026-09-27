@@ -3914,7 +3914,7 @@ section('the crowd');
   const blast = g.actors.filter(a => a.type === 'BLAST');
   check('there is a fireball where they were', blast.length === 1 &&
     Math.hypot(blast[0].x - victim.x, blast[0].y - victim.y) < 1);
-  check('and a splat under it', g.actors.some(a => a.type === 'GORE'));
+  check('and a pool of blood under it, a decal', g.giblets.pools >= 1 && g.decals.pools.blood.frame.some((f, i) => f === 1 && g.decals.pools.blood.strength[i] > 0));
   g.actors.forEach(a => a.tic());            // the gib state is one tic long
   check('the person is gone', victim.removed);
   check('the pieces are in the air', g.giblets.chunks.count === ppl.GIB.count,
@@ -3930,7 +3930,7 @@ section('the crowd');
      pieces and the check was asking the wrong question. */
   for (let k = 0; k < 200; k++) g.giblets.tic();
   check('every piece comes down', g.giblets.chunks.count === 0, `${g.giblets.chunks.count} still up`);
-  check('they leave something on the floor', g.actors.filter(a => a.type === 'GORE').length > 1);
+  check('they leave blood on the floor', g.decals.pools.blood.count > 1 && !g.actors.some(a => a.type === 'GORE'), `${g.decals.pools.blood.count}`);
   for (let k = 0; k < 120; k++) g.fire.tic();
   /* AND THEY START NOTHING, which is the reverse of what this line
      checked for most of the project's life. A burning piece of somebody
@@ -3943,14 +3943,12 @@ section('the crowd');
     g.fire.liveCells === litBefore && g.fire.burntFuel === burntBefore,
     `${litBefore} -> ${g.fire.liveCells} cells, ${burntBefore.toFixed(0)} -> ${g.fire.burntFuel.toFixed(0)} fuel`);
   note('one person', `${g.actors.length - before + 1} things left behind, ` +
-    `${g.actors.filter(a => a.type === 'GORE').length} splats`);
+    `${g.decals.pools.blood.count} blood decals`);
 
   /* --- the floor does not fill up with them for ever --- */
-  for (let k = 0; k < ppl.GIB.maxSplats + 40; k++) g.giblets.splat(1200, 900, 0);
-  check('the splats are capped', g.giblets.splats.length === ppl.GIB.maxSplats,
-    `${g.giblets.splats.length}`);
-  check('and the ones over the cap are taken away',
-    g.actors.filter(a => a.type === 'GORE' && !a.removed).length <= ppl.GIB.maxSplats + 2);
+  for (let k = 0; k < 400; k++) g.giblets.splat(1200, 900, 0);
+  check('the pools of blood are capped: the decals\' own ring', g.decals.pools.blood.count <= g.decals.pools.blood.max,
+    `${g.decals.pools.blood.count}`);
 
   /* --- and they run from it ---
      The whole claim in one measurement: put a fire next to somebody,
@@ -9392,13 +9390,18 @@ section('the minigun, the jump and the van');
     const before = g2.actors.length;
     const floor = q.sector.floor;
     /* straight down at your own feet: the shot stops at the lino and
-       puts its puff there, rather than at eye height a mile away */
-    g2.hitscan(q, q.angle, 2400, 10, { shot: true, pitch: -0.7, from: g2.nozzle() });
-    const puff = g2.actors.slice(before).find(a => a.type === 'PUFF' || a.info?.name === 'PUFF' || /PUFF/.test(a.type || ''));
-    const last = g2.actors[g2.actors.length - 1];
+       puts its hole there, rather than at eye height a mile away —
+       and nothing else: an impact is a decal now, no puff */
+    const holesBefore = g2.decals.holes;
+    g2.hitscan(q, q.angle, 2400, 10, { shot: true, hot: true, pitch: -0.7, from: g2.nozzle() });
+    const last = g2.lastHit, HP = g2.decals.pools.hole, hi = (HP.next + HP.max - 1) % HP.max;
     check('a shot aimed at the floor stops at the floor',
-      g2.actors.length > before && Math.abs(last.z - floor) < 1e-6 && Math.hypot(last.x - q.x, last.y - q.y) < 120,
-      `puff at z ${last.z}, floor ${floor}, ${Math.hypot(last.x - q.x, last.y - q.y).toFixed(0)} out`);
+      g2.decals.holes === holesBefore + 1 && Math.abs(last.z - floor) < 1e-6 && Math.hypot(last.x - q.x, last.y - q.y) < 120 &&
+      HP.nz[hi] === 1 && Math.abs(HP.z[hi] - floor) < 1e-6,
+      `hole at z ${last.z}, floor ${floor}, ${Math.hypot(last.x - q.x, last.y - q.y).toFixed(0)} out`);
+    check('and the impact is a decal only: no puff, no sparks',
+      g2.actors.length === before && !g2.actors.some(a => a.type === 'PUFF' || a.type === 'SPARK'));
+    check('a minigun round\'s hole is the hot kind, and bigger', HP.frame[hi] === 2 && HP.size[hi] >= 8 * 1.3 - 1e-6);
     /* and a level one still lands on a person at their height */
     const target = g2.actors.find(a => a.shootable && !a.dead && !a.vehicle && a.solid && a.health > 0 && !a.noclip);
     if (target) {
@@ -9686,8 +9689,48 @@ section('the decals');
     dC.render(hx, hy, 1, 0);
     check('given the eye, the one behind it and the one out of range are not', H.drawn === 1, `${H.drawn} drawn`);
     dC.render(hx, hy, -1, 0);
-    check('turn round and it is the other one', H.drawn === 1 && H.mesh.geometry.drawRange.count === 6);
+    check('turn round and it is the other one, one box instanced', H.drawn === 1 && H.mesh.geometry.instanceCount === 1);
     check('and the range is a number the readme can name', D.DRAW_RANGE >= 2000 && D.DRAW_RANGE <= 4000);
+  }
+  /* --- cubes, blood and burning holes ------------------------------- */
+  {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../js/decals.js', import.meta.url), 'utf8');
+    check('every decal is a box projected onto the world\'s depth, one instanced draw',
+      /InstancedBufferGeometry/.test(src) && /BoxGeometry\(1, 1, 1\)/.test(src) && /unpackRGBAToDepth/.test(src) &&
+      /side: THREE\.BackSide/.test(src) && /depthTest: false/.test(src));
+    check('the detail is arithmetic: no picture is drawn for a decal any more',
+      !/holeStrip|glowStrip|CanvasTexture/.test(src) && /dfbm/.test(src) && /cracks\(/.test(src));
+    check('and the pipeline draws them between the world and the gun',
+      /this\.afterWorld\(r, camera, this\.target\)/.test(readFileSync(new URL('../js/lofi.js', import.meta.url), 'utf8')) &&
+      /pipeline\.afterWorld = \(r, cam, target\) => game\.decals\.draw\(r, cam, target\)/.test(readFileSync(new URL('../js/main.js', import.meta.url), 'utf8')));
+    check('eight kinds, each its own look', Object.keys(D.KIND).length === 8 && D.POOLS.blood > 0 && D.POOLS.burn > 0);
+    const gB = mk(), dB = gB.decals;
+    dB.attach(gB.scene);
+    const victim = gB.actors.find(a => a.monster && a.shootable && !a.vehicle && !a.dead);
+    check('people bleed; a van and a block of ice do not',
+      D.bleeds(victim) && !D.bleeds({ monster: true, vehicle: {} }) && !D.bleeds({ monster: true, frozen: true }) && D.bleeds(gB.player, gB.player));
+    const n0 = dB.pools.blood.count;
+    const k = dB.bleed(victim, victim.x, victim.y, victim.z + 40, 1, 0, 0);
+    check('a round through somebody puts blood on the floor at their feet', k >= 1 && dB.pools.blood.count === n0 + k &&
+      dB.pools.blood.nz[(dB.pools.blood.next + dB.pools.blood.max - k) % dB.pools.blood.max] === 1);
+    const bi = dB.blood(victim.x, victim.y, victim.z, D.UP, 0, 1, 0);
+    check('and a spatter is turned to face the way it was thrown', Math.abs(dB.pools.blood.rot[bi] - Math.PI / 2) < 1e-6);
+    const ri = dB.burn(victim.x, victim.y, victim.z, D.UP);
+    check('a burning hole is big, and burns', dB.burns === 1 && dB.pools.burn.size[ri] > 60 && dB.kindOf(dB.pools.burn, ri) === D.KIND.BURN);
+    dB.pool(victim.x, victim.y, victim.z);
+    dB.hole(victim.x, victim.y, victim.z, D.UP, true);
+    dB.render();
+    check('and all of them go into the one box', dB.mesh.geometry.instanceCount === dB.liveCount && dB.drawn === dB.liveCount);
+    const P = dB.mesh.geometry.attributes.iP.array;
+    const kinds = new Set(); for (let i = 0; i < dB.drawn; i++) kinds.add(P[i * 4]);
+    check('with their kinds told apart', kinds.has(D.KIND.SPATTER) && kinds.has(D.KIND.POOL) && kinds.has(D.KIND.BURN) && kinds.has(D.KIND.HOT));
+    const hitSrc = readFileSync(new URL('../js/game.js', import.meta.url), 'utf8');
+    check('the shot, the warhead, the bore and a bomb all leave decals and not puffs',
+      /this\.decals\.bleed\(best\.a/.test(hitSrc) && !/spawnPuff\(wall\.x, wall\.y, wall\.z\);\n\s*if \(opts\.spark\)/.test(hitSrc) &&
+      /decals\?\.burn\(at\.x, at\.y, at\.z, face\)/.test(readFileSync(new URL('../js/missiles.js', import.meta.url), 'utf8')) &&
+      /decals\?\.burn\(/.test(readFileSync(new URL('../js/bore.js', import.meta.url), 'utf8')) && /this\.decals\.burn\(a\.x/.test(hitSrc));
+    check('and the minigun\'s rounds are the hot kind', /shot: true, hot: true/.test(readFileSync(new URL('../js/player.js', import.meta.url), 'utf8')));
   }
   /* --- heat ---------------------------------------------------------- */
   const g2 = mk();

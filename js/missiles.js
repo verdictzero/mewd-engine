@@ -542,9 +542,16 @@ export class MissileSystem {
     for (let k = 0; k < 4; k++) g.fx?.fireball(at.x, at.y, at.z, 56, 12);
     g.fx?.ember(at.x, at.y, at.z, 10, 1.3);
     g.spawnSparks?.(at.x, at.y, at.z, 8);
-    /* AND IT LEAVES A MARK on what it hit — the hot spot a flame leaves,
-       at its hottest, which glows and cools into a scorch (js/decals.js) */
-    if (face) g.decals?.heat(at.x, at.y, at.z, face, 1);
+    /* AND IT LEAVES A BURNING HOLE in what it hit — a crater with a
+       molten rim and coals in the cracks round it, which burn out over
+       a few seconds and leave the char (js/decals.js, Decals.burn). A
+       warhead that went off in the air, or in somebody, marks the floor
+       under it if the floor is close enough to have taken the blast. */
+    if (face) g.decals?.burn(at.x, at.y, at.z, face);
+    else {
+      const under = g.level?.sectorAt?.(at.x, at.y);
+      if (under && at.z - under.floor < 72) g.decals?.burn(at.x, at.y, under.floor, UP, 70);
+    }
     g.fx?.glowAt(at.x, at.y, 6);
     /* and it starts a fire where it went off, because this is that game */
     g.fire?.ignite(at.x, at.y, WARHEAD.heat, WARHEAD.heatRadius);

@@ -29,6 +29,33 @@ typed out a character at a time, the way the ship's computer in ALIEN
 talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
+WEAPON IMPACTS ARE DECALS AND NOTHING ELSE, at the user's request
+(js/decals.js). No puff and no sparks where a round lands: a decal. And
+every decal is a CUBE now — a box stood across the surface and drawn
+from inside, whose shader reads the world's depth, rebuilds the point
+of the world under each pixel and paints only what falls inside the
+box — so a decal lies on whatever is there, wraps a corner, and stops
+at the edge of a wall instead of hanging off it. The detail is all
+arithmetic (noise, cracks, drops), not pictures, so it is sharp at any
+size. One instanced draw for every decal of every kind:
+  bullet holes    a dark bored core, a chipped lip, hair cracks, soot
+  minigun holes   bigger, with a burnt ring, and the lip glows orange
+                  and cools over a second and a half
+  burning holes   what a rocket, the bore, a bomb, a barrel or a
+                  molotov leaves: a crater with a molten rim and coals
+                  flickering in the cracks, burning out over ~12 s into
+                  char
+  blood           a spatter at the feet of whoever is shot, thrown the
+                  way the round went, and another up the wall behind
+                  them if one is in reach; a POOL where somebody falls
+                  or comes apart, spreading over its first seconds and
+                  drying at the rim (the old flat GORE sprites are gone)
+  heat, frost     the flamethrower's glow and the extinguisher's rime,
+                  now with swimming flame and ice needles drawn in
+The world's depth is copied once a frame (eight-bit packed) so the
+boxes can read it while they draw; see Decals.draw and the afterWorld
+hook in js/lofi.js.
+
 THE LOGO is the user's DEWM mark (assets/logo/dewm.webp, their image
 with its transparent edge cropped off), on the loading screen and over
 the title.

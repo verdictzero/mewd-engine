@@ -612,6 +612,9 @@ async function boot() {
                          flameAtlas: streamAtlas, bodyAtlas: flameAtlas, fxAtlases, gibAtlases, rainAtlas,
                          fleet, police, apc, firetruck, vtol, weather });
   hud.game = game;
+  /* the decals are boxes drawn against the world's depth, between the
+     world and the gun — see js/decals.js */
+  pipeline.afterWorld = (r, cam, target) => game.decals.draw(r, cam, target);
   const touch = new TouchControls(input, { root: $('touch'), prefs, onPause: () => pause(true) });
 
   /* THE SCREEN ON THE BACK OF THE LANCE, and it is given the renderer

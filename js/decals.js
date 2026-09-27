@@ -56,12 +56,11 @@
    ===================================================================== */
 
 import * as THREE from 'three';
-import { Pix } from './pixel.js';
 import { WORLD_UNIFORMS_GLSL, WORLD_SHADE_GLSL, worldUniforms } from './material.js';
 import { pRandom, TICRATE } from './util.js';
 
 /* the pools, and the numbers that make each kind what it is */
-export const POOLS = { hole: 100, heat: 100, frost: 100 };
+export const POOLS = { hole: 100, heat: 100, frost: 100, blood: 120, burn: 24 };
 /* HOW MANY HOLES, AND HOW FAR. The hole pool is the MAX COUNT: a
    hundred on the walls at once, at the user's request (it was five
    hundred and twelve, and the accumulation was a cost), which a
@@ -94,7 +93,12 @@ export const FADE_RATE = 1 / 4;               // and the most one may lose in a 
  *  finished shooting. Pure, for the test. */
 export const fadeTarget = k => { const t = k / FADE_AHEAD; return t * t; };
 export const DRAW_RANGE = 2600;               // world units from the eye
-export const HOLE_SIZE = [5, 9];              // world units across, min..max
+export const HOLE_SIZE = [8, 13];             // world units across, min..max: the soot round it included
+export const HOT_SCALE = 1.3;                 // a minigun round's hole, and its burnt ring, bigger than a rifle's
+export const BLOOD_SIZE = [20, 38];           // a spatter, across
+export const POOL_SIZE = [44, 70];            // the pool under somebody, once it has spread
+export const BURN_SIZE = 84;                  // a warhead's burning hole
+export const BLOOD_REACH = 130;               // how far behind somebody a round throws them onto a wall
 export const SCORCH_SIZE = 46;                // the blot a hot spot leaves
 export const HEAT_SIZE = 38;
 export const FROST_SIZE = 44;
@@ -106,6 +110,11 @@ export const MERGE_RADIUS = 26;               // a landing this near an existing
 export const ARGUE_RADIUS = 44;               // and this near the other kind fights it
 export const ARGUE_AMOUNT = 0.10;
 export const LIFT = 0.6;                      // how far off the surface a decal sits
+
+/** Who bleeds: people, and you. Not a van, not a gunship, not somebody
+ *  frozen solid — ice breaks, it does not bleed. Pure. */
+export const bleeds = (a, player = null) => !!a && !a.vehicle && !a.frozen &&
+  (a === player || !!a.monster || !!a.info?.monster);
 
 /** The normal of a wall line, unit length, facing the side (fx, fy) is
  *  on — the side the shot came from. Pure. */
@@ -137,6 +146,10 @@ export function surfaceBasis(n) {
   return { ux: -n.ny, uy: n.nx, uz: 0, vx: 0, vy: 0, vz: 1 };
 }
 
+/* a private stream of numbers for how decals look, apart from pRandom */
+let cosmeticState = 0x9e3779b9;
+const cosmetic = () => ((cosmeticState = (Math.imul(cosmeticState, 1664525) + 1013904223) >>> 0) / 4294967296);
+
 /* ---- one pool: the data, and (once attached) the geometry ---------- */
 class Pool {
   constructor(kind, max) {
@@ -151,7 +164,9 @@ class Pool {
     this.peak = new Float32Array(max);       // the most it has ever been
     this.light = new Float32Array(max);
     this.sky = new Float32Array(max);
-    this.frame = new Uint8Array(max);        // which picture in the pool's strip
+    this.frame = new Uint8Array(max);        // which variety of its kind (see KIND_OF)
+    this.born = new Float32Array(max);       // the tic it was put there, for what changes with age
+    this.seed = new Float32Array(max);       // its own noise, so no two are alike
     /* A HOLE IN A VEHICLE RIDES WITH IT: `owner` is the vehicle and the
        l* arrays are the hole in the vehicle's own frame — x along its
        length, y across, z up off the body's floor — turned into world
@@ -210,142 +225,340 @@ class Pool {
     this.size[i] = size; this.rot[i] = rot;
     this.strength[i] = strength; this.peak[i] = strength;
     this.light[i] = light; this.sky[i] = sky; this.frame[i] = frame;
+    /* its own noise, from a private counter and NOT the game's random
+       numbers: what a decal looks like must never move where a trooper
+       decides to run */
+    this.seed[i] = cosmetic();
     this.dirtyPos = true; this.dirtyStrength = true;
   }
 }
 
-/* ---- the pictures: drawn here, like everything else ---------------- */
-function holeStrip() {
-  /* two frames: the hole, and the scorch */
-  const S = 32;
-  const pix = new Pix(S * 2, S, 1, false);
-  const cx = S / 2, cy = S / 2;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = x - cx + 0.5, dy = y - cy + 0.5;
-    const d = Math.hypot(dx, dy) / (S / 2);
-    const ang = Math.atan2(dy, dx);
-    /* THE HOLE: a dark core inside a ragged PALE lip — the chipped
-       plaster round a bullet hole, and the reason one reads at all.
-       The shop is dark at night and a dark spot on a dark wall is
-       nothing; the lip is what you see, and the core is what you see
-       it round. */
-    const rag = 0.80 + 0.16 * Math.sin(ang * 5 + 1.3) * Math.cos(ang * 3 - 0.4);
-    if (d < rag) {
-      const core = d < rag * 0.5;
-      const f = (d - rag * 0.5) / (rag * 0.5);          // 0 at the core's edge, 1 at the rim
-      const grain = ((x * 7 + y * 13) % 5) * 9;
-      const a = core ? 240 : Math.round(215 * (1 - f * f));
-      const v = core ? 8 : 120 + grain + Math.round(60 * (1 - f));
-      pix.set(x, y, v, v - 4, v - 8, a);
-    }
-    /* the scorch: soft, dark, thinning to the edge, mottled */
-    const rag2 = 0.86 + 0.12 * Math.sin(ang * 3 + 0.7) * Math.cos(ang * 7 + 2.1);
-    if (d < rag2) {
-      const f = 1 - d / rag2;
-      const m = 0.75 + 0.25 * Math.sin(x * 1.7 + y * 2.3) * Math.cos(x * 0.9 - y * 1.1);
-      const a = Math.round(210 * f * f * m);
-      pix.set(S + x, y, 14, 12, 11, a);
-    }
-  }
-  return pix;
-}
+/* ---- THE PICTURES: CUBES, AND A SHADER THAT DRAWS ON WHAT IS IN THEM --
 
-function glowStrip() {
-  /* one frame: a soft radial patch with a mottled edge, used by both
-     the heat and the frost, coloured by the shader */
-  const S = 32;
-  const pix = new Pix(S, S, 1, false);
-  const cx = S / 2, cy = S / 2;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = x - cx + 0.5, dy = y - cy + 0.5;
-    const d = Math.hypot(dx, dy) / (S / 2);
-    const ang = Math.atan2(dy, dx);
-    const rag = 0.88 + 0.12 * Math.sin(ang * 4 + 0.3) * Math.cos(ang * 6 - 1.9);
-    if (d >= rag) continue;
-    const f = 1 - d / rag;
-    const m = 0.8 + 0.2 * Math.sin(x * 2.1 + y * 1.3) * Math.cos(x * 1.1 - y * 2.7);
-    pix.set(x, y, 255, 255, 255, Math.round(255 * Math.min(1, f * f * 1.6) * m));
-  }
-  return pix;
-}
+   EVERY DECAL IS A BOX NOW, at the user's request, and nothing is a
+   picture any more. The old decals were flat quads with a 32-pixel
+   drawing on them, laid a hair off the wall, and they had the three
+   faults a flat quad always has: they hung off the edge of a wall into
+   the air, they sliced through a corner instead of wrapping round it,
+   and at 32 pixels a hole the size of a door was a smear.
 
-function makeTex(pix) {
-  const t = new THREE.CanvasTexture(pix.toCanvas());
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
-  t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
-  return t;
-}
+   A BOX-PROJECTED DECAL is a cube stood across the surface — half in
+   the wall, half out — drawn from the inside (its back faces, with no
+   depth test, so it is drawn when the eye is inside it too). For every
+   pixel it covers, the fragment shader reads the WORLD'S OWN DEPTH at
+   that pixel, rebuilds the point of the world that is there, and asks
+   where that point sits inside the box. Outside the box: nothing. Inside:
+   the decal, drawn at that point of its own square. So a decal lies on
+   whatever the world actually is — a wall, a floor, a step, the corner
+   where two meet — and it stops exactly where the wall stops, because
+   past the edge the point the depth rebuilds is somewhere else.
 
-const VERT = /* glsl */`
-attribute float aStrength;
-attribute float aLight;
-attribute float aSky;
-varying vec2  vUv;
-varying float vStrength;
-varying float vLight;
-varying float vSky;
-varying float vDepth;
-varying vec3  vWorld;
+   AND THE DETAIL IS ARITHMETIC. Nothing is sampled but the depth: a
+   bullet hole's ragged lip and its cracks, a burning hole's coals, the
+   drops thrown off a spatter of blood, the crystals in the rime, all of
+   it is noise and distance worked out per pixel from the decal's own
+   seed, so it is as sharp at a hand's width as it is across the street
+   and no two are the same.
+
+   WHAT IT NEEDS is the world's depth as a texture it can read while it
+   draws into the world's colour, which WebGL will not allow off the
+   same framebuffer. So the depth is copied first — one full-screen pass
+   at the buffer's own low resolution, packed into eight-bit RGBA — and
+   the boxes read the copy. See Decals.draw, which js/lofi.js calls
+   between the world and everything drawn over it.
+
+   ONE DRAW CALL FOR ALL OF THEM. One instanced box, one instance per
+   live decal of every kind, and PREMULTIPLIED blending so a dark hole
+   (painted over the wall) and a glowing coal (added to it) are the same
+   blend: the colour carries its own alpha, and a glow is colour with no
+   alpha at all. */
+
+/* the kinds, as the shader numbers them */
+export const KIND = Object.freeze({ HOLE: 0, SCORCH: 1, HOT: 2, HEAT: 3, FROST: 4, SPATTER: 5, POOL: 6, BURN: 7 });
+
+/* how deep each kind's box reaches either side of the surface, over its
+   width: a bullet hole is a skin, blood is thrown far enough to wrap
+   over a kerb, a burnt hole is a crater */
+const DEPTH = [0.22, 0.30, 0.22, 0.30, 0.30, 0.45, 0.18, 0.40];
+
+const DECAL_VERT = /* glsl */`
+attribute vec3 iC;
+attribute vec3 iU;
+attribute vec3 iV;
+attribute vec3 iN;
+attribute vec4 iP;      // kind, strength, seed, age in seconds
+attribute vec2 iL;      // the surface's light, and how much is sky
+varying vec3 vC;
+varying vec3 vU;
+varying vec3 vV;
+varying vec3 vN;
+varying vec4 vP;
+varying vec2 vL;
 void main() {
-  vUv = uv;
-  vStrength = aStrength;
-  vLight = aLight;
-  vSky = aSky;
-  vWorld = position;
-  vec4 mv = viewMatrix * vec4(position, 1.0);
-  vDepth = -mv.z;
-  gl_Position = projectionMatrix * mv;
+  vC = iC; vU = iU; vV = iV; vN = iN; vP = iP; vL = iL;
+  vec3 w = iC + iU * (position.x * 2.0) + iV * (position.y * 2.0) + iN * (position.z * 2.0);
+  gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
 }
 `;
 
-/* KIND is 0 for a hole or a scorch, 1 for heat, 2 for frost. A hole is
-   a dark thing that takes the wall's own light and fog, so a hole in a
-   dark corner is not a black square glowing in it; heat is its own
-   light and ignores both; frost is a pale thing on the surface, lit
-   like the surface. */
-const FRAG = /* glsl */`
-uniform sampler2D map;
-uniform float kind;
+const DECAL_FRAG = /* glsl */`
+#include <packing>
+uniform sampler2D tDepth;
+uniform vec2 uRes;
+uniform mat4 uInvProj;
+uniform mat4 uCamWorld;
+uniform float uTime;
 ${WORLD_UNIFORMS_GLSL}
-varying vec2  vUv;
-varying float vStrength;
-varying float vLight;
-varying float vSky;
-varying float vDepth;
-varying vec3  vWorld;
+varying vec3 vC;
+varying vec3 vU;
+varying vec3 vV;
+varying vec3 vN;
+varying vec4 vP;
+varying vec2 vL;
 ${WORLD_SHADE_GLSL}
-void main() {
-  vec4 t = texture2D(map, vUv);
-  if (t.a < 0.02) discard;
-  vec3 c; float a;
-  if (kind < 0.5) {
-    float l = worldBand(vLight, vDepth, vSky, 0.0);
-    c = worldShade(t.rgb, l, vDepth, vWorld, 0.0);
-    a = t.a * vStrength;
-  } else if (kind < 1.5) {
-    /* heat: the same ramp the minigun's barrels use, dull red to
-       orange to yellow-white, banded, and additive */
-    float h = vStrength;
-    vec3 hot = h < 0.5 ? mix(vec3(0.55, 0.03, 0.0), vec3(1.0, 0.36, 0.05), h * 2.0)
-                       : mix(vec3(1.0, 0.36, 0.05), vec3(1.0, 0.92, 0.62), (h - 0.5) * 2.0);
-    float g = floor(t.a * h * 8.0 + 0.5) / 8.0;
-    c = hot; a = g * 0.95;
-  } else {
-    float l = worldBand(vLight, vDepth, vSky, 0.0);
-    c = worldShade(vec3(0.80, 0.90, 1.0), l + 0.15, vDepth, vWorld, 0.0);
-    a = t.a * vStrength * 0.85;
-  }
-  if (a < 0.01) discard;
-  gl_FragColor = vec4(c, a);
+
+float dh1(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+vec2 dh2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+float dnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(dh1(i), dh1(i + vec2(1.0, 0.0)), u.x), mix(dh1(i + vec2(0.0, 1.0)), dh1(i + vec2(1.0, 1.0)), u.x), u.y);
 }
+float dfbm(vec2 p) {
+  float a = 0.5, s = 0.0;
+  for (int i = 0; i < 4; i++) { s += a * dnoise(p); p = p * 2.03 + 11.7; a *= 0.5; }
+  return s;
+}
+/* a ragged edge: the radius a round thing reaches at this angle */
+float rag(float ang, float seed, float amt) {
+  vec2 q = vec2(cos(ang), sin(ang)) * 2.2 + seed * 17.0;
+  return 1.0 + amt * (dfbm(q) - 0.5) * 2.0;
+}
+/* cracks: thin dark lines running out from the centre */
+float cracks(vec2 p, float seed, float n) {
+  float ang = atan(p.y, p.x);
+  float r = length(p);
+  float k = ang * n / 6.2831853 + seed * 5.0;
+  float cell = floor(k);
+  float off = dh1(vec2(cell, seed)) - 0.5;
+  float wob = (dnoise(vec2(r * 9.0, cell * 3.1 + seed)) - 0.5) * 0.9;
+  float d = abs(fract(k) - 0.5 - off * 0.6 + wob * 0.25);
+  float len = 0.55 + 0.45 * dh1(vec2(seed, cell + 7.0));
+  float w = 0.09 * (1.0 - r / max(len, 0.01));
+  return (r < len) ? 1.0 - smoothstep(0.0, max(w, 0.0), d) : 0.0;
+}
+/* the fire's own ramp, dull red to yellow-white */
+vec3 hotRamp(float h) {
+  return h < 0.5 ? mix(vec3(0.55, 0.03, 0.0), vec3(1.0, 0.36, 0.05), h * 2.0)
+                 : mix(vec3(1.0, 0.36, 0.05), vec3(1.0, 0.92, 0.62), (h - 0.5) * 2.0);
+}
+
+void main() {
+  vec2 suv = gl_FragCoord.xy / uRes;
+  float d = unpackRGBAToDepth(texture2D(tDepth, suv));
+  if (d >= 0.99999) discard;                          // nothing there: sky
+  vec4 vp = uInvProj * vec4(suv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+  vp /= vp.w;
+  vec3 wp = (uCamWorld * vp).xyz;
+  vec3 rel = wp - vC;
+  vec3 l = vec3(dot(rel, vU) / dot(vU, vU), dot(rel, vV) / dot(vV, vV), dot(rel, vN) / dot(vN, vN));
+  if (abs(l.x) > 1.0 || abs(l.y) > 1.0 || abs(l.z) > 1.0) discard;
+  /* THE SURFACE'S OWN NORMAL, from how the rebuilt point moves across
+     the screen. A decal stood across a corner lies on both faces of it,
+     but thins out on a face that turns away from the one it was thrown
+     at, so a hole does not smear itself down the side of a pillar. */
+  vec3 sn = normalize(cross(dFdx(wp), dFdy(wp)));
+  float facing = abs(dot(sn, normalize(vN)));
+  float kind = vP.x, strength = vP.y, seed = vP.z, age = vP.w;
+  float depthFade = 1.0 - smoothstep(0.55, 1.0, abs(l.z));
+  float fade = smoothstep(0.18, 0.55, facing) * depthFade * strength;
+  if (fade <= 0.003) discard;
+  vec2 p = l.xy;
+  float r = length(p);
+  float ang = atan(p.y, p.x);
+  float viewDepth = -vp.z;
+  float lit = worldBand(vL.x, viewDepth, vL.y, 0.0);
+
+  vec3 col = vec3(0.0);   // the paint, not yet multiplied by its alpha
+  float a = 0.0;
+  vec3 glow = vec3(0.0);  // light it gives off, added
+
+  if (kind < 0.5 || (kind > 1.5 && kind < 2.5)) {
+    /* A BULLET HOLE. A black core with depth in it — the bore of the
+       hole lit on the side the light comes from and falling away inside
+       — a ragged lip of chipped paint and plaster round it, a few hair
+       cracks running off the lip, and a faint soot of the round's own
+       dirt round all of it. A MINIGUN ROUND (kind 2) is hot: the lip
+       glows orange where it went in and cools over a second and a half,
+       and leaves a wider ring of burnt powder than a rifle's. */
+    float hot = kind > 1.5 ? 1.0 : 0.0;
+    float R = rag(ang, seed, 0.28);
+    float rr = r / R;
+    float core = 1.0 - smoothstep(0.26, 0.33, rr);
+    float lip = smoothstep(0.26, 0.36, rr) * (1.0 - smoothstep(0.40, 0.55, rr * (0.9 + 0.2 * dnoise(p * 9.0 + seed * 3.0))));
+    float soot = (1.0 - smoothstep(0.35, 1.0, rr)) * (0.55 + 0.45 * dfbm(p * 6.0 + seed * 9.0)) * (0.45 + 0.3 * hot);
+    float cr = cracks(p, seed, 7.0) * step(0.24, rr) * (1.0 - hot * 0.3);
+    /* the bore: a gradient across the core, as if lit from above */
+    float bore = 0.02 + 0.07 * smoothstep(-0.3, 0.3, p.y + p.x * 0.3) * (1.0 - rr / 0.33);
+    float chip = 0.30 + 0.28 * dnoise(p * 14.0 + seed * 21.0);
+    col = mix(vec3(0.05, 0.045, 0.04), vec3(chip, chip * 0.96, chip * 0.9), lip);
+    col = mix(col, vec3(bore), core);
+    a = max(core * 0.98, max(lip * 0.6, max(soot * 0.85, cr * 0.8)));
+    col = mix(col, vec3(0.05), (1.0 - lip) * (1.0 - core));
+    col = worldShade(col, lit, viewDepth, wp, 0.0);
+    if (hot > 0.5) {
+      float h = clamp(1.0 - age / 1.5, 0.0, 1.0);
+      h *= h;
+      float ring = smoothstep(0.22, 0.32, rr) * (1.0 - smoothstep(0.34, 0.5, rr));
+      glow = hotRamp(0.35 + 0.65 * h) * ring * h * 1.6;
+    }
+  } else if (kind < 1.5) {
+    /* A SCORCH: what a hot spot leaves. Soft and dark, mottled, and
+       thinning out to a ragged edge; the darkest part is the middle. */
+    float R = rag(ang, seed, 0.22);
+    float rr = r / R;
+    float m = dfbm(p * 4.0 + seed * 13.0);
+    a = (1.0 - smoothstep(0.25, 1.0, rr)) * (0.55 + 0.45 * m) * 0.95;
+    col = worldShade(mix(vec3(0.035, 0.03, 0.028), vec3(0.12, 0.09, 0.07), m * (rr)), lit, viewDepth, wp, 0.0);
+  } else if (kind < 3.5) {
+    /* HEAT: the surface itself glowing where the stream sits, banded
+       like the fire's own ramp and swimming, additive, its own light */
+    float R = rag(ang + uTime * 0.3, seed, 0.2);
+    float rr = r / R;
+    float m = dfbm(p * 5.0 + vec2(uTime * 0.7, -uTime * 0.4) + seed * 5.0);
+    float h = strength * (1.0 - smoothstep(0.1, 1.0, rr)) * (0.7 + 0.5 * m);
+    h = floor(h * 8.0 + 0.5) / 8.0;
+    glow = hotRamp(clamp(h, 0.0, 1.0)) * h * 1.2;
+    fade = smoothstep(0.18, 0.55, facing) * depthFade;
+  } else if (kind < 4.5) {
+    /* FROST: rime, whiter the longer the jet stays, with the feathered
+       crystals of it drawn in: long thin needles at a few angles, and a
+       fine glitter over the top */
+    float R = rag(ang, seed, 0.25);
+    float rr = r / R;
+    float body = (1.0 - smoothstep(0.2, 1.0, rr)) * (0.6 + 0.4 * dfbm(p * 5.0 + seed * 3.0));
+    vec2 q = p * 7.0;
+    float needles = 0.0;
+    for (int i = 0; i < 3; i++) {
+      float th = float(i) * 1.047 + seed * 2.0;
+      vec2 dir = vec2(cos(th), sin(th));
+      float along = dot(q, dir), across = dot(q, vec2(-dir.y, dir.x));
+      needles = max(needles, (1.0 - smoothstep(0.0, 0.12, abs(fract(across + dnoise(vec2(along * 0.5, float(i))) * 0.6) - 0.5))) * step(0.5, dnoise(vec2(along * 0.8, across * 0.3 + float(i) * 7.0))));
+    }
+    float glit = step(0.93, dh1(floor(p * 24.0) + seed));
+    a = clamp(body * (0.75 + 0.35 * needles), 0.0, 1.0) * 0.9;
+    col = worldShade(mix(vec3(0.72, 0.84, 0.95), vec3(0.95, 0.98, 1.0), needles * 0.8 + glit), lit + 0.15, viewDepth, wp, 0.0);
+    glow = vec3(0.35, 0.45, 0.55) * glit * body * 0.4;
+  } else if (kind < 5.5) {
+    /* A SPATTER OF BLOOD, thrown along +x — which the decal's turn has
+       pointed the way the round was going. A body of it where it hit,
+       a scatter of drops flung out ahead, the far ones smaller and
+       drawn out into streaks, and a wet dark red that dries browner over
+       half a minute. */
+    float R = rag(ang, seed, 0.35);
+    float blob = 1.0 - smoothstep(0.30, 0.36, r / (R * (0.8 + 0.2 * dh1(vec2(seed, 3.0)))));
+    float drops = 0.0;
+    for (int i = 0; i < 14; i++) {
+      vec2 h = dh2(vec2(float(i) * 1.37, seed * 9.1));
+      float dist = 0.25 + 0.7 * h.x;
+      float spread = (h.y - 0.5) * 1.3 * (1.0 - dist * 0.45);
+      vec2 c = vec2(dist * 0.95 - 0.1, spread * dist);
+      float sz = mix(0.11, 0.025, dist) * (0.6 + 0.8 * dh1(h * 5.0));
+      vec2 dq = p - c;
+      dq.x /= 1.0 + dist * 2.2;                     // the far ones drawn out along the throw
+      drops = max(drops, 1.0 - smoothstep(sz * 0.75, sz, length(dq)));
+    }
+    /* and a few very fine flecks everywhere in front */
+    float fleck = step(0.965, dh1(floor(p * 30.0) + seed * 3.0)) * step(-0.1, p.x) * (1.0 - smoothstep(0.4, 1.0, r));
+    float m = max(blob, max(drops, fleck));
+    float dry = smoothstep(0.0, 30.0, age);
+    vec3 wet = mix(vec3(0.26, 0.01, 0.012), vec3(0.13, 0.005, 0.008), dfbm(p * 8.0 + seed));
+    col = mix(wet, vec3(0.10, 0.03, 0.022), dry);
+    /* the wet sheen, which is what makes it read as liquid */
+    float sheen = (1.0 - dry) * blob * smoothstep(0.55, 0.8, dfbm(p * 10.0 + seed * 7.0)) * 0.35;
+    col = worldShade(col + sheen, lit, viewDepth, wp, 0.0);
+    a = m * 0.93;
+  } else if (kind < 6.5) {
+    /* A POOL, under somebody: one smooth ragged puddle that spreads over
+       the first few seconds, darker in the middle where it is deep, with
+       a few drips round the edge, drying at its rim first */
+    float grow = mix(0.35, 1.0, smoothstep(0.0, 6.0, age));
+    float R = rag(ang, seed, 0.3) * grow * 0.85;
+    float rr = r / R;
+    float body = 1.0 - smoothstep(0.92, 1.0, rr);
+    float drips = 0.0;
+    for (int i = 0; i < 6; i++) {
+      vec2 h = dh2(vec2(float(i) * 3.1, seed * 4.7));
+      float th = h.x * 6.2831853, dd = R * (1.05 + 0.25 * h.y);
+      drips = max(drips, 1.0 - smoothstep(0.03, 0.05 + 0.03 * h.y, length(p - vec2(cos(th), sin(th)) * dd)));
+    }
+    float dry = smoothstep(10.0, 60.0, age) * smoothstep(0.4, 1.0, rr);
+    vec3 c = mix(vec3(0.10, 0.004, 0.006), vec3(0.24, 0.012, 0.014), smoothstep(0.3, 1.0, rr));
+    c = mix(c, vec3(0.09, 0.028, 0.022), dry);
+    float sheen = (1.0 - dry) * smoothstep(0.6, 0.85, dfbm(p * 5.0 + seed * 2.0)) * (1.0 - rr) * 0.3;
+    col = worldShade(c + sheen, lit, viewDepth, wp, 0.0);
+    a = max(body, drips) * 0.95;
+  } else {
+    /* A BURNING HOLE, the big one: what a warhead leaves in a wall or a
+       floor. A crater of black, the edge of it torn and still molten —
+       an orange line along the rim — a ring of cracked char round it
+       with the coals burning in the cracks, flickering, and a soot of
+       smoke-black thrown wide round all of that. It burns: over twelve
+       seconds the coals go from yellow-white through orange to a dull
+       red and out, and what is left is the crater and the char. */
+    float heat = exp(-age / 6.0) * (0.85 + 0.15 * sin(uTime * 17.0 + seed * 40.0));
+    float R = rag(ang, seed, 0.30);
+    float rr = r / R;
+    float hole = 1.0 - smoothstep(0.30, 0.34, rr);
+    float rim = smoothstep(0.27, 0.33, rr) * (1.0 - smoothstep(0.34, 0.42, rr));
+    float charZ = (1.0 - smoothstep(0.34, 0.72, rr * (0.85 + 0.3 * dfbm(p * 3.0 + seed))));
+    float soot = (1.0 - smoothstep(0.5, 1.0, rr)) * (0.5 + 0.5 * dfbm(p * 5.0 + seed * 4.0));
+    /* the coals: the dark places in a cracked noise, lit */
+    float n = dfbm(p * 9.0 + seed * 7.0);
+    float cell = abs(n - 0.5);
+    float coals = (1.0 - smoothstep(0.0, 0.06, cell)) * charZ * step(0.32, rr);
+    float flick = 0.7 + 0.3 * dnoise(p * 12.0 + vec2(uTime * 3.0, -uTime * 2.3));
+    float cr = cracks(p, seed, 11.0) * step(0.32, rr) * (1.0 - smoothstep(0.6, 0.95, rr));
+    /* the depth of the crater: black, a little lighter toward the rim
+       on the lit side, so it reads as a hole and not a black disc */
+    float inner = 0.015 + 0.05 * smoothstep(0.0, 0.3, rr) * smoothstep(-0.3, 0.3, p.y);
+    col = mix(vec3(0.03, 0.025, 0.022), vec3(0.08, 0.065, 0.055), dfbm(p * 14.0 + seed));
+    col = mix(col, vec3(inner), hole);
+    a = max(hole, max(charZ * 0.96, soot * 0.9));
+    col = worldShade(col, lit, viewDepth, wp, 0.0);
+    glow = hotRamp(clamp(heat * 1.1, 0.0, 1.0)) * rim * heat * 2.2
+         + hotRamp(clamp(heat * 0.9, 0.0, 1.0)) * max(coals, cr) * heat * flick * 1.5
+         + vec3(1.0, 0.35, 0.05) * hole * heat * 0.12 * (1.0 - rr / 0.34);
+  }
+  a *= fade;
+  glow *= fade;
+  if (a < 0.004 && dot(glow, vec3(1.0)) < 0.004) discard;
+  /* premultiplied: the paint at its alpha, and the glow added on top */
+  gl_FragColor = vec4(col * a + glow, a);
+}
+`;
+
+const COPY_FRAG = /* glsl */`
+#include <packing>
+uniform sampler2D tSrc;
+varying vec2 vUv;
+void main() { gl_FragColor = packDepthToRGBA(texture2D(tSrc, vUv).x); }
+`;
+const COPY_VERT = /* glsl */`
+varying vec2 vUv;
+void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
 `;
 
 export class Decals {
   constructor(game) {
     this.game = game;
-    this.pools = { hole: new Pool('hole', POOLS.hole), heat: new Pool('heat', POOLS.heat), frost: new Pool('frost', POOLS.frost) };
+    this.pools = {
+      hole: new Pool('hole', POOLS.hole), heat: new Pool('heat', POOLS.heat), frost: new Pool('frost', POOLS.frost),
+      blood: new Pool('blood', POOLS.blood), burn: new Pool('burn', POOLS.burn),
+    };
     this.tics = 0;
     this.holes = 0; this.scorches = 0;      // counts, for the readout and the test
+    this.bloods = 0; this.burns = 0;
     this._n = { nx: 0, ny: 0, nz: 0 };
     this._basis = { ux: 0, uy: 0, uz: 0, vx: 0, vy: 0, vz: 0 };
   }
@@ -356,14 +569,87 @@ export class Decals {
     return { light: sec ? (sec.light ?? 0.75) : 0.75, sky: sec && sec.outdoor ? 1 : 0 };
   }
 
-  /** A round has landed on a surface. */
-  hole(x, y, z, n) {
+  /** A round has landed on a surface. `hot` is a minigun round: a
+   *  bigger hole with a burnt ring, whose lip glows and cools. */
+  hole(x, y, z, n, hot = false) {
     const P = this.pools.hole;
     const i = P.alloc(true);
-    const s = HOLE_SIZE[0] + (pRandom() / 255) * (HOLE_SIZE[1] - HOLE_SIZE[0]);
+    const s = (HOLE_SIZE[0] + (pRandom() / 255) * (HOLE_SIZE[1] - HOLE_SIZE[0])) * (hot ? HOT_SCALE : 1);
     const { light, sky } = this._surface(x, y);
-    P.place(i, x, y, z, n, s, (pRandom() / 255) * Math.PI * 2, 0.92, light, sky, 0);
+    P.place(i, x, y, z, n, s, (pRandom() / 255) * Math.PI * 2, 0.92, light, sky, hot ? 2 : 0);
+    P.born[i] = this.tics;
     this.holes++;
+  }
+
+  /** The angle, about the normal `n`, that points along (dx, dy, dz)
+   *  laid flat on the surface — what turns a spatter to face the way it
+   *  was thrown. Pure. */
+  throwAngle(n, dx, dy, dz) {
+    const B = surfaceBasisInto(n.nx, n.ny, n.nz, this._basis);
+    const du = dx * B.ux + dy * B.uy + dz * B.uz, dv = dx * B.vx + dy * B.vy + dz * B.vz;
+    return (du || dv) ? Math.atan2(dv, du) : cosmetic() * Math.PI * 2;
+  }
+
+  /** A SPATTER OF BLOOD on a surface, thrown along (dx, dy, dz). */
+  blood(x, y, z, n, dx = 0, dy = 0, dz = 0, size = 0) {
+    const P = this.pools.blood;
+    const i = P.alloc(true);
+    const s = size || BLOOD_SIZE[0] + cosmetic() * (BLOOD_SIZE[1] - BLOOD_SIZE[0]);
+    const { light, sky } = this._surface(x, y);
+    P.place(i, x, y, z, n, s, this.throwAngle(n, dx, dy, dz), 0.95, light, sky, 0);
+    P.born[i] = this.tics;
+    this.bloods++;
+    return i;
+  }
+
+  /** A POOL of it on the floor at (x, y), under somebody who has come
+   *  apart or gone down; it spreads over its first few seconds. */
+  pool(x, y, z, size = 0) {
+    const P = this.pools.blood;
+    const i = P.alloc(true);
+    const s = size || POOL_SIZE[0] + cosmetic() * (POOL_SIZE[1] - POOL_SIZE[0]);
+    const { light, sky } = this._surface(x, y);
+    P.place(i, x, y, z, UP, s, cosmetic() * Math.PI * 2, 0.95, light, sky, 1);
+    P.born[i] = this.tics;
+    this.bloods++;
+    return i;
+  }
+
+  /** SOMEBODY HAS BEEN HIT at (hx, hy, hz) by something going along
+   *  (dx, dy, dz): a spatter on the floor at their feet, thrown the way
+   *  the round went, and — if there is a wall close enough behind them —
+   *  a second one up the wall, at the height the round would have
+   *  reached it. Nothing at all for something that does not bleed. */
+  bleed(a, hx, hy, hz, dx, dy, dz = 0) {
+    if (!bleeds(a, this.game.player)) return 0;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const ux = dx / len, uy = dy / len, uz = dz / len;
+    const lv = this.game.level;
+    let n = 0;
+    /* the floor, a little way past them */
+    const k = 6 + cosmetic() * 18;
+    const fx = hx + ux * k, fy = hy + uy * k;
+    const sec = lv?.sectorAt?.(fx, fy);
+    if (sec) { this.blood(fx, fy, a.z ?? sec.floor, UP, ux, uy, 0); n++; }
+    /* and the wall behind them, if there is one in reach */
+    const wall = lv?.rayHitWall?.(hx, hy, hz, hx + ux * BLOOD_REACH, hy + uy * BLOOD_REACH, hz + uz * BLOOD_REACH);
+    if (wall && wall.line) {
+      this.blood(wall.x, wall.y, wall.z, wallNormal(wall.line, hx, hy), ux, uy, uz - 0.35);
+      n++;
+    }
+    return n;
+  }
+
+  /** A BURNING HOLE: what a warhead or a bomb leaves where it went off.
+   *  It burns for a few seconds and stays, charred, after. */
+  burn(x, y, z, n, size = BURN_SIZE) {
+    const P = this.pools.burn;
+    const i = P.alloc(true);
+    const { light, sky } = this._surface(x, y);
+    P.place(i, x, y, z, n, size * (0.85 + 0.3 * cosmetic()), cosmetic() * Math.PI * 2, 1, light, sky, 0);
+    P.born[i] = this.tics;
+    this.burns++;
+    return i;
   }
 
   /** A round has landed on a vehicle. `hx, hy, hz` is where the ray
@@ -442,6 +728,7 @@ export class Decals {
       P.strength[i] = 0;
       const { light, sky } = this._surface(x, y);
       P.place(i, x, y, z, n, size, (pRandom() / 255) * Math.PI * 2, 0, light, sky, 0);
+      P.born[i] = this.tics;
     }
     P.strength[i] = Math.min(1, P.strength[i] + amount);
     P.peak[i] = Math.max(P.peak[i], P.strength[i]);
@@ -472,6 +759,7 @@ export class Decals {
       const j = H.alloc(true);
       H.place(j, P.x[i], P.y[i], P.z[i], { nx: P.nx[i], ny: P.ny[i], nz: P.nz[i] },
         SCORCH_SIZE * (0.7 + 0.5 * P.peak[i]), P.rot[i], Math.min(0.9, 0.35 + 0.6 * P.peak[i]), P.light[i], P.sky[i], 1);
+      H.born[j] = this.tics;
       this.scorches++;
     }
     P.peak[i] = 0;
@@ -525,39 +813,63 @@ export class Decals {
   }
 
   /* ---- drawing ------------------------------------------------------ */
+  /** Build the one instanced box every decal is drawn with, and the
+   *  depth copy it reads. `scene` is accepted and left alone: the boxes
+   *  are not part of the world's scene, because they have to be drawn
+   *  after it, against its depth — see draw(), which js/lofi.js calls. */
   attach(scene) {
-    const holes = makeTex(holeStrip()), glow = makeTex(glowStrip());
-    const mk = (P, tex, kindNo, blend, order, frames) => {
-      const N = P.max;
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 12), 3));
-      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(N * 8), 2));
-      g.setAttribute('aStrength', new THREE.BufferAttribute(new Float32Array(N * 4), 1));
-      g.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(N * 4), 1));
-      g.setAttribute('aSky', new THREE.BufferAttribute(new Float32Array(N * 4), 1));
-      const idx = new Uint32Array(N * 6);
-      for (let i = 0; i < N; i++) { const v = i * 4, k = i * 6; idx[k] = v; idx[k + 1] = v + 1; idx[k + 2] = v + 2; idx[k + 3] = v; idx[k + 4] = v + 2; idx[k + 5] = v + 3; }
-      g.setIndex(new THREE.BufferAttribute(idx, 1));
-      g.setDrawRange(0, 0);
-      const mat = new THREE.ShaderMaterial({
-        uniforms: { map: { value: tex }, kind: { value: kindNo }, ...worldUniforms() },
-        vertexShader: VERT, fragmentShader: FRAG,
-        transparent: true, depthWrite: false, depthTest: true,
-        blending: blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending,
-        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-        side: THREE.DoubleSide, fog: false, toneMapped: false,
-      });
-      const mesh = new THREE.Mesh(g, mat);
-      mesh.frustumCulled = false;
-      mesh.renderOrder = order;
-      mesh.name = 'decals-' + P.kind;
-      scene.add(mesh);
-      P.mesh = mesh; P.frames = frames;
-      P.dirtyPos = P.dirtyStrength = true;
+    const N = Object.values(this.pools).reduce((n, P) => n + P.max, 0);
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    const g = new THREE.InstancedBufferGeometry();
+    g.setIndex(box.index);
+    g.setAttribute('position', box.attributes.position);
+    const inst = (name, k) => {
+      const at = new THREE.InstancedBufferAttribute(new Float32Array(N * k), k);
+      at.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute(name, at);
+      return at;
     };
-    mk(this.pools.hole, holes, 0, 'normal', 4, 2);
-    mk(this.pools.frost, glow, 2, 'normal', 5, 1);
-    mk(this.pools.heat, glow, 1, 'add', 6, 1);
+    this._at = { iC: inst('iC', 3), iU: inst('iU', 3), iV: inst('iV', 3), iN: inst('iN', 3), iP: inst('iP', 4), iL: inst('iL', 2) };
+    g.instanceCount = 0;
+    this.depthCopy = new THREE.WebGLRenderTarget(4, 4, {
+      minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType, depthBuffer: false, stencilBuffer: false,
+    });
+    this.depthCopy.texture.generateMipmaps = false;
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        tDepth: { value: this.depthCopy.texture }, uRes: { value: new THREE.Vector2(1, 1) },
+        uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() },
+        uTime: { value: 0 }, ...worldUniforms(),
+      },
+      vertexShader: DECAL_VERT, fragmentShader: DECAL_FRAG,
+      extensions: { derivatives: true },
+      transparent: true, depthWrite: false, depthTest: false,
+      side: THREE.BackSide, fog: false, toneMapped: false,
+      /* PREMULTIPLIED: see the note over DECAL_VERT */
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+      blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+    });
+    this.mesh = new THREE.Mesh(g, mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.name = 'decals';
+    this.scene = new THREE.Scene();
+    this.scene.add(this.mesh);
+    /* the copy: the world's depth into eight-bit RGBA, one triangle */
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+    tri.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
+    this.copyMat = new THREE.ShaderMaterial({
+      uniforms: { tSrc: { value: null } }, vertexShader: COPY_VERT, fragmentShader: COPY_FRAG,
+      depthTest: false, depthWrite: false,
+    });
+    const q = new THREE.Mesh(tri, this.copyMat);
+    q.frustumCulled = false;
+    this.copyScene = new THREE.Scene();
+    this.copyScene.add(q);
+    this.copyCamera = new THREE.Camera();
+    for (const P of Object.values(this.pools)) P.mesh = this.mesh;
   }
 
   /** The holes that ride on vehicles: put where their vehicle is now,
@@ -581,22 +893,35 @@ export class Decals {
     P.dirtyPos = true;
   }
 
+  /** Which shader kind a slot of pool P is. */
+  kindOf(P, i) {
+    switch (P.kind) {
+      case 'hole': return P.frame[i] === 1 ? KIND.SCORCH : P.frame[i] === 2 ? KIND.HOT : KIND.HOLE;
+      case 'heat': return KIND.HEAT;
+      case 'frost': return KIND.FROST;
+      case 'blood': return P.frame[i] === 1 ? KIND.POOL : KIND.SPATTER;
+      default: return KIND.BURN;
+    }
+  }
+
   /** `ex, ey` is the eye and `vx, vy` the unit direction it looks
    *  along, in game coordinates; with none given nothing is culled.
-   *  The buffers are rebuilt every frame, compacted to the decals that
-   *  are live and in view, with no allocation in the loop: a thousand
-   *  quads' worth of arithmetic, which is nothing next to the draw. */
+   *  Writes every live decal in view into the box's instance buffers,
+   *  compacted, with no allocation in the loop. Drawn later, by draw(). */
   render(ex = 0, ey = 0, vx = 0, vy = 0) {
     this._carry();
+    if (!this.mesh) return;
     const cull = vx !== 0 || vy !== 0;
     const R2 = DRAW_RANGE * DRAW_RANGE;
     const B = this._basis;
-    for (const P of Object.values(this.pools)) {
-      if (!P.mesh) continue;
-      const g = P.mesh.geometry;
-      const pos = g.attributes.position.array, uv = g.attributes.uv.array;
-      const lt = g.attributes.aLight.array, sk = g.attributes.aSky.array, st = g.attributes.aStrength.array;
-      let n = 0;
+    const A = this._at;
+    const C = A.iC.array, U = A.iU.array, V = A.iV.array, Nn = A.iN.array, Pp = A.iP.array, L = A.iL.array;
+    let n = 0;
+    /* in this order, which is the order they paint in: the blood and
+       the burns under the holes, the rime over them, the glow on top */
+    for (const key of ['blood', 'burn', 'hole', 'frost', 'heat']) {
+      const P = this.pools[key];
+      let drawn = 0;
       for (let i = 0; i < P.max; i++) {
         const strength = P.strength[i];
         if (strength <= 0) continue;
@@ -604,35 +929,61 @@ export class Decals {
         if (cull) {
           const dx = px - ex, dy = py - ey;
           if (dx * dx + dy * dy > R2) continue;
-          if (dx * vx + dy * vy < -h) continue;
+          if (dx * vx + dy * vy < -h * 1.5) continue;
         }
         const nx = P.nx[i], ny = P.ny[i], nz = P.nz[i];
         surfaceBasisInto(nx, ny, nz, B);
         const c = Math.cos(P.rot[i]), sn = Math.sin(P.rot[i]);
-        /* the quad's two axes, turned by rot about the normal */
+        /* the box's two axes across the surface, turned by rot about the
+           normal, half its width long; and the third along the normal */
         const ax = (B.ux * c + B.vx * sn) * h, ay = (B.uy * c + B.vy * sn) * h, az = (B.uz * c + B.vz * sn) * h;
         const bx = (B.vx * c - B.ux * sn) * h, by = (B.vy * c - B.uy * sn) * h, bz = (B.vz * c - B.uz * sn) * h;
-        const cx = px + nx * LIFT, cy = py + ny * LIFT, cz = P.z[i] + nz * LIFT;
-        const f0 = P.frame[i] / P.frames, f1 = (P.frame[i] + 1) / P.frames;
-        const v0 = n * 4;
-        for (let k = 0; k < 4; k++) {
-          const u = CORNER_U[k], v = CORNER_V[k];
-          const o = (v0 + k) * 3;
-          /* game (x, y, z) to three (x, z, -y) */
-          pos[o] = cx + ax * u + bx * v; pos[o + 1] = cz + az * u + bz * v; pos[o + 2] = -(cy + ay * u + by * v);
-          uv[(v0 + k) * 2] = u < 0 ? f0 : f1; uv[(v0 + k) * 2 + 1] = v < 0 ? 0 : 1;
-          lt[v0 + k] = P.light[i]; sk[v0 + k] = P.sky[i]; st[v0 + k] = strength;
-        }
-        n++;
+        const kind = this.kindOf(P, i);
+        const dep = Math.max(2, P.size[i] * DEPTH[kind]);
+        const o = n * 3;
+        /* game (x, y, z) to three (x, z, -y) */
+        C[o] = px; C[o + 1] = P.z[i]; C[o + 2] = -py;
+        U[o] = ax; U[o + 1] = az; U[o + 2] = -ay;
+        V[o] = bx; V[o + 1] = bz; V[o + 2] = -by;
+        Nn[o] = nx * dep; Nn[o + 1] = nz * dep; Nn[o + 2] = -ny * dep;
+        const q = n * 4;
+        Pp[q] = kind; Pp[q + 1] = strength; Pp[q + 2] = P.seed[i]; Pp[q + 3] = (this.tics - P.born[i]) / TICRATE;
+        L[n * 2] = P.light[i]; L[n * 2 + 1] = P.sky[i];
+        n++; drawn++;
       }
-      P.drawn = n;
-      g.setDrawRange(0, n * 6);
-      g.attributes.position.needsUpdate = true; g.attributes.uv.needsUpdate = true;
-      g.attributes.aLight.needsUpdate = true; g.attributes.aSky.needsUpdate = true;
-      g.attributes.aStrength.needsUpdate = true;
+      P.drawn = drawn;
       P.dirtyPos = false; P.dirtyStrength = false;
     }
+    this.drawn = n;
+    this.mesh.geometry.instanceCount = n;
+    for (const k in A) A[k].needsUpdate = true;
   }
 
-  get liveCount() { return this.pools.hole.count + this.pools.heat.count + this.pools.frost.count; }
+  /** DRAW THEM, into `target`, against the depth the world has just
+   *  left in it. js/lofi.js calls this between the world and the glow,
+   *  with the world's own camera. The depth is copied first, because a
+   *  texture cannot be read while the framebuffer it belongs to is being
+   *  drawn into. */
+  draw(renderer, camera, target) {
+    if (!this.mesh || !this.drawn || !target.depthTexture) return false;
+    if (this.depthCopy.width !== target.width || this.depthCopy.height !== target.height)
+      this.depthCopy.setSize(target.width, target.height);
+    const ac = renderer.autoClear;
+    renderer.autoClear = false;
+    this.copyMat.uniforms.tSrc.value = target.depthTexture;
+    renderer.setRenderTarget(this.depthCopy);
+    renderer.render(this.copyScene, this.copyCamera);
+    this.copyMat.uniforms.tSrc.value = null;
+    const u = this.mesh.material.uniforms;
+    u.uRes.value.set(target.width, target.height);
+    u.uInvProj.value.copy(camera.projectionMatrixInverse);
+    u.uCamWorld.value.copy(camera.matrixWorld);
+    u.uTime.value = this.tics / TICRATE;
+    renderer.setRenderTarget(target);
+    renderer.render(this.scene, camera);
+    renderer.autoClear = ac;
+    return true;
+  }
+
+  get liveCount() { return Object.values(this.pools).reduce((n, P) => n + P.count, 0); }
 }

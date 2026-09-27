@@ -915,8 +915,7 @@ export class Player {
     for (let i = 0; i < d.rounds; i++) {
       const a = this.angle + (pRandom() / 255 - 0.5) * 2 * d.spread;
       const pt = this.pitch + (pRandom() / 255 - 0.5) * 2 * d.spread * 0.7;
-      g.hitscan(this, a, 2400, d.damage(), { shot: true, pitch: pt, dx, dy, force: 1.6, from,
-                                           spark: (i === 0) });
+      g.hitscan(this, a, 2400, d.damage(), { shot: true, hot: true, pitch: pt, dx, dy, force: 1.6, from });
       /* EVERY OTHER ROUND IS A TRACER, at the user's request: a streak
          of light from the muzzle to wherever the round stopped, which
          Game.hitscan leaves in lastHit — see js/tracers.js */

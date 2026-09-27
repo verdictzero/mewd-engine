@@ -54,6 +54,7 @@
 import * as THREE from 'three';
 import { createSpriteMaterial } from './material.js';
 import { pRandom, dist2 } from './util.js';
+import { wallNormal, UP, DOWN } from './decals.js';
 
 export const BORE = {
   range: 2200,          // how far the sight reaches
@@ -186,8 +187,12 @@ export class BoreSystem {
       const spent = !sec || nz <= sec.floor + 2 || nz >= sec.ceil - 2 || --s.life <= 0;
       if (wall || spent) {
         const at = wall || { x: nx, y: ny, z: sec ? Math.max(sec.floor + 2, Math.min(sec.ceil - 2, nz)) : nz };
-        g.fx?.ember(at.x, at.y, at.z, 6, 0.8);
-        g.spawnPuff(at.x, at.y, at.z);
+        /* A DECAL AND NOTHING ELSE where it struck: the bit is spinning
+           hot, so what it leaves is a small burning hole — see
+           js/decals.js, Decals.burn */
+        const face = wall ? (wall.line ? wallNormal(wall.line, s.x, s.y) : null)
+          : sec && nz <= sec.floor + 2 ? UP : sec && nz >= sec.ceil - 2 && !sec.sky ? DOWN : null;
+        if (face) g.decals?.burn(at.x, at.y, wall ? at.z : face === UP ? sec.floor : sec.ceil, face, 26);
         g.sound?.play('clang', at);
         this.shots.splice(i, 1);
         this.discard(s);

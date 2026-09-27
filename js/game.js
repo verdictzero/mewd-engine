@@ -35,7 +35,7 @@ import { buildSlideDoors } from './slidedoor.js';
 import { buildSky, followSky } from './sky.js';
 import { Forest } from './forest.js';
 import { FlameStream } from './flame.js';
-import { Decals, wallNormal, UP, DOWN } from './decals.js';
+import { Decals, wallNormal, UP, DOWN, bleeds } from './decals.js';
 import { Tracers } from './tracers.js';
 import { BeamSystem } from './beam.js';
 import { BreachSystem } from './breach.js';
@@ -929,9 +929,17 @@ export class Game {
     }
 
     const lh = this.lastHit;
+    /* WHAT A ROUND LEAVES IS A DECAL AND NOTHING ELSE, at the user's
+       request: no puff and no sparks off the wall, a hole in it — a hot
+       one for the minigun (opts.hot) — and blood on the floor and up the
+       wall behind whoever it went through. See js/decals.js. */
     if (best) {
       best.a.damage(damage, from, opts);
-      this.spawnPuff(best.x, best.y, best.z);
+      if (opts.shot || opts.hot) {
+        this.decals.bleed(best.a, best.x, best.y, best.z, dx, dy, tz - z);
+        /* and a pool where they fell, if that was the one that did it */
+        if (best.a.dead && bleeds(best.a, this.player)) this.decals.pool(best.a.x, best.a.y, best.a.z);
+      }
       lh.x = best.x; lh.y = best.y; lh.z = best.z;
       /* A ROUND INTO A VAN LEAVES A HOLE IN THE VAN, on whichever face
          of its box the round came in through, and the hole rides with
@@ -941,16 +949,12 @@ export class Game {
       return best.a;
     }
     if (wall && (!pitch || wall.t <= maxT + 1e-9)) {
-      this.spawnPuff(wall.x, wall.y, wall.z);
-      if (opts.spark) this.spawnSparks(wall.x, wall.y, wall.z, 2 + (pRandom() & 1));
-      /* and the hole it leaves, facing the side it came from */
-      if (opts.shot) this.decals.hole(wall.x, wall.y, wall.z, wallNormal(wall.line, ox, oy));
+      /* the hole it leaves, facing the side it came from */
+      if (opts.shot) this.decals.hole(wall.x, wall.y, wall.z, wallNormal(wall.line, ox, oy), !!opts.hot);
       lh.x = wall.x; lh.y = wall.y; lh.z = wall.z;
     } else if (floorHit !== null) {
       const hx = ox + dx * maxT, hy = oy + dy * maxT;
-      this.spawnPuff(hx, hy, floorHit);
-      if (opts.spark) this.spawnSparks(hx, hy, floorHit, 2 + (pRandom() & 1));
-      if (opts.shot) this.decals.hole(hx, hy, floorHit, tz < z ? UP : DOWN);
+      if (opts.shot) this.decals.hole(hx, hy, floorHit, tz < z ? UP : DOWN, !!opts.hot);
       lh.x = hx; lh.y = hy; lh.z = floorHit;
     } else {
       lh.x = tx; lh.y = ty; lh.z = tz;
@@ -1093,6 +1097,9 @@ export class Game {
          walkway that has no fuel of its own, which is exactly what it is
          for. */
       this.fire.ignite(at.x, at.y, 190, 68);
+      /* and the burnt patch it leaves, where it broke on the floor */
+      const under = this.level.sectorAt(at.x, at.y);
+      if (under && at.z - under.floor < 40) this.decals.burn(at.x, at.y, under.floor, UP, 64);
       for (const a of this.actorsInConeAround(at, 90)) { a.damage(12, p.owner, { fire: true }); a.ignite?.(340); }
       return;
     }
@@ -1129,6 +1136,9 @@ export class Game {
             structure = 0, structureRadius = radius * 1.4 } = opts;
     this.sound?.play(sound, a);
     this.fire.ignite(a.x, a.y, heat, heatRadius);
+    /* and a burning hole in the ground where it went off */
+    const under = this.level?.sectorAt?.(a.x, a.y);
+    if (under && (a.z ?? under.floor) - under.floor < 64) this.decals.burn(a.x, a.y, under.floor, UP, Math.min(150, radius * 0.6));
     if (structure > 0) this.fire.damageStructure(a.x, a.y, structureRadius, structure, a.storey || 0);
     for (const o of this.actorsInConeAround(a, radius)) {
       if (o === a) continue;

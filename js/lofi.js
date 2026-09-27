@@ -588,6 +588,9 @@ export class LofiPipeline {
        readout on. */
     this.sceneCalls = r.info.render.calls;
     this.sceneTris = r.info.render.triangles;
+    /* WHAT LIES ON THE WORLD: the decals, drawn as boxes against the
+       depth the world has just left — see js/decals.js, Decals.draw */
+    if (this.afterWorld) this.afterWorld(r, camera, this.target);
     /* THE GLOW, between the world and the overlays: against the world's
        depth, and under the gun — see js/bloom.js */
     this.bloom.render(r, scene, camera, this.target);

@@ -41,6 +41,7 @@
 import { Particles } from './particles.js';
 import { stripFrames } from './spriteload.js';
 import { pRandom, dist2 } from './util.js';
+import { UP } from './decals.js';
 
 /* Pixels, which in this game are world units — a sprite is drawn one
    unit to the pixel, so a 62-tall shopper is 62 units of person. */
@@ -278,6 +279,7 @@ export class Giblets {
       blend: 'cutout', fullbright: false, light: 1.0, name: 'shards', renderOrder: 13, nearShrink: 80,
     });
     this.splats = [];
+    this.pools = 0;              // how many pools of blood it has left, for the test
     this.bursts = 0;
     this.shatters = 0;
     this.ashes = 0;
@@ -436,14 +438,14 @@ export class Giblets {
     return p;
   }
 
-  /** What is left on the floor. Capped: the oldest goes when the cap is
-   *  reached, so a long night does not end in a carpet of sprites. */
-  splat(x, y, z) {
-    const g = this.game;
-    const a = g.spawn('GORE', x, y, z + 1, { variant: pRandom() % SPLATS });
-    this.splats.push(a);
-    while (this.splats.length > GIB.maxSplats) this.splats.shift()?.remove();
-    return a;
+  /** What is left on the floor: A POOL OF BLOOD, and it is a decal now
+   *  rather than a flat sprite, at the user's request — a box-projected
+   *  puddle that spreads over its first seconds and dries at the rim
+   *  (js/decals.js, Decals.pool). Capped by the decals' own ring, so a
+   *  long night does not end in a carpet of them. */
+  splat(x, y, z, size = 0) {
+    this.pools++;
+    return this.game.decals ? this.game.decals.pool(x, y, z, size) : -1;
   }
 
   /* ------------------------------------------------------------------
@@ -515,14 +517,15 @@ export class Giblets {
   _land(x, y, z, kind = 0) {
     const g = this.game;
     /* a piece that was never alight lands as blood, not as sparks */
-    if (kind !== 1) g.fx?.splash(x, y, z);
-    if (pRandom() < GIB.splatChance) this.splat(x, y, z);
+    if (kind !== 1) g.decals?.blood(x, y, z, UP, Math.random() - 0.5, Math.random() - 0.5, 0, 12 + Math.random() * 16);
+    if (pRandom() < GIB.splatChance) this.splat(x, y, z, 24 + Math.random() * 16);
   }
 
   /** And a cold one, which is the same minus every single thing that
    *  was warm about it. */
   _landCold(x, y, z) {
-    if (pRandom() < GIB.splatChance) this.splat(x, y, z);
+    /* ice does not bleed: a piece of somebody frozen solid lands as a
+       piece of ice, and leaves nothing but the cold coming off it */
     if ((pRandom() & 3) === 0) this.game.fx?.frostPuff?.(x, y, z + 6, 12, 24);
   }
 

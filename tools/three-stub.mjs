@@ -84,6 +84,17 @@ export class BufferGeometry {
   translate() { return this; }
 }
 export class PlaneGeometry extends BufferGeometry {}
+/* the decals are one instanced box (js/decals.js): a cube's eight
+   corners and twelve triangles, enough for the instancing to be set up */
+export class BoxGeometry extends BufferGeometry {
+  constructor() {
+    super();
+    this.setAttribute('position', new Float32BufferAttribute(new Float32Array(24), 3));
+    this.setIndex(new Float32BufferAttribute(new Uint16Array(36), 1));
+  }
+}
+export class Matrix4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; } copy(m) { if (m?.elements) this.elements = m.elements.slice(); return this; } }
+export const CustomBlending = 5, AddEquation = 100, OneFactor = 201, ZeroFactor = 200, OneMinusSrcAlphaFactor = 205;
 export class SphereGeometry extends BufferGeometry {}
 export class Texture extends Stub { constructor(img) { super(); this.image = img; this.isTexture = true; } }
 export class CylinderGeometry extends BufferGeometry {}
