@@ -29,6 +29,10 @@ typed out a character at a time, the way the ship's computer in ALIEN
 talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
+THE LOGO is the user's DEWM mark (assets/logo/dewm.webp, their image
+with its transparent edge cropped off), on the loading screen and over
+the title.
+
 THE DEMO IS A MAZE, at the user's request: DEWM Demo opens on a hedge
 maze generated afresh every time the game starts (js/maps/maze.js) —
 18 by 18 corridors carved by a depth-first walk, braided so there is
