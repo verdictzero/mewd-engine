@@ -41,7 +41,19 @@ export class HostSession {
   /** A command has arrived from the client that controls this player. */
   push(cmd) {
     this.queue.push({ ...cmd, look: { ...cmd.look }, move: { ...cmd.move } });
-    while (this.queue.length > CMD_BUFFER) this.queue.shift();
+    /* TOO MANY WAITING, and the oldest is FOLDED INTO the next rather
+       than dropped: its turn is added to the next one's and its presses
+       carried, so a burst costs the host a tic of walking and never a
+       degree of where you are looking — the host's aim and your screen
+       stay the same angle, which is what a shot is fired along */
+    while (this.queue.length > CMD_BUFFER) {
+      const a = this.queue.shift(), b = this.queue[0];
+      b.look.x += a.look.x; b.look.y += a.look.y;
+      b.jump ||= a.jump; b.use ||= a.use;
+      if (!b.weaponSlot) b.weaponSlot = a.weaponSlot;
+      if (!b.weaponCycle) b.weaponCycle = a.weaponCycle;
+      this.merged = (this.merged || 0) + 1;
+    }
   }
   cmd(game) {
     const c = this.queue.shift();
@@ -54,6 +66,7 @@ export class HostSession {
          where it was — a late packet should not stop you dead — but do
          not turn, and do not press anything that is a press. */
       const h = this.held;
+      o.seen = h.seen;
       o.tic = h.tic; o.look.x = 0; o.look.y = 0; o.move.x = h.move.x; o.move.y = h.move.y;
       o.run = h.run; o.attack = h.attack; o.jump = false; o.use = false; o.weaponSlot = 0; o.weaponCycle = 0;
     }

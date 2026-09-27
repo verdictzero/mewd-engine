@@ -114,7 +114,7 @@ export const LIFT = 0.6;                      // how far off the surface a decal
 /** Who bleeds: people, and you. Not a van, not a gunship, not somebody
  *  frozen solid — ice breaks, it does not bleed. Pure. */
 export const bleeds = (a, player = null) => !!a && !a.vehicle && !a.frozen &&
-  (a === player || !!a.monster || !!a.info?.monster);
+  (a === player || !!a.isPlayer || !!a.monster || !!a.info?.monster);
 
 /** The normal of a wall line, unit length, facing the side (fx, fy) is
  *  on — the side the shot came from. Pure. */

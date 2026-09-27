@@ -16,13 +16,17 @@
      run, jump, use, attack
      weaponSlot         1..7 pressed this tic, or 0
      weaponCycle        -1, 0 or 1
+     seen               the host's tic this client was DRAWING the other
+                        players at when it sent this — see the rewind in
+                        js/net/server.js. 0 from a game on its own.
 
    Everything else the Input object carries — the pause key, the scope
    zoom, the touch layout — is this screen's business and stays here.
 
    QUANTISED, AND THE LOCAL PLAYER IS QUANTISED TOO. On the wire a
    command is thirteen bytes: the look in steps of 1/8192 of a radian,
-   the move in 127ths. The player in this page is fed the SAME rounded
+   the move in 127ths (and four more bytes since step three, for
+   `seen`). The player in this page is fed the SAME rounded
    command a server would be fed, never the raw one, so what you do
    here and what the host simulates from your packet are the same
    arithmetic to the last bit. That is what client-side prediction will
@@ -32,14 +36,14 @@
 
 export const LOOK_SCALE = 8192;           // steps per radian
 export const MOVE_SCALE = 127;
-export const CMD_BYTES = 13;              // tic u32, look 2×i16, move 2×i8, flags, slot, cycle
+export const CMD_BYTES = 17;              // tic u32, look 2×i16, move 2×i8, flags, slot, cycle, seen u32
 
 const F_RUN = 1, F_JUMP = 2, F_USE = 4, F_ATTACK = 8;
 
 /** A neutral command: standing still, hands off. */
 export const newCmd = () => ({
   tic: 0, look: { x: 0, y: 0 }, move: { x: 0, y: 0 },
-  run: false, jump: false, use: false, attack: false, weaponSlot: 0, weaponCycle: 0,
+  run: false, jump: false, use: false, attack: false, weaponSlot: 0, weaponCycle: 0, seen: 0,
 });
 
 const q = (v, s, lim) => Math.max(-lim, Math.min(lim, Math.round((+v || 0) * s)));
@@ -55,6 +59,7 @@ export function quantize(c, out = c) {
   out.run = !!c.run; out.jump = !!c.jump; out.use = !!c.use; out.attack = !!c.attack;
   out.weaponSlot = Math.max(0, Math.min(255, (c.weaponSlot | 0)));
   out.weaponCycle = Math.sign(c.weaponCycle | 0);
+  out.seen = (c.seen || 0) >>> 0;
   return out;
 }
 
@@ -80,6 +85,7 @@ export function writeCmd(view, offset, c) {
   view.setUint8(offset + 10, (c.run ? F_RUN : 0) | (c.jump ? F_JUMP : 0) | (c.use ? F_USE : 0) | (c.attack ? F_ATTACK : 0));
   view.setUint8(offset + 11, Math.max(0, Math.min(255, c.weaponSlot | 0)));
   view.setInt8(offset + 12, Math.sign(c.weaponCycle | 0));
+  view.setUint32(offset + 13, (c.seen || 0) >>> 0, true);
   return offset + CMD_BYTES;
 }
 
@@ -94,10 +100,12 @@ export function readCmd(view, offset, out = newCmd()) {
   out.run = !!(f & F_RUN); out.jump = !!(f & F_JUMP); out.use = !!(f & F_USE); out.attack = !!(f & F_ATTACK);
   out.weaponSlot = view.getUint8(offset + 11);
   out.weaponCycle = view.getInt8(offset + 12);
+  out.seen = view.getUint32(offset + 13, true);
   return out;
 }
 
 /** Two commands the same, field for field. */
 export const sameCmd = (a, b) => a.tic === b.tic && a.look.x === b.look.x && a.look.y === b.look.y &&
   a.move.x === b.move.x && a.move.y === b.move.y && a.run === b.run && a.jump === b.jump &&
-  a.use === b.use && a.attack === b.attack && a.weaponSlot === b.weaponSlot && a.weaponCycle === b.weaponCycle;
+  a.use === b.use && a.attack === b.attack && a.weaponSlot === b.weaponSlot && a.weaponCycle === b.weaponCycle &&
+  (a.seen || 0) === (b.seen || 0);

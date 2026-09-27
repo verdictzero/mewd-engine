@@ -3,7 +3,7 @@
    DEWM — the dedicated server
 
      node tools/server.mjs [--map jesse|maze] [--seed N] [--port 7777]
-                           [--max 16] [--no-files]
+                           [--max 16] [--frags N] [--no-files]
 
    A host with no screen: the real simulation (tools/headless.mjs)
    behind the message interface (js/net/server.js), listening on the
@@ -18,10 +18,10 @@
    the handshake, the frames, a ping now and then — in a hundred lines,
    so there is nothing to npm install on the machine under the desk.
 
-   This is step one of the plan. It runs the sim, takes the handshake
-   and the commands, and sends snapshots; the first client to join
-   drives the one player there is, until step three gives everybody
-   their own.
+   Every browser that joins gets a player of its own in the match
+   (js/net/match.js): team deathmatch on JESSE, deathmatch on THE MAZE.
+   Open http://this-machine:7777/?join in as many browsers as you like,
+   up to --max.
    ===================================================================== */
 
 import { register } from 'node:module';
@@ -153,15 +153,18 @@ function serveFile(req, res) {
  * Returns { server, sim, port, close() }. Used by the command line
  * below and by the smoke test, which starts one on a spare port.
  */
-export async function startHost({ map = 'jesse', seed = 0, port = 7777, max = 16, files = true, log = console.log, mapOpts = {} } = {}) {
+export async function startHost({ map = 'jesse', seed = 0, port = 7777, max = 16, files = true, log = console.log, mapOpts = {}, rules = {} } = {}) {
   const { headlessGame } = await import('./headless.mjs');
   const { SimServer } = await import('../js/net/server.js');
   const { NET_PATH } = await import('../js/net/protocol.js');
   seed = (seed >>> 0) || ((Math.random() * 2 ** 31) >>> 0);
+  /* THE MAZE'S CROWD STAYS HOME: shoppers are a mind each, run on every
+     machine by its own dice, and a match is about the players */
+  if (map === 'maze' && !('people' in mapOpts)) mapOpts = { ...mapOpts, people: 0 };
   const { game, doc, problems, ms } = await headlessGame({ map, seed, mapOpts });
   log(`${doc.name}, seed ${seed}: ${doc.sectors.length} sectors, built in ${(ms / 1000).toFixed(1)}s` +
       (problems.length ? `, ${problems.length} problems` : ''));
-  const sim = new SimServer({ game, map: { kind: map, seed }, maxPlayers: max, log });
+  const sim = new SimServer({ game, map: { kind: map, seed, opts: mapOpts }, maxPlayers: max, rules, log });
   const server = http.createServer((req, res) => {
     if (files) serveFile(req, res);
     else { res.writeHead(404); res.end(); }
@@ -192,10 +195,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
   const host = await startHost({
     map: arg('map', 'jesse'), seed: +arg('seed', 0), port: +arg('port', 7777), max: +arg('max', 16),
+    rules: { ...(arg('frags') ? { fragLimit: +arg('frags'), teamLimit: +arg('frags') } : {}) },
     files: !process.argv.includes('--no-files'),
   });
   console.log(`DEWM host on port ${host.port}, up to ${host.sim.maxPlayers} players`);
-  for (const a of lanAddresses()) console.log(`  play:  http://${a}:${host.port}/     socket: ws://${a}:${host.port}/net`);
+  console.log(`${host.sim.match.mode === 'tdm' ? 'team deathmatch' : 'deathmatch'}, to ${host.sim.match.limit}`);
+  for (const a of lanAddresses()) console.log(`  play:  http://${a}:${host.port}/?join     socket: ws://${a}:${host.port}/net`);
   const bye = async () => { console.log('closing'); await host.close(); process.exit(0); };
   process.on('SIGINT', bye); process.on('SIGTERM', bye);
 }

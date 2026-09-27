@@ -41,6 +41,10 @@ import { jesseDoc, newJesseSeed } from './maps/jesse.js';
 import { registerTextures } from './editor/texcompose.js';
 import { loadPack, loadSky, packNamesIn, PackAnimator } from './texpack.js';
 import { Game } from './game.js';
+import { NetClient } from './net/client.js';
+import { NetGame } from './net/remote.js';
+import { WebSocketTransport } from './net/transport.js';
+import { NET_PATH } from './net/protocol.js';
 import { Hud } from './hud.js';
 import { Audio } from './audio.js';
 import { Input } from './input.js';
@@ -540,7 +544,11 @@ async function boot() {
      and it is compiled here by the same compiler the editor's 3D view
      uses. Anything wrong with it and this is THE SPRAWL, which is also
      what the game plays with no map handed over (see playedMap). */
-  const played = playedMap();
+  /* A MATCH ON THE LAN, if this is ?join: the host is asked first,
+     because the host says which world to build (js/net/remote.js) */
+  const joining = new URLSearchParams(location.search).has('join');
+  const net = joining ? await joinHost() : null;
+  const played = net ? netMap(net.map) : playedMap();
   const weather = new Weather({
     hour: 2.0, kind: WEATHER_ORDER[prefs.weather] || 'clear',
     running: false, fireHaze: false,
@@ -613,6 +621,8 @@ async function boot() {
                          flameAtlas: streamAtlas, bodyAtlas: flameAtlas, fxAtlases, gibAtlases, rainAtlas,
                          fleet, police, apc, firetruck, vtol, weather });
   hud.game = game;
+  /* and from here on this page is one player in the host's world */
+  if (net) window.NET = new NetGame(game, net);
   /* the decals are boxes drawn against the world's depth, between the
      world and the gun — see js/decals.js */
   pipeline.afterWorld = (r, cam, target) => game.decals.draw(r, cam, target);
@@ -1330,6 +1340,41 @@ boot().catch(e => {
   const s = $('load-status');
   if (s) s.style.color = '#f44';
 });
+
+/** Join the host named by ?join=host:port — or, with no host, the one
+ *  that served this page, which is the dedicated server's own trick
+ *  (tools/server.mjs). Resolves to a welcomed NetClient, or throws with
+ *  what went wrong on the loading screen. */
+async function joinHost() {
+  const q = new URLSearchParams(location.search);
+  const host = q.get('join') || location.host;
+  const name = (q.get('name') || localStorage.getItem('sellwrong.name') || `PLAYER ${100 + ((Math.random() * 900) | 0)}`)
+    .toUpperCase().slice(0, 16);
+  try { localStorage.setItem('sellwrong.name', name); } catch { /* private window */ }
+  status(`JOINING ${host.toUpperCase()}`, 0.6);
+  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${host}${NET_PATH}`;
+  const client = new NetClient(new WebSocketTransport(url), { name });
+  const ok = await new Promise(res => {
+    const t = setTimeout(() => res(false), 8000);
+    client.onwelcome = () => { clearTimeout(t); res(true); };
+    client.onclose = () => { clearTimeout(t); res(false); };
+  });
+  if (!ok) {
+    const why = client.refused || client.bye || (client.closed ? 'nobody answered' : 'no answer in eight seconds');
+    throw new Error(`could not join ${host}: ${why}`);
+  }
+  console.info(`joined ${host} as ${name}, player ${client.id}: ${client.map.kind} seed ${client.map.seed}`);
+  return client;
+}
+
+/** The world a host named: every map it can offer is a function of a
+ *  seed, so this is the same world it built (tools/headless.mjs). */
+function netMap(map) {
+  const make = { jesse: jesseDoc, maze: mazeDoc }[map.kind];
+  if (!make) throw new Error(`the host is playing ${map.kind}, which this page cannot build`);
+  const doc = make(map.seed, map.opts || {});
+  return { ...compileDoc(doc), doc };
+}
 
 /** The world to play, compiled: THE SPRAWL, or the map DEWM Editor handed
  *  over for a test run — or null for ?grid, and the game plays THE

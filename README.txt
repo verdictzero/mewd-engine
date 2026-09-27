@@ -34,7 +34,7 @@ The player is no longer driven by the keyboard: every tic Game asks its
 SESSION for a TicCmd (js/net/ticcmd.js) — turn, move, run, jump, use,
 fire, weapon — and hands the player that. In single player the session
 is this page's own input, rounded exactly as the wire rounds it
-(thirteen bytes a command), so a player here and a player on another
+(seventeen bytes a command), so a player here and a player on another
 machine are the same arithmetic; two hosts fed the same commands put
 the player in the same place to the bit, which the test checks and
 which client prediction will stand on.
@@ -59,9 +59,59 @@ page's import map, so the bare `three` import cannot resolve there
 without a build step. The same result comes from hosting the SimServer
 in the page itself (a listen server, which the app shell will do) or in
 Node (the dedicated server).
-NOT YET: the game has one player, and the first client to join drives
-it; step three gives every client their own, with prediction and
-interpolation on the client's side.
+LAN PLAY, STEP THREE: A PLAYER EACH. Start a host with
+`node tools/server.mjs --map jesse` and open http://that-machine:7777/?join
+in up to sixteen browsers (?join=host:port&name=ALICE for another host
+or a name; or type `join`, or `join 192.168.1.20:7777`, at the
+terminal).
+  js/net/match.js      the rules. Team deathmatch on a map with teams
+                       (JESSE: you join the smaller side and come back
+                       on its own spawn pads) and deathmatch on anything
+                       else (THE MAZE, with spawns found in the open
+                       floor, and the crowd left at home). A frag for a
+                       kill, one off for dying to yourself or the world,
+                       a two-second respawn, two seconds of spawn guard,
+                       first to 40 (team) or 20, eight seconds of
+                       scores, then a new round. Your own side's rounds
+                       go through you. The network loadout is the
+                       minigun, at a third of its damage against a
+                       person: the other guns are built round one owner
+                       and follow when they learn to belong to somebody.
+  js/net/server.js     every client gets its own Player and session; the
+                       map's START player is put aside. THE REWIND: each
+                       command says which host tic the sender was drawing
+                       the others at (`seen`, four more bytes: eighteen
+                       in all, protocol 2), and while it runs that
+                       command the host puts everybody else back where
+                       they were then — up to a third of a second — so a
+                       round hits what you saw. Snapshots carry all of
+                       you, the others as [id, x, y, z, angle, pitch,
+                       flags, team], the kills and joins since the last,
+                       and the score once a second. A burst of commands
+                       is folded rather than dropped, so the host never
+                       loses a degree of where you are looking.
+  js/net/remote.js     the browser's side. PREDICTION: your player moves
+                       the moment you press; a snapshot puts it where the
+                       host had it at the last command it got to, and the
+                       unanswered ones run again on top. Both ends run
+                       the same rounded commands, so this lands where you
+                       already were — the test walks, runs and turns for
+                       three hundred tics through a lagged line with no
+                       correction at all. Only the host can hurt you.
+                       THE OTHERS are drawn five tics in the past, slid
+                       between the two snapshots either side, as troopers
+                       off the sheets (SWAT for side A, the army for B)
+                       that walk, turn, fire, fall and get up again; their
+                       rounds leave holes, tracers and blood on this page
+                       and hurt nothing. Kills go up as the gun's
+                       notices, a win as the big card, the score along
+                       the top, and the table while TAB is held.
+  A match does not pause: the menu takes your hands off and the world
+  goes on.
+NOT SHARED YET: the rest of the world. Crates, fuel cans and fire are
+each page's own, so what the rounds do to them is only very probably
+the same everywhere. Next: those, the other guns, the in-page host and
+the app shell.
 
 JESSE, THE PvP MAZE (js/maps/jesse.js), typed as `jesse` at the
 terminal, or ?jesse (?jesse&seed=N plays one again), or File -> Open a

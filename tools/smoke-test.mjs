@@ -2331,7 +2331,7 @@ section('touch');
       !/\|\| padEdge\(/.test(inputSrc));
     check('and the game listens for it on both sides of the pause',
       /if \(this\.input\.pausePressed\) this\.setPaused\(false\);/.test(gameSrc) &&
-      /if \(this\.input\.pausePressed && this\.state === 'play'\) this\.setPaused\(true\);/.test(gameSrc));
+      /if \(this\.input\.pausePressed && this\.state === 'play'\) this\.setPaused\(this\.net \? !this\.paused : true\);/.test(gameSrc));
   }
 
   /* ---- AND A BUTTON TO AIM WITH ---------------------------------------
@@ -15152,7 +15152,7 @@ section('jesse, the PvP maze');
 }
 
 
-section('the network, step one');
+section('the network, steps one and three');
 {
   const TC = await import('../js/net/ticcmd.js');
   const PR = await import('../js/net/protocol.js');
@@ -15165,8 +15165,9 @@ section('the network, step one');
   /* --- the TicCmd --- */
   const raw = { look: { x: 0.0123456, y: -0.2 }, move: { x: -0.5, y: 1 }, run: true, attack: true, jump: false, use: true, weaponSlot: 4, weaponCycle: -3 };
   const c1 = TC.fromInput(raw, 77);
+  c1.seen = 4242;
   const back = PR.decode(PR.encodeCmd(c1));
-  check('a command is fourteen bytes on the wire and comes back the same',
+  check('a command is eighteen bytes on the wire and comes back the same',
     PR.encodeCmd(c1).byteLength === 1 + TC.CMD_BYTES && back?.t === 'cmd' && TC.sameCmd(back.cmd, c1));
   check('rounded once it stays rounded, so here and the host agree to the bit',
     TC.sameCmd(TC.quantize({ ...c1, look: { ...c1.look }, move: { ...c1.move } }), c1) && Math.abs(c1.look.x - raw.look.x) <= 0.5 / TC.LOOK_SCALE &&
@@ -15174,42 +15175,184 @@ section('the network, step one');
   check('garbage off the wire is nothing, not a crash',
     PR.decode('not json') === null && PR.decode('{"x":1}') === null && PR.decode(new ArrayBuffer(3)) === null && PR.decode(null) === null);
   const gsrc = fsN.readFileSync('js/game.js', 'utf8');
-  check('the player is driven by the session\'s command, not the keyboard',
-    /this\.player\.tic\(this\.session\.cmd\(this\), 1 \/ TICRATE\)/.test(gsrc) && /this\.session = new LocalSession\(\)/.test(gsrc));
+  check('every player is driven by a session\'s command, not the keyboard',
+    /\(p\.session \|\| this\.session\)\.cmd\(this\)/.test(gsrc) && /this\.session = new LocalSession\(\)/.test(gsrc) &&
+    /p\.tic\(cmd, 1 \/ TICRATE\)/.test(gsrc));
 
-  /* --- the host, over a loopback --- */
+  /* --- the host, over a loopback: a player each --- */
   const small = { w: 10, h: 8 };
   const H = await headlessGame({ map: 'jesse', seed: 31, mapOpts: small });
   check('a Game with no screen, from a seed', !!H.game.player && H.game.session.kind === 'local' && !H.problems.length);
-  const sim = new SV.SimServer({ game: H.game, map: { kind: 'jesse', seed: 31 }, maxPlayers: 2 });
+  const MT = await import('../js/net/match.js');
+  const sim = new SV.SimServer({ game: H.game, map: { kind: 'jesse', seed: 31, opts: small }, maxPlayers: 2 });
+  check('on a host the map\'s own player is put aside', H.game.players.length === 0 && !H.game.player.shootable && H.game.rules === sim.match);
+  check('JESSE is a team match, THE MAZE is everybody for themselves',
+    sim.match.mode === 'tdm' && sim.match.teams.length === 2 && sim.match.limit === MT.RULES.teamLimit);
   const link = () => { const [a, b] = TR.LoopbackTransport.pair(); sim.accept(b); return a; };
   const A = new CL.NetClient(link(), { name: 'ALICE' });
-  check('hello, welcome: an id, and the map as two numbers',
-    A.id === 1 && A.map.kind === 'jesse' && A.map.seed === 31 && A.controls && H.game.session === sim.session);
+  check('hello, welcome: an id, a side, and the map as a seed',
+    A.id === 1 && A.map.kind === 'jesse' && A.map.seed === 31 && A.map.opts.w === 10 && A.team === 0 && A.welcome.mode === 'tdm');
   const B = new CL.NetClient(link(), { name: 'BOB' });
   const C = new CL.NetClient(link(), { name: 'CAROL' });
-  check('up to the limit, and the next is told it is full', B.id === 2 && !B.controls && C.refused && /full/.test(C.refused) && C.closed);
+  check('up to the limit, and the next is told it is full', B.id === 2 && C.refused && /full/.test(C.refused) && C.closed);
+  const pa = sim.clients.get(1).player, pb = sim.clients.get(2).player;
+  check('A PLAYER EACH, on opposite sides, each on their own pads, holding the minigun',
+    H.game.players.length === 2 && pa !== pb && pa.team === 0 && pb.team === 1 && pa.weapon === 'MINIGUN' &&
+    Object.keys(pa.owned).join() === MT.RULES.loadout.join() &&
+    sim.match.teams[0].spawns.some(([x, y]) => x === pa.x && y === pa.y) && sim.match.teams[1].spawns.some(([x, y]) => x === pb.x && y === pb.y));
+  check('and nothing hurts you for a moment after you arrive', pa.invincible && pa.guardUntil > H.game.tics);
   const oldT = link(); let oldRefused = null;
   oldT.onmessage = d => { const m = PR.decode(d); if (m?.t === 'refused') oldRefused = m.why; };
-  sim.clients.delete(2); B.transport.close();                  // make room, then speak the wrong protocol
-  oldT.send(PR.encode({ t: 'hello', v: 999 }));
+  const cB = sim.clients.get(2);
+  sim.clients.delete(2);                  // make room, then speak the wrong protocol
+  oldT.send(PR.encode({ t: 'hello', v: 1 }));
   check('a client that speaks another protocol is turned away', /protocol/.test(oldRefused || ''), oldRefused);
-  const p = H.game.player, x0 = p.x, y0 = p.y, a0 = p.angle;
+  sim.clients.set(2, cB);
+  const heard = [];
+  A.onsnap = m => { if (m.ev) heard.push(...m.ev); };
+  const x0 = pa.x, y0 = pa.y, a0 = pa.angle, bx0 = pb.x;
   for (let t = 1; t <= 60; t++) {
     const c = TC.newCmd(); c.tic = t; c.move.y = 1; c.look.x = 0.01;
     A.send(c);
     sim.step();
   }
-  check('its commands walk the host\'s player', Math.hypot(p.x - x0, p.y - y0) > 100 && Math.abs(p.angle - a0) > 0.3,
-    `${Math.hypot(p.x - x0, p.y - y0).toFixed(0)} units`);
-  check('and the snapshots say where, and which command they got to',
-    A.snaps === 60 / SV.SNAP_EVERY && A.snap.ack === 60 && Math.abs(A.snap.you.x - p.x) < 0.01 && A.snap.tic === H.game.tics);
-  const before = sim.session.applied;
+  check('each client\'s commands walk its own player and nobody else\'s', Math.hypot(pa.x - x0, pa.y - y0) > 100 && Math.abs(pa.angle - a0) > 0.3 && pb.x === bx0,
+    `${Math.hypot(pa.x - x0, pa.y - y0).toFixed(0)} units`);
+  check('and the snapshots say where, which command they got to, and where the others are',
+    A.snaps === 60 / SV.SNAP_EVERY && A.snap.ack === 60 && Math.abs(A.snap.you.x - pa.x) < 0.01 && A.snap.tic === H.game.tics &&
+    A.snap.others.length === 1 && A.snap.others[0][0] === 2 && A.snap.others[0][7] === 1 && A.score?.players.length === 2);
+  for (let i = 0; i < MT.RULES.guardTics; i++) { const c = TC.newCmd(); c.tic = 60; A.send(c); sim.step(); }
+  check('the guard wears off', !pa.invincible && !pb.invincible);
+  const c61 = TC.newCmd(); c61.tic = 61; c61.move.y = 1; A.send(c61); sim.step();
+  const before = pa.session.applied;
   sim.step(); sim.step();
   check('a tic with no command keeps walking but does not turn',
-    sim.session.applied === before && Math.abs(sim.session.out.move.y - 1) < 1e-9 && sim.session.out.look.x === 0);
+    pa.session.applied === before && Math.abs(pa.session.out.move.y - 1) < 1e-9 && pa.session.out.look.x === 0);
+  /* a burst: more commands than the buffer, folded rather than dropped */
+  const HS = new SE.HostSession();
+  for (let t = 1; t <= SE.CMD_BUFFER + 4; t++) { const c = TC.newCmd(); c.tic = t; c.look.x = 0.001 * t; HS.push(c); }
+  const turned = HS.queue.reduce((s, c) => s + c.look.x, 0);
+  check('a burst is folded, not dropped: every degree of turn is still in the queue',
+    HS.queue.length === SE.CMD_BUFFER && Math.abs(turned - 0.001 * (SE.CMD_BUFFER + 4) * (SE.CMD_BUFFER + 5) / 2) < 1e-9 && HS.merged === 4);
+
+  /* A HIT: A on its own pad facing down a clear line, B stood on it,
+     A holds the trigger */
+  {
+    const lv = H.game.level, [sx0, sy0] = sim.match.teams[0].spawns[0];
+    pa.x = sx0; pa.y = sy0; pa.sector = lv.sectorAt(sx0, sy0); pa.z = pa.sector.floor; pa.momx = pa.momy = 0;
+    for (let k = 0; k < 16; k++) {
+      const a = k * Math.PI / 8;
+      if (!lv.rayHitWall(pa.x, pa.y, pa.z + 41, pa.x + Math.cos(a) * 300, pa.y + Math.sin(a) * 300, pa.z + 41)) { pa.angle = a; break; }
+    }
+  }
+  pb.x = pa.x + Math.cos(pa.angle) * 220; pb.y = pa.y + Math.sin(pa.angle) * 220; pb.z = pa.z; pb.momx = pb.momy = 0;
+  pb.sector = H.game.level.sectorAt(pb.x, pb.y);
+  const clearShot = !H.game.level.rayHitWall(pa.x, pa.y, pa.z + 41, pb.x, pb.y, pb.z + 41);
+  let t2 = 61, killedAt = -1;
+  for (let i = 0; i < 90 && killedAt < 0; i++) {
+    const c = TC.newCmd(); c.tic = ++t2; c.attack = true; c.seen = H.game.tics; A.send(c); sim.step();
+    if (pb.dead) killedAt = i;
+  }
+  check('rounds from one player kill another, at a third of what they do to a shopper',
+    clearShot && killedAt > 12 && pb.dead && MT.RULES.pvpScale < 1, `killed after ${killedAt} tics`);
+  check('a frag for the shooter and a point for the side',
+    pa.frags === 1 && pb.deaths === 1 && sim.match.teams[0].score === 1 && sim.match.teams[1].score === 0);
+  sim.step(); sim.step(); sim.step();
+  check('and everybody hears about it', heard.some(e => e.k === 'frag' && e.by === 1 && e.of === 2), JSON.stringify(heard));
+  const n0 = pb.spawns;
+  for (let i = 0; i < MT.RULES.respawnTics + 2; i++) sim.step();
+  check('the dead come back on their own side\'s pads, whole', !pb.dead && pb.spawns === n0 + 1 && pb.health === MT.RULES.health &&
+    sim.match.teams[1].spawns.some(([x, y]) => x === pb.x && y === pb.y) && pb.frags === 0 && pb.deaths === 1);
+  check('your own side\'s rounds go through you', sim.match.friendly(pa, { isPlayer: true, team: 0 }) && !sim.match.friendly(pa, pb) &&
+    !H.game.targetsFor(pa).some(q => q !== pb && q.isPlayer && q.team === pa.team));
+  /* THE REWIND: B moves off the line, A fires at where A SAW B */
+  const hist = sim.history.get(pb);
+  const sx = pa.x + Math.cos(pa.angle) * 260, sy = pa.y + Math.sin(pa.angle) * 260;
+  pb.x = sx; pb.y = sy; pb.z = pa.z; pb.sector = H.game.level.sectorAt(sx, sy); pb.invincible = false; pb.guardUntil = 0;
+  sim.step();
+  const seenAt = H.game.tics;
+  pb.x = sx + Math.sin(pa.angle) * 300; pb.y = sy - Math.cos(pa.angle) * 300;   // sideways, out of the line
+  pb.sector = H.game.level.sectorAt(pb.x, pb.y);
+  sim.step(); sim.step();
+  const hp0 = pb.health + pb.armour1, r0 = sim.rewinds;
+  for (let i = 0; i < 6; i++) { const c = TC.newCmd(); c.tic = ++t2; c.attack = true; c.seen = seenAt; A.send(c); sim.step(); }
+  check('THE REWIND: a round goes where the shooter saw you, not where you have got to',
+    sim.rewinds > r0 && pb.health + pb.armour1 < hp0 && hist.length > 10, `${hp0} → ${pb.health + pb.armour1}`);
+  const hp1 = pb.health + pb.armour1;
+  for (let i = 0; i < 6; i++) { const c = TC.newCmd(); c.tic = ++t2; c.attack = true; c.seen = 0; A.send(c); sim.step(); }
+  check('and without it, the round goes where you are now — past you', pb.health + pb.armour1 === hp1 && !pb.dead);
+  /* a match to the limit, and a new round */
+  sim.match.teams[0].score = sim.match.limit - 1;
+  sim.match.died(pb, pa);
+  check('the first side to the limit wins, and the scores say so', sim.match.over?.winner === 'A' && sim.match.table().over?.winner === 'A');
+  for (let i = 0; i < MT.RULES.endTics + 2; i++) sim.step();
+  check('and then it starts again, from nothing', !sim.match.over && sim.match.round === 2 && sim.match.teams.every(t => t.score === 0) && pa.frags === 0);
   A.close();
-  check('when the controller leaves, the line is closed and counted', sim.clients.size === 0 && !sim.controller);
+  check('when a player leaves, their player leaves with them', sim.clients.size === 1 && H.game.players.length === 1 && !H.game.players.includes(pa));
+  /* deathmatch spawns on a map with no pads */
+  const MZ = await headlessGame({ map: 'maze', seed: 5, mapOpts: { cells: 5, people: 0 } });
+  const dm = new MT.Match(MZ.game, { seed: 5 });
+  check('a map with no pads finds its own standing room', dm.mode === 'dm' && dm.spawns.length >= 4 &&
+    dm.spawns.every(([x, y]) => MZ.game.level.sectorAt(x, y)), `${dm.spawns.length} spawns`);
+
+  /* --- A NETWORK CLIENT: prediction, and the others as puppets --- */
+  {
+    const RM = await import('../js/net/remote.js');
+    const H2 = await headlessGame({ map: 'jesse', seed: 44, mapOpts: small });
+    const sim2 = new SV.SimServer({ game: H2.game, map: { kind: 'jesse', seed: 44, opts: small } });
+    let clock = 0; const now = () => clock;
+    const post = [];
+    const lag = ms => { const [a, b] = TR.LoopbackTransport.pair();
+      for (const t of [a, b]) { const send = t.send.bind(t); t.send = d => post.push({ at: clock + ms, f: () => send(d) }); }
+      sim2.accept(b); return a; };
+    const deliver = () => { const due = post.filter(q => q.at <= clock); for (const q of due) post.splice(post.indexOf(q), 1); for (const q of due) q.f(); };
+    const join = async name => {
+      const c = new CL.NetClient(lag(30), { name, now });
+      while (!c.welcome) { clock += 1; deliver(); }
+      const G = (await headlessGame({ map: c.map.kind, seed: c.map.seed, mapOpts: c.map.opts })).game;
+      return { c, G, net: new RM.NetGame(G, c, { now, board: false }) };
+    };
+    const P = await join('PAT'), Q = await join('QUIN');
+    const step = () => { clock += 1000 / 35; P.G.tic(); Q.G.tic(); sim2.step(); deliver(); P.net.frame(); Q.net.frame(); };
+    for (let i = 0; i < 40; i++) step();
+    const c0 = P.net.corrections;
+    for (let i = 0; i < 300; i++) {
+      P.G.input.move = { x: i % 60 < 20 ? 1 : 0, y: i % 100 < 70 ? 1 : 0 }; P.G.input.look = { x: i % 50 < 10 ? 0.03 : 0, y: 0 }; P.G.input.run = i > 150;
+      step();
+    }
+    const sp = sim2.clients.get(P.c.id).player;
+    check('PREDICTION: the page runs its own commands and the host agrees with it, to the bit — no corrections',
+      P.net.corrections === c0 && Math.hypot(sp.x - P.G.player.x, sp.y - P.G.player.y) < 200 && P.c.snaps > 50,
+      `${P.net.corrections - c0} corrections, biggest ${P.net.biggest.toFixed(2)}`);
+    check('the page\'s player is the host\'s to hurt, and holds the minigun', P.G.player.invincible && P.G.player.weapon === 'MINIGUN' && P.G.session.kind === 'net');
+    const pup = Q.net.puppets.get(P.c.id);
+    check('the others are puppets: a trooper, drawn where the host had them a moment ago',
+      pup && pup.a.puppet && pup.a.type === (P.c.team === 1 ? 'ARMY' : 'SWAT') && Q.G.actors.includes(pup.a) &&
+      Math.hypot(pup.a.x - sp.x, pup.a.y - sp.y) < 16 * (RM.INTERP_TICS + 3) && /RUN|STAND/.test(pup.a.state.name));
+    check('and each command says which host tic the others were drawn at', Math.abs(P.net.seenTic() - (H2.game.tics - RM.INTERP_TICS)) <= 3,
+      `${P.net.seenTic()} against ${H2.game.tics}`);
+    /* a shove the page could not have known about: the host moves you */
+    sp.x += 40; sp.momx = 0;
+    for (let i = 0; i < 30; i++) { P.G.input.move = { x: 0, y: 0 }; P.G.input.look = { x: 0, y: 0 }; step(); }
+    check('and when the host disagrees, the page goes where the host says', P.net.corrections > c0 && Math.abs(P.G.player.x - sp.x) < 2,
+      `${P.G.player.x.toFixed(1)} vs ${sp.x.toFixed(1)}`);
+    /* a death, told */
+    const sq = sim2.clients.get(Q.c.id).player;
+    sq.invincible = false; sq.guardUntil = 0;
+    sq.damage(10000, sp, { shot: true });
+    for (let i = 0; i < 8; i++) step();
+    check('you die when the host says so, and the page is told who did it',
+      Q.G.player.dead && Q.net.puppets.get(P.c.id) && P.net.puppets.get(Q.c.id).dead &&
+      P.G.toasts.some(t => /PAT FRAGGED QUIN|YOU FRAGGED QUIN/.test(t.text)), P.G.toasts.map(t => t.text).join('|'));
+    for (let i = 0; i < MT.RULES.respawnTics + 10; i++) step();
+    check('and come back where it puts you', !Q.G.player.dead && Math.hypot(Q.G.player.x - sq.x, Q.G.player.y - sq.y) < 20);
+    Q.net.close();
+    for (let i = 0; i < 6; i++) step();
+    check('a player who leaves is taken off everybody\'s screen', !P.net.puppets.has(Q.c.id) && H2.game.players.length === 1);
+    const mainSrc = fsN.readFileSync('js/main.js', 'utf8'), termSrc = fsN.readFileSync('js/terminal.js', 'utf8');
+    check('?join joins the host that served the page, and `join` at the terminal goes there',
+      /has\('join'\)/.test(mainSrc) && /new NetGame\(game, net\)/.test(mainSrc) && /JOIN_RE/.test(termSrc) && /params\.has\('join'\)/.test(termSrc));
+  }
 
   /* --- the same commands, the same world: what prediction stands on --- */
   const G1 = (await headlessGame({ map: 'jesse', seed: 8, mapOpts: small })).game;
@@ -15238,7 +15381,7 @@ section('the network, step one');
     await new Promise(r => setTimeout(r, 700));
     clearInterval(iv);
     check('a WebSocket client joins the dedicated server, drives it, and hears back',
-      welcomed && W.map.seed === 12 && W.snaps >= 4 && W.snap.ack > 0 && W.snap.you && host.sim.session.applied > 0,
+      welcomed && W.map.seed === 12 && W.snaps >= 4 && W.snap.ack > 0 && W.snap.you && host.sim.clients.get(W.id).player.session.applied > 0,
       `${W.snaps} snaps, ack ${W.snap?.ack}`);
     const page = await fetch(`http://127.0.0.1:${host.port}/index.html`);
     const esc = await fetch(`http://127.0.0.1:${host.port}/%2e%2e/%2e%2e/etc/passwd`);

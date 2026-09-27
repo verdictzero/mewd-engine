@@ -38,6 +38,9 @@ const EDIT_WORDS = ['E', 'EDIT'];
 const QUIT_WORDS = ['QUIT', 'EXIT'];
 /* JESSE, the PvP maze (js/maps/jesse.js): a new one every time */
 const JESSE_WORDS = ['JESSE'];
+/* AND A GAME ON THE LAN: `join` for the host that served this page,
+   `join 192.168.1.20:7777` for another (tools/server.mjs) */
+const JOIN_RE = /^JOIN(?:\s+([\w.\-]+(?::\d+)?))?$/;
 const QUIT_URL = 'https://news.asr.institute';
 
 /* THE PROMPT, at the user's request: the interface's number and a
@@ -310,6 +313,13 @@ class Terminal {
       location.href = '?jesse';
       return;
     }
+    const join = JOIN_RE.exec(entry);
+    if (join) {
+      const host = raw.trim().split(/\s+/)[1] || '';
+      await this.tell(['JOINING', host ? host.toUpperCase() : 'THIS HOST']);
+      location.href = host ? `?join=${encodeURIComponent(host)}` : '?join';
+      return;
+    }
     if (QUIT_WORDS.includes(entry)) {
       await this.tell(['GOODBYE']);
       location.href = QUIT_URL;
@@ -367,9 +377,10 @@ class Terminal {
    (js/maps/maze.js) — the game's own world, a new one each time, and
    `?seed=N` maze N again; `?sprawl` is THE SPRAWL (js/maps/sprawl.js);
    `?grid` is THE GRID, the test area it used to be; `?jesse` is JESSE,
-   the PvP maze (js/maps/jesse.js). Anything else is the terminal. */
+   the PvP maze (js/maps/jesse.js); `?join` is a match on the LAN
+   (js/net/remote.js). Anything else is the terminal. */
 const params = new URLSearchParams(location.search);
-if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid') || params.has('sprawl') || params.has('seed') || params.has('jesse')) {
+if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid') || params.has('sprawl') || params.has('seed') || params.has('jesse') || params.has('join')) {
   $('term').remove();
   const go = params.has('edit')
     ? import('./editor/editor.js').then(m => m.startEditor())

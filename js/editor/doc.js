@@ -1619,6 +1619,8 @@ function compileCore(doc, ctx) {
   level.noBurn = !!w.noBurn;
   level.noSquads = !!w.noSquads;
   level.noCellFire = !!w.noCellFire;
+  /* the teams and their spawn pads, for a match (js/net/match.js) */
+  level.pvp = w.pvp || null;
   level.sky = w.sky;
   /* a skybox from the texture pack (js/texpack.js), by name, or none */
   level.skybox = w.skybox || null;

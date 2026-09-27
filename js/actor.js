@@ -321,6 +321,9 @@ export class Actor {
 
   tic() {
     if (this.removed || !this.state) return;
+    /* somebody on another machine, drawn here — js/net/remote.js moves
+       it, and nothing in this file may */
+    if (this.puppet) return;
     if (this.burning > 0) this.burnTic();
     if (this.frost > 0) this.frostTic();
     if (this.bored > 0) this.boreTic();

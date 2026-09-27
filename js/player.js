@@ -355,7 +355,7 @@ const FRICTION   = 0.90625;
 const WALK_FWD   = 25 / 32,  RUN_FWD  = 50 / 32;
 const WALK_SIDE  = 24 / 32,  RUN_SIDE = 40 / 32;
 const STOP_SPEED = 0.06;
-const MAX_PITCH  = 0.72;          // about 41 degrees, the usual port limit
+export const MAX_PITCH  = 0.72;          // about 41 degrees, the usual port limit
 
 /* THE FLAMETHROWER IS THE GAME AND IT IS NOT SUBTLE.
 
@@ -529,6 +529,15 @@ export const WEAPONS = {
 export class Player {
   constructor(game, x, y, angle) {
     this.game = game;
+    /* WHO THIS IS, when there is more than one of you — see
+       js/net/match.js. A game on its own leaves all of these alone. */
+    this.isPlayer = true;
+    this.id = 0;
+    this.name = 'PLAYER';
+    this.team = -1;
+    this.frags = 0;
+    this.deaths = 0;
+    this.session = null;           // null: the game's own (Game.session)
     this.x = x; this.y = y; this.angle = angle; this.pitch = 0;
     this.momx = 0; this.momy = 0;
     /* and up, which is new: see GRAVITY */
@@ -839,6 +848,20 @@ export class Player {
         return a;
       }
     }
+    /* AND EACH OTHER, when there are others: a player is as solid as a
+       trooper, on the same terms — you can always step out of one */
+    const ps = this.game.players;
+    if (ps.length > 1) for (let i = 0; i < ps.length; i++) {
+      const a = ps[i];
+      if (a === this || a.dead) continue;
+      const rr = this.radius + a.radius;
+      const d2 = dist2(nx, ny, a.x, a.y);
+      if (d2 >= rr * rr) continue;
+      if (Math.abs(a.z - this.z) >= this.height) continue;
+      const was = dist2(this.x, this.y, a.x, a.y);
+      if (was < rr * rr && d2 >= was) continue;
+      return a;
+    }
     return null;
   }
 
@@ -910,7 +933,7 @@ export class Player {
       }
       this.ammo[d.ammo] -= d.rounds;
     }
-    const from = g.nozzle();
+    const from = g.nozzle(this);
     const dx = Math.cos(this.angle), dy = Math.sin(this.angle);
     for (let i = 0; i < d.rounds; i++) {
       const a = this.angle + (pRandom() / 255 - 0.5) * 2 * d.spread;
@@ -1524,7 +1547,7 @@ export class Player {
       this.launched = l.grace ?? 24;
       this.game.sound?.play('whack', this);
     }
-    if (this.health <= 0) this.die();
+    if (this.health <= 0) this.die(source);
   }
 
   give(kind, amount) {
@@ -1541,7 +1564,7 @@ export class Player {
     return true;
   }
 
-  die() {
+  die(source = null) {
     this.dead = true;
     this.health = 0;
     this.armour2 = 0; this.armour1 = 0;
@@ -1556,9 +1579,9 @@ export class Player {
     this.charge = 0;
     this.beamTics = 0;
     this.seeking = false;
-    this.game.beam?.stop();
+    if (this === this.game.player) this.game.beam?.stop();
     this.game.sound?.play('playerDie', this);
-    this.game.onPlayerDied();
+    this.game.onPlayerDied(this, source);
   }
 
 

@@ -5,19 +5,22 @@
 
      COMMANDS are binary, small and constant — thirty-five a second from
      every player — so they are bytes: a type byte and a TicCmd
-     (js/net/ticcmd.js), fourteen bytes in all.
+     (js/net/ticcmd.js), eighteen bytes in all.
 
      EVERYTHING ELSE is rare and shaped — a handshake, a snapshot, a
      goodbye — so it is JSON, readable in a packet dump and in a test.
-     Snapshots go binary when there is enough in them to matter (step
-     three: many players, delta-compressed); for now they are small.
+     Snapshots are JSON too, even with sixteen players in them: on a
+     LAN, twelve a second of a few hundred bytes is nothing, and a
+     snapshot you can read is worth more than one that is small.
 
    THE HANDSHAKE:
      client → host   { t:'hello', v, name }
-     host → client   { t:'welcome', v, id, map:{ kind, seed }, tic, rate }
+     host → client   { t:'welcome', v, id, team, mode, map:{ kind, seed, opts }, tic, rate }
                      or { t:'refused', why } and the line is closed
      client → host   CMD packets, one a tic
-     host → client   { t:'snap', tic, ack, you:{…} } a few times a second
+     host → client   { t:'snap', tic, ack, you:{…}, others:[…], ev:[…], score? }
+                     twelve times a second — see SimServer.snapFor
+     client → host   { t:'ping', n, rtt }   and back   { t:'pong', n }
      either          { t:'bye', why }
 
    THE MAP IS A SEED. Every map the host can offer is a pure function of
@@ -28,7 +31,7 @@
 
 import { CMD_BYTES, writeCmd, readCmd } from './ticcmd.js';
 
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;          // 2: many players, and `seen` in the command
 export const MAX_PLAYERS = 16;
 export const DEFAULT_PORT = 7777;
 export const NET_PATH = '/net';

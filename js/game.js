@@ -97,6 +97,18 @@ export class Game {
     /* where the player's command each tic comes from: this page, until
        a host (js/net/server.js) says otherwise */
     this.session = new LocalSession();
+    /* EVERYBODY WITH A PAIR OF HANDS IN THIS WORLD. One in a game on
+       its own — `player`, the one this screen looks out of — and one a
+       client on a host (js/net/match.js), each with its own session.
+       A player with no session of its own is driven by the game's. */
+    this.players = [];
+    /* AND THE RULES THAT HOLD BETWEEN THEM, when there is more than
+       one: a match (js/net/match.js) sets this, and a game on its own
+       has none — which is every check below costing nothing. */
+    this.rules = null;
+    /* set by a host to wind the others back to what a shooter saw
+       before its tic, and forward again after — see SimServer.rewind */
+    this.rewind = null;
 
     this.actors = [];
     this.projectiles = [];
@@ -277,10 +289,9 @@ export class Game {
   /** Where the flame is born: the end of the gun as drawn, if there is
    *  one, else a point low and right of the eye — which is where the
    *  drawn one is anyway. Game coordinates. */
-  nozzle() {
+  nozzle(p = this.player) {
     const o = this._nozzle;
-    if (this.weapon3d && this.weapon3d.nozzleWorld(this.camera, o)) return o;
-    const p = this.player;
+    if (p === this.player && this.weapon3d && this.weapon3d.nozzleWorld(this.camera, o)) return o;
     const c = Math.cos(p.angle), s = Math.sin(p.angle);
     o.x = p.x + c * 18 + s * 9;
     o.y = p.y + s * 18 - c * 9;
@@ -295,6 +306,7 @@ export class Game {
     for (const t of this.level.things) {
       if (t.type === 'START') {
         this.player = new Player(this, t.x, t.y, t.angle);
+        this.players.push(this.player);
         /* A START ON AN UPPER LAYER of an edited map: in the storey at
            its height, not the ground under it — a hair over the deck,
            which is the ceiling of the room under it as well */
@@ -465,7 +477,10 @@ export class Game {
      One tic of the world
      ------------------------------------------------------------------ */
   update(dt) {
-    if (this.paused) {
+    /* A MATCH DOES NOT PAUSE: the host's world goes on whether this page
+       is looking or not, so the tics go on too — with the hands off
+       (NetSession sends nothing but standing still while the menu is up) */
+    if (this.paused && !this.net) {
       /* Still listen. A pause that stops sampling the pause key is a
          door with no handle on the inside. */
       this.input.sample(1 / TICRATE);
@@ -493,14 +508,20 @@ export class Game {
     this.tics++;
     this.input.sample(1 / TICRATE);
 
-    if (this.input.pausePressed && this.state === 'play') this.setPaused(true);
+    if (this.input.pausePressed && this.state === 'play') this.setPaused(this.net ? !this.paused : true);
 
     /* THE PLAYER IS DRIVEN BY A COMMAND, NOT BY THE KEYBOARD: this
        tic's TicCmd from the session — this page's own input, rounded as
        the wire rounds it, or a network client's — so the simulation
        cannot tell a player here from a player on another machine. See
        js/net/ticcmd.js and js/net/session.js. */
-    this.player.tic(this.session.cmd(this), 1 / TICRATE);
+    for (let i = 0; i < this.players.length; i++) {
+      const p = this.players[i];
+      const cmd = (p.session || this.session).cmd(this);
+      const back = this.rewind?.(p, cmd);
+      p.tic(cmd, 1 / TICRATE);
+      back?.();
+    }
     for (let i = 0; i < this.actors.length; i++) this.actors[i].tic();
     /* after the actors, so the bore sees the tic's deaths in the tic
        they happen — a drill whose head has just burst is spent now, not
@@ -541,6 +562,10 @@ export class Game {
     this.responders.tic();
     this.brigade.tic();
     this.gunships.tic();
+
+    /* a network client's own tic: the puppets, and what the command
+       just run left the player looking at (js/net/remote.js) */
+    this.net?.tic();
 
     if (this.sound) {
       this.sound.listener = this.player;
@@ -764,7 +789,11 @@ export class Game {
   /* what "go again" is, on whatever this is being played on */
   get retryPrompt() { return this.input?.mode === 'touch' ? 'TAP TO GO AGAIN' : 'PRESS SPACE TO GO AGAIN'; }
 
-  onPlayerDied() {
+  onPlayerDied(p = this.player, source = null) {
+    /* A MATCH HAS ITS OWN IDEA OF WHAT A DEATH IS — a frag, and a
+       respawn — and nobody's death ends the world for the others */
+    if (this.rules) { this.rules.died?.(p, source); return; }
+    if (p !== this.player) return;
     this.state = 'dead';
     /* AND NOTHING IS SAID HERE ANY MORE. This was a setBigMessage — one
        line of amber type reading YOU DIED IN AISLE 5, which was the
@@ -920,7 +949,7 @@ export class Game {
     }
 
     let best = null, bestT = maxT;
-    const targets = from === this.player ? this.actors : [this.player, ...this.actors];
+    const targets = this.targetsFor(from);
     const dx = tx - ox, dy = ty - oy;
     const len2 = dx * dx + dy * dy || 1;
     for (const a of targets) {
@@ -943,11 +972,11 @@ export class Game {
        one for the minigun (opts.hot) — and blood on the floor and up the
        wall behind whoever it went through. See js/decals.js. */
     if (best) {
-      best.a.damage(damage, from, opts);
+      best.a.damage(this.rules ? this.rules.scale(from, best.a, damage) : damage, from, opts);
       if (opts.shot || opts.hot) {
         this.decals.bleed(best.a, best.x, best.y, best.z, dx, dy, tz - z);
         /* and a pool where they fell, if that was the one that did it */
-        if (best.a.dead && bleeds(best.a, this.player)) this.decals.pool(best.a.x, best.a.y, best.a.z);
+        if (best.a.dead && bleeds(best.a)) this.decals.pool(best.a.x, best.a.y, best.a.z);
       }
       lh.x = best.x; lh.y = best.y; lh.z = best.z;
       /* A ROUND INTO A VAN LEAVES A HOLE IN THE VAN, on whichever face
@@ -1073,7 +1102,7 @@ export class Game {
       if (wall) hit = { x: wall.x, y: wall.y, z: wall.z, actor: null };
 
       if (!hit) {
-        const targets = p.owner === this.player ? this.actors : [this.player, ...this.actors];
+        const targets = this.targetsFor(p.owner);
         for (const a of targets) {
           if (!a || a === p.owner || a.removed || a.dead || !a.shootable) continue;
           const rr = a.radius + 10;
@@ -1121,7 +1150,20 @@ export class Game {
     const r2 = radius * radius;
     for (const a of this.actors)
       if (!a.removed && !a.dead && a.shootable && dist2(at.x, at.y, a.x, a.y) < r2) out.push(a);
-    if (this.player && !this.player.dead && dist2(at.x, at.y, this.player.x, this.player.y) < r2) out.push(this.player);
+    for (const p of this.players)
+      if (!p.dead && dist2(at.x, at.y, p.x, p.y) < r2) out.push(p);
+    return out;
+  }
+
+  /** What a shot from `from` can hit: every player and every actor,
+   *  less `from` itself and whoever the match says is on its side.
+   *  Alone in a world that is the actors, which is what it always was. */
+  targetsFor(from) {
+    const out = [];
+    const rules = this.rules;
+    for (const p of this.players)
+      if (p !== from && !(rules && rules.friendly?.(from, p))) out.push(p);
+    for (let i = 0; i < this.actors.length; i++) out.push(this.actors[i]);
     return out;
   }
 
@@ -1395,6 +1437,8 @@ export class Game {
      Drawing
      ------------------------------------------------------------------ */
   render(now = 0) {
+    /* the others, slid to where they were a moment ago */
+    this.net?.frame();
     const p = this.player;
     let yaw = p.angle, pitch = p.pitch, ex = p.x, ey = p.y, ez = p.viewZ;
     if (this.idle) {
