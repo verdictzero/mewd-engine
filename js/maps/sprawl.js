@@ -19,7 +19,9 @@
      a skybox            BSKY2, the pack's low sun
      the plants          the wood's firs, bushes, ferns and grass (the
                          golf project's sprites) and the six photographed
-                         street trees (assets/forest)
+                         street trees (assets/forest), and the vandre
+                         project's biome plants, in beds of its grounds
+                         down the meadow's west edge
      the photographs     the headstones, the cemetery iron (RAILING) and
                          the cobra-head street lamp
      the people          the shoppers and townsfolk (the galvarius
@@ -837,6 +839,44 @@ export function sprawlDoc() {
   thing('START', sx, sy, { angle: Math.PI / 2 });
   scatter(inRect(RIM + ROAD, sy - 256, S - RIM - ROAD, sy + 256), [{ type: 'TOWNIE', w: 1 }], 0.8, 320, 0.3, { name: 'road walkers e-w' });
   scatter(inRect(sx - 256, RIM + ROAD, sx + 256, S - RIM - ROAD), [{ type: 'TOWNIE', w: 1 }], 0.8, 320, 0.3, { name: 'road walkers n-s' });
+
+  /* ---- 0,3 AGAIN: THE BIOME BEDS down the meadow's west edge --------
+     The vandre project's grounds and plants (tools/prep-vandre.py): a
+     bed of each ground, 256 by 112, raised a step, and on it the plants
+     that grew on that ground there. Trees stand 96 apart so each has a
+     cell of its own; the low plants go in a row in front of them. Built
+     last, so nothing it rolls moves anything above. */
+  {
+    const b = B(0, 3);
+    const BEDS = [
+      ['SAND1',    ['desert_big_cactus_1', 'desert_cactus_5', 'desert_cactus_6'],
+                   ['desert_small_cactus_1', 'desert_creosote_bush_5', 'desert_bush_1', 'desert_small_cactus_2']],
+      ['WASTE1',   ['wasteland_tree', 'wasteland_tree_big_2', 'wasteland_tree_big_3'],
+                   ['desert_dead_creosote_bush_5', 'wasteland_bush_1', 'desert_dead_creosote_bush_6']],
+      ['MOLTEN1',  ['wasteland_small_tree_1', 'wasteland_tree_small_2'], []],
+      ['SAVANNA1', ['savanna_tree_1'], ['savanna_grass_short_1', 'savanna_grass_tall_1', 'savanna_grass_short_2', 'savanna_grass_tall_2', 'desert_creosote_bush_6', 'desert_bush_2']],
+      ['FARMLND1', [], ['farm_wheat_1', 'farm_wheat_2', 'farm_wheat_3', 'farm_wheat_4', 'farm_wheat_2', 'farm_wheat_1', 'farm_wheat_4', 'farm_wheat_3']],
+      ['TUNDRA1',  [], ['tundra_bush_1', 'tundra_bush_2', 'tundra_bush_3', 'tundra_bush_4', 'tundra_bush_5']],
+      ['FROZEN1',  ['pine_juvenile_fir_tree_1', 'pine_juvenile_fir_tree_2', 'pine_juvenile_fir_tree_4'], []],
+      ['ARCTIC1',  ['pine_fir_tree_4', 'pine_barrens_tree'], []],
+      ['PINEBAR1', ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3'],
+                   ['pine_fern_1', 'pine_forest_bush_1', 'pine_fern_2', 'pine_forest_bush_2', 'pine_fern_3', 'pine_forest_bush_3', 'pine_fern_4']],
+      ['MEADOW1',  ['new_meadow_tree_1'], ['new_meadow_bush_1', 'new_meadow_bush_2', 'new_meadow_bush_3', 'new_meadow_bush_4']],
+      ['MEADOW2',  ['new_meadow_tree_2'], ['new_meadow_flower_1', 'new_meadow_grass_1', 'new_meadow_flower_2', 'new_meadow_grass_2']],
+      ['MEADOW3',  ['new_meadow_tree_3'], ['new_meadow_fern_1', 'new_meadow_fern_2', 'new_meadow_grass_tall_1', 'new_meadow_fern_3', 'new_meadow_fern_4']],
+      ['MEADOW4',  [], ['new_meadow_flower_1', 'new_meadow_grass_tall_1', 'new_meadow_flower_2', 'new_meadow_grass_1']],
+      ['MEADOW5',  [], ['new_meadow_grass_2', 'new_meadow_bush_2', 'new_meadow_grass_1']],
+      ['GRASCHK1', ['meadow_tree_big', 'meadow_tree_medium'], ['meadow_bush_var_a', 'meadow_grass_var_a', 'meadow_bush_var_b']],
+      ['GRASCHK2', ['meadow_tree_really_big'], ['meadow_grass_var_b', 'meadow_grass_var_a', 'meadow_grass_var_b']],
+      ['CANDY1', [], []], ['CITYCON1', [], []], ['CITYMET1', [], []], ['CITYMET2', [], []], ['CITYSKRT', [], []],
+    ];
+    BEDS.forEach(([tex, trees, low], n) => {
+      const x0 = b.ix0 + 48, y0 = b.iy0 + 48 + n * 128;
+      sector(rect(x0, y0, x0 + 256, y0 + 112), { name: 'biome bed', floor: CURB + 8, floorTex: tex, lowerTex: tex, light: 0.86 });
+      trees.forEach((k, i) => plant(k, x0 + 32 + i * 96, y0 + 40));
+      low.forEach((k, i) => plant(k, x0 + 16 + (i + 0.5) * (224 / low.length), y0 + 88));
+    });
+  }
   void ground; void plateau;
   return d;
 }

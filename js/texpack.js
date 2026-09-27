@@ -9,7 +9,11 @@
    and they stay as files in assets/textures (tools/build-texpack.py),
    loaded at run time and put in the same TextureBank under their own
    names, so a map can wear one on any surface exactly as it wears a
-   drawn one.
+   drawn one. A third set came later, from the user's own Godot project
+   (github.com/verdictzero/vandre): its biome grounds, the checkered
+   sand, snow, meadow, pine litter, savanna, wasteland, farmland, tundra,
+   candy and lava, and its city's metal and concrete plates, in the
+   groups vandre/terrain and vandre/city (tools/prep-vandre.py).
 
    THEIR SCALE. The panels, doors and floors are drawn at TWICE Doom's
    resolution: a door is 128 by 256 pixels here where Doom's was 64 by

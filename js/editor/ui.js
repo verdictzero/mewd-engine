@@ -16,7 +16,7 @@ import { PACK, PACK_SKIES, animOf, ownImage } from '../texpack.js';
 import { THING_TYPES, problemsOf, ringOf, signedArea, COLOR_PARTS, LINEDEF_THICK, LINEDEF_H } from './doc.js';
 import { openTextureEditor } from './texeditor.js';
 import { MODES, GRIDS, GRID_MAX, SHAPES, SIDES_MIN, SIDES_MAX, brightOf, isInside } from './editor.js';
-import { PRESETS, SCATTER_TYPES, PLANT_KINDS, SCATTER_MAX } from './scatter.js';
+import { PRESETS, SCATTER_TYPES, PLANT_KINDS, PLANT_SETS, SCATTER_MAX } from './scatter.js';
 import { plantColour } from './view2d.js';
 
 /* the mode buttons' own short names */
@@ -194,7 +194,7 @@ export function buildUI(ed) {
       ['3D: wheel raises the floor/ceiling under it', '', () => {}],
       ['3D: click a texture to paint the pick', '', () => {}],
       ['3D: Ctrl+C copies a texture, Ctrl+V pastes', '', () => {}],
-      ['3D: B toggles fullbright, F goes to start', '', () => {}],
+      ['3D: B toggles fullbright, H the grid, F goes to start', '', () => {}],
     ]),
     h('span', { class: 'sep' }),
     ...modes,
@@ -214,7 +214,7 @@ export function buildUI(ed) {
   ui.canvas3d = h('canvas', { tabindex: 0 });
   ui.help2d = h('div', { class: 'help' });
   ui.help3d = h('div', { class: 'help' },
-    'Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel height · Ctrl+wheel brightness · Ctrl+C/V texture · B fullbright');
+    'Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel height · Ctrl+wheel brightness · Ctrl+C/V texture · B fullbright · H grid · Shift+A align');
   /* THE PLAN'S VIEWS: the map as drawn, or every sector shaded by its
      brightness, floor or ceiling — Doom Builder's brightness view */
   const planSel = h('select', { class: 'ed-planview', title: 'What the plan shades sectors by (Doom Builder\'s brightness view)',
@@ -383,6 +383,26 @@ export function buildUI(ed) {
     }, { tidy: kind === 'vertex' });
   };
 
+  /** LINING TEXTURES UP on every selected line at once: runs carried on
+   *  face to face, one scale for all, whole repeats along and up. */
+  const alignBlock = n => {
+    const b = (label, how, title) => h('button', { class: 'ed-btn', title, onclick: () => ed.alignSel(how) }, label);
+    return [
+      h('h4', {}, `Alignment${n > 1 ? ` — all ${n} lines` : ''}`),
+      h('div', { class: 'ed-small-btns' },
+        b('Align X', 'x', 'Shift+A: each run of joined lines carries its texture on from one to the next, no seams at the corners'),
+        b('Align Y', 'y', 'every side takes the first line\'s y offset'),
+        b('Match', 'match', 'every side takes the first line\'s scale and y offset, then Align X')),
+      h('div', { class: 'ed-small-btns' },
+        b('Fit across', 'fitX', 'stretch each run a touch so its texture repeats a whole number of times along it, then Align X'),
+        b('Fit up', 'fitY', 'stretch each wall a touch so its texture fits a whole number of times floor to top'),
+        b('Reset', 'reset', 'no offsets, no scale')),
+      h('div', { class: 'ed-row two' }, h('label', { title: 'Put this scale on every side of every selected line, then Align X' }, 'Scale all x / y'),
+        num(1, v => { if (v > 0) ed.alignSel('scale', { xscale: v }); }, { step: 0.25 }),
+        num(1, v => { if (v > 0) ed.alignSel('scale', { yscale: v }); }, { step: 0.25 })),
+    ];
+  };
+
   const renderInsp = () => {
     const p = panes.insp;
     p.textContent = '';
@@ -494,6 +514,9 @@ export function buildUI(ed) {
             h('div', { class: 'ed-row two' }, h('label', {}, 'Offset x / y'),
               num(sd.xoff ?? o.xoff ?? 0, v => setSide('x offset', x => { x.xoff = v; }), { step: 1 }),
               num(sd.yoff ?? o.yoff ?? 0, v => setSide('y offset', x => { x.yoff = v; }), { step: 1 })),
+            h('div', { class: 'ed-row two' }, h('label', { title: 'How big one repeat of the texture is: 2 is twice the size, half as often' }, 'Scale x / y'),
+              num(sd.xscale ?? o.xscale ?? 1, v => setSide('x scale', x => { if (v > 0 && v !== 1) x.xscale = v; else delete x.xscale; }), { step: 0.25 }),
+              num(sd.yscale ?? o.yscale ?? 1, v => setSide('y scale', x => { if (v > 0 && v !== 1) x.yscale = v; else delete x.yscale; }), { step: 0.25 })),
           ];
         }) : [
           h('h4', {}, 'Textures — both sides'),
@@ -519,6 +542,7 @@ export function buildUI(ed) {
              row('Doorway', chk(o.opening, v => each('doorway', x => { if (v) x.opening = true; else delete x.opening; }))),
              h('p', { class: 'ed-note' }, 'This line is where an inside sector meets the outside, so it is a wall unless it is a doorway. Split it with Insert (vertices mode) to make a doorway in part of a wall.')]
           : null,
+        alignBlock(n),
         h('h4', {}, 'Pegging'),
         row('Upper unpegged', chk(o.unpegUpper, v => each('upper unpegged', x => { if (v) x.unpegUpper = true; else delete x.unpegUpper; }))),
         row('Lower unpegged', chk(o.unpegLower, v => each('lower unpegged', x => { if (v) x.unpegLower = true; else delete x.unpegLower; }))),
@@ -758,10 +782,11 @@ export function buildUI(ed) {
         h('button', { class: k === ed.thingType ? 'on' : '', onclick: () => { ed.thingType = k; ed.setMode('things'); renderThings(); } },
           h('i', { style: `background:${t.color}` }), t.name))),
       h('h4', { class: 'ed-sub' }, 'Plants — sprite decorations'),
-      h('div', { class: 'ed-plants' }, ...PLANT_KINDS.map(k =>
+      PLANT_SETS.map(set => [h('p', { class: 'ed-note' }, set.name),
+        h('div', { class: 'ed-plants' }, ...set.kinds.map(k =>
         h('button', { class: ed.thingType === 'PLANT' && ed.plantKind === k ? 'on' : '', title: k,
           onclick: () => { ed.thingType = 'PLANT'; ed.plantKind = k; ed.setMode('things'); renderThings(); } },
-          h('img', { src: `assets/forest/${k}.png`, alt: '' }), h('span', {}, k.replace(/_/g, ' '))))),
+          h('img', { src: `assets/forest/${k}.png`, alt: '', loading: 'lazy' }), h('span', {}, k.replace(/_/g, ' ')))))]),
     );
     if (selThings.length) {
       put(p, h('h4', { class: 'ed-sub' }, `The selection (${selThings.length})`),

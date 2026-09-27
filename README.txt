@@ -5504,6 +5504,41 @@ Doom Builder:
   bigger; on a narrow one the bar wraps, the side panel goes under the
   views and the key help is hidden.
 
+  LINING TEXTURES UP ON MANY LINES AT ONCE (alignTextures in
+  js/editor/doc.js), Doom Builder's auto-align and fit. Select the lines
+  (L, then click, Shift-click or box them) and use Alignment in the
+  inspector — or Shift+A, in either view, for Align X:
+    Align X     each run of joined lines carries its texture on from
+                one line to the next, both sides separately, so there
+                is no seam at a corner (a closed room keeps one, where
+                its run meets its own start, unless Fit across made the
+                way round a whole number of repeats)
+    Align Y     every side takes the first line's y offset
+    Match       every side takes the first line's scale and y offset,
+                then Align X
+    Fit across  each run is stretched a touch so its texture repeats a
+                whole number of times along it, then Align X
+    Fit up      each wall is stretched a touch so its texture fits a
+                whole number of times from its floor to its top
+    Scale all   one x or y scale for every side of every selected line
+    Reset       no offsets, no scale
+  A side has its own scale now as well as its offsets (sides[id].xscale
+  and yscale; 2 is twice as big, half as often), set on the Inspect
+  tab and drawn by js/mapgeo.js. A linedef standing on its own is a
+  wall sector when the map is built, and is left out.
+
+  THE 3D VIEW'S DRAWING GRID: in the modes that put something down
+  (draw, shape, vertices, things, props, scatter) the plan's grid lies
+  on the floor under the mouse — a line every grid step, a bright one
+  every eight, the map's axes in yellow — fading out away from the
+  cursor, so a corner clicked in 3D lands where you can see it will.
+  H hides it and brings it back.
+
+  A NEW MAP IS BRIGHT: its ground is full bright (255), with a little
+  white ambient light everywhere (World: 35), and walled round 256 high
+  rather than 1024 (GROUND_DEFAULTS and NEW_MAP_AMBIENT in
+  js/editor/doc.js). What is drawn on it takes the same.
+
   THE PLAN'S VIEWS. The selector on the plan (or K) shades every sector
   by its brightness, its floor or its ceiling, with the number on it —
   Doom Builder's brightness view, and its height views.

@@ -117,6 +117,12 @@ export class View3D {
       new THREE.LineBasicMaterial({ color: 0x8fb3a0, transparent: true, opacity: 0.35 }));
     this.scene.add(this.edges);
     this.fullbright = false;
+    /* THE DRAWING GRID: the plan's grid laid on the floor under the
+       mouse, in the modes that put something down, so a corner clicked
+       in 3D lands where you can see it will */
+    this.grid = buildGrid();
+    this.scene.add(this.grid);
+    this.showGrid = true;
 
     const ro = new ResizeObserver(() => this.resize());
     ro.observe(canvas.parentElement);
@@ -791,6 +797,7 @@ export class View3D {
     }
     if (this.visual && e.key === 'Escape') { this.toggleVisual(false); return true; }
     if (c === 'KeyF' && !ctrl) { this.toStart(); return true; }
+    if (c === 'KeyH' && !ctrl) { this.showGrid = !this.showGrid; ed.say(`3D grid ${this.showGrid ? 'on' : 'off'}`); return true; }
 
     const h = this.hover;
     if (ctrl && c === 'KeyC' && h?.kind === 'surface') {
@@ -1000,6 +1007,28 @@ export class View3D {
     this.handles.visible = hp.length > 0;
   }
 
+  /** The drawing grid, where it is wanted: on the floor at the cursor
+   *  (or under the camera), at the plan's grid size. */
+  placeGrid() {
+    const ed = this.ed, g = this.grid, c = this.cam;
+    const on = this.showGrid && GRID_MODES.includes(ed.mode) && !this.visual;
+    g.visible = on;
+    if (!on) return;
+    const at = ed.cursor && this.mouse ? ed.cursor : [c.x, c.y];
+    const z = this.drag?.a ? this.floorZ(this.drag.a[0], this.drag.a[1]) : this.floorZ(at[0], at[1]);
+    const step = Math.max(1, ed.grid || 64);
+    /* big enough to reach the horizon from up high, drawn round the
+       camera so it never runs out */
+    const R = Math.max(4096, Math.min(40000, (c.z - z) * 40 + step * 64));
+    g.position.set(c.x, z + 0.75, -c.y);
+    g.scale.set(R, 1, R);
+    const u = g.material.uniforms;
+    u.step.value = step;
+    u.major.value = step * (step >= 256 ? 4 : 8);
+    u.focus.value.set(at[0], -at[1]);
+    u.reach.value = Math.max(step * 48, 1536);
+  }
+
   /* ------------------------------------------------------------------
      EVERY FRAME
      ------------------------------------------------------------------ */
@@ -1038,6 +1067,7 @@ export class View3D {
       if (sg) { this.ed.setCursor(sg); this.ed.ui.setPos(sg[0], sg[1]); }
     }
     if (this.overlayDirty || this.ed.mode === 'vertices') this.drawOverlay();
+    this.placeGrid();
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -1045,6 +1075,65 @@ export class View3D {
 /* ---------------------------------------------------------------------
    helpers
    --------------------------------------------------------------------- */
+
+/** The modes the 3D view shows its drawing grid in. */
+export const GRID_MODES = ['draw', 'rect', 'vertices', 'things', 'props', 'scatter'];
+
+/** THE DRAWING GRID: one square, scaled round the camera, whose shader
+ *  draws the lines — fine ones every grid step, bright ones every eight,
+ *  the map's axes brightest — sharp at any distance (their width is in
+ *  pixels, from the derivatives), and fading out away from the cursor so
+ *  the far floor is still the floor. */
+function buildGrid() {
+  const geo = new THREE.PlaneGeometry(2, 2);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      step: { value: 64 }, major: { value: 512 },
+      focus: { value: new THREE.Vector2() }, reach: { value: 3072 },
+      minor: { value: new THREE.Color(0x9fe8ff) }, majorCol: { value: new THREE.Color(0xffffff) },
+      axis: { value: new THREE.Color(0xffd23d) },
+    },
+    vertexShader: `
+      varying vec2 vP;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vP = w.xz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: `
+      uniform float step, major, reach;
+      uniform vec2 focus;
+      uniform vec3 minor, majorCol, axis;
+      varying vec2 vP;
+      float lines(vec2 p, float s, float px) {
+        vec2 g = abs(fract(p / s - 0.5) - 0.5) * s / max(fwidth(p), vec2(1e-4));
+        return 1.0 - clamp(min(g.x, g.y) - (px - 1.0), 0.0, 1.0);
+      }
+      void main() {
+        /* too fine to see where it is: let it go rather than shimmer */
+        float fine = 1.0 - smoothstep(0.25, 0.6, length(fwidth(vP)) / step);
+        float a1 = lines(vP, step, 1.0) * fine;
+        float a2 = lines(vP, major, 1.5);
+        vec2 ax = abs(vP) / max(fwidth(vP), vec2(1e-4));
+        float a3 = 1.0 - clamp(min(ax.x, ax.y) - 1.0, 0.0, 1.0);
+        float fade = 1.0 - smoothstep(reach * 0.35, reach, distance(vP, focus));
+        vec3 c = minor; float a = a1 * 0.38;
+        if (a2 > 0.0) { c = mix(c, majorCol, a2); a = max(a, a2 * 0.7); }
+        if (a3 > 0.0) { c = mix(c, axis, a3); a = max(a, a3 * 0.85); }
+        a *= fade;
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(c, a);
+      }`,
+    transparent: true, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.renderOrder = 998;
+  m.frustumCulled = false;
+  m.visible = false;
+  return m;
+}
 
 /** A document sector's floor or ceiling height at (x, y). Flat while
  *  slopes are switched off (FEATURES in js/editor/doc.js). */

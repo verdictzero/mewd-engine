@@ -19,7 +19,9 @@
      the furniture     CRATE, TROLLEY, BOLLARD, FUELCAN, GRAVESTONE,
                        STREETLAMP — the game's own sprite actors
      the plants        every kind js/forest.js draws — firs, bushes,
-                       ferns, grass and the town's street trees — as
+                       ferns, grass, the town's street trees and the
+                       vandre biomes' cacti, meadows, pines, savanna,
+                       wasteland, wheat and tundra scrub — as
                        `PLANT:<kind>`, which the compiler hands to the
                        game as level.plants, the list js/forest.js
                        grows a town's gardens from
@@ -46,6 +48,10 @@ import { KINDS } from '../forest.js';
 /* the plant kinds, by name, for the palette and for the checks */
 export const PLANT_KINDS = KINDS.map(k => k.name);
 export const plantKind = name => KINDS.find(k => k.name === name) || null;
+/* and shelved for the palette: the wood's and the town's first, then
+   each vandre biome (a kind's `set`) in the order KINDS has them */
+export const PLANT_SETS = [...new Set(KINDS.map(k => k.set || 'wood & town'))]
+  .map(name => ({ name, kinds: KINDS.filter(k => (k.set || 'wood & town') === name).map(k => k.name) }));
 /* whether the forest counts a kind as a TREE — one to a cell, and it
    stops you — by js/forest.js's own rule */
 export const isCanopyKind = name => { const k = plantKind(name); return !!k && !k.cover && (k.canopy ?? (k.h > 120)); };
@@ -77,7 +83,38 @@ export const PRESETS = {
                items: [{ type: 'CRATE', w: 4 }, { type: 'TROLLEY', w: 3 }, { type: 'BOLLARD', w: 2 }, { type: 'FUELCAN', w: 1 }] },
   graveyard: { name: 'Graveyard',    density: 10, spacing: 120, clump: 0.1,
                items: [{ type: 'GRAVESTONE', w: 6 }, { type: 'PLANT:bush_small_2', w: 1 }, { type: 'PLANT:fern', w: 2 }] },
+  /* THE VANDRE BIOMES, one mix each, out of the plants that came with
+     them (the `set` of a kind in js/forest.js). Each goes with its
+     ground in the texture pack, noted by the name. */
+  desert:    { name: 'Desert (SAND1)',  density: 14, spacing: 90, clump: 0.35,
+               items: plants({ desert_big_cactus_1: 2, desert_cactus_5: 3, desert_cactus_6: 3, desert_small_cactus_1: 3, desert_small_cactus_2: 3,
+                               desert_creosote_bush_5: 4, desert_creosote_bush_6: 4, desert_dead_creosote_bush_5: 2, desert_dead_creosote_bush_6: 2,
+                               desert_bush_1: 3, desert_bush_2: 3 }) },
+  meadow:    { name: 'Meadow (MEADOW1-5)', density: 45, spacing: 40, clump: 0.5,
+               items: plants({ new_meadow_tree_1: 1, new_meadow_tree_2: 1, new_meadow_tree_3: 1, new_meadow_bush_1: 3, new_meadow_bush_2: 3,
+                               new_meadow_bush_3: 3, new_meadow_bush_4: 3, new_meadow_flower_1: 4, new_meadow_flower_2: 4,
+                               new_meadow_grass_1: 10, new_meadow_grass_2: 10, new_meadow_grass_tall_1: 5,
+                               new_meadow_fern_1: 2, new_meadow_fern_2: 2, new_meadow_fern_3: 2, new_meadow_fern_4: 2 }) },
+  meadowOld: { name: 'Meadow, classic (GRASCHK1/2)', density: 40, spacing: 40, clump: 0.5,
+               items: plants({ meadow_tree_big: 1, meadow_tree_medium: 1, meadow_tree_really_big: 1, meadow_bush_var_a: 4, meadow_bush_var_b: 4,
+                               meadow_grass_var_a: 10, meadow_grass_var_b: 10 }) },
+  pine:      { name: 'Pine barrens (PINEBAR1)', density: 40, spacing: 52, clump: 0.5,
+               items: plants({ pine_fir_tree_1: 5, pine_fir_tree_2: 5, pine_fir_tree_3: 5, pine_fir_tree_4: 5, pine_barrens_tree: 3,
+                               pine_juvenile_fir_tree_1: 3, pine_juvenile_fir_tree_2: 3, pine_juvenile_fir_tree_4: 3,
+                               pine_forest_bush_1: 4, pine_forest_bush_2: 4, pine_forest_bush_3: 4,
+                               pine_fern_1: 4, pine_fern_2: 4, pine_fern_3: 4, pine_fern_4: 4 }) },
+  savanna:   { name: 'Savanna (SAVANNA1)', density: 30, spacing: 48, clump: 0.55,
+               items: plants({ savanna_tree_1: 1, savanna_grass_short_1: 8, savanna_grass_short_2: 8, savanna_grass_tall_1: 5, savanna_grass_tall_2: 5 }) },
+  wasteland: { name: 'Wasteland (WASTE1)', density: 8, spacing: 120, clump: 0.3,
+               items: plants({ wasteland_tree: 2, wasteland_tree_big_2: 1, wasteland_tree_big_3: 1, wasteland_small_tree_1: 2,
+                               wasteland_tree_small_2: 2, wasteland_bush_1: 5 }) },
+  tundra:    { name: 'Tundra (TUNDRA1)', density: 30, spacing: 44, clump: 0.55,
+               items: plants({ tundra_bush_1: 3, tundra_bush_2: 3, tundra_bush_3: 3, tundra_bush_4: 3, tundra_bush_5: 1 }) },
+  farmland:  { name: 'Wheat field (FARMLND1)', density: 220, spacing: 18, clump: 0,
+               items: plants({ farm_wheat_1: 3, farm_wheat_2: 3, farm_wheat_3: 3, farm_wheat_4: 2 }) },
 };
+/* a preset's list out of { kind: weight } */
+function plants(o) { return Object.entries(o).map(([k, w]) => ({ type: `PLANT:${k}`, w })); }
 
 /** A new scatter from a preset, over an area. */
 export function scatterFrom(presetKey, area, id, seed) {

@@ -109,6 +109,97 @@ export const KINDS = [
      end you can walk round and no top you can see going away from you.
      The `canopy` flag below stays because it is what let a short thing
      be one to a cell, and the next short thing that needs it will. */
+
+  /* ---- AND THE VANDRE BIOMES --------------------------------------
+     The user's own painted plants from github.com/verdictzero/vandre —
+     desert, meadow (the old .tga set and the new one), pine barrens,
+     savanna, wasteland, farmland and tundra — made into the same pair of
+     files as everything above by tools/prep-vandre.py. `set` is the
+     biome: the editor shelves them by it, and a map that plants none of
+     a set never downloads it (loadForestArt in js/main.js).
+
+     THE WEIGHT IS ZERO, as the street trees' is, so the wood never plants
+     one: they come from a map's own things and scatters. Anything over
+     120 is a tree — one to a cell, and its trunk stops you; everything
+     under is `cover`, planted in the understory and walked through,
+     since none of it is the wood's undergrowth and the wood's own rules
+     for that (the bush weights) should not count it. */
+  { name: 'desert_big_cactus_1',         h: 240, aspect: 0.503, r: 10, w: 0, set: 'desert' },
+  { name: 'desert_cactus_5',             h: 190, aspect: 0.492, r: 9,  w: 0, set: 'desert' },
+  { name: 'desert_cactus_6',             h: 180, aspect: 0.488, r: 9,  w: 0, set: 'desert' },
+  { name: 'desert_creosote_bush_5',      h: 84,  aspect: 1.421, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_creosote_bush_6',      h: 84,  aspect: 1.421, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_dead_creosote_bush_5', h: 88,  aspect: 1.324, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_dead_creosote_bush_6', h: 84,  aspect: 1.399, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_bush_1',               h: 92,  aspect: 1.523, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_bush_2',               h: 80,  aspect: 1.550, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_small_cactus_1',       h: 76,  aspect: 0.627, r: 0,  w: 0, set: 'desert', cover: true },
+  { name: 'desert_small_cactus_2',       h: 72,  aspect: 0.464, r: 0,  w: 0, set: 'desert', cover: true },
+
+  { name: 'meadow_bush_var_a',           h: 64,  aspect: 1.000, r: 0,  w: 0, set: 'meadow', cover: true },
+  { name: 'meadow_bush_var_b',           h: 64,  aspect: 1.000, r: 0,  w: 0, set: 'meadow', cover: true },
+  { name: 'meadow_grass_var_a',          h: 36,  aspect: 1.359, r: 0,  w: 0, set: 'meadow', cover: true },
+  { name: 'meadow_grass_var_b',          h: 36,  aspect: 1.309, r: 0,  w: 0, set: 'meadow', cover: true },
+  { name: 'meadow_tree_big',             h: 290, aspect: 0.746, r: 14, w: 0, set: 'meadow' },
+  { name: 'meadow_tree_medium',          h: 220, aspect: 0.660, r: 12, w: 0, set: 'meadow' },
+  { name: 'meadow_tree_really_big',      h: 340, aspect: 1.016, r: 18, w: 0, set: 'meadow' },
+
+  { name: 'new_meadow_fern_1',           h: 44,  aspect: 1.992, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_fern_2',           h: 44,  aspect: 1.968, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_fern_3',           h: 44,  aspect: 1.961, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_fern_4',           h: 44,  aspect: 2.000, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_bush_1',           h: 84,  aspect: 1.502, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_bush_2',           h: 56,  aspect: 1.554, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_bush_3',           h: 80,  aspect: 1.676, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_bush_4',           h: 84,  aspect: 1.516, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_flower_1',         h: 64,  aspect: 0.690, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_flower_2',         h: 70,  aspect: 0.624, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_grass_1',          h: 44,  aspect: 1.157, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_grass_2',          h: 36,  aspect: 1.214, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_grass_tall_1',     h: 84,  aspect: 0.488, r: 0,  w: 0, set: 'new meadow', cover: true },
+  { name: 'new_meadow_tree_1',           h: 380, aspect: 1.004, r: 18, w: 0, set: 'new meadow' },
+  { name: 'new_meadow_tree_2',           h: 320, aspect: 1.332, r: 18, w: 0, set: 'new meadow' },
+  { name: 'new_meadow_tree_3',           h: 320, aspect: 1.330, r: 18, w: 0, set: 'new meadow' },
+
+  { name: 'pine_fern_1',                 h: 44,  aspect: 1.992, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_fern_2',                 h: 44,  aspect: 1.968, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_fern_3',                 h: 44,  aspect: 1.961, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_fern_4',                 h: 44,  aspect: 2.000, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_fir_tree_1',             h: 300, aspect: 0.563, r: 13, w: 0, set: 'pine barrens' },
+  { name: 'pine_fir_tree_2',             h: 310, aspect: 0.555, r: 13, w: 0, set: 'pine barrens' },
+  { name: 'pine_fir_tree_3',             h: 320, aspect: 0.523, r: 14, w: 0, set: 'pine barrens' },
+  { name: 'pine_fir_tree_4',             h: 340, aspect: 0.497, r: 14, w: 0, set: 'pine barrens' },
+  { name: 'pine_forest_bush_1',          h: 60,  aspect: 2.000, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_forest_bush_2',          h: 56,  aspect: 1.992, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_forest_bush_3',          h: 60,  aspect: 1.536, r: 0,  w: 0, set: 'pine barrens', cover: true },
+  { name: 'pine_juvenile_fir_tree_1',    h: 150, aspect: 0.843, r: 9,  w: 0, set: 'pine barrens' },
+  { name: 'pine_juvenile_fir_tree_2',    h: 160, aspect: 0.945, r: 9,  w: 0, set: 'pine barrens' },
+  { name: 'pine_juvenile_fir_tree_4',    h: 160, aspect: 0.965, r: 9,  w: 0, set: 'pine barrens' },
+  { name: 'pine_barrens_tree',           h: 360, aspect: 0.496, r: 14, w: 0, set: 'pine barrens' },
+
+  { name: 'savanna_grass_short_1',       h: 50,  aspect: 1.196, r: 0,  w: 0, set: 'savanna', cover: true },
+  { name: 'savanna_grass_short_2',       h: 52,  aspect: 1.253, r: 0,  w: 0, set: 'savanna', cover: true },
+  { name: 'savanna_grass_tall_1',        h: 116, aspect: 0.491, r: 0,  w: 0, set: 'savanna', cover: true },
+  { name: 'savanna_grass_tall_2',        h: 116, aspect: 0.488, r: 0,  w: 0, set: 'savanna', cover: true },
+  { name: 'savanna_tree_1',              h: 330, aspect: 0.571, r: 12, w: 0, set: 'savanna' },
+
+  { name: 'wasteland_bush_1',            h: 88,  aspect: 1.523, r: 0,  w: 0, set: 'wasteland', cover: true },
+  { name: 'wasteland_small_tree_1',      h: 200, aspect: 1.000, r: 14, w: 0, set: 'wasteland' },
+  { name: 'wasteland_tree',              h: 260, aspect: 0.684, r: 14, w: 0, set: 'wasteland' },
+  { name: 'wasteland_tree_big_2',        h: 340, aspect: 0.661, r: 16, w: 0, set: 'wasteland' },
+  { name: 'wasteland_tree_big_3',        h: 330, aspect: 0.559, r: 16, w: 0, set: 'wasteland' },
+  { name: 'wasteland_tree_small_2',      h: 190, aspect: 1.183, r: 14, w: 0, set: 'wasteland' },
+
+  { name: 'farm_wheat_1',                h: 88,  aspect: 0.498, r: 0,  w: 0, set: 'farmland', cover: true },
+  { name: 'farm_wheat_2',                h: 72,  aspect: 0.625, r: 0,  w: 0, set: 'farmland', cover: true },
+  { name: 'farm_wheat_3',                h: 66,  aspect: 0.654, r: 0,  w: 0, set: 'farmland', cover: true },
+  { name: 'farm_wheat_4',                h: 110, aspect: 0.347, r: 0,  w: 0, set: 'farmland', cover: true },
+
+  { name: 'tundra_bush_1',               h: 62,  aspect: 1.608, r: 0,  w: 0, set: 'tundra', cover: true },
+  { name: 'tundra_bush_2',               h: 56,  aspect: 1.762, r: 0,  w: 0, set: 'tundra', cover: true },
+  { name: 'tundra_bush_3',               h: 56,  aspect: 1.750, r: 0,  w: 0, set: 'tundra', cover: true },
+  { name: 'tundra_bush_4',               h: 58,  aspect: 1.728, r: 0,  w: 0, set: 'tundra', cover: true },
+  { name: 'tundra_bush_5',               h: 60,  aspect: 1.656, r: 0,  w: 0, set: 'tundra', cover: true },
 ];
 
 /** Canopy: one to a cell, in the trees array, and it stops you. Tall

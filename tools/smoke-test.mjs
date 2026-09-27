@@ -13231,6 +13231,7 @@ await (async () => {
 
   /* AN OPEN WORLD BY DEFAULT: under the sky, no ceiling */
   const od = D.newDoc('OPEN');
+  od.sectors[0].ceil = 1024;           // the sky well over the room's roof
   check('a new map is open ground under the sky, with no ceiling',
     od.sectors.length === 1 && od.sectors[0].ceilTex === 'SKY' && D.SECTOR_DEFAULTS.ceilTex === 'SKY' && D.SECTOR_DEFAULTS.outdoor === true &&
     od.vertices[2][0] === 4096 && Array.isArray(od.textures));
@@ -13306,7 +13307,12 @@ await (async () => {
 
   /* UDB'S WAY WITH LIGHT: brightness 0..255, Ctrl+wheel in 16s */
   const edL = new E.Editor(null);
-  edL.history = new D.History(D.newDoc('B', 1024));
+  const nb = D.newDoc('B', 1024);
+  check('a new map\'s ground is full bright, with a little ambient light everywhere, and walled 256 high',
+    nb.sectors[0].light === 1 && nb.sectors[0].ceil === 256 && nb.world.ambient?.amount > 0.2 &&
+    D.gridDoc().sectors[0].light === 1 && D.gridDoc().sectors[0].ceil === 256 && D.mapLightOf(nb.world).ambient[0] > 0.2);
+  nb.sectors[0].light = 0.72;
+  edL.history = new D.History(nb);
   const sid = edL.doc.sectors[0].id;
   check('a sector\'s brightness reads as Doom\'s 0 to 255', E.brightOf(edL.doc.sectors[0]) === Math.round(0.72 * 255));
   edL.nudgeLight(16, new Set([sid])); edL.nudgeLight(16, new Set([sid]));
@@ -14392,6 +14398,7 @@ section('the texture pack');
     bankS.add('DR1_01', pixS, { w: 64, h: 128, masked: true });
     bankS.add('TREELINE', pixS, { w: 256, h: 128, masked: true });
     const sd = DOCp.newDoc('M', 1024);
+    sd.sectors[0].ceil = 1024;
     const Rv = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
     sd.vertices.push(...Rv(256, 256, 512, 512));
     sd.sectors.push({ id: 9, verts: [4, 5, 6, 7], ...DOCp.SECTOR_DEFAULTS, floor: 0 });
@@ -14445,6 +14452,77 @@ section('the texture pack');
     check('and one that fits is left as it is', small.w === 64 && small.h === 128 && small.layers[0].sx === 1 && small.worldH === 128);
     check('the browser draws a texture in its own shape, not squashed square',
       /const k = size \/ Math\.max\(aw, ah\)/.test(src('js/editor/ui.js')));
+
+    /* LINING TEXTURES UP ACROSS MANY LINES: a building of odd-length
+       walls, its brick carried round every corner, inside and out */
+    bankS.add('BRKTEST', pixS, { w: 64, h: 64 });
+    const al = DOCp.newDoc('A', 1024);
+    al.vertices.push([100, 100], [197, 100], [197, 171], [100, 171]);
+    al.sectors.push({ id: 9, verts: [4, 5, 6, 7], ...DOCp.SECTOR_DEFAULTS, ceil: 128, ceilTex: 'CEIL', outdoor: false, wallTex: 'BRKTEST' });
+    al.nextId = 10;
+    const alKeys = [[4, 5], [5, 6], [6, 7], [7, 4]].map(([a, b]) => DOCp.lineKey(a, b));
+    /* at each corner, the u every face of the building has there */
+    const cornerUs = doc => {
+      const g = MGs.buildLevelGeometry(DOCp.compileDoc(doc).level, bankS);
+      const at = new Map();
+      const walk = o => {
+        if (o.geometry && o.name.split('|').pop() === 'BRKTEST') {
+          const P = o.geometry.attributes.position.array, U = o.geometry.attributes.uv.array;
+          for (let i = 0, j = 0; i < P.length; i += 3, j += 2) {
+            const k = `${Math.round(P[i])},${Math.round(-P[i + 2])}`;
+            const u = Math.round((((U[j] % 1) + 1) % 1) * 1000) % 1000;
+            if (!at.has(k)) at.set(k, new Set());
+            at.get(k).add(u);
+          }
+        }
+        for (const ch of o.children || []) walk(ch);
+      };
+      walk(g.group);
+      return at;
+    };
+    const before = cornerUs(al);
+    check('four walls of odd lengths do not meet at their corners by themselves',
+      [...before.values()].some(s => s.size > 2), JSON.stringify([...before].map(([k, s]) => [k, [...s]])));
+    const alED = { size: n => bankS.get(n) ? { w: bankS.get(n).w, h: bankS.get(n).h } : null };
+    const nAl = DOCp.alignTextures(al, alKeys, 'x', alED.size);
+    const after = cornerUs(al);
+    /* a closed run meets itself once, where it began: one seam a side,
+       unless the way round is a whole number of bricks (Fit across) */
+    check('Align X carries the brick round every corner, inside and out, but the one where each side\'s run closes',
+      nAl === 8 && after.size === 4 && [...after.values()].filter(s => s.size > 2).length <= 2 &&
+      [...after.values()].filter(s => s.size <= 2).length >= 2,
+      JSON.stringify([...after].map(([k, s]) => [k, [...s]])));
+    const runs = DOCp.faceRuns(DOCp.facesOf(al, alKeys));
+    check('and the building\'s sides are two runs that go all the way round', runs.length === 2 && runs.every(r => r.length === 4));
+    DOCp.alignTextures(al, alKeys, 'fitX', alED.size);
+    const fitF = DOCp.facesOf(al, alKeys);
+    const perim = 2 * (97 + 71), sc = fitF[0].xscale;
+    check('Fit across stretches the run so the brick repeats a whole number of times round it',
+      fitF.every(f => f.xscale === sc) && Math.abs(perim / (64 * sc) - Math.round(perim / (64 * sc))) < 1e-3 && sc !== 1, `${sc}`);
+    check('and it still meets at the corners', [...cornerUs(al).values()].every(s => s.size <= 2));
+    DOCp.alignTextures(al, alKeys, 'fitY', alED.size);
+    check('Fit up sizes it to the wall: 128 high is two 64s, so no stretch at all', DOCp.facesOf(al, alKeys).every(f => f.yscale === 1));
+    DOCp.alignTextures(al, alKeys, 'scale', alED.size, { yscale: 2 });
+    check('a scale for all goes on every side of every line', DOCp.facesOf(al, alKeys).every(f => f.yscale === 2 && f.xscale === sc));
+    DOCp.alignTextures(al, alKeys, 'reset', alED.size);
+    check('and Reset takes it all off again', alKeys.every(k => !al.lines[k]));
+    /* the renderer scales by it */
+    bankS.add('BRKTEST2', pixS, { w: 64, h: 64 });
+    al.lines[alKeys[0]] = { xscale: 2, sides: { 9: { midTex: 'BRKTEST2' }, 1: { midTex: 'BRKTEST2' } } };
+    const gw = MGs.buildLevelGeometry(DOCp.compileDoc(al).level, bankS);
+    const wu = []; const fw = o => { if (o.geometry && o.name.split('|').pop() === 'BRKTEST2') { const P = o.geometry.attributes.position.array, U = o.geometry.attributes.uv.array;
+      for (let i = 0, j = 0; i < P.length; i += 3, j += 2) if (Math.round(-P[i + 2]) === 100) wu.push(U[j]); } for (const ch of o.children || []) fw(ch); };
+    fw(gw.group);
+    check('a line scaled 2 across wears its texture half as often: 97 units is 97/128 of a repeat',
+      wu.length && Math.abs((Math.max(...wu) - Math.min(...wu)) - 97 / 128) < 1e-6, `${Math.max(...wu) - Math.min(...wu)}`);
+    {
+      const v3g = src('js/editor/view3d.js');
+      check('the 3D view lays the plan\'s grid on the floor under the mouse while drawing, and H hides it',
+        /function buildGrid\(\)/.test(v3g) && /this\.placeGrid\(\)/.test(v3g) && /GRID_MODES = \['draw', 'rect'/.test(v3g) && /c === 'KeyH'/.test(v3g) &&
+        /u\.step\.value = step/.test(v3g));
+    }
+    check('the inspector aligns every selected line, and Shift+A does Align X',
+      /alignBlock\(n\)/.test(src('js/editor/ui.js')) && /up === 'A' && e\.shiftKey/.test(src('js/editor/editor.js')));
   }
 }
 

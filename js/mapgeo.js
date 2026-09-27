@@ -77,8 +77,9 @@ const paintFlat = c => (c ? () => c : null);
 function sideOf(l, s) {
   const o = l.sides && s && l.sides[s.docId];
   if (!o) return { l, mid: null, upper: null, lower: null };
-  const lv = (o.xoff !== undefined || o.yoff !== undefined)
-    ? Object.assign(Object.create(l), { xoff: o.xoff ?? l.xoff, yoff: o.yoff ?? l.yoff }) : l;
+  const lv = (o.xoff !== undefined || o.yoff !== undefined || o.xscale !== undefined || o.yscale !== undefined)
+    ? Object.assign(Object.create(l), { xoff: o.xoff ?? l.xoff, yoff: o.yoff ?? l.yoff,
+                                        xscale: o.xscale ?? l.xscale, yscale: o.yscale ?? l.yscale }) : l;
   return { l: lv, mid: o.midTex || null, upper: o.upperTex || null, lower: o.lowerTex || null };
 }
 
@@ -1210,7 +1211,7 @@ function addLine(set, level, l, bank, pick = null) {
         const sd = sideOf(l, sec);
         const tex = sd.mid || l.middle;
         if (!tex || tex === 'NONE') continue;
-        const th = bank.get(tex).h;
+        const th = bank.get(tex).h * (sd.l.yscale || 1);
         if (l.midOnce && l.midHeight == null) {
           /* DOOM'S RULE for a masked middle: drawn ONCE, its own height,
              never tiled up the opening — a 128-tall treeline is 128 tall
@@ -1287,6 +1288,7 @@ function bandEdges(level, bd, x, y) {
 
 /* Where the top edge of the texture sits, in world height. */
 function pegOf(l, which, zLow, zHigh, sector, texH) {
+  texH *= l.yscale || 1;
   let peg;
   if (which === 'upper') {
     /* 'bottom' nails the texture to the lower (moving) ceiling, so a
@@ -1405,10 +1407,13 @@ function addQuadRaw(set, l, bank, texName, zBot, zTop, facingFront, peg, light, 
   /* u runs from whichever end this side measures from. Doom starts the
      front side's texture at v1 and the back side's at v2, so a two-sided
      line's two faces both read left-to-right from their own viewpoint. */
-  const u0 = (l.xoff + len * s0) / t.w;
-  const u1 = (l.xoff + len * s1) / t.w;
-  const vB1 = vAt(b1, peg, t.h), vT1 = vAt(t1, peg, t.h);
-  const vB2 = vAt(b2, peg, t.h), vT2 = vAt(t2, peg, t.h);
+  /* THE SCALE: how many units of wall one repeat of the texture covers,
+     as a multiple of its own size — 2 is twice as big, half as often */
+  const tw = t.w * (l.xscale || 1), th = t.h * (l.yscale || 1);
+  const u0 = (l.xoff + len * s0) / tw;
+  const u1 = (l.xoff + len * s1) / tw;
+  const vB1 = vAt(b1, peg, th), vT1 = vAt(t1, peg, th);
+  const vB2 = vAt(b2, peg, th), vT2 = vAt(t2, peg, th);
   const lit = Math.max(0.02, Math.min(1.4, light));
 
   /* THE MAP'S Y IS THE RENDERER'S MINUS Z, and it has to be, everywhere.

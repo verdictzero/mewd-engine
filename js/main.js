@@ -303,15 +303,30 @@ function loadImage(url) {
 
 /** The wood's pictures: every kind of plant with its burn map, and the
  *  two grounds. All or nothing — a forest with one kind of tree missing
- *  is a forest with holes in it. */
+ *  is a forest with holes in it. The vandre biomes' plants (a `set` in
+ *  KINDS) are not in that: seventy of them, and a map plants a few if
+ *  any, so they come in by loadPlantSets below, for the map played. */
 async function loadForestArt() {
   const sprites = {};
-  await Promise.all(KINDS.map(async k => {
+  await Promise.all(KINDS.filter(k => !k.set).map(async k => {
     const [albedo, burn] = await Promise.all([loadImage(`assets/forest/${k.name}.png`), loadImage(`assets/forest/${k.name}_burn.png`)]);
     sprites[k.name] = { albedo, burn };
   }));
   const [ground, groundBurnt] = await Promise.all([loadImage('assets/forest/ground.png'), loadImage('assets/forest/ground_burnt.png')]);
   return { sprites, ground, groundBurnt };
+}
+
+/** The plants from the vandre sets that `plants` (a level's) names, into
+ *  the art the wood is built from. One that does not load is warned
+ *  about and left out, and the wood skips a kind with no art. */
+async function loadPlantSets(art, plants) {
+  const want = new Set((plants || []).map(p => p.kind));
+  await Promise.all(KINDS.filter(k => k.set && want.has(k.name) && !art.sprites[k.name]).map(async k => {
+    try {
+      const [albedo, burn] = await Promise.all([loadImage(`assets/forest/${k.name}.png`), loadImage(`assets/forest/${k.name}_burn.png`)]);
+      art.sprites[k.name] = { albedo, burn };
+    } catch (e) { console.warn('plant art:', e.message); }
+  }));
 }
 
 async function boot() {
@@ -616,6 +631,7 @@ async function boot() {
   console.log('guns: ' + (weapon3d.loaded.join(', ') || 'none'));
 
   status('PLANTING THE WOOD', 0.88); await breathe();
+  if (forestArt) await loadPlantSets(forestArt, level.plants);
   if (forestArt) { game.forest.build(scene, forestArt); game.forest.attachFlames(scene, flameAtlas); }
   console.log(`wood: ${game.forest.treeCount} trees, ${game.forest.plantCount} plants`);
 

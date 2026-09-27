@@ -40,7 +40,7 @@ import { Weather } from '../weather.js';
 import {
   History, compileDoc, gridDoc, newDoc, parseDoc, serialise, compact,
   THING_TYPES, SECTOR_DEFAULTS, takeId, ringOf, pointInPoly, signedArea, linesOf, lineKey,
-  segDist, strictlyInside, selfCrosses, segCross, WELD, DEFAULT_FLOOR, holeParents,
+  segDist, strictlyInside, selfCrosses, segCross, WELD, DEFAULT_FLOOR, holeParents, alignTextures,
 } from './doc.js';
 import { View2D } from './view2d.js';
 import { View3D } from './view3d.js';
@@ -677,6 +677,21 @@ export class Editor {
 
   /** BRIGHTNESS, Doom's 0 to 255 — Ctrl and the wheel in UDB, over a
    *  sector on the plan or in 3D. The game's light is that over 255. */
+  /** LINE THE TEXTURES UP on the selected lines (or the one under the
+   *  mouse): see alignTextures in js/editor/doc.js for what each `how`
+   *  does. One undo step. */
+  alignSel(how, opts = {}) {
+    const keys = this.sel.kind === 'line' ? [...this.sel.ids]
+      : this.hovered?.kind === 'line' ? [this.hovered.id] : [];
+    if (!keys.length) { this.say('select some lines first (L, then click or box them)'); return 0; }
+    const size = n => { try { const t = this.bank?.get(n); return t ? { w: t.w, h: t.h } : null; } catch (e) { return null; } };
+    let n = 0;
+    const label = { x: 'align x', y: 'align y', match: 'match textures', fitX: 'fit across', fitY: 'fit up', scale: 'texture scale', reset: 'reset alignment' }[how] || how;
+    this.edit(label, d => { n = alignTextures(d, keys, how, size, opts); }, { tidy: false });
+    this.say(n ? `${label}: ${n} wall face${n === 1 ? '' : 's'} on ${keys.length} line${keys.length === 1 ? '' : 's'}` : 'those lines have no walls to align (a linedef of its own is a wall sector: align it by its own lines)');
+    return n;
+  }
+
   nudgeLight(delta, ids = null) {
     const which = ids || (this.sel.kind === 'sector' ? this.sel.ids : new Set());
     if (!which.size) return;
@@ -1620,6 +1635,7 @@ export async function startEditor() {
     if (k === ']') { ed.gridStep(1); return; }
     const up = k.toUpperCase();
     for (const [m, def] of Object.entries(MODES)) if (def.key === up && !e.altKey) { ed.setMode(m); return; }
+    if (up === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) { ed.alignSel('x'); return; }
     if (up === 'G' && e.shiftKey) { ed.snapSelToGrid(); return; }
     if (up === 'G') { ed.snap = !ed.snap; ed.emit('grid'); ed.say(`snap ${ed.snap ? 'on' : 'off'}`); return; }
     if (k === ' ') { e.preventDefault(); ed.setMode('draw'); return; }

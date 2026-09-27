@@ -318,11 +318,19 @@ function holeOutlines(kids, ringIdx, V, problems, parent) {
 /** A blank map: one room, a start in it, the grid's floor and walls. */
 /** A blank map: an OPEN WORLD — one square of ground `size` across under
  *  an open sky with no ceiling, and a start in it. */
+/* A NEW MAP'S GROUND: full bright, and walled round at a height you can
+   see over the top of from a step up — not the 1024 of sky it was, which
+   stood round the field like the inside of a gasometer. What is drawn in
+   it takes these too (insertSector copies the sector it is drawn in). */
+export const GROUND_DEFAULTS = { ceil: 256, light: 1 };
+/* and a little light everywhere, so nothing on a new map is black */
+export const NEW_MAP_AMBIENT = { color: '#ffffff', amount: 0.35 };
+
 export function newDoc(name = 'UNTITLED', size = 4096) {
   const d = {
     format: DOC_FORMAT, version: DOC_VERSION, name,
     vertices: [[0, 0], [size, 0], [size, size], [0, size]],
-    sectors: [{ id: 1, verts: [0, 1, 2, 3], ...SECTOR_DEFAULTS, name: 'ground' }],
+    sectors: [{ id: 1, verts: [0, 1, 2, 3], ...SECTOR_DEFAULTS, ...GROUND_DEFAULTS, name: 'ground' }],
     lines: {},
     /* LINEDEFS OF THEIR OWN: lines drawn in Draw mode that close no
        sector, as pairs of vertex indices. Where they close a loop they
@@ -339,7 +347,7 @@ export function newDoc(name = 'UNTITLED', size = 4096) {
     scatters: [],
     /* a NEW map has the pack's day sky; one saved without a skybox
        keeps the painted sky it was made under (defaultWorld has none) */
-    world: { ...defaultWorld(), skybox: DEFAULT_SKYBOX },
+    world: { ...defaultWorld(), skybox: DEFAULT_SKYBOX, ambient: { ...NEW_MAP_AMBIENT } },
     nextId: 2,
   };
   return d;
@@ -387,7 +395,7 @@ export function gridDoc() {
   const F = 10240, mid = F / 2;
   const d = newDoc('THE GRID');
   d.vertices = [[0, 0], [F, 0], [F, F], [0, F]];
-  d.sectors = [{ id: 1, verts: [0, 1, 2, 3], ...SECTOR_DEFAULTS, ceil: 1024, name: 'field' }];
+  d.sectors = [{ id: 1, verts: [0, 1, 2, 3], ...SECTOR_DEFAULTS, ...GROUND_DEFAULTS, name: 'field' }];
   d.things = [{ id: 1, type: 'START', x: mid, y: mid - 512, angle: Math.PI / 2 }];
   /* a crowd, placed the same way js/maps/grid.js places it, in fewer
      numbers so the editor opens on a map that is quick to draw */
@@ -813,6 +821,164 @@ function sectorProps(s, poly) {
  *   index of document sector k (its ground storey), for the 3D view's
  *   picking to find its way back
  */
+/* ---------------------------------------------------------------------
+   TEXTURE ALIGNMENT across many lines at once — Doom Builder's
+   auto-align, and its fit
+
+   A face is one side of a line: the line as the sector `sec` sees it.
+   Its texture runs left to right from `start` to `end` as you stand in
+   that sector looking at it (js/mapgeo.js starts the front face's u at
+   v1 and the back's at v2, and the front sector is on the right of
+   v1→v2), so a run of faces reads as one length of brick when each
+   face's x offset is the last one's plus the last one's length.
+   --------------------------------------------------------------------- */
+
+/** The faces of the given lines: { key, sec, start, end, len, h, tex }.
+ *  Linedefs of their own have no faces here (their wall is a sector of
+ *  its own when the map is built). */
+export function facesOf(doc, keys, lines = linesOf(doc)) {
+  const byKey = new Map(lines.map(l => [l.key, l]));
+  const out = [];
+  for (const key of keys) {
+    const l = byKey.get(key);
+    if (!l) continue;
+    const A = doc.vertices[l.a], B = doc.vertices[l.b];
+    const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    if (!(len > 0)) continue;
+    const o = doc.lines?.[key] || {};
+    const secs = l.sectors.map(i => doc.sectors[i]);
+    for (const s of secs) {
+      /* which side of a→b the sector is on: a step off the middle */
+      const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+      const nx = -(B[1] - A[1]) / len, ny = (B[0] - A[0]) / len;       // left of a→b
+      const ring = ringOf(doc, s);
+      const left = pointInPoly(ring, mx + nx, my + ny), right = pointInPoly(ring, mx - nx, my - ny);
+      /* a hole's parent holds both sides in its ring; the side the hole
+         is not on is the parent's */
+      let onRight = right && !left;
+      if (left === right) {
+        const other = secs.find(x => x !== s);
+        onRight = other ? pointInPoly(ringOf(doc, other), mx + nx, my + ny) : right;
+      }
+      const [start, end] = onRight ? [l.a, l.b] : [l.b, l.a];
+      const other = secs.find(x => x !== s);
+      const sd = o.sides?.[s.id] || {};
+      const inside = x => !!x?.ceilTex && x.ceilTex !== 'SKY';
+      let h, tex;
+      if (!other) {
+        h = (s.ceil ?? 256) - (s.floor ?? 0);
+        tex = sd.midTex || o.wallTex || s.wallTex;
+      } else if (inside(s) !== inside(other) && !o.opening) {
+        const inn = inside(s) ? s : other;
+        h = (inn.ceil ?? 256) - (inn.floor ?? 0);
+        tex = sd.midTex || o.midTex || inn.wallTex;
+      } else {
+        const lower = (other.floor ?? 0) - (s.floor ?? 0), upper = (s.ceil ?? 256) - (other.ceil ?? 256);
+        if (sd.midTex || o.midTex) {
+          h = Math.min(s.ceil ?? 256, other.ceil ?? 256) - Math.max(s.floor ?? 0, other.floor ?? 0);
+          tex = sd.midTex || o.midTex;
+        } else if (lower >= upper) { h = lower; tex = sd.lowerTex || o.lowerTex || s.lowerTex || s.wallTex; }
+        else { h = upper; tex = sd.upperTex || o.upperTex || s.upperTex || s.wallTex; }
+      }
+      out.push({ key, sec: s.id, start, end, len, h: Math.max(0, h), tex: tex || 'GRIDWALL',
+                 xoff: sd.xoff ?? o.xoff ?? 0, yoff: sd.yoff ?? o.yoff ?? 0,
+                 xscale: sd.xscale ?? o.xscale ?? 1, yscale: sd.yscale ?? o.yscale ?? 1 });
+    }
+  }
+  return out;
+}
+
+/** The faces in runs: each run end to end, each face's end the next
+ *  one's start, in the order the lines were given; a closed room is one
+ *  run that comes back to where it began. */
+export function faceRuns(faces) {
+  const from = new Map();
+  for (const f of faces) { if (!from.has(f.start)) from.set(f.start, []); from.get(f.start).push(f); }
+  const next = f => {
+    /* never round the end of a line onto its own other side */
+    const c = (from.get(f.end) || []).filter(g => !used.has(g) && g.key !== f.key);
+    return c.find(g => g.sec === f.sec) || c[0] || null;
+  };
+  const used = new Set(), runs = [];
+  const walk = f => { const run = []; while (f && !used.has(f)) { used.add(f); run.push(f); f = next(f); } runs.push(run); };
+  /* the runs that have a beginning first, then the loops */
+  for (const f of faces) if (!used.has(f) && !faces.some(g => g !== f && g.end === f.start && g.sec === f.sec)) walk(f);
+  for (const f of faces) if (!used.has(f)) walk(f);
+  return runs;
+}
+
+/**
+ * Line the textures of these lines up, in place on `doc` (inside an
+ * edit). What it does, by `how`:
+ *   x      each run's x offsets carry on from face to face
+ *   y      every face takes the first face's y offset
+ *   match  every face takes the first face's scale and y offset
+ *   fitX   each run is scaled across so its texture repeats a whole
+ *          number of times along it, then aligned (x)
+ *   fitY   each face is scaled up the wall so its texture fits a whole
+ *          number of times between its floor and its top
+ *   scale  every face gets `opts.xscale` / `opts.yscale` (either may be
+ *          left out), then aligned (x)
+ *   reset  offsets and scales back to nothing
+ * `size(name)` is a texture's { w, h } in units, or null.
+ * @returns how many faces it changed.
+ */
+export function alignTextures(doc, keys, how, size = () => null, opts = {}) {
+  const faces = facesOf(doc, keys);
+  if (!faces.length) return 0;
+  const put = (f, fields) => {
+    const o = doc.lines[f.key] = doc.lines[f.key] || {};
+    o.sides = o.sides || {};
+    const sd = o.sides[f.sec] = o.sides[f.sec] || {};
+    for (const [k, v] of Object.entries(fields)) {
+      const dflt = k.endsWith('scale') ? 1 : 0;
+      if (v === undefined || Math.abs(v - dflt) < 1e-6) delete sd[k]; else sd[k] = v;
+      f[k] = v ?? dflt;
+    }
+    if (!Object.keys(sd).length) delete o.sides[f.sec];
+    if (!Object.keys(o.sides).length) delete o.sides;
+    /* the line's own offsets would show through a side that has none */
+    delete o.xoff; delete o.yoff; delete o.xscale; delete o.yscale;
+    if (!Object.keys(o).length) delete doc.lines[f.key];
+  };
+  const W = f => (size(f.tex)?.w || 64) * (f.xscale || 1);
+  const Hh = f => size(f.tex)?.h || 64;
+  const round = v => Math.round(v * 1000) / 1000;
+  const alignX = () => {
+    for (const run of faceRuns(faces)) {
+      let u = run[0].xoff;
+      for (const f of run) {
+        const w = W(f);
+        put(f, { xoff: round(((u % w) + w) % w) });
+        u = f.xoff + f.len;
+      }
+    }
+  };
+  const first = faces[0];
+  if (how === 'x') alignX();
+  else if (how === 'y') for (const f of faces) put(f, { yoff: first.yoff });
+  else if (how === 'match') { for (const f of faces) put(f, { xscale: first.xscale, yscale: first.yscale, yoff: first.yoff }); alignX(); }
+  else if (how === 'fitX') {
+    for (const run of faceRuns(faces)) {
+      const L = run.reduce((a, f) => a + f.len, 0);
+      const tw = size(run[0].tex)?.w || 64;
+      const n = Math.max(1, Math.round(L / tw));
+      for (const f of run) put(f, { xscale: round(L / (n * tw)), xoff: 0 });
+    }
+    alignX();
+  } else if (how === 'fitY') {
+    for (const f of faces) {
+      if (!(f.h > 0)) continue;
+      const n = Math.max(1, Math.round(f.h / Hh(f)));
+      put(f, { yscale: round(f.h / (n * Hh(f))), yoff: 0 });
+    }
+  } else if (how === 'scale') {
+    for (const f of faces) put(f, { xscale: opts.xscale ?? f.xscale, yscale: opts.yscale ?? f.yscale });
+    alignX();
+  } else if (how === 'reset') for (const f of faces) put(f, { xoff: 0, yoff: 0, xscale: 1, yscale: 1 });
+  return faces.length;
+}
+
 export function compileDoc(doc) {
   const wallProblems = [];
   doc = linedefWalls(doc, wallProblems);
@@ -992,6 +1158,8 @@ export function compileDoc(doc) {
        and sits a one-sided middle on the floor, as it does in Doom */
     if (o.xoff) l.xoff = o.xoff;
     if (o.yoff) l.yoff = o.yoff;
+    if (o.xscale > 0 && o.xscale !== 1) l.xscale = o.xscale;
+    if (o.yscale > 0 && o.yscale !== 1) l.yscale = o.yscale;
     if (o.unpegUpper) l.pegUpper = 'top';
     if (o.unpegLower) { l.pegLower = 'ceiling'; l.pegMiddle = 'bottom'; }
     /* THE TWO SIDES, Doom's front and back sidedefs: what each face of
