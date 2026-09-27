@@ -29,6 +29,16 @@ typed out a character at a time, the way the ship's computer in ALIEN
 talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
+THE DEMO IS A MAZE, at the user's request: DEWM Demo opens on a hedge
+maze generated afresh every time the game starts (js/maps/maze.js) —
+18 by 18 corridors carved by a depth-first walk, braided so there is
+more than one way round, with paved plazas cleared in it (a lamp in
+each corner, a tree in the middle) — and over five hundred people
+wandering it. ?seed=N plays maze N again (the seed is in the console);
+?sprawl is THE SPRAWL, the world it used to be. The maze is a DEWM
+Editor document like any other: File → Open demo: a new MAZE opens one
+in the editor, and File → Open THE SPRAWL the old one.
+
 Every entry is refused with the same two lines — UNDEFINED COMMAND /
 SYNTAX ERROR, and the entry REFUSED — but these, at the user's request,
 in any case:

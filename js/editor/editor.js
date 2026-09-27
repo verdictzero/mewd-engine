@@ -50,6 +50,7 @@ import { buildUI } from './ui.js';
 import { scatterFrom } from './scatter.js';
 import { registerTextures } from './texcompose.js';
 import { sprawlDoc } from '../maps/sprawl.js';
+import { mazeDoc, newMazeSeed } from '../maps/maze.js';
 import { PACK_NAMES, loadPack, packNamesIn, PackAnimator } from '../texpack.js';
 
 /* where the editor keeps its work in the browser */
@@ -1188,13 +1189,15 @@ export class Editor {
     this.say(grid ? 'new map from THE GRID' : 'new map — drag on the ground to draw a sector (or R), D to draw any shape');
   }
 
-  /** THE DEMO LEVEL, THE SPRAWL (js/maps/sprawl.js), to play or take
+  /** THE DEMO LEVEL, THE MAZE (js/maps/maze.js) — a new one each time —
+   *  or `which` 'sprawl', THE SPRAWL (js/maps/sprawl.js), to play or take
    *  apart */
-  fileDemo() {
+  fileDemo(which = 'maze') {
     if (this.history.dirty && !confirm('Open the demo level? The current map is autosaved and can be undone back to.')) return;
-    this.replace(sprawlDoc(), 'open demo');
+    const seed = newMazeSeed();
+    this.replace(which === 'sprawl' ? sprawlDoc() : mazeDoc(seed), 'open demo');
     this.reframe();
-    this.say('opened the demo level, THE SPRAWL');
+    this.say(which === 'sprawl' ? 'opened the demo level, THE SPRAWL' : `opened a new maze (seed ${seed})`);
   }
 
   /** A different map: all of it on the plan, and the 3D view at its start. */

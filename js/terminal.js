@@ -356,14 +356,13 @@ class Terminal {
 /* STRAIGHT PAST THE DOOR, for the two round trips the editor makes:
    `?edit` is the way back from a test run (F2 in the game) and opens
    the editor with no terminal; `?play` is a test run of an edited map,
-   which js/main.js picks up on its own; and `?demo`, at the user's
-   request, is the demo level, THE SPRAWL (js/maps/sprawl.js), which
-   js/main.js picks up the same way — though THE SPRAWL is the game's own
-   world now, at the user's request, so DEWM opens it with no flag at all;
+   which js/main.js picks up on its own; `?demo` is the demo, THE MAZE
+   (js/maps/maze.js) — the game's own world, a new one each time, and
+   `?seed=N` maze N again; `?sprawl` is THE SPRAWL (js/maps/sprawl.js);
    `?grid` is THE GRID, the test area it used to be. Anything else is the
    terminal. */
 const params = new URLSearchParams(location.search);
-if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid')) {
+if (params.has('edit') || params.has('play') || params.has('demo') || params.has('grid') || params.has('sprawl') || params.has('seed')) {
   $('term').remove();
   const go = params.has('edit')
     ? import('./editor/editor.js').then(m => m.startEditor())

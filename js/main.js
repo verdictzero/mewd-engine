@@ -29,12 +29,14 @@ import { loadVtolModel } from './vtol.js';
 import { addStrip, imageData } from './spriteload.js';
 import { CELLS, GIBLETS, BLAST_SPRITE, addStandees, addSplats, addTroops } from './people.js';
 /* THE GRID, which the game boots into with ?grid — see js/maps/grid.js.
-   Without it the game is THE SPRAWL (js/maps/sprawl.js, playedMap below).
+   Without it the game is THE MAZE (js/maps/maze.js, playedMap below), a
+   new one every time; ?sprawl is THE SPRAWL (js/maps/sprawl.js).
    js/maps/sellwrong.js and js/maps/town.js are still in the repository,
    still exported and still tested; nothing builds them any more. */
 import { buildGrid } from './maps/grid.js';
 import { compileDoc, parseDoc } from './editor/doc.js';
 import { sprawlDoc } from './maps/sprawl.js';
+import { mazeDoc, newMazeSeed } from './maps/maze.js';
 import { registerTextures } from './editor/texcompose.js';
 import { loadPack, loadSky, packNamesIn, PackAnimator } from './texpack.js';
 import { Game } from './game.js';
@@ -1336,15 +1338,25 @@ function playedMap() {
      to. ?demo still says so outright; ?grid is THE GRID, the test area
      it used to be; ?play is a test run of an edited map. */
   const sprawl = () => { const doc = sprawlDoc(); return { ...compileDoc(doc), doc }; };
+  /* AND NOW, at the user's request, THE DEMO IS A MAZE: generated
+     afresh every time the game starts, full of people (js/maps/maze.js).
+     ?seed=N plays maze N again; ?sprawl is THE SPRAWL. */
+  const maze = () => {
+    const seed = q.has('seed') ? (+q.get('seed') >>> 0) || 1 : newMazeSeed();
+    const doc = mazeDoc(seed);
+    console.info(`THE MAZE, seed ${seed} (?seed=${seed} plays it again)`);
+    return { ...compileDoc(doc), doc };
+  };
   if (q.has('grid')) return null;
-  if (!q.has('play')) return sprawl();
+  if (q.has('sprawl')) return sprawl();
+  if (!q.has('play')) return maze();
   try {
     const text = localStorage.getItem('gss-edit:play');
-    if (!text) return sprawl();
+    if (!text) return maze();
     const doc = parseDoc(text);
     return { ...compileDoc(doc), doc };
   } catch (e) {
-    console.error('the edited map did not compile; playing THE SPRAWL', e);
-    return sprawl();
+    console.error('the edited map did not compile; playing THE MAZE', e);
+    return maze();
   }
 }

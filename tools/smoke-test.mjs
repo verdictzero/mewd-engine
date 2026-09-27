@@ -14980,6 +14980,59 @@ section('light and fog');
 
 }
 
+/* ---------- THE MAZE: the demo's world ---------- */
+section('the maze');
+{
+  const MZ = await import('../js/maps/maze.js');
+  const DZ = await import('../js/editor/doc.js');
+  const fsZ = await import('node:fs');
+  const a = MZ.mazeDoc(424242), b = MZ.mazeDoc(424242), c = MZ.mazeDoc(7);
+  check('one seed, one maze; another seed, another', DZ.serialise(a) === DZ.serialise(b) && DZ.serialise(a) !== DZ.serialise(c));
+  const t0 = performance.now();
+  const out = DZ.compileDoc(a);
+  const ms = performance.now() - t0;
+  const L = out.level;
+  note('THE MAZE', `${a.sectors.length} sectors, ${L.lines.length} lines, ${L.things.length} things, compiled in ${ms.toFixed(0)}ms`);
+  check('it builds with no problems', !out.problems.length, out.problems.slice(0, 3).map(p => p.msg).join('; '));
+  const people = L.things.filter(t => t.type === 'TOWNIE' || t.type === 'SHOPPER');
+  check('with tons of people in it', people.length >= 400, `${people.length}`);
+  const st = L.things.find(t => t.type === 'START');
+  check('the start is on the path, not in a hedge', L.sectorAt(st.x, st.y)?.floor === 0);
+  check('every person stands on the floor of a path or a plaza', people.every(t => L.sectorAt(t.x, t.y)?.floor === 0));
+  check('the hedges stand higher than anyone can step', a.sectors.filter(s => s.name === 'hedge').every(s => s.floor === MZ.HEDGE_H) && MZ.HEDGE_H > 24);
+  /* EVERY PATH CELL REACHABLE from the start: flood the cells over the level */
+  const N = MZ.MAZE_CELLS, P = MZ.CELL + MZ.WALL;
+  const cx = i => i * P + MZ.WALL + MZ.CELL / 2;
+  const seen = new Set(['0,0']), q = [[0, 0]];
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen.has(`${nx},${ny}`)) continue;
+      /* the gap between the two cells: path, or hedge */
+      const gx = (cx(x) + cx(nx)) / 2, gy = (cy => cy)((cx(y) + cx(ny)) / 2);
+      if (L.sectorAt(gx, gy)?.floor !== 0) continue;
+      seen.add(`${nx},${ny}`); q.push([nx, ny]);
+    }
+  }
+  check('every cell of the maze can be walked to from the start', seen.size === N * N, `${seen.size} of ${N * N}`);
+  check('braided: more ways through than a perfect maze has', (() => {
+    let gaps = 0;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (x + 1 < N && L.sectorAt((cx(x) + cx(x + 1)) / 2, cx(y))?.floor === 0) gaps++;
+      if (y + 1 < N && L.sectorAt(cx(x), (cx(y) + cx(y + 1)) / 2)?.floor === 0) gaps++;
+    }
+    return gaps > N * N - 1;
+  })());
+  check('with plazas, lamps and trees', a.sectors.some(s => s.name === 'plaza') && L.things.some(t => t.type === 'STREETLAMP') && L.plants.length > 0);
+  const packSrc = fsZ.readFileSync('js/texpack-data.js', 'utf8');
+  check('every texture it wears is in the pack', ['IVY1', 'MOSS_01', 'DIRT_01', 'CONC_4'].every(n => packSrc.includes(`"${n}"`) || packSrc.includes(`'${n}'`)));
+  const mainZ = fsZ.readFileSync('js/main.js', 'utf8');
+  check('THE DEMO IS THE MAZE: the game opens on a new one each time, ?seed=N plays one again',
+    /if \(!q\.has\('play'\)\) return maze\(\);/.test(mainZ) && /q\.has\('seed'\) \? \(\+q\.get\('seed'\) >>> 0\) \|\| 1 : newMazeSeed\(\)/.test(mainZ));
+  check('and the editor opens a new one from File', /\['Open demo: a new MAZE', '', \(\) => ed\.fileDemo\(\)\]/.test(fsZ.readFileSync('js/editor/ui.js', 'utf8')));
+}
+
 /* ---------- THE SPRAWL ---------- */
 /* THE DEMO LEVEL, at the user's request: sprawling, made of every asset
    the user has given and none that were generated, under the earth
@@ -15192,12 +15245,12 @@ section('the sprawl');
     const termSrc = fsS.readFileSync('js/terminal.js', 'utf8');
     check('typing G or GAME at the terminal opens the game', /const GAME_WORDS = \['G', 'GAME'\];/.test(termSrc));
   }
-  check('IT IS THE GAME\'S OWN WORLD: GAME and a reload play it, ?grid is THE GRID, ?play an edited map; the editor opens it from the File menu',
-    /if \(q\.has\('grid'\)\) return null;\s*if \(!q\.has\('play'\)\) return sprawl\(\);/.test(mainSrc) &&
+  check('THE SPRAWL is still there: ?sprawl plays it, and the editor opens it from the File menu',
+    /if \(q\.has\('sprawl'\)\) return sprawl\(\);/.test(mainSrc) &&
     /const sprawl = \(\) => \{ const doc = sprawlDoc\(\);/.test(mainSrc) &&
-    /params\.has\('grid'\)/.test(fsS.readFileSync('js/terminal.js', 'utf8')) &&
-    /this\.replace\(sprawlDoc\(\), 'open demo'\)/.test(edSrc) &&
-    /\['Open demo: THE SPRAWL', '', \(\) => ed\.fileDemo\(\)\]/.test(uiSrc));
+    /params\.has\('sprawl'\)/.test(fsS.readFileSync('js/terminal.js', 'utf8')) &&
+    /which === 'sprawl' \? sprawlDoc\(\)/.test(edSrc) &&
+    /\['Open THE SPRAWL', '', \(\) => ed\.fileDemo\('sprawl'\)\]/.test(uiSrc));
   check('EARTH TONES AND THE PIXEL DITHER ARE BACK: the frame is dithered and snapped to the earth box, on a 320-row grid',
     /dither: 1\.0, snap: 1\.0,/.test(mainSrc) && /const DEFAULT_PIXELS = PIXELS\.indexOf\(320\);/.test(mainSrc) &&
     /const DEFAULT_DETAIL = DETAIL\.indexOf\(960\);/.test(mainSrc) && /const PREF_VERSION = 11;/.test(mainSrc) &&
