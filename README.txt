@@ -75,7 +75,10 @@ terminal).
                        scores, then a new round. Your own side's rounds
                        go through you. The network loadout is the
                        minigun, at a third of its damage against a
-                       person: the other guns are built round one owner
+                       person, and INFINITE: there are no pickups, so
+                       every belt and tank is topped up every tic
+                       (RULES.infiniteAmmo; single player keeps its
+                       self-filling budgets): the other guns are built round one owner
                        and follow when they learn to belong to somebody.
   js/net/server.js     every client gets its own Player and session; the
                        map's START player is put aside. THE REWIND: each

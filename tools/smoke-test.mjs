@@ -15255,6 +15255,8 @@ section('the network, steps one and three');
   }
   check('rounds from one player kill another, at a third of what they do to a shopper',
     clearShot && killedAt > 12 && pb.dead && MT.RULES.pvpScale < 1, `killed after ${killedAt} tics`);
+  check('NO PICKUPS, SO NO RUNNING OUT: the belt is full after all that, and never latched',
+    MT.RULES.infiniteAmmo && pa.ammo.rounds === pa.maxAmmo.rounds && !pa.beltDry);
   check('a frag for the shooter and a point for the side',
     pa.frags === 1 && pb.deaths === 1 && sim.match.teams[0].score === 1 && sim.match.teams[1].score === 0);
   sim.step(); sim.step(); sim.step();

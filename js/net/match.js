@@ -49,7 +49,18 @@ export const RULES = {
      round landing, which the spread at any range makes a good deal
      more, and there is time to hear the spin-up and get round a hedge. */
   pvpScale: 0.35,
+  /* NO PICKUPS, SO NO RUNNING OUT, at the user's request: every tank,
+     belt and magazine is topped up every tic, and the refire latches
+     never close. The self-filling budgets are a single-player design,
+     and a match has nothing on the floor to refill them with. */
+  infiniteAmmo: true,
 };
+
+/** Everything `p` carries, full, and no latch shut. */
+export function topUp(p) {
+  for (const k of Object.keys(p.maxAmmo)) p.ammo[k] = p.maxAmmo[k];
+  p.dry = p.co2Dry = p.boreDry = p.beltDry = p.cellDry = p.rocketDry = p.voltDry = false;
+}
 
 /* what survives a respawn: who you are, and the score */
 const KEEP = ['id', 'name', 'team', 'frags', 'deaths', 'session', 'ping', 'spawns'];
@@ -253,6 +264,7 @@ export class Match {
   tic() {
     const g = this.game;
     for (const p of g.players) {
+      if (this.rules.infiniteAmmo) topUp(p);
       if (p.guardUntil && g.tics >= p.guardUntil) { p.guardUntil = 0; p.invincible = false; }
       if (p.dead && !this.over && g.tics >= p.respawnAt) this.spawn(p);
     }

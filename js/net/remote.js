@@ -46,7 +46,7 @@
    ===================================================================== */
 
 import { newCmd, fromInput } from './ticcmd.js';
-import { renew, RULES } from './match.js';
+import { renew, topUp, RULES } from './match.js';
 import { stateOf } from '../states.js';
 import { Actor } from '../actor.js';
 import { TICRATE, angleNorm } from '../util.js';
@@ -142,6 +142,8 @@ export class NetGame {
    *  looking at, for the replay; and the puppets' own tic. */
   tic() {
     const p = this.game.player;
+    /* the same top-up the host gives, so the prediction fires when the host does */
+    if (RULES.infiniteAmmo) topUp(p);
     const h = this.history.get(this.session.seq);
     if (h) { h.angle = p.angle; h.pitch = p.pitch; h.rounds = p.ammo.rounds; }
     for (const pup of this.puppets.values()) this._puppetTic(pup);
