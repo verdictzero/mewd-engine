@@ -5545,6 +5545,24 @@ Doom Builder:
   key in the bottom left corner shows X and Y (and Z, the dot, coming
   up out of the screen).
 
+  THE USER'S OWN GROUND AND PLANTS, from github.com/verdictzero/vandre
+  (rebuilt by tools/prep-vandre.py /path/to/vandre):
+    21 ground textures in the pack, 256 square, one tile 128 units —
+      vandre/terrain: ARCTIC1 FROZEN1 TUNDRA1 FARMLND1 SAND1 SAVANNA1
+      WASTE1 PINEBAR1 MEADOW1-5 GRASCHK1 GRASCHK2 MOLTEN1 CANDY1;
+      vandre/city: CITYCON1 CITYMET1 CITYMET2 CITYSKRT. Type the name
+      in the Textures tab's filter.
+    69 plants (js/forest.js KINDS with a `set`), each with its burn
+      map, in eight sets: desert, meadow, new meadow, pine barrens,
+      savanna, wasteland, farmland, tundra. The Things tab shelves the
+      plants by set; the wood never plants them by itself, and the game
+      fetches one only when the map it is playing uses it.
+    A scatter preset for each biome (Scatter tab): desert, meadow,
+      meadowOld, pine, savanna, wasteland, tundra, farmland, each named
+      with the ground that goes with it.
+    The Sprawl shows every one of them in 21 biome beds down the west
+      edge of its meadow block, since it wears the whole pack.
+
   A NEW MAP IS BRIGHT: its ground is full bright (255), with a little
   white ambient light everywhere (World: 35), and walled round 256 high
   rather than 1024 (GROUND_DEFAULTS and NEW_MAP_AMBIENT in

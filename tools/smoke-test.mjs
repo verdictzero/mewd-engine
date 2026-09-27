@@ -14292,7 +14292,25 @@ section('the texture pack');
   const pngSize = f => { const b = fsP.readFileSync(new URL('../' + f, import.meta.url)); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
 
   note('the pack', `${TP.PACK.length} textures, ${Object.keys(TP.ANIMS).length} animated runs, ${Object.keys(TP.SKIES).length} skies`);
-  check('both archives are in it: 245 textures', TP.PACK.length === 245, `${TP.PACK.length}`);
+  check('both archives and the vandre ground are in it: 245 + 21 textures', TP.PACK.length === 266, `${TP.PACK.length}`);
+  /* THE USER'S OWN GROUND AND PLANTS, from github.com/verdictzero/vandre
+     (tools/prep-vandre.py) */
+  {
+    const V = ['ARCTIC1','FARMLND1','FROZEN1','TUNDRA1','CANDY1','GRASCHK1','GRASCHK2','MOLTEN1','MEADOW1','MEADOW2','MEADOW3','MEADOW4','MEADOW5','PINEBAR1','SAND1','SAVANNA1','WASTE1','CITYCON1','CITYMET1','CITYMET2','CITYSKRT'];
+    check('the vandre ground is in the pack, grouped vandre/terrain and vandre/city, 256 square at 2px a unit',
+      V.every(n => { const p = TP.PACK.find(q => q.name === n); return p && /^vandre\/(terrain|city)$/.test(p.group) && p.px[0] === 256 && p.px[1] === 256 && p.w === 128; }),
+      V.filter(n => !TP.PACK.find(q => q.name === n)).join(' '));
+    const Fv = await import('../js/forest.js');
+    const SCv = await import('../js/editor/scatter.js');
+    const VK = Fv.KINDS.filter(k => k.set);
+    check('the vandre plants: 69 kinds in eight sets, none planted by the wood', VK.length === 69 && new Set(VK.map(k => k.set)).size === 8 && VK.every(k => k.w === 0));
+    check('every vandre tree is over 120 and blocks; everything else is ground cover', VK.every(k => (k.h > 120) === !k.cover));
+    check('a scatter preset for each vandre biome, every item a kind that exists',
+      ['desert','meadow','meadowOld','pine','savanna','wasteland','tundra','farmland'].every(p => SCv.PRESETS[p]?.items.length && SCv.PRESETS[p].items.every(i => SCv.validType(i.type))));
+    check('the palette shelves plants by set, and every kind is on one shelf', SCv.PLANT_SETS.flatMap(s => s.kinds).length === Fv.KINDS.length);
+    const mainSrc = fsP.readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
+    check('the game loads a vandre plant only when the map plants it', /KINDS\.filter\(k => !k\.set\)/.test(mainSrc) && /loadPlantSets\(forestArt, level\.plants\)/.test(mainSrc));
+  }
   check('every name is one the bank and a map can use as it stands',
     TP.PACK_NAMES.every(n => TCp.cleanName(n) === n), TP.PACK_NAMES.filter(n => TCp.cleanName(n) !== n).join(' '));
   check('and none of them is the name of a texture the game draws',
