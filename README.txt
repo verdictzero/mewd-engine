@@ -17,7 +17,7 @@ and sixty-eight houses with an upstairs and an interior behind every
 door that is drawn as a door. The fire crosses into it, climbs the
 stairs, and goes through a party wall one house at a time. See TOWN.txt.
 
-THE PAGE OPENS ON A TERMINAL, NOT THE GAME. Black glass, red type, a
+THE PAGE OPENS ON A TERMINAL, NOT THE GAME. Black glass, white VT323 type in a pale-ruled box with scanlines crawling down it, a
 prompt that reads INTERFACE 2037, and nothing else on it at all — no
 name, no date, no word of what it is or what it wants: it is a
 password, and the only hint is the cursor. Every line it puts up is

@@ -4250,7 +4250,11 @@ await (async () => {
   /* no hints: the word is in none of the three files the page is made of */
   const shipped = (html + css + term).toLowerCase();
   check('and neither is anywhere the site ships', !shipped.includes('tangram') && !shipped.includes(SHORT));
-  check('the terminal is red on black', /#term \{[^}]*background: #000;[^}]*color: #ff2a1c/s.test(css));
+  check('the terminal is white on black', /#term \{[^}]*background: #000;[^}]*color: #f2f2ee/s.test(css));
+  check('in a lighter box ruled with a stroke', /#term-out \{[^}]*background: #16171a;[^}]*border: 2px solid/s.test(css));
+  check('with scanlines that move', /#term::before \{[^}]*animation: term-scan/s.test(css) && /@keyframes term-scan/.test(css));
+  const vt = /@font-face \{[^}]*font-family: 'VT323';[^}]*url\('\.\.\/assets\/fonts\/VT323-Regular\.woff2'\)/s.test(css);
+  check('and its own face, bundled', vt && fs2.existsSync('assets/fonts/VT323-Regular.woff2') && /#term \{[^}]*font-family: 'VT323'/s.test(css));
 })();
 
 /* A DEAD BUTTON IS SILENT. js/main.js reaches into the page by id and
