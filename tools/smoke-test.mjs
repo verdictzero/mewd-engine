@@ -15151,6 +15151,106 @@ section('jesse, the PvP maze');
     /q\.has\('jesse'\)/.test(mainSrc) && /jesseDoc\(seed\)/.test(mainSrc));
 }
 
+
+section('the network, step one');
+{
+  const TC = await import('../js/net/ticcmd.js');
+  const PR = await import('../js/net/protocol.js');
+  const TR = await import('../js/net/transport.js');
+  const SE = await import('../js/net/session.js');
+  const SV = await import('../js/net/server.js');
+  const CL = await import('../js/net/client.js');
+  const { headlessGame } = await import('./headless.mjs');
+  const fsN = await import('node:fs');
+  /* --- the TicCmd --- */
+  const raw = { look: { x: 0.0123456, y: -0.2 }, move: { x: -0.5, y: 1 }, run: true, attack: true, jump: false, use: true, weaponSlot: 4, weaponCycle: -3 };
+  const c1 = TC.fromInput(raw, 77);
+  const back = PR.decode(PR.encodeCmd(c1));
+  check('a command is fourteen bytes on the wire and comes back the same',
+    PR.encodeCmd(c1).byteLength === 1 + TC.CMD_BYTES && back?.t === 'cmd' && TC.sameCmd(back.cmd, c1));
+  check('rounded once it stays rounded, so here and the host agree to the bit',
+    TC.sameCmd(TC.quantize({ ...c1, look: { ...c1.look }, move: { ...c1.move } }), c1) && Math.abs(c1.look.x - raw.look.x) <= 0.5 / TC.LOOK_SCALE &&
+    c1.weaponCycle === -1 && c1.weaponSlot === 4 && c1.run && !c1.jump);
+  check('garbage off the wire is nothing, not a crash',
+    PR.decode('not json') === null && PR.decode('{"x":1}') === null && PR.decode(new ArrayBuffer(3)) === null && PR.decode(null) === null);
+  const gsrc = fsN.readFileSync('js/game.js', 'utf8');
+  check('the player is driven by the session\'s command, not the keyboard',
+    /this\.player\.tic\(this\.session\.cmd\(this\), 1 \/ TICRATE\)/.test(gsrc) && /this\.session = new LocalSession\(\)/.test(gsrc));
+
+  /* --- the host, over a loopback --- */
+  const small = { w: 10, h: 8 };
+  const H = await headlessGame({ map: 'jesse', seed: 31, mapOpts: small });
+  check('a Game with no screen, from a seed', !!H.game.player && H.game.session.kind === 'local' && !H.problems.length);
+  const sim = new SV.SimServer({ game: H.game, map: { kind: 'jesse', seed: 31 }, maxPlayers: 2 });
+  const link = () => { const [a, b] = TR.LoopbackTransport.pair(); sim.accept(b); return a; };
+  const A = new CL.NetClient(link(), { name: 'ALICE' });
+  check('hello, welcome: an id, and the map as two numbers',
+    A.id === 1 && A.map.kind === 'jesse' && A.map.seed === 31 && A.controls && H.game.session === sim.session);
+  const B = new CL.NetClient(link(), { name: 'BOB' });
+  const C = new CL.NetClient(link(), { name: 'CAROL' });
+  check('up to the limit, and the next is told it is full', B.id === 2 && !B.controls && C.refused && /full/.test(C.refused) && C.closed);
+  const oldT = link(); let oldRefused = null;
+  oldT.onmessage = d => { const m = PR.decode(d); if (m?.t === 'refused') oldRefused = m.why; };
+  sim.clients.delete(2); B.transport.close();                  // make room, then speak the wrong protocol
+  oldT.send(PR.encode({ t: 'hello', v: 999 }));
+  check('a client that speaks another protocol is turned away', /protocol/.test(oldRefused || ''), oldRefused);
+  const p = H.game.player, x0 = p.x, y0 = p.y, a0 = p.angle;
+  for (let t = 1; t <= 60; t++) {
+    const c = TC.newCmd(); c.tic = t; c.move.y = 1; c.look.x = 0.01;
+    A.send(c);
+    sim.step();
+  }
+  check('its commands walk the host\'s player', Math.hypot(p.x - x0, p.y - y0) > 100 && Math.abs(p.angle - a0) > 0.3,
+    `${Math.hypot(p.x - x0, p.y - y0).toFixed(0)} units`);
+  check('and the snapshots say where, and which command they got to',
+    A.snaps === 60 / SV.SNAP_EVERY && A.snap.ack === 60 && Math.abs(A.snap.you.x - p.x) < 0.01 && A.snap.tic === H.game.tics);
+  const before = sim.session.applied;
+  sim.step(); sim.step();
+  check('a tic with no command keeps walking but does not turn',
+    sim.session.applied === before && Math.abs(sim.session.out.move.y - 1) < 1e-9 && sim.session.out.look.x === 0);
+  A.close();
+  check('when the controller leaves, the line is closed and counted', sim.clients.size === 0 && !sim.controller);
+
+  /* --- the same commands, the same world: what prediction stands on --- */
+  const G1 = (await headlessGame({ map: 'jesse', seed: 8, mapOpts: small })).game;
+  const G2 = (await headlessGame({ map: 'jesse', seed: 8, mapOpts: small })).game;
+  const S1 = new SE.HostSession(), S2 = new SE.HostSession();
+  G1.session = S1; G2.session = S2;
+  for (let t = 1; t <= 140; t++) {
+    const c = TC.newCmd(); c.tic = t; c.move.y = t % 40 < 30 ? 1 : 0; c.move.x = t % 17 < 5 ? 1 : 0; c.look.x = Math.sin(t / 9) * 0.04; c.run = t > 70;
+    const w = PR.decode(PR.encodeCmd(TC.quantize(c))).cmd;   // as it arrives off the wire
+    S1.push(TC.quantize(c)); S2.push(w);
+    G1.tic(); G2.tic();
+  }
+  check('two hosts fed the same commands put the player in the same place, to the bit',
+    G1.player.x === G2.player.x && G1.player.y === G2.player.y && G1.player.angle === G2.player.angle,
+    `${G1.player.x},${G1.player.y} vs ${G2.player.x},${G2.player.y}`);
+
+  /* --- and over a real socket, to a real dedicated server --- */
+  const SRV = await import('./server.mjs');
+  const logs = [];
+  const host = await SRV.startHost({ map: 'jesse', seed: 12, port: 0, mapOpts: small, log: m => logs.push(m) });
+  try {
+    const W = new CL.NetClient(new TR.WebSocketTransport(`ws://127.0.0.1:${host.port}${PR.NET_PATH}`), { name: 'WIRE' });
+    const welcomed = await Promise.race([new Promise(r => { W.onwelcome = () => r(true); }), new Promise(r => setTimeout(() => r(false), 5000))]);
+    let t = 0;
+    const iv = setInterval(() => { const c = TC.newCmd(); c.tic = ++t; c.move.y = 1; W.send(c); }, 1000 / 35);
+    await new Promise(r => setTimeout(r, 700));
+    clearInterval(iv);
+    check('a WebSocket client joins the dedicated server, drives it, and hears back',
+      welcomed && W.map.seed === 12 && W.snaps >= 4 && W.snap.ack > 0 && W.snap.you && host.sim.session.applied > 0,
+      `${W.snaps} snaps, ack ${W.snap?.ack}`);
+    const page = await fetch(`http://127.0.0.1:${host.port}/index.html`);
+    const esc = await fetch(`http://127.0.0.1:${host.port}/%2e%2e/%2e%2e/etc/passwd`);
+    const dot = await fetch(`http://127.0.0.1:${host.port}/.git/config`);
+    check('and it serves the game to a browser on the LAN, and nothing outside it',
+      page.status === 200 && /DEWM/.test(await page.text()) && esc.status >= 400 && dot.status === 403, `${esc.status} ${dot.status}`);
+    W.close();
+  } finally { await host.close(); }
+  check('the server is one command, with nothing to install',
+    /node tools\/server\.mjs/.test(fsN.readFileSync('tools/server.mjs', 'utf8')) && !fsN.existsSync('package-lock.json'));
+}
+
 section('layers and steps');
 {
   const E = await import('../js/editor/editor.js');

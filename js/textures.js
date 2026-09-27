@@ -93,7 +93,9 @@ export class TextureBank {
     /* A missing texture should be loud, not invisible — a wall you can
        see through is a bug you will chase for an hour, and a magenta
        wall is a bug you fix in ten seconds. */
-    if (!this.missing.has(name)) { this.missing.add(name); console.warn('missing texture:', name); }
+    /* (quiet on a host with no screen, which never loads the pack and
+       never draws a wall — see tools/headless.mjs) */
+    if (!this.missing.has(name)) { this.missing.add(name); if (!this.quiet) console.warn('missing texture:', name); }
     return this.map.get('MISSING');
   }
 }

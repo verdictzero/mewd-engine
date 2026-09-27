@@ -29,6 +29,40 @@ typed out a character at a time, the way the ship's computer in ALIEN
 talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
+LAN PLAY, STEP ONE: THE SIMULATION BEHIND A MESSAGE INTERFACE (js/net/).
+The player is no longer driven by the keyboard: every tic Game asks its
+SESSION for a TicCmd (js/net/ticcmd.js) — turn, move, run, jump, use,
+fire, weapon — and hands the player that. In single player the session
+is this page's own input, rounded exactly as the wire rounds it
+(thirteen bytes a command), so a player here and a player on another
+machine are the same arithmetic; two hosts fed the same commands put
+the player in the same place to the bit, which the test checks and
+which client prediction will stand on.
+  js/net/protocol.js   the wire: binary commands, JSON handshake and
+                       snapshots; the map travels as { kind, seed }
+  js/net/transport.js  one interface for a pipe: loopback (one process,
+                       and the tests) and WebSocket (browser or Node)
+  js/net/session.js    LocalSession (this page) and HostSession (a
+                       client's commands, buffered, one a tic)
+  js/net/server.js     SimServer: an authoritative Game and up to 16
+                       lines, handshake, refusals, snapshots at ~12/s —
+                       it does not care where it runs, which is how any
+                       client will be able to host
+  js/net/client.js     a client's end: hello, welcome, commands, snaps
+THE DEDICATED SERVER: `node tools/server.mjs [--map jesse|maze]
+[--seed N] [--port 7777] [--max 16]`. The real simulation with no screen
+(tools/headless.mjs), a zero-dependency WebSocket at /net, and the game
+itself served on the same port, so anyone on the LAN can open
+http://that-machine:7777/. It prints the addresses to give out.
+Why not a Web Worker, as first planned: a worker does not see the
+page's import map, so the bare `three` import cannot resolve there
+without a build step. The same result comes from hosting the SimServer
+in the page itself (a listen server, which the app shell will do) or in
+Node (the dedicated server).
+NOT YET: the game has one player, and the first client to join drives
+it; step three gives every client their own, with prediction and
+interpolation on the client's side.
+
 JESSE, THE PvP MAZE (js/maps/jesse.js), typed as `jesse` at the
 terminal, or ?jesse (?jesse&seed=N plays one again), or File -> Open a
 new JESSE in the editor. Two fortifiable staging areas, one at each

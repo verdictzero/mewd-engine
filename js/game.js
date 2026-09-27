@@ -36,6 +36,7 @@ import { buildSky, followSky } from './sky.js';
 import { Forest } from './forest.js';
 import { FlameStream } from './flame.js';
 import { Decals, wallNormal, UP, DOWN, bleeds } from './decals.js';
+import { LocalSession } from './net/session.js';
 import { Tracers } from './tracers.js';
 import { BeamSystem } from './beam.js';
 import { BreachSystem } from './breach.js';
@@ -93,6 +94,9 @@ export class Game {
     this.hud = hud;
     this.sound = audio;
     this.input = input;
+    /* where the player's command each tic comes from: this page, until
+       a host (js/net/server.js) says otherwise */
+    this.session = new LocalSession();
 
     this.actors = [];
     this.projectiles = [];
@@ -491,7 +495,12 @@ export class Game {
 
     if (this.input.pausePressed && this.state === 'play') this.setPaused(true);
 
-    this.player.tic(this.input, 1 / TICRATE);
+    /* THE PLAYER IS DRIVEN BY A COMMAND, NOT BY THE KEYBOARD: this
+       tic's TicCmd from the session — this page's own input, rounded as
+       the wire rounds it, or a network client's — so the simulation
+       cannot tell a player here from a player on another machine. See
+       js/net/ticcmd.js and js/net/session.js. */
+    this.player.tic(this.session.cmd(this), 1 / TICRATE);
     for (let i = 0; i < this.actors.length; i++) this.actors[i].tic();
     /* after the actors, so the bore sees the tic's deaths in the tic
        they happen — a drill whose head has just burst is spent now, not
