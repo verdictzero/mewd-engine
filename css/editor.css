@@ -22,7 +22,8 @@
 
   position: fixed; inset: 0; z-index: 50;
   display: grid;
-  grid-template-rows: 36px 1fr 24px;
+  /* the bar is as tall as it needs: on a narrow screen it wraps */
+  grid-template-rows: auto 1fr 24px;
   background: var(--bg); color: var(--text);
   font: 12px/1.35 var(--font);
   user-select: none;
@@ -36,6 +37,7 @@
   padding: 0 8px; background: var(--panel); border-bottom: 1px solid var(--line);
   /* not hidden: the menus drop down out of it */
   white-space: nowrap; position: relative; z-index: 20;
+  flex-wrap: wrap; min-height: 36px; padding-top: 4px; padding-bottom: 4px;
 }
 #ed-top .brand { font: 700 12px var(--mono); letter-spacing: .12em; color: var(--accent); margin-right: 6px; }
 #ed-top .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
@@ -280,3 +282,32 @@
   background: #151a1fcc; border: 1px solid var(--line); border-radius: 4px; color: var(--dim); }
 /* an animated texture from the pack (js/texpack.js) */
 .ed-texcell.anim { border-style: dashed; }
+
+/* ---------- the pad: keys for a pen or a finger ---------- */
+.ed-pad {
+  position: absolute; right: 10px; bottom: 34px; z-index: 5;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: calc(100% - 20px);
+  pointer-events: none;
+}
+.ed-pad[hidden] { display: none; }
+.ed-pad .ed-btn {
+  pointer-events: auto; touch-action: manipulation;
+  min-width: 44px; height: 44px; padding: 0 12px; font-size: 16px;
+  background: rgba(21, 26, 31, 0.92); border: 1px solid var(--line); border-radius: 8px;
+}
+.ed-pad .ed-btn[hidden] { display: none; }
+.ed-pad .ed-btn:active { background: #26303a; }
+
+/* ---------- a tablet or a phone: a pen, a finger ---------- */
+/* big enough to hit with a fingertip, and the pen's nib is no smaller */
+@media (pointer: coarse) {
+  #ed-top .ed-btn, #ed-top select, #ed-top input[type=number] { height: 36px; }
+  .ed-row input, .ed-row select { min-height: 32px; }
+}
+/* narrow: the panel goes under the views instead of beside them */
+@media (max-width: 900px) {
+  #ed-main { grid-template-columns: 1fr; grid-template-rows: 1fr minmax(0, 38vh); }
+  #ed-side { border-left: 0; border-top: 1px solid var(--line); }
+  /* the key help is for a keyboard, and there is no room for it */
+  .ed-view .help { display: none; }
+}

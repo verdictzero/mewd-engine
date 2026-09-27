@@ -54,7 +54,16 @@ export class View2D {
     canvas.addEventListener('pointerenter', () => { ed.pointerView = '2d'; });
     canvas.addEventListener('pointerleave', () => { this.mouse = null; this.hover = null; ed.ui.setPos(null); ed.setCursor(null); ed.setHover(null); this.dirty = true; });
 
+    /* FINGERS AND PENS. Every finger on the glass, for pinching; the
+       last pen or finger tap, for a double-tap; and the pad of buttons
+       that stands in for the keys a tablet has not got */
+    this.touches = new Map();
+    this.gesture = null;
+    this.lastTap = null;
+    this.pad = buildPad(ed, canvas.parentElement);
+
     for (const ev of ['doc', 'sel', 'mode', 'grid', 'layout', 'compiled', 'path', 'cursor']) ed.on(ev, () => { this.dirty = true; });
+    for (const ev of ['sel', 'mode', 'path', 'doc']) ed.on(ev, () => this.pad.refresh());
     ed.on('layout', () => setTimeout(() => this.resize(), 0));
     ed.on('frame', () => this.frame());
     ed.on('frameSel', () => this.frameSel());
@@ -187,15 +196,44 @@ export class View2D {
     const ed = this.ed;
     this.canvas.focus();
     const p = this.at(e);
-    this.canvas.setPointerCapture(e.pointerId);
+    try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* a pointer the browser no longer has */ }
+    if (e.pointerType === 'pen' && !ed.penSeen) { ed.penSeen = true; this.pad.refresh(); ed.say('pen: draw with the pen — one finger pans, two pinch to zoom, the side button is the right mouse button'); }
+    if (e.pointerType !== 'mouse') this.pad.show();
+    /* A FINGER, once a pen has been used, only moves the view — the palm
+       on the glass draws nothing — and two fingers always pinch, taking
+       back a corner the first of them put down a moment before */
+    if (e.pointerType === 'touch') {
+      this.touches.set(e.pointerId, { x: p.px, y: p.py });
+      if (ed.penSeen || this.touches.size >= 2) {
+        if (this.touches.size >= 2 && this.drag) {
+          if (this.drag.type === 'move') ed.endMove(this.drag.mv);
+          this.drag = null;
+        }
+        if (this.touches.size >= 2 && this._fingerCorner && performance.now() - this._fingerCorner < 400 && ed.path.length) { ed.path.pop(); ed.emit('path'); }
+        this._fingerCorner = 0;
+        this.startGesture();
+        return;
+      }
+    }
+    /* THE ERASER END of a pen deletes what it touches */
+    if (e.pointerType === 'pen' && e.button === 5) {
+      const hit = this.pick(p.x, p.y);
+      if (hit) { ed.select(hit.kind, [hit.id]); ed.deleteSel(); }
+      return;
+    }
+    const slop = e.pointerType === 'touch' ? 10 : e.pointerType === 'pen' ? 6 : 4;
+    this.slop = slop;
     if (e.button === 1) {
       this.drag = { type: 'pan', px: p.px, py: p.py, cx: this.cx, cy: this.cy };
       return;
     }
     /* THE RIGHT BUTTON, Doom Builder's way: a click on something is its
        properties; a drag on something moves it; a drag on nothing pans */
-    if (e.button === 2 && ed.mode === 'draw' && ed.path.length) { ed.closePath({ open: true }); return; }
-    if (e.button === 2) {
+    /* a pen's side button is the right button, however the browser
+       reports it: as button 2, or as button 2 held down while it touches */
+    const right = e.button === 2 || (e.pointerType === 'pen' && (e.buttons & 2) === 2);
+    if (right && ed.mode === 'draw' && ed.path.length) { ed.closePath({ open: true }); return; }
+    if (right) {
       const hit = this.pick(p.x, p.y);
       this.drag = { type: 'right', hit, px: p.px, py: p.py, x: p.x, y: p.y, cx: this.cx, cy: this.cy };
       return;
@@ -204,6 +242,18 @@ export class View2D {
     const mode = ed.mode;
 
     if (mode === 'draw') {
+      /* A DOUBLE-TAP, with a pen or a finger, finishes the drawing as a
+         double-click does — a tablet has no Enter */
+      if (e.pointerType !== 'mouse') {
+        const now = performance.now(), lt = this.lastTap;
+        this.lastTap = { t: now, px: p.px, py: p.py };
+        if (lt && now - lt.t < 400 && Math.hypot(p.px - lt.px, p.py - lt.py) < 16 && ed.path.length >= 2) {
+          this.lastTap = null;
+          ed.closePath({ open: true });
+          return;
+        }
+        if (e.pointerType === 'touch') this._fingerCorner = now;
+      }
       const pt = this.snapPoint(p.x, p.y);
       const first = ed.path[0];
       if (first && ed.path.length >= 3 && Math.hypot(first[0] - pt[0], first[1] - pt[1]) * this.scale < PICK_PX + 2) ed.closePath();
@@ -242,6 +292,10 @@ export class View2D {
   move(e) {
     const ed = this.ed;
     const p = this.at(e);
+    if (e.pointerType === 'touch' && this.touches.has(e.pointerId)) {
+      this.touches.set(e.pointerId, { x: p.px, y: p.py });
+      if (this.gesture) { this.moveGesture(); return; }
+    }
     this.mouse = { x: p.x, y: p.y };
     this.snapKind = 'grid';
     const snapped = ['draw', 'rect', 'vertices'].includes(ed.mode) ? this.snapPoint(p.x, p.y) : [ed.snapV(p.x), ed.snapV(p.y)];
@@ -258,7 +312,7 @@ export class View2D {
       return;
     }
     if (dr.type === 'right') {
-      if (Math.hypot(p.px - dr.px, p.py - dr.py) < 4) return;
+      if (Math.hypot(p.px - dr.px, p.py - dr.py) < (this.slop || 4)) return;
       if (dr.hit) {
         const kind = dr.hit.kind;
         if (!ed.isSel(kind, dr.hit.id)) ed.select(kind, [dr.hit.id]);
@@ -275,7 +329,7 @@ export class View2D {
       dr.b = dr.type === 'box' ? [p.x, p.y] : dr.type === 'rect' ? this.snapPoint(p.x, p.y) : [ed.snapV(p.x), ed.snapV(p.y)];
     } else if (dr.type === 'move') {
       /* nothing moves until the mouse has, a little — a click is not a drag */
-      if (!dr.moved && Math.hypot(p.px - dr.px, p.py - dr.py) < 4) return;
+      if (!dr.moved && Math.hypot(p.px - dr.px, p.py - dr.py) < (this.slop || 4)) return;
       dr.moved = true;
       ed.dragMove(dr.mv, [p.x, p.y], PICK_PX / this.scale);
       /* the corner being dragged, and what it has snapped onto */
@@ -289,6 +343,15 @@ export class View2D {
 
   up(e) {
     const ed = this.ed;
+    if (e.pointerType === 'touch' && this.touches.has(e.pointerId)) {
+      this.touches.delete(e.pointerId);
+      if (this.gesture) {
+        /* one finger left: it goes on panning from where it is */
+        if (this.touches.size) this.startGesture(); else this.gesture = null;
+        try { this.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* gone */ }
+        return;
+      }
+    }
     const dr = this.drag;
     this.drag = null;
     try { this.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
@@ -311,7 +374,7 @@ export class View2D {
     } else if (dr.type === 'rect') {
       /* a click on the ground, not a drag: select it, as any click does */
       const p = this.at(e);
-      if (dr.ground && Math.hypot(p.px - dr.px, p.py - dr.py) < 4) { ed.select('sector', [dr.ground]); ed.say('the ground — drag on it to draw a new sector; Alt-drag moves it'); }
+      if (dr.ground && Math.hypot(p.px - dr.px, p.py - dr.py) < (this.slop || 4)) { ed.select('sector', [dr.ground]); ed.say('the ground — drag on it to draw a new sector; Alt-drag moves it'); }
       else ed.addRect(dr.a, dr.b);
     } else if (dr.type === 'prop') {
       ed.addProp(dr.a[0], dr.a[1], dr.b[0], dr.b[1]);
@@ -333,6 +396,32 @@ export class View2D {
       if (!this.pick(p.x, p.y, 'thing')) { this.ed.addThing(p.x, p.y); return; }
     }
     if (this.ed.sel.kind) this.ed.ui.showTab('insp');
+  }
+
+  /** PAN AND PINCH: the fingers' middle holds the map point under it,
+   *  and with two the scale follows how far apart they are. */
+  startGesture() {
+    const pts = [...this.touches.values()];
+    const c = pts.reduce((a, q) => [a[0] + q.x / pts.length, a[1] + q.y / pts.length], [0, 0]);
+    const spread = pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0;
+    this.gesture = { n: pts.length, spread, scale: this.scale, x: this.mx(c[0]), y: this.my(c[1]) };
+  }
+  moveGesture() {
+    const g = this.gesture, pts = [...this.touches.values()];
+    if (pts.length !== g.n) { this.startGesture(); return; }
+    const c = pts.reduce((a, q) => [a[0] + q.x / pts.length, a[1] + q.y / pts.length], [0, 0]);
+    if (pts.length > 1 && g.spread > 10) {
+      const spread = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      this.scale = Math.max(0.005, Math.min(40, g.scale * spread / g.spread));
+    }
+    this.cx = g.x - (c[0] - this.w / 2) / this.scale;
+    this.cy = g.y - (this.h / 2 - c[1]) / this.scale;
+    this.dirty = true;
+  }
+  /** Zoom by `k` about the middle of the view — the pad's − and +. */
+  zoomBy(k) {
+    this.scale = Math.max(0.005, Math.min(40, this.scale * k));
+    this.dirty = true;
   }
 
   wheel(e) {
@@ -769,4 +858,58 @@ export function plantColour(kind = '') {
   if (kind.startsWith('bush')) return '#5fbf5a';
   if (kind.startsWith('street')) return '#3fb8a0';
   return '#a8e07a';
+}
+
+/**
+ * THE PAD: the keys a tablet has not got, as buttons over the plan —
+ * shown once a pen or a finger has touched it, or on a touch screen from
+ * the start. While a shape is being drawn it offers to close it, finish
+ * it as lines, take back a corner or give up; otherwise undo, redo,
+ * delete, zoom and fit.
+ */
+export function buildPad(ed, host) {
+  const doc = host?.ownerDocument;
+  const pad = { show() {}, refresh() {}, el: null };
+  if (!doc) return pad;
+  const el = doc.createElement('div');
+  el.className = 'ed-pad';
+  el.hidden = true;
+  const btn = (label, title, fn) => {
+    const b = doc.createElement('button');
+    b.className = 'ed-btn';
+    b.textContent = label;
+    b.title = title;
+    /* on pointerdown, so a pen tap is never lost to a drag test, and not
+       passed on to the plan underneath */
+    b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); pad.refresh(); });
+    el.append(b);
+    return b;
+  };
+  const b = {
+    close: btn('✓ Close', 'Close the shape into a sector (click the first corner)', () => ed.closePath()),
+    lines: btn('⏎ Lines', 'Finish as linedefs, or a split wall to wall (Enter)', () => ed.closePath({ open: true })),
+    back: btn('⌫', 'Take back the last corner (Backspace)', () => { ed.path.pop(); ed.emit('path'); }),
+    cancel: btn('✕', 'Give up the drawing (Esc)', () => { ed.cancelPath(); ed.afterDraw?.(); }),
+    undo: btn('↶', 'Undo (Ctrl+Z)', () => ed.undo()),
+    redo: btn('↷', 'Redo (Ctrl+Y)', () => ed.redo()),
+    del: btn('🗑', 'Delete the selection (Del)', () => ed.deleteSel()),
+    out: btn('−', 'Zoom out', () => ed.view2d?.zoomBy(1 / 1.5)),
+    in: btn('+', 'Zoom in', () => ed.view2d?.zoomBy(1.5)),
+    fit: btn('⤢', 'Frame the map (F)', () => ed.emit('frame')),
+  };
+  host.append(el);
+  pad.el = el;
+  pad.show = () => { if (el.hidden) { el.hidden = false; pad.refresh(); } };
+  pad.refresh = () => {
+    if (el.hidden) return;
+    const n = ed.path.length, drawing = n > 0;
+    b.close.hidden = n < 3;
+    b.lines.hidden = n < 2;
+    b.back.hidden = b.cancel.hidden = !drawing;
+    b.undo.hidden = b.redo.hidden = drawing;
+    b.del.hidden = drawing || !ed.sel.ids.size;
+  };
+  /* a touch screen shows it from the start */
+  try { if (doc.defaultView?.matchMedia?.('(pointer: coarse)').matches) pad.show(); } catch (err) { /* no media queries */ }
+  return pad;
 }

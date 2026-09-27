@@ -5484,6 +5484,26 @@ Doom Builder:
       (touch-action: none), so a tablet taps corners and drags shapes
       instead of scrolling the page.
 
+  AN S PEN, or any pen, on the plan (View2D in js/editor/view2d.js):
+    the pen draws, and hovering it shows where a corner will go;
+    once a pen has touched the glass, a FINGER only moves the view —
+      one pans, two pinch to zoom — so a resting palm draws nothing
+      (before a pen, one finger draws and two pinch, and a corner the
+      first finger put down just before the second is taken back);
+    a DOUBLE-TAP finishes a drawing, as a double-click does;
+    the SIDE BUTTON is the right mouse button: it finishes a drawing,
+      moves what it drags, pans on empty ground and opens what it taps
+      in the inspector;
+    the ERASER end, on a pen that has one, deletes what it touches;
+    a tap is allowed 6 pixels of wobble with a pen, 10 with a finger.
+  THE PAD (buildPad): the keys a tablet has not got, as buttons at the
+  bottom right of the plan, shown on a touch screen or once a pen or a
+  finger is used — while drawing: Close, Lines (Enter), take back a
+  corner (Backspace), give up (Esc); otherwise Undo, Redo, Delete, zoom
+  out, zoom in and Frame. On a touch screen the bar's buttons are
+  bigger; on a narrow one the bar wraps, the side panel goes under the
+  views and the key help is hidden.
+
   THE PLAN'S VIEWS. The selector on the plan (or K) shades every sector
   by its brightness, its floor or its ceiling, with the number on it —
   Doom Builder's brightness view, and its height views.

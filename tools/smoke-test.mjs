@@ -13478,6 +13478,34 @@ await (async () => {
     })());
     const cssE = fsE.readFileSync('css/editor.css', 'utf8');
     check('a finger draws on the views instead of scrolling the page', /\.ed-view canvas \{[^}]*touch-action: none/.test(cssE));
+    /* AN S PEN, and any pen: it draws, the fingers only move the view once
+       a pen has been used, a double-tap finishes, the side button is the
+       right button, the eraser deletes, and a pad of buttons stands in
+       for the keys a tablet has not got */
+    const v2p = fsE.readFileSync('js/editor/view2d.js', 'utf8');
+    check('a pen draws and a finger then only pans and pinches',
+      /e\.pointerType === 'touch'[\s\S]{0,200}if \(ed\.penSeen \|\| this\.touches\.size >= 2\)/.test(v2p) && /startGesture\(\) \{/.test(v2p) && /moveGesture\(\) \{/.test(v2p));
+    check('the side button is the right button, and the eraser deletes',
+      /e\.pointerType === 'pen' && \(e\.buttons & 2\) === 2/.test(v2p) && /e\.pointerType === 'pen' && e\.button === 5/.test(v2p));
+    check('a double-tap finishes a drawing, and a pen tap is allowed a wobble', /now - lt\.t < 400[\s\S]{0,120}ed\.closePath\(\{ open: true \}\)/.test(v2p) && /e\.pointerType === 'pen' \? 6 : 4/.test(v2p));
+    {
+      const Vw = await import('../js/editor/view2d.js');
+      const clicks = [];
+      const fakeDoc = { createElement: () => { const el = { hidden: false, children: [], className: '', append(...c) { this.children.push(...c); }, addEventListener(t, f) { if (t === 'pointerdown') clicks.push([el, f]); }, textContent: '', title: '' }; return el; }, defaultView: null };
+      const host = { ownerDocument: fakeDoc, append() {} };
+      const edP = mkL(); edP.emit = () => {};
+      const pad = Vw.buildPad(edP, host);
+      pad.show();
+      const press = label => clicks.find(([el]) => el.textContent.startsWith(label))[1]({ preventDefault() {}, stopPropagation() {} });
+      edP.mode = 'draw'; edP.path = [[256, 256], [768, 256], [768, 768]];
+      pad.refresh();
+      const shown = l => !clicks.find(([el]) => el.textContent.startsWith(l))[0].hidden;
+      const midDraw = shown('✓') && shown('⏎') && shown('⌫') && !shown('↶');
+      press('✓');
+      check('the pad closes a drawing into a sector, and offers what fits', midDraw && edP.doc.sectors.length === 2 && edP.path.length === 0);
+      press('↶');
+      check('and undoes it', edP.doc.sectors.length === 1);
+    }
   }
   /* a drawn room's colours are its own */
   const edK = new E.Editor(null);
