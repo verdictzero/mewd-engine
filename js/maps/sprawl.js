@@ -1,11 +1,11 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — THE SPRAWL, the game's own world
+   DEWM — THE SPRAWL, the game's own world
    =====================================================================
 
    At the user's request: a sprawling level made of ALL THE ASSETS THE
    USER HAS GIVEN, AND NONE THAT WERE GENERATED. It is an editor document
-   (js/editor/doc.js), built here in code, so the game plays it (GSS at
-   the terminal, or ?demo; see playedMap in js/main.js) and GSS-EDIT
+   (js/editor/doc.js), built here in code, so the game plays it (DEWM at
+   the terminal, or ?demo; see playedMap in js/main.js) and DEWM Editor
    opens it (File > Open demo: THE SPRAWL) to be taken apart and changed.
 
    WHAT IS THE USER'S, and so what is in it:

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — THE GRID
+   DEWM — THE GRID
    =====================================================================
 
    A TEST AREA, and that is all it is: a large walled-off green grid

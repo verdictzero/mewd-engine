@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the sprite bank
+   DEWM — the sprite bank
    =====================================================================
 
    Doom's sprite naming, because it is a good scheme and because every

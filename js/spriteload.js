@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the pictures somebody else drew
+   DEWM — the pictures somebody else drew
    =====================================================================
 
    Everything else the game draws it draws itself, from ramps and noise,

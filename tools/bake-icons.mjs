@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the home-screen icon
+   DEWM — the home-screen icon
    =====================================================================
 
    node tools/bake-icons.mjs        -> icon.png (512x512)

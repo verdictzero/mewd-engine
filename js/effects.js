@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — embers and smoke
+   DEWM — embers and smoke
    =====================================================================
 
    A fire that only glows is a picture of a fire. What sells it is what

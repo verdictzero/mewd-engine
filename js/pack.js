@@ -138,7 +138,7 @@ export class Zip {
    page: one line to serve the folder, and the address to open.
    --------------------------------------------------------------------- */
 export const RUN_ME =
-`GROCERY STORE SIMULATOR — running it on your own machine
+`DEWM — running it on your own machine
 =========================================================
 
 Everything the game needs is in this folder. It does not phone home,

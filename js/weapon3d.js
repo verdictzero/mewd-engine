@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the thing in your hands
+   DEWM — the thing in your hands
    =====================================================================
 
    FOUR MODELS NOW, and this file used to be certain there was one.

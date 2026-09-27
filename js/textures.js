@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — every surface in the store, at 64 pixels
+   DEWM — every surface in the store, at 64 pixels
    =====================================================================
 
    Sixty-four pixels is not a limitation here, it is the brief. At one

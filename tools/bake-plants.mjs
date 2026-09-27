@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — real plants into the wood's own format
+   DEWM — real plants into the wood's own format
    =====================================================================
 
      node tools/bake-plants.mjs

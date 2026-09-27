@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the lo-fi pipeline
+   DEWM — the lo-fi pipeline
    =====================================================================
 
    The whole game is drawn into a buffer, filtered down onto a grid of

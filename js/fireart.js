@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the fire, drawn
+   DEWM — the fire, drawn
    =====================================================================
 
    Every flame in the game comes out of this file: the fire on a shelf,

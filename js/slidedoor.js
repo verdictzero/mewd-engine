@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the automatic doors
+   DEWM — the automatic doors
    =====================================================================
 
    Doom had exactly one door: a ceiling that goes up. Every "door" in the

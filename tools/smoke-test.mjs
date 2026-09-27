@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — smoke test
+   DEWM — smoke test
    =====================================================================
 
    node tools/smoke-test.mjs
@@ -4242,7 +4242,7 @@ await (async () => {
   check('G and GAME open the game', /const GAME_WORDS = \['G', 'GAME'\];/.test(term) && /GAME_WORDS\.includes\(entry\)\) \{ await this\.open\(\); return; \}/.test(term));
   check('E and EDIT open the editor', /const EDIT_WORDS = \['E', 'EDIT'\];/.test(term) && /EDIT_WORDS\.includes\(entry\)\) \{ await this\.open\('\.\/editor\/editor\.js'\)/.test(term));
   check('QUIT and EXIT go to news.asr.institute', /const QUIT_WORDS = \['QUIT', 'EXIT'\];/.test(term) && /QUIT_URL = 'https:\/\/news\.asr\.institute'/.test(term) && /location\.href = QUIT_URL/.test(term));
-  check('and the old words are gone: no hashes, no demo, no GSS', !/KEYS/.test(term) && !/hash\(/.test(term));
+  check('and the old words are gone: no hashes, no demo, no DEWM', !/KEYS/.test(term) && !/hash\(/.test(term));
   check('and it refuses everything else as an undefined command',
     /'UNDEFINED COMMAND \/ SYNTAX ERROR'/.test(term) && !/UNABLE TO COMPUTE/.test(term));
   check('the page loads the terminal, not the game',
@@ -13002,7 +13002,7 @@ section('the town on fire');
 }
 
 /* ---------- the editor ---------- */
-/* GSS-EDIT (js/editor/), the map editor opened from the terminal with
+/* DEWM Editor (js/editor/), the map editor opened from the terminal with
    EDIT. What can be checked without a browser is everything that is not
    drawing: the document, the compiler that turns it into the same Level
    the game runs, the edits the views make, the undo stack, and the two

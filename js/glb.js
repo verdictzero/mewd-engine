@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — a GLB loader, only as much as one is
+   DEWM — a GLB loader, only as much as one is
    =====================================================================
 
    Three ships a GLTFLoader that understands the whole format: skins,

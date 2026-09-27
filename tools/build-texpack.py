@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GROCERY STORE SIMULATOR — build the texture pack
+DEWM — build the texture pack
 
     tools/build-texpack.py SRC [SRC ...]
 

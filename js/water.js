@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the water
+   DEWM — the water
    =====================================================================
 
    What comes out of the fire truck's cannon (see FireTruck in

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the music
+   DEWM — the music
    =====================================================================
 
    THREE TRACKS, at the user's request, and they play for ever: the

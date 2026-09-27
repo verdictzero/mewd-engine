@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the gunship
+   DEWM — the gunship
    =====================================================================
 
    CLOSE AIR SUPPORT COMES WITH THE ARMY, at the user's request, and it

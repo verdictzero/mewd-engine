@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the car park, and what happens to it
+   DEWM — the car park, and what happens to it
    =====================================================================
 
    js/car.js reads a GLB off the disk and hands back its triangles. This

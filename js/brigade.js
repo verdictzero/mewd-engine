@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the fire brigade
+   DEWM — the fire brigade
    =====================================================================
 
    A supermarket alight is the fire brigade's business, as the top of

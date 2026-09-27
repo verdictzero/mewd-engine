@@ -1,4 +1,4 @@
-/* GROCERY STORE SIMULATOR — the page around the game.
+/* DEWM — the page around the game.
    Everything in the frame is drawn by the renderer; this is only the
    furniture that surrounds it, and the rule for all of it is the same:
    small, dim, out of the picture's way, and gone the moment the game is
@@ -89,9 +89,8 @@ html, body {
 
 .panel { text-align: center; max-width: 42rem; padding: 2rem; }
 
-/* The name: two lines set to one width — GROCERY STORE small over
-   SIMULATOR large, the way the Flight Simulator mark stacks its maker
-   over its name — with the letter-spacing of each line taking up the
+/* The name: two lines set to one width — DEWM large over DEMO small,
+   at the user's request — with the letter-spacing of each line taking up the
    slack (textLength, in the markup), and the pair leaning together as
    one group. */
 .logo-slot { display: flex; justify-content: center; margin-bottom: 2rem; }
@@ -105,8 +104,8 @@ html, body {
 /* Sizes chosen so each line's natural width sits just under the 600
    the markup holds it to: the justification then ADDS a little space
    rather than squeezing glyphs together. Michroma is wide. */
-.logo .l1 { font-size: 47px; fill: #ece6d2; }
-.logo .l2 { font-size: 67px; fill: #e8c34a; }
+.logo .l1 { font-size: 112px; fill: #e8c34a; }
+.logo .l2 { font-size: 44px; fill: #ece6d2; }
 .logo-slot.small { margin-bottom: 1.1rem; }
 .logo-slot.small .logo { width: min(48vw, 20rem); opacity: .85; }
 

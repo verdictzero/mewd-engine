@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the small stuff everything else stands on
+   DEWM — the small stuff everything else stands on
    =====================================================================
 
    Units are Doom units, and that is a decision, not an accident. The

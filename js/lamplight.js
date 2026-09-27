@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the street lamps' own light
+   DEWM — the street lamps' own light
    =====================================================================
 
    Every street lamp in the town is a photograph stood up in the map

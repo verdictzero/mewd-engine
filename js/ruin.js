@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — what is holding up a roof that is not there
+   DEWM — what is holding up a roof that is not there
    =====================================================================
 
    A REGION THAT HAS BURNT OUT USED TO BECOME SKY. Its ceiling texture

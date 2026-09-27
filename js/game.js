@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the game
+   DEWM — the game
    =====================================================================
 
    Holds the level, the actors, the fire and the player, and runs the

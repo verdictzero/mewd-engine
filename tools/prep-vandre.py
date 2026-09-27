@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GROCERY STORE SIMULATOR — bring the vandre project's plants and ground over
+DEWM — bring the vandre project's plants and ground over
 
     tools/prep-vandre.py /path/to/vandre
 

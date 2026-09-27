@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the people, and what is left of them
+   DEWM — the people, and what is left of them
    =====================================================================
 
    THE PEOPLE ARE STANDEES. One drawing each, seen from every side, and

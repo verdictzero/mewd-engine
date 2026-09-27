@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — input
+   DEWM — input
    =====================================================================
 
    One layer over keyboard, mouse, gamepad and touch, because the game

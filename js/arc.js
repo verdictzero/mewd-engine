@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the arc maw's lightning
+   DEWM — the arc maw's lightning
    =====================================================================
 
    THE SEVENTH WEAPON, at the user's request, and the request was the

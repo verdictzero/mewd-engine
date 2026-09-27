@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — a crowd in as many draw calls as it has
+   DEWM — a crowd in as many draw calls as it has
    pictures
    =====================================================================
 

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — bringing real artwork in
+   DEWM — bringing real artwork in
    =====================================================================
 
      node tools/bake-art.mjs

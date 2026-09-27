@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — state tables
+   DEWM — state tables
    =====================================================================
 
    Doom's monsters are a linked list of states. Each one says which

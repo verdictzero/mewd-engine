@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — THE STEP GENERATOR
+   DEWM Editor — THE STEP GENERATOR
 
    At the user's request: something that makes STAIRS, CLIFFS and
    CALDERAS, bridging sectors of different heights a step at a time.

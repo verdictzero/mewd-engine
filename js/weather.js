@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the clock, the weather and the wind
+   DEWM — the clock, the weather and the wind
    =====================================================================
 
    One state, read by everybody, so that the hour the sky says it is,

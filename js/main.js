@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — boot
+   DEWM — boot
    =====================================================================
 
    Bake the art, fetch the few things that are files, build the shop
@@ -532,7 +532,7 @@ async function boot() {
      Between them they also mean the sky is baked exactly once — see
      SkyBaker.update, which re-bakes for a moved hour or a drifting
      cloud and now has neither. */
-  /* A MAP FROM THE EDITOR, if this is a test run of one: GSS-EDIT
+  /* A MAP FROM THE EDITOR, if this is a test run of one: DEWM Editor
      (js/editor/editor.js) stores the document and reloads with `?play`,
      and it is compiled here by the same compiler the editor's 3D view
      uses. Anything wrong with it and this is THE SPRAWL, which is also
@@ -1325,14 +1325,14 @@ boot().catch(e => {
   if (s) s.style.color = '#f44';
 });
 
-/** The world to play, compiled: THE SPRAWL, or the map GSS-EDIT handed
+/** The world to play, compiled: THE SPRAWL, or the map DEWM Editor handed
  *  over for a test run — or null for ?grid, and the game plays THE
  *  GRID. See PLAY_KEY in js/editor/editor.js. */
 function playedMap() {
   const q = new URLSearchParams(location.search);
   /* THE DEMO LEVEL IS THE GAME'S OWN WORLD NOW, at the user's request:
      THE SPRAWL, built in code out of the user's own assets
-     (js/maps/sprawl.js), is what GSS opens and what a reload comes back
+     (js/maps/sprawl.js), is what DEWM opens and what a reload comes back
      to. ?demo still says so outright; ?grid is THE GRID, the test area
      it used to be; ?play is a test run of an edited map. */
   const sprawl = () => { const doc = sprawlDoc(); return { ...compileDoc(doc), doc }; };

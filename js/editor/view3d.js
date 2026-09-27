@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — the 3D view
+   DEWM Editor — the 3D view
    =====================================================================
 
    Ultimate Doom Builder's visual mode, on the game's own renderer: the

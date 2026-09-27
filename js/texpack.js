@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the texture pack
+   DEWM — the texture pack
    =====================================================================
 
    Every other texture in this game is DRAWN, in the page, at start-up

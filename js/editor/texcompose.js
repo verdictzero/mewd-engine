@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — the map's own textures
+   DEWM Editor — the map's own textures
    =====================================================================
 
    At the user's request, a TEXTURE EDITOR, in the way SLADE's is one: a

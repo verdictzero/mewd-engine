@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the readout, and the two things that are
+   DEWM — the readout, and the two things that are
    not the readout
    =====================================================================
 

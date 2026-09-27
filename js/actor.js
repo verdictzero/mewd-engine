@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — actors: the state machine, and Doom's chase
+   DEWM — actors: the state machine, and Doom's chase
    =====================================================================
 
    An actor is a position, a state, and a countdown. Every tic the

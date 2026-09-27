@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the cerebral bore
+   DEWM — the cerebral bore
    =====================================================================
 
    TUROK 2'S, at the user's request, and the rules are Turok's: a red

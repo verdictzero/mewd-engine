@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — a hole through a wall
+   DEWM — a hole through a wall
    =====================================================================
 
    AT THE USER'S REQUEST: "any structure in the path of the beam has a

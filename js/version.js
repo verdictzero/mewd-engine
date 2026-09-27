@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the version number
+   DEWM — the version number
    =====================================================================
 
    One string, in one place, printed small in the corner of the title

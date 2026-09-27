@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the player
+   DEWM — the player
    =====================================================================
 
    Doom's movement numbers, exactly, because they are the reason it feels

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the flame
+   DEWM — the flame
    =====================================================================
 
    What comes out of the gun. Not a cone of damage applied to a list —

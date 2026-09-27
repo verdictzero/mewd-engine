@@ -1,5 +1,9 @@
-GROCERY STORE SIMULATOR
-=======================
+DEWM
+====
+
+The engine is DEWM; the game is DEWM Demo; the map editor is DEWM
+Editor (at the user's request — it was Grocery Store Simulator and
+GSS-EDIT).
 
 A Doom-style game in which you walk into a supermarket at night with a
 flamethrower and burn it down. Then the forest it stands in.
@@ -31,7 +35,7 @@ in any case:
 
   G  or  GAME     the game (js/main.js boots it; the terminal fades off
                   in front of the loading screen)
-  E  or  EDIT     the map editor: see GSS-EDIT, THE MAP EDITOR below
+  E  or  EDIT     the map editor: see DEWM Editor, THE MAP EDITOR below
   QUIT  or  EXIT  leaves for news.asr.institute
 
 Nothing under js/main.js knows the terminal exists.
@@ -3497,7 +3501,7 @@ AND THE WEATHER below; the photograph stays in assets/sky, unloaded.
 The name is set in Michroma — the open-licensed cousin of the extended
 square sans the Flight Simulator wordmark uses, bundled in assets/fonts
 so nothing is fetched — as two SVG text lines held to one width by
-textLength, GROCERY STORE small over SIMULATOR large, the pair skewed
+textLength, DEWM large over DEMO small, the pair skewed
 together so they lean as one. The title screen is that and a way in,
 over the car park standing still, with the eye wandering very slightly
 so the picture breathes. Nothing else on it but the version number,
@@ -5267,7 +5271,7 @@ with it in your hands — stops the loop through one line, and none of
 them has to remember to.
 
 
-GSS-EDIT, THE MAP EDITOR
+DEWM Editor, THE MAP EDITOR
 
 At the user's request: a map editor for this game in the mould of SLADE
 and Ultimate Doom Builder. Type E or EDIT at the terminal, or open index.html?edit to go straight in. It is the
@@ -5876,7 +5880,7 @@ which have no fog, are untouched.
 
 THE SPRAWL, THE GAME'S OWN WORLD (js/maps/sprawl.js). At the user's
 request: a sprawling level made of every asset the user has given and
-none that were generated. GSS at the terminal opens it, and so does a
+none that were generated. DEWM at the terminal opens it, and so does a
 reload; DEMO and index.html?demo say so outright; index.html?grid is
 THE GRID, the test area the game used to open in. Or open it in the
 editor (File > Open demo: THE SPRAWL) to take it apart. It is an

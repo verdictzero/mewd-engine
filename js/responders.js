@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — who comes when a supermarket is on fire at 2am
+   DEWM — who comes when a supermarket is on fire at 2am
    =====================================================================
 
    THE SWAT COME, and they are the first thing in the game that fights

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the positron beam
+   DEWM — the positron beam
    =====================================================================
 
    WHAT THE USER ASKED FOR: "the beam from Wing Zero's buster rifle,

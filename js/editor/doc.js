@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — THE EDITOR'S MAP, AS A DOCUMENT
+   DEWM — THE EDITOR'S MAP, AS A DOCUMENT
    =====================================================================
 
    What the editor edits, and what it hands the game. At the user's

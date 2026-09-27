@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — the world, as a Godot scene
+   DEWM Editor — the world, as a Godot scene
    =====================================================================
 
    At the user's request: the map exported for Godot 4, as a folder you
@@ -128,7 +128,7 @@ export function buildGLB(surfaces, images, opts = {}) {
   };
 
   const gltf = {
-    asset: { version: '2.0', generator: 'GSS-EDIT (Grocery Store Simulator map editor)' },
+    asset: { version: '2.0', generator: 'DEWM Editor' },
     scene: 0, scenes: [{ name: opts.name || 'World', nodes: [0] }],
     nodes: [], meshes: [], materials: [], textures: [], images: [], samplers: [
       { magFilter: NEAREST, minFilter: NEAREST_MIPMAP_NEAREST, wrapS: REPEAT, wrapT: REPEAT },
@@ -546,7 +546,7 @@ export async function exportGodot(ed, opts = {}) {
 export function animScript(runs) {
   const R = runs.map(a => `\t"${a.stem}": {"tics": ${a.tics}, "frames": [${a.run.map(f => `"${f}"`).join(', ')}]},`).join('\n');
   return `extends Node
-## Doom's animated textures, as GSS-EDIT runs them: every frame of a run
+## Doom's animated textures, as DEWM Editor runs them: every frame of a run
 ## is held for the run's number of tics, 35 to the second, and every
 ## surface wearing any frame of it steps on through it from that frame.
 
@@ -597,7 +597,7 @@ func _process(delta: float) -> void:
 }
 
 function readme(doc, folder, opts, n) {
-  return `${doc.name || 'MAP'} — exported from GSS-EDIT for Godot 4
+  return `${doc.name || 'MAP'} — exported from DEWM Editor for Godot 4
 
 1. Copy the folder "${folder}" anywhere into your Godot project.
 2. Let Godot import it (it does so when the editor gets focus).

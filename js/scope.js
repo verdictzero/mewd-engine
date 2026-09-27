@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the screen on the back of the gun
+   DEWM — the screen on the back of the gun
    =====================================================================
 
    THE LANCE CAME WITH A SCREEN IN IT. The model the user brought in —

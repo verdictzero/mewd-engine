@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the front door
+   DEWM — the front door
    =====================================================================
 
    The page is not the game any more. It is a terminal: black glass, red
@@ -70,12 +70,12 @@ const REFUSED = entry => [
 /* And what it says on the way in. */
 /* what it says for the editor */
 const EDITOR = [
-  'GSS-EDIT  —  MAP EDITOR',
+  'DEWM EDITOR',
   'LOADING WORKSPACE',
 ];
 
 const GRANTED = [
-  'ACCESS GRANTED',
+  'DEWM DEMO',
   'LOADING',
 ];
 
@@ -359,7 +359,7 @@ class Terminal {
    which js/main.js picks up on its own; and `?demo`, at the user's
    request, is the demo level, THE SPRAWL (js/maps/sprawl.js), which
    js/main.js picks up the same way — though THE SPRAWL is the game's own
-   world now, at the user's request, so GSS opens it with no flag at all;
+   world now, at the user's request, so DEWM opens it with no flag at all;
    `?grid` is THE GRID, the test area it used to be. Anything else is the
    terminal. */
 const params = new URLSearchParams(location.search);

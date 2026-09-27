@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the quad launcher's seeker and its missiles
+   DEWM — the quad launcher's seeker and its missiles
    =====================================================================
 
    FOUR TUBES AND A HEAT SEEKER, at the user's request: "a heat seeking

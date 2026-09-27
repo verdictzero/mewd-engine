@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — the plan
+   DEWM Editor — the plan
    =====================================================================
 
    The Doom Builder half: the map from above on a grid, north up. Every

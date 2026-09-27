@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the sky
+   DEWM — the sky
    =====================================================================
 
    A sky sector in this engine draws nothing and lets the background

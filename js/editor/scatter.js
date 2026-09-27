@@ -1,5 +1,5 @@
 /* =====================================================================
-   GSS-EDIT — spreading things procedurally
+   DEWM Editor — spreading things procedurally
    =====================================================================
 
    At the user's request: a way to spread sprite decorations and sprite

@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — decals: what a weapon leaves on a surface
+   DEWM — decals: what a weapon leaves on a surface
    =====================================================================
 
    THREE KINDS, at the user's request, and they are one system:

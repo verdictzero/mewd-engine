@@ -1,6 +1,6 @@
 #!/bin/sh
 # =====================================================================
-# GROCERY STORE SIMULATOR — assemble the deployable site into public/
+# DEWM — assemble the deployable site into public/
 # =====================================================================
 #
 #   tools/build-site.sh [outdir]

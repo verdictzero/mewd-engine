@@ -1,5 +1,5 @@
 /* =====================================================================
-   GROCERY STORE SIMULATOR — the palette, and the light that falls off in bands
+   DEWM — the palette, and the light that falls off in bands
    =====================================================================
 
    Two things make a 1993 shooter look like a 1993 shooter, and neither
