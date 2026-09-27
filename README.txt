@@ -26,23 +26,15 @@ talks, with a teletype tick under each character, a click under each
 key you press, a buzz when it refuses you, a chime when it lets you
 in and a hum under all of it, every sound synthesised in the page.
 Every entry is refused with the same two lines — UNDEFINED COMMAND /
-SYNTAX ERROR, and the entry REFUSED — but two. The one is
+SYNTAX ERROR, and the entry REFUSED — but these, at the user's request,
+in any case:
 
-  gss-tangram.exe
+  G  or  GAME     the game (js/main.js boots it; the terminal fades off
+                  in front of the loading screen)
+  E  or  EDIT     the map editor: see GSS-EDIT, THE MAP EDITOR below
+  QUIT  or  EXIT  leaves for news.asr.institute
 
-in any case, and the other, at the user's request, is a shortcut along
-three rows of the keyboard:
-
-  qweasdzxc
-
-and both are written here and in the smoke test and nowhere the site
-ships: js/terminal.js holds a hash of each and compares what is typed
-against those, so view-source is no help. On the match it
-imports js/main.js, which boots the game exactly as the page used to,
-and the terminal fades off in front of the loading screen. Nothing
-under js/main.js knows the terminal exists. And EDIT, GSS-EDIT or
-GSS-EDIT.EXE opens the map editor instead: see GSS-EDIT, THE MAP EDITOR
-below.
+Nothing under js/main.js knows the terminal exists.
 
 Open index.html in a browser. No install, no build step. Every texture,
 every sprite, every sound and the whole level are generated in the page
@@ -5278,13 +5270,7 @@ them has to remember to.
 GSS-EDIT, THE MAP EDITOR
 
 At the user's request: a map editor for this game in the mould of SLADE
-and Ultimate Doom Builder. Type any of
-
-  EDIT
-  GSS-EDIT
-  GSS-EDIT.EXE
-
-at the terminal, or open index.html?edit to go straight in. It is the
+and Ultimate Doom Builder. Type E or EDIT at the terminal, or open index.html?edit to go straight in. It is the
 Doom mapping workflow: sectors drawn on a grid, vertices dragged, the
 plan and the 3D view together, a floor raised with the mouse wheel,
 and one key to test the map. But the engine under it is actually 3D, so

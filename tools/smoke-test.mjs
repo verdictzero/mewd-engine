@@ -4236,20 +4236,19 @@ await (async () => {
     for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
     return h.toString(16).padStart(8, '0');
   };
-  const WORD = 'gss-tangram.exe', SHORT = 'qweasdzxc';
-  const keys = ((term.match(/const KEYS = \[([^\]]*)\]/) || [])[1] || '').match(/[0-9a-f]{8}/g) || [];
-  check('the terminal holds the hash of the word', keys.includes(fnv(WORD.toUpperCase())), `${keys} vs ${fnv(WORD.toUpperCase())}`);
-  check('and of the shortcut, and of GSS (at the user\'s request), which open it too, and of nothing else',
-    keys.includes(fnv(SHORT.toUpperCase())) && keys.includes(fnv('GSS')) && keys.length === 3 && /KEYS\.includes\(hash\(entry\)\)/.test(term));
+  void fnv;
+  /* THE COMMANDS, at the user's request: G / GAME, E / EDIT, QUIT / EXIT
+     and nothing else */
+  check('G and GAME open the game', /const GAME_WORDS = \['G', 'GAME'\];/.test(term) && /GAME_WORDS\.includes\(entry\)\) \{ await this\.open\(\); return; \}/.test(term));
+  check('E and EDIT open the editor', /const EDIT_WORDS = \['E', 'EDIT'\];/.test(term) && /EDIT_WORDS\.includes\(entry\)\) \{ await this\.open\('\.\/editor\/editor\.js'\)/.test(term));
+  check('QUIT and EXIT go to news.asr.institute', /const QUIT_WORDS = \['QUIT', 'EXIT'\];/.test(term) && /QUIT_URL = 'https:\/\/news\.asr\.institute'/.test(term) && /location\.href = QUIT_URL/.test(term));
+  check('and the old words are gone: no hashes, no demo, no GSS', !/KEYS/.test(term) && !/hash\(/.test(term));
   check('and it refuses everything else as an undefined command',
     /'UNDEFINED COMMAND \/ SYNTAX ERROR'/.test(term) && !/UNABLE TO COMPUTE/.test(term));
   check('the page loads the terminal, not the game',
     /src="js\/terminal\.js"/.test(html) && !/src="js\/main\.js"/.test(html));
   check('and the terminal loads the game', /import\('\.\/main\.js'\)/.test(term));
   check('the prompt says INTERFACE 2037', /const PROMPT = 'INTERFACE 2037/.test(term));
-  /* no hints: the word is in none of the three files the page is made of */
-  const shipped = (html + css + term).toLowerCase();
-  check('and neither is anywhere the site ships', !shipped.includes('tangram') && !shipped.includes(SHORT));
   check('the terminal is white on black', /#term \{[^}]*background: #000;[^}]*color: #f2f2ee/s.test(css));
   check('in a lighter box ruled with a stroke', /#term-out \{[^}]*background: #16171a;[^}]*border: 2px solid/s.test(css));
   check('with scanlines that move', /#term::before \{[^}]*animation: term-scan/s.test(css) && /@keyframes term-scan/.test(css));
@@ -13672,9 +13671,8 @@ await (async () => {
     for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
     return h.toString(16).padStart(8, '0');
   };
-  const ek = ((term.match(/const EDIT_KEYS = \[([^\]]*)\]/) || [])[1] || '').match(/[0-9a-f]{8}/g) || [];
-  check('the terminal opens the editor on EDIT, GSS-EDIT and GSS-EDIT.EXE',
-    ['EDIT', 'GSS-EDIT', 'GSS-EDIT.EXE'].every(w => ek.includes(fnv(w))) && /open\('\.\/editor\/editor\.js'\)/.test(term));
+  void fnv;
+  check('the terminal opens the editor on E and EDIT', /const EDIT_WORDS = \['E', 'EDIT'\];/.test(term) && /open\('\.\/editor\/editor\.js'\)/.test(term));
   check('and ?edit opens it with no terminal, and ?play runs the game',
     /params\.has\('edit'\)/.test(term) && /m\.startEditor\(\)/.test(term) && /import\('\.\/main\.js'\)/.test(term));
   check('the game plays the map the editor stored, under the same key',
@@ -15190,18 +15188,11 @@ section('the sprawl');
     (() => { const st = L.things.find(t => t.type === 'START'); return st && st.x === SP.SPRAWL_START[0] && st.y === SP.SPRAWL_START[1]; })());
   const mainSrc = fsS.readFileSync('js/main.js', 'utf8'), edSrc = fsS.readFileSync('js/editor/editor.js', 'utf8'), uiSrc = fsS.readFileSync('js/editor/ui.js', 'utf8');
   {
-    /* THE TERMINAL'S WORDS for it, at the user's request: GSS is the
-       game, and DEMO is GSS with the demo flag */
+    /* THE TERMINAL'S WORDS for it: G or GAME, at the user's request */
     const termSrc = fsS.readFileSync('js/terminal.js', 'utf8');
-    const fnv = w => { let h = 0x811c9dc5; for (const ch of w) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };
-    const keys = (termSrc.match(/const KEYS = \[([\s\S]*?)\];/) || ['', ''])[1];
-    const demo = (termSrc.match(/const DEMO_KEYS = \[([^\]]*)\]/) || ['', ''])[1];
-    check('typing GSS at the terminal opens the game', keys.includes(fnv('GSS')));
-    check('and DEMO (or GSS DEMO, GSS -DEMO, GSS --DEMO) opens it with the demo flag',
-      ['DEMO', 'GSS DEMO', 'GSS -DEMO', 'GSS --DEMO'].every(w => demo.includes(fnv(w))) &&
-      /if \(DEMO_KEYS\.includes\(hash\(entry\)\)\) \{[\s\S]{0,300}q\.set\('demo', ''\);[\s\S]{0,200}history\.replaceState[\s\S]{0,120}await this\.open\(\);/.test(termSrc));
+    check('typing G or GAME at the terminal opens the game', /const GAME_WORDS = \['G', 'GAME'\];/.test(termSrc));
   }
-  check('IT IS THE GAME\'S OWN WORLD: GSS and a reload play it, ?grid is THE GRID, ?play an edited map; the editor opens it from the File menu',
+  check('IT IS THE GAME\'S OWN WORLD: GAME and a reload play it, ?grid is THE GRID, ?play an edited map; the editor opens it from the File menu',
     /if \(q\.has\('grid'\)\) return null;\s*if \(!q\.has\('play'\)\) return sprawl\(\);/.test(mainSrc) &&
     /const sprawl = \(\) => \{ const doc = sprawlDoc\(\);/.test(mainSrc) &&
     /params\.has\('grid'\)/.test(fsS.readFileSync('js/terminal.js', 'utf8')) &&

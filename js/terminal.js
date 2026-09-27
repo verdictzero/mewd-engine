@@ -7,7 +7,7 @@
    nothing else at all — no name on it, no date, no word of what it is
    or what it wants, at the user's request. Every line it puts up is
    typed out a character at a time, the way the ship's computer in ALIEN
-   talks to the crew, and every entry but one is refused.
+   talks to the crew, and every entry but a handful is refused.
 
    IT MAKES A NOISE. A teletype tick under every character it types, a
    click under every key you press, a buzz when it refuses you, a chime
@@ -18,50 +18,25 @@
    types silently if nothing has been pressed yet; the hum starts on
    the first key or tap.
 
-   The one that is not refused is the name of a program — or, at the
-   user's request, a shortcut typed along the keyboard. It is not
-   written anywhere in the site — not here, not in the page, not in the
-   stylesheet. What is here is a hash of it, and what you type is hashed
-   the same way and compared, so reading the source gets you as far as
-   the screen does. (The name IS in the README, which is not shipped, so
-   the person who owns this can find it again; and tools/smoke-test.mjs
-   checks the hash below is still the hash of it.)
+   WHAT IT ANSWERS, at the user's request, and nothing more: G or GAME
+   opens the game, E or EDIT the map editor, and QUIT or EXIT leaves the
+   site for news.asr.institute. Every other entry is refused.
 
-   When the entry matches, the terminal says so in three lines, imports
-   js/main.js — which boots the game the moment it is evaluated, exactly
-   as it did when the page loaded it directly — and fades off the glass
-   in front of the game's own loading screen. Nothing in js/main.js or
-   under it knows this file exists. That is the whole of the rule: the
-   game is untouched, and this is the wall in front of it.
-
-   The hash is FNV-1a, 32-bit, over the entry trimmed and uppercased. It
-   is not cryptography and does not pretend to be: it is a lock on a
-   shed, there to keep the answer out of view-source.
+   On the game or the editor the terminal says so in two lines, imports
+   the program — js/main.js boots the game the moment it is evaluated —
+   and fades off the glass in front of its own loading screen. Nothing
+   in js/main.js or under it knows this file exists.
    ===================================================================== */
 
 const $ = id => document.getElementById(id);
 
-/* THE ANSWERS, hashed. See the top of the file. The first is the name
-   of the program; the second, at the user's request, is a shortcut — a
-   run along three rows of the keyboard — and it is kept out of view the
-   same way. */
-const KEYS = ['30af7bc7', '8ce4dd6b',
-  /* and GSS, at the user's request: a short name for the game */
-  'dc144ab4'];
-/* AND THE DEMO, at the user's request: DEMO is GSS with the demo flag —
-   the game, playing THE SPRAWL (js/maps/sprawl.js). GSS DEMO, GSS -DEMO
-   and GSS --DEMO say the same. */
-const DEMO_KEYS = ['98b74836', '30c3c733', '400ded68', 'f836468d'];
-/* AND THE EDITOR, at the user's request: GSS-EDIT, the map editor
-   (js/editor/editor.js), opened by typing its program name — EDIT,
-   GSS-EDIT or GSS-EDIT.EXE. Hashed like the answers above, for the same
-   reason and with the same honesty about what that is worth. */
-const EDIT_KEYS = ['077e1c11', 'a800a207', 'e1d497e9'];
-const hash = s => {
-  let h = 0x811c9dc5;
-  for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
-  return h.toString(16).padStart(8, '0');
-};
+/* THE COMMANDS, at the user's request, and nothing else: G or GAME
+   is the game, E or EDIT the map editor, and QUIT or EXIT leaves for
+   news.asr.institute. Everything else is refused. */
+const GAME_WORDS = ['G', 'GAME'];
+const EDIT_WORDS = ['E', 'EDIT'];
+const QUIT_WORDS = ['QUIT', 'EXIT'];
+const QUIT_URL = 'https://news.asr.institute';
 
 /* THE PROMPT, at the user's request: the interface's number and a
    chevron. Everything the person types goes on the same line after it,
@@ -326,17 +301,13 @@ class Terminal {
     if (entry === '') { await this.prompt(); return; }
     this.history.push(raw.trim());
     this.hist = this.history.length;
-    if (KEYS.includes(hash(entry))) { await this.open(); return; }
-    if (DEMO_KEYS.includes(hash(entry))) {
-      /* the flag the game reads at boot (playedMap in js/main.js), put on
-         the address without a reload, so F5 comes back to the demo */
-      const q = new URLSearchParams(location.search);
-      q.set('demo', '');
-      history.replaceState(null, '', `${location.pathname}?${q.toString().replace(/=(&|$)/g, '$1')}`);
-      await this.open();
+    if (GAME_WORDS.includes(entry)) { await this.open(); return; }
+    if (EDIT_WORDS.includes(entry)) { await this.open('./editor/editor.js'); return; }
+    if (QUIT_WORDS.includes(entry)) {
+      await this.tell(['GOODBYE']);
+      location.href = QUIT_URL;
       return;
     }
-    if (EDIT_KEYS.includes(hash(entry))) { await this.open('./editor/editor.js'); return; }
     this.sfx.error();
     await this.tell(REFUSED(entry));
     await this.prompt();
