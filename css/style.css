@@ -639,3 +639,14 @@ html.touch .desk-only, html:not(.touch) .touch-only { display: none !important; 
   background: transparent; color: transparent; caret-color: transparent;
   font: inherit; outline: none; pointer-events: none;
 }
+
+/* THE WAY BACK TO THE EDITOR on a test run (?play): a chip at the top
+   of the screen, over the game and the touch controls */
+#to-editor {
+  position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  z-index: 9999; font: 600 12px/1 ui-monospace, monospace; letter-spacing: .08em;
+  color: #14161d; background: rgba(232, 195, 74, .88); border: 1px solid #e8c34a; border-radius: 4px;
+  padding: 6px 10px; cursor: pointer; pointer-events: auto;
+}
+#to-editor kbd { font: inherit; opacity: .6; margin-left: 6px; }
+#to-editor:hover { background: #ffd257; }

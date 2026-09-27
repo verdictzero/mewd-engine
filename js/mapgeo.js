@@ -1203,6 +1203,10 @@ function addLine(set, level, l, bank, pick = null) {
          room's roof over it, and the pane was being hung there too: a
          sheet of coloured glass above the eaves over every window. */
       if (h.front.roofTex && h.back.roofTex && !h.front.editorRoof && !h.back.editorRoof) continue;
+      /* A WALL IN SOME OF THE OPENINGS ONLY: an edited map in layers
+         walls the ground floor of a house and not the open terrace over
+         it (see compileCore in js/editor/doc.js) */
+      if (l.midZ && !l.midZ.some(([z0, z1]) => Math.abs(z0 - h.z0) < 1 && Math.abs(z1 - h.z1) < 1)) continue;
       const bot = h.z0;
       const top = Math.min(h.z1, bot + (l.midHeight ?? Infinity));
       if (top <= bot) continue;

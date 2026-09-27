@@ -832,9 +832,15 @@ export class Level {
     while (cur) {
       const f = exact ? this.floorAt(cur, x, y) : cur.floor;
       const c = exact ? this.ceilAt(cur, x, y) : cur.ceil;
-      if (z >= f - ZEPS && z <= c + ZEPS) return cur;
+      const up = cur.above === null ? null : this.sectors[cur.above];
+      if (z >= f - ZEPS && z <= c + ZEPS) {
+        /* ON A DECK WITH NO THICKNESS — the ceiling of this storey is the
+           floor of the next — feet at that height stand on the one
+           above: nothing's feet are ever at the top of the room under */
+        if (!(up && z >= c - ZEPS && Math.abs((exact ? this.floorAt(up, x, y) : up.floor) - c) <= ZEPS)) return cur;
+      }
       if (f <= z) best = cur;
-      cur = cur.above === null ? null : this.sectors[cur.above];
+      cur = up;
     }
     return best;
   }
@@ -925,7 +931,9 @@ export class Level {
     const holed = line.breach && line.breach.length
       ? this._holedFor(line, fromZ, height, atX, atY, radius) : false;
     if (line.back === null || line.front === null) return holed ? null : 'solid';
-    if (line.blocking) return holed ? null : 'blocking';
+    /* a line walled in some of its openings only (midZ: an edited map
+       in layers) blocks at those heights and not at the others */
+    if (line.blocking && (!line.midZ || line.midZ.some(([z0, z1]) => fromZ < z1 - 0.5 && fromZ + height > z0 + 0.5))) return holed ? null : 'blocking';
     if (isMonster && line.blockMonsters) return 'blockmonsters';
     /* THE OPENING IS BETWEEN THE TWO SPANS AT THE MOVER'S OWN HEIGHT,
        which is the same arithmetic as before with spanIn in front of it.

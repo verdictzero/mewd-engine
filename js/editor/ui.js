@@ -132,7 +132,14 @@ export function buildUI(ed) {
     ed.setGrid(+v);
   } },
     ...GRIDS.map(g => h('option', { value: g }, `grid ${g}`)), customOpt, h('option', { value: 'custom' }, 'Custom…'));
-  const snapBtn = h('button', { class: 'ed-btn', title: 'Snap to grid (G)', onclick: () => { ed.snap = !ed.snap; ed.emit('grid'); } }, 'Snap', h('kbd', {}, 'G'));
+  const snapBtn = h('button', { class: 'ed-btn', title: 'Snap to grid (G)', onclick: () => ed.setSnap() }, h('span', {}, 'Snap'), h('kbd', {}, 'G'));
+  /* THE LAYER BEING DRAWN ON — see LAYERS in js/editor/doc.js: down a
+     storey, which one, up a storey */
+  const layerLbl = h('span', { class: 'ed-layer', title: 'The layer being edited: 0 is the ground, 1 the storey on it, and so on. Alt+PgUp / Alt+PgDn' }, 'L0');
+  const layerBox = h('span', { class: 'ed-layers' },
+    h('button', { class: 'ed-btn', title: 'Layer down (Alt+PgDn)', onclick: () => ed.setLayer(ed.layer - 1) }, '▼'),
+    layerLbl,
+    h('button', { class: 'ed-btn', title: 'Layer up (Alt+PgUp)', onclick: () => ed.setLayer(ed.layer + 1) }, '▲'));
   const layoutBtns = {
     combined: h('button', { class: 'ed-btn', title: 'Both at once: 3D with the plan inset (Tab swaps them)', onclick: () => ed.setLayout(ed.layout === 'combined' ? 'combined2d' : 'combined') }, 'Combined'),
     only2d: h('button', { class: 'ed-btn', title: '2D only (Tab)', onclick: () => ed.setLayout('only2d') }, '2D'),
@@ -163,12 +170,15 @@ export function buildUI(ed) {
       '-',
       ['Copy', 'Ctrl+C', () => ed.copySel()],
       ['Paste at the cursor', 'Ctrl+V', () => ed.paste()],
+      ['Paste in place (onto another layer: a storey up)', 'Ctrl+Shift+V', () => ed.paste({ inPlace: true })],
+      ['Layer up', 'Alt+PgUp', () => ed.setLayer(ed.layer + 1)],
+      ['Layer down', 'Alt+PgDn', () => ed.setLayer(ed.layer - 1)],
       ['Select all', 'Ctrl+A', () => ed.selectAllInMode?.()],
       '-',
       ['Snap selection to grid', 'Shift+G', () => ed.snapSelToGrid()],
       ['Grid finer', '[', () => ed.gridStep(-1)],
       ['Grid coarser', ']', () => ed.gridStep(1)],
-      ['Snap on / off', 'G', () => { ed.snap = !ed.snap; ed.emit('grid'); ed.say(`snap ${ed.snap ? 'on' : 'off'}`); }],
+      ['Snap on / off', 'G', () => ed.setSnap()],
       '-',
       ['Frame the map', 'F', () => ed.emit('frame')],
     ]),
@@ -187,6 +197,7 @@ export function buildUI(ed) {
       ['Ctrl+C / Ctrl+V: copy / paste selection', '', () => {}],
       ['PgUp/PgDn: floor ±8 (Shift: ceiling)', '', () => {}],
       ['[ ] grid size · G snap · Shift+G snap selection', '', () => {}],
+      ['Alt+PgUp / Alt+PgDn: the layer up or down (storeys)', '', () => {}],
       ['Corners snap to vertices (□), lines (◇), then grid', '', () => {}],
       ['Arrows nudge a grid step (1 with snap off), Shift ×4', '', () => {}],
       ['Tab swaps the big view and the inset', '', () => {}],
@@ -201,6 +212,8 @@ export function buildUI(ed) {
     shapeSel, sidesIn,
     h('span', { class: 'sep' }),
     gridSel, snapBtn,
+    h('span', { class: 'sep' }),
+    layerBox,
     h('span', { class: 'sep' }),
     layoutBtns.combined, layoutBtns.split, layoutBtns.only2d, layoutBtns.only3d,
     h('span', { class: 'spacer' }),
@@ -322,6 +335,9 @@ export function buildUI(ed) {
     sidesIn.hidden = !ed.shapeSides;
     if (ed.shapeSides) sidesIn.value = String(ed.shapeSides);
     snapBtn.classList.toggle('on', ed.snap);
+    layerLbl.textContent = `Layer ${ed.layer}`;
+    layerLbl.classList.toggle('up', ed.layer !== 0);
+    snapBtn.firstChild.textContent = ed.snap ? 'Snap on' : 'Snap off';
     for (const [l, b] of Object.entries(layoutBtns)) b.classList.toggle('on', ed.layout === l);
     views.className = ed.layout;
     st.mode.innerHTML = `mode <b>${MODES[ed.mode].name}</b>`;
@@ -403,6 +419,35 @@ export function buildUI(ed) {
     ];
   };
 
+  /** THE STEP GENERATOR (js/editor/steps.js): stairs across the
+   *  selected sectors, bridging the heights either side of them, or
+   *  rings in them, up to a mound or down into a caldera. */
+  ui.steps = ui.steps || { kind: 'stairs', stepH: 16, count: 0, to: '', headroom: true };
+  const stepsBlock = s => {
+    const o = ui.steps;
+    const kindSel = h('div', { class: 'ed-seg' },
+      h('button', { class: o.kind === 'stairs' ? 'on' : '', title: 'Strips across the sector, from its lowest neighbour up to its highest', onclick: () => { o.kind = 'stairs'; renderInsp(); } }, '▤ Stairs'),
+      h('button', { class: o.kind === 'rings' ? 'on' : '', title: 'Rings inside the sector, stepping to a height in the middle: a mound, a mesa, a caldera, a pit', onclick: () => { o.kind = 'rings'; renderInsp(); } }, '◎ Rings'));
+    return [
+      h('h4', {}, 'Steps — stairs, cliffs, calderas'),
+      row('Make', kindSel),
+      row('Step height', num(o.stepH, v => { o.stepH = Math.max(1, v); }, { step: 4, title: 'How high each step rises (the game climbs 24)' })),
+      row('How many', num(o.count || '', v => { o.count = Math.max(0, Math.round(v)); }, { step: 1, title: 'Blank or 0: as many as the step height makes' })),
+      row(o.kind === 'rings' ? 'Middle at' : 'Climb to', num(o.to, v => { o.to = v; }, { step: 8,
+        title: o.kind === 'rings' ? 'The height of the middle ring: above the floor for a mound, below it for a caldera (blank: 128 up)' : 'Blank: the highest sector next to it' })),
+      row('Keep head-room', chk(o.headroom, v => { o.headroom = v; })),
+      h('div', { class: 'ed-small-btns' },
+        h('button', { class: 'ed-btn primary', title: 'One undo step', onclick: () => {
+          const to = o.to === '' || o.to === null || !Number.isFinite(+o.to) ? undefined : +o.to;
+          ed.makeSteps(o.kind, { stepH: o.stepH, count: o.count, to, headroom: o.headroom });
+        } }, o.kind === 'rings' ? 'Make rings' : 'Make stairs'),
+        o.to !== '' ? h('button', { class: 'ed-btn', title: 'Back to working it out from the neighbours', onclick: () => { o.to = ''; renderInsp(); } }, 'Auto height') : null),
+      h('p', { class: 'ed-note' }, o.kind === 'rings'
+        ? `Rings from this floor (${s.floor ?? 0}) to the middle. Up for a mound or a cliff in terraces, down for a caldera.`
+        : 'Draw a sector between two of different heights — a street and a terrace, a floor and the layer above — and it is cut into steps from the low one up to the high one.'),
+    ];
+  };
+
   const renderInsp = () => {
     const p = panes.insp;
     p.textContent = '';
@@ -441,6 +486,7 @@ export function buildUI(ed) {
           h('input', { type: 'range', min: 0, max: 255, step: 1, value: brightOf(s), title: 'Ctrl+wheel over the sector, on the plan or in 3D',
             onchange: e => each('brightness', x => { x.light = +(+e.target.value / 255).toFixed(4); }) }),
           num(brightOf(s), v => each('brightness', x => { x.light = +(Math.max(0, Math.min(255, v)) / 255).toFixed(4); }), { step: 16 }))),
+        ...stepsBlock(s),
         h('h4', {}, 'Light colour and fog'),
         h('div', { class: 'ed-row two' }, h('label', {}, 'Light colour'),
           h('input', { type: 'checkbox', title: 'One colour for all the light in the sector, on top of the Doom 64 colours below',
@@ -905,6 +951,8 @@ export function buildUI(ed) {
       h('p', { class: 'ed-note' }, 'The sky is re-baked in the 3D view as you change it.'),
       h('h4', {}, `Problems (${uniq.length})`),
       uniq.length ? h('div', {}, ...uniq.map(x => h('div', { class: 'ed-prob', onclick: () => {
+        /* a problem on another layer: that layer first */
+        if (x.layer !== undefined && x.layer !== ed.layer) ed.setLayer(x.layer);
         if (x.id !== undefined && x.kind === 'sector') {
           const both = (x.msg.match(/sectors (\d+) and (\d+)/) || []).slice(1).map(Number);
           ed.setMode('sectors'); ed.select('sector', both.length ? both : [x.id]); ed.emit('frameSel');
@@ -927,6 +975,7 @@ export function buildUI(ed) {
   ed.on('mode', refreshBar);
   ed.on('grid', refreshBar);
   ed.on('layout', refreshBar);
+  ed.on('layer', refreshBar);
   let thingsT = 0;
   ed.on('doc', () => {
     if (!inspFocused()) { renderInsp(); if (ui.tab === 'map') renderMap(); }

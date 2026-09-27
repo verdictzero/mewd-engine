@@ -161,6 +161,7 @@ export class View2D {
     if (kind === 'thing') {
       let best = null, bd = Infinity;
       for (const t of d.things) {
+        if (!this.ed.onLayer(t)) continue;
         const rad = Math.max(THING_TYPES[t.type]?.radius || 16, r);
         const q = Math.hypot(t.x - x, t.y - y);
         if (q < rad && q < bd) { bd = q; best = t.id; }
@@ -454,7 +455,7 @@ export class View2D {
     if (kind === 'vertex') d.vertices.forEach((v, i) => inB(v[0], v[1]) && out.push(i));
     if (kind === 'line') for (const l of this.lines()) { const a = d.vertices[l.a], b = d.vertices[l.b]; if (inB(a[0], a[1]) && inB(b[0], b[1])) out.push(l.key); }
     if (kind === 'sector') for (const s of d.sectors) if (ringOf(d, s).every(v => inB(v[0], v[1]))) out.push(s.id);
-    if (kind === 'thing') for (const t of d.things) if (inB(t.x, t.y)) out.push(t.id);
+    if (kind === 'thing') for (const t of d.things) if (this.ed.onLayer(t) && inB(t.x, t.y)) out.push(t.id);
     if (kind === 'prop') for (const p of d.props) if (inB(p.x0, p.y0) && inB(p.x1, p.y1)) out.push(p.id);
     if (kind === 'scatter') for (const c of d.scatters) { const [a, b] = scatterBox(d, c); if (inB(a[0], a[1]) && inB(b[0], b[1])) out.push(c.id); }
     return out;
@@ -490,6 +491,7 @@ export class View2D {
     g.fillRect(0, 0, this.w, this.h);
 
     this.drawGrid();
+    this.drawLayers();
 
     /* THE SECTORS, filled by floor height so the plan reads like a
        relief map, and the selection over the top */
@@ -669,7 +671,8 @@ export class View2D {
       const r = Math.max(3, def.radius * this.scale);
       const sel = selT?.has(t.id), hov = t.id === hovT;
       g.fillStyle = colour;
-      g.globalAlpha = ed.mode === 'things' || sel ? 1 : 0.7;
+      /* a thing on another layer is a ghost of itself */
+      g.globalAlpha = !ed.onLayer(t) ? 0.18 : ed.mode === 'things' || sel ? 1 : 0.7;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
       if (sel || hov) { g.strokeStyle = sel ? '#ff9d3d' : '#3ddc84'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r + 3, 0, Math.PI * 2); g.stroke(); }
@@ -768,6 +771,38 @@ export class View2D {
    *  along y = 0, Y green along x = 0, a ring on 0,0 — or, when 0,0 is
    *  off the screen, an arrow at the edge pointing back to it — and the
    *  two directions in the corner. */
+  /** THE OTHER LAYERS, ghosted: the ones under this one as faint
+   *  shapes you draw on top of, the ones over it as dashed outlines. */
+  drawLayers() {
+    const g = this.g, ed = this.ed, me = ed.layer;
+    const others = ed.otherLayers();
+    if (!others.length) return;
+    for (const L of others) {
+      const under = L.k < me, near = Math.abs(L.k - me) === 1;
+      g.save();
+      g.setLineDash(under ? [] : [6, 5]);
+      g.lineWidth = 1;
+      g.strokeStyle = under ? `rgba(150,170,200,${near ? 0.5 : 0.25})` : `rgba(255,200,120,${near ? 0.45 : 0.22})`;
+      g.fillStyle = `rgba(120,140,170,${near ? 0.1 : 0.05})`;
+      for (const s of L.sectors) {
+        const r = s.verts.map(i => L.vertices[i]);
+        if (r.length < 3) continue;
+        g.beginPath();
+        r.forEach(([x, y], k) => (k ? g.lineTo(this.sx(x), this.sy(y)) : g.moveTo(this.sx(x), this.sy(y))));
+        g.closePath();
+        if (under) g.fill();
+        g.stroke();
+      }
+      g.restore();
+    }
+    /* which layer this is, top left of the plan */
+    g.fillStyle = 'rgba(220,230,240,0.8)';
+    g.font = '11px ui-monospace, monospace';
+    g.textAlign = 'right';
+    g.fillText(`LAYER ${me}${me === 0 ? ' · ground' : ''} · ${others.length} more`, this.w - 8, 16);
+    g.textAlign = 'left';
+  }
+
   drawAxes() {
     const g = this.g;
     const ox = Math.round(this.sx(0)) + 0.5, oy = Math.round(this.sy(0)) + 0.5;

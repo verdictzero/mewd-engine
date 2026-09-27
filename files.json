@@ -500,6 +500,7 @@
   "js/editor/editor.js",
   "js/editor/godot.js",
   "js/editor/scatter.js",
+  "js/editor/steps.js",
   "js/editor/texcompose.js",
   "js/editor/texeditor.js",
   "js/editor/ui.js",

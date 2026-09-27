@@ -973,6 +973,17 @@ async function boot() {
     audio.resume();
     if (input.mode === 'desktop') input.requestLock();
   });
+  /* BACK TO THE EDITOR, on a test run from its Play button: the menu's
+     button and the chip at the top of the screen. The map is the
+     editor's autosave, so it opens on exactly what was played. */
+  const fromEditor = new URLSearchParams(location.search).has('play');
+  const toEditor = () => { location.href = location.pathname + '?edit'; };
+  for (const id of ['btn-editor', 'to-editor']) {
+    const b = $(id);
+    if (!b) continue;
+    b.hidden = !fromEditor;
+    b.addEventListener('click', e => { e.stopPropagation(); toEditor(); });
+  }
   const restartBtn = $('btn-restart');
   let restartArmed = 0;
   restartBtn.addEventListener('click', () => {

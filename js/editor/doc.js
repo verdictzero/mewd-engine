@@ -581,6 +581,7 @@ export function problemsOf(doc) {
   }
   if (!doc.things.some(t => t.type === 'START')) out.push({ kind: 'map', msg: 'there is no player start' });
   for (const t of doc.things) {
+    if ((t.layer | 0) !== (doc.layer | 0)) continue;
     if (!rings.some(r => pointInPoly(r, t.x, t.y))) out.push({ kind: 'thing', id: t.id, msg: `${t.type} ${t.id} is outside every sector` });
   }
   return out;
@@ -665,7 +666,7 @@ export function wallOutline(P, w, inA = 0, inB = 0) {
  * it is returned. Anything that would cross a wall is left out and
  * said in `problems`.
  */
-export function linedefWalls(doc, problems = []) {
+export function linedefWalls(doc, problems = [], idBase = null) {
   const chains = linedefChains(doc);
   if (!chains.length) return doc;
   const V = doc.vertices;
@@ -676,7 +677,7 @@ export function linedefWalls(doc, problems = []) {
   for (const [a, b] of doc.linedefs) for (const v of [a, b]) deg.set(v, (deg.get(v) || 0) + 1);
   const out = { ...doc, vertices: V.map(p => [...p]), sectors: [...doc.sectors] };
   const made = [];
-  let id = Math.max(doc.nextId | 0, 1) + 100000;
+  let id = idBase ?? Math.max(doc.nextId | 0, 1) + 100000;
   for (const ch of chains) {
     const P = ch.map(i => V[i]);
     const w = LINEDEF_THICK / 2;
@@ -705,6 +706,248 @@ export function linedefWalls(doc, problems = []) {
       id: id++, verts, name: 'linedef wall', floor: Math.min(c, f + h), floorTex: tex, wallTex: tex, lowerTex: tex, upperTex: tex });
   }
   return out;
+}
+
+/* ---------------------------------------------------------------------
+   LAYERS: THE MAP IN STOREYS, at the user's request
+
+   A map is drawn in LAYERS, one over another up the Z axis. Layer 0 is
+   the ground and everything standing on it; layer 1 is drawn on top of
+   that — the first floor of a house, a bridge, a roof terrace — and
+   layer 2 on top of that, and so on (and -1 down, for a cellar). Each
+   layer is a plan of its own, drawn and edited exactly as the ground
+   is: vertices, sectors, lines, linedefs, nothing shared with another
+   layer. A sector on a layer is a ROOM OF THAT STOREY: its floor is the
+   deck it stands on and its ceiling is the top of it.
+
+   THE LAYER BEING EDITED lives where the whole map always lived —
+   doc.vertices, doc.sectors, doc.lines, doc.linedefs — so every tool in
+   the editor works on it unchanged, and a map with one layer is the
+   same file it always was. The others wait in doc.layers[k]. Switching
+   (setLayer) swaps them over.
+
+   THE COMPILER lays every layer's outlines over each other (overlay,
+   below): wherever the plans differ it cuts, and each piece of the map
+   becomes a COLUMN (MapBuilder.column in js/level.js) of the rooms of
+   every layer over it, bottom-up — the engine's own room-over-room.
+   --------------------------------------------------------------------- */
+export const LAYER_PARTS = ['vertices', 'sectors', 'lines', 'linedefs'];
+export const LAYER_MIN = -8, LAYER_MAX = 32;
+/** How tall a room drawn on an empty layer stands, and where the first
+ *  such layer starts when there is nothing under it to stand on. */
+export const STOREY_H = 256;
+
+const emptyLayer = () => ({ vertices: [], sectors: [], lines: {}, linedefs: [] });
+
+/** The geometry of layer `k`, live (the document's own arrays for the
+ *  layer being edited). */
+export function layerGeom(doc, k = doc.layer | 0) {
+  if (k === (doc.layer | 0)) return { vertices: doc.vertices, sectors: doc.sectors, lines: doc.lines || {}, linedefs: doc.linedefs || [] };
+  return { ...emptyLayer(), ...(doc.layers?.[k] || {}) };
+}
+
+/** Every layer that has something on it (and the one being edited),
+ *  bottom-up: [{ k, vertices, sectors, lines, linedefs }]. */
+export function layersOf(doc) {
+  const ks = new Set([doc.layer | 0]);
+  for (const [k, g] of Object.entries(doc.layers || {})) if (g?.sectors?.length || g?.linedefs?.length) ks.add(+k);
+  return [...ks].sort((a, b) => a - b).map(k => ({ k, ...layerGeom(doc, k) }));
+}
+
+/** Does the map use more than the one layer? */
+export function isLayered(doc) {
+  return layersOf(doc).filter(g => g.sectors.length || g.linedefs.length).length > 1;
+}
+
+/** Make layer `k` the one being edited. The one that was is put away;
+ *  an empty one is not kept. Returns the document. */
+export function setLayer(doc, k) {
+  k = Math.max(LAYER_MIN, Math.min(LAYER_MAX, Math.round(+k || 0)));
+  const cur = doc.layer | 0;
+  if (k === cur) return doc;
+  doc.layers = doc.layers || {};
+  const out = { vertices: doc.vertices, sectors: doc.sectors, lines: doc.lines || {}, linedefs: doc.linedefs || [] };
+  if (out.sectors.length || out.linedefs.length) doc.layers[cur] = out; else delete doc.layers[cur];
+  const g = { ...emptyLayer(), ...(doc.layers[k] || {}) };
+  delete doc.layers[k];
+  for (const p of LAYER_PARTS) doc[p] = g[p];
+  doc.layer = k;
+  if (!Object.keys(doc.layers).length) delete doc.layers;
+  if (!k) delete doc.layer;
+  return doc;
+}
+
+/** The smallest sector of geometry `g` round (x, y), or null. */
+export function sectorIn(g, x, y) {
+  let best = null, ba = Infinity;
+  for (const s of g.sectors) {
+    const r = s.verts.map(i => g.vertices[i]);
+    if (r.length < 3 || !pointInPoly(r, x, y)) continue;
+    const a = Math.abs(signedArea(r));
+    if (a < ba) { ba = a; best = s; }
+  }
+  return best;
+}
+
+/** What a room drawn on layer `k` at (x, y) with nothing of its own
+ *  layer round it starts as: standing on the room of the nearest layer
+ *  below (its floor on that one's ceiling, as tall, in its textures), or
+ *  hanging from the one above for a layer under the ground. Null on the
+ *  ground layer, or with nothing anywhere to go by but the layer
+ *  number. */
+export function layerBase(doc, k, x, y) {
+  if (!k) return null;
+  const lays = layersOf(doc).filter(g => g.k !== k);
+  const below = lays.filter(g => g.k < k).reverse(), above = lays.filter(g => g.k > k);
+  const copy = s => JSON.parse(JSON.stringify({ ...s, id: undefined, verts: undefined, name: '', storeys: undefined }));
+  if (k > 0) {
+    for (const g of below) {
+      const s = sectorIn(g, x, y);
+      if (!s) continue;
+      const f = s.ceil ?? STOREY_H, hgt = Math.max(64, (s.ceil ?? STOREY_H) - (s.floor ?? 0));
+      return { ...copy(s), floor: f, ceil: f + hgt };
+    }
+    return { floor: k * STOREY_H, ceil: (k + 1) * STOREY_H };
+  }
+  for (const g of above) {
+    const s = sectorIn(g, x, y);
+    if (!s) continue;
+    const c = s.floor ?? 0, hgt = Math.max(64, (s.ceil ?? STOREY_H) - (s.floor ?? 0));
+    return { ...copy(s), ceil: c, floor: c - hgt, ceilTex: s.floorTex || 'CEILDECK', outdoor: false };
+  }
+  return { floor: k * STOREY_H, ceil: (k + 1) * STOREY_H, ceilTex: 'CEILDECK', outdoor: false };
+}
+
+/** The floor a thing on layer `k` stands on at (x, y), or null when no
+ *  room of that layer is there. */
+export function layerFloorAt(doc, k, x, y) {
+  const s = sectorIn(layerGeom(doc, k | 0), x, y);
+  return s ? (s.floor ?? 0) : null;
+}
+
+/**
+ * THE LAYERS, LAID OVER EACH OTHER: every edge of every layer's sectors
+ * in one plane, cut wherever two cross or a corner of one lands on
+ * another, and walked face by face. Each face that any layer covers is
+ * one piece of the built map, with the room of each layer over it,
+ * bottom-up; a face none covers is a hole (a courtyard, a gap).
+ *
+ * @param lays  [{ k, vertices, sectors }] bottom-up
+ * @returns { vertices, faces: [{ verts, stack: [{ li, s }] }] }
+ */
+export function overlay(lays) {
+  const rings = [];
+  lays.forEach((g, li) => {
+    for (const s of g.sectors) {
+      const pts = s.verts.map(i => g.vertices[i]);
+      if (pts.length < 3 || selfCrosses(pts) || Math.abs(signedArea(pts)) < 1) continue;
+      rings.push({ li, s, pts, area: Math.abs(signedArea(pts)) });
+    }
+  });
+  /* THE POINTS, welded: anything under half a unit from a point is it */
+  const P = [], cell = new Map();
+  const ck = (x, y) => `${Math.floor(x)},${Math.floor(y)}`;
+  const pointFor = (x, y) => {
+    const fx = Math.floor(x), fy = Math.floor(y);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      for (const k of cell.get(`${fx + i},${fy + j}`) || []) if (Math.abs(P[k][0] - x) <= WELD && Math.abs(P[k][1] - y) <= WELD) return k;
+    }
+    P.push([x, y]);
+    const key = ck(x, y);
+    (cell.get(key) || cell.set(key, []).get(key)).push(P.length - 1);
+    return P.length - 1;
+  };
+  const segs = [];
+  for (const r of rings) for (let i = 0; i < r.pts.length; i++) {
+    const a = r.pts[i], b = r.pts[(i + 1) % r.pts.length];
+    if (a[0] === b[0] && a[1] === b[1]) continue;
+    segs.push({ a, b, x0: Math.min(a[0], b[0]) - 1, x1: Math.max(a[0], b[0]) + 1, y0: Math.min(a[1], b[1]) - 1, y1: Math.max(a[1], b[1]) + 1 });
+  }
+  /* each segment cut at every crossing, and at every end of another
+     that lies on it */
+  const edges = new Map();
+  for (const S of segs) {
+    const cuts = [[0, S.a[0], S.a[1]], [1, S.b[0], S.b[1]]];
+    const dx = S.b[0] - S.a[0], dy = S.b[1] - S.a[1];
+    for (const T of segs) {
+      if (T === S || T.x0 > S.x1 || T.x1 < S.x0 || T.y0 > S.y1 || T.y1 < S.y0) continue;
+      for (const q of [T.a, T.b]) {
+        const { d, t } = segDist(S.a[0], S.a[1], S.b[0], S.b[1], q[0], q[1]);
+        if (d < EPS && t > 1e-6 && t < 1 - 1e-6) cuts.push([t, q[0], q[1]]);
+      }
+      if (segCross(S.a[0], S.a[1], S.b[0], S.b[1], T.a[0], T.a[1], T.b[0], T.b[1])) {
+        const ex = T.b[0] - T.a[0], ey = T.b[1] - T.a[1];
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((T.a[0] - S.a[0]) * ey - (T.a[1] - S.a[1]) * ex) / den;
+        cuts.push([t, +(S.a[0] + dx * t).toFixed(3), +(S.a[1] + dy * t).toFixed(3)]);
+      }
+    }
+    cuts.sort((u, v) => u[0] - v[0]);
+    let prev = null;
+    for (const [, x, y] of cuts) {
+      const k = pointFor(x, y);
+      if (prev !== null && prev !== k) edges.set(lineKey(prev, k), [prev, k]);
+      prev = k;
+    }
+  }
+  /* THE FACES: each point's neighbours anticlockwise, and every edge
+     walked both ways with the face on its left */
+  const adj = new Map();
+  for (const [a, b] of edges.values()) {
+    (adj.get(a) || adj.set(a, new Set()).get(a)).add(b);
+    (adj.get(b) || adj.set(b, new Set()).get(b)).add(a);
+  }
+  const ang = (a, b) => Math.atan2(P[b][1] - P[a][1], P[b][0] - P[a][0]);
+  const order = new Map();
+  for (const [v, ns] of adj) order.set(v, [...ns].sort((p, q) => ang(v, p) - ang(v, q)));
+  const seen = new Set(), faces = [];
+  for (const [u0, ns] of order) for (const v0 of ns) {
+    if (seen.has(u0 + '>' + v0)) continue;
+    let ring = [], u = u0, v = v0, guard = 0;
+    while (!seen.has(u + '>' + v) && guard++ < 1e6) {
+      seen.add(u + '>' + v);
+      ring.push(u);
+      const around = order.get(v), i = around.indexOf(u);
+      const w = around[(i - 1 + around.length) % around.length];
+      u = v; v = w;
+    }
+    /* spurs in and straight back out are not edges of it */
+    for (let again = true; again && ring.length > 3;) {
+      again = false;
+      for (let k = 0; k < ring.length; k++) {
+        const n = ring.length;
+        if (ring[(k - 1 + n) % n] === ring[(k + 1) % n]) { ring = ring.filter((_, i) => i !== k && i !== (k + 1) % n); again = true; break; }
+      }
+    }
+    if (ring.length < 3 || new Set(ring).size !== ring.length) continue;
+    const pts = ring.map(i => P[i]);
+    if (signedArea(pts) <= 0.25) continue;
+    faces.push(ring);
+  }
+  /* WHAT IS OVER EACH FACE: a point just inside it, off its longest
+     edge, and the smallest room of each layer round that point */
+  const out = [];
+  for (const ring of faces) {
+    const pts = ring.map(i => P[i]);
+    const byLen = pts.map((a, k) => [k, Math.hypot(pts[(k + 1) % pts.length][0] - a[0], pts[(k + 1) % pts.length][1] - a[1])]).sort((a, b) => b[1] - a[1]);
+    let at = null;
+    for (const [k, len] of byLen.slice(0, 6)) {
+      const a = pts[k], b = pts[(k + 1) % pts.length];
+      const e = Math.min(0.05, len * 0.05);
+      const x = (a[0] + b[0]) / 2 - (b[1] - a[1]) / len * e, y = (a[1] + b[1]) / 2 + (b[0] - a[0]) / len * e;
+      if (pointInPoly(pts, x, y)) { at = [x, y]; break; }
+    }
+    if (!at) at = centroid(pts);
+    const stack = [];
+    lays.forEach((g, li) => {
+      let best = null, ba = Infinity;
+      for (const r of rings) if (r.li === li && r.area < ba && pointInPoly(r.pts, at[0], at[1])) { ba = r.area; best = r.s; }
+      if (best) stack.push({ li, s: best });
+    });
+    out.push({ verts: ring, stack });
+  }
+  return { vertices: P, faces: out };
 }
 
 /* ---------------------------------------------------------------------
@@ -980,9 +1223,71 @@ export function alignTextures(doc, keys, how, size = () => null, opts = {}) {
 }
 
 export function compileDoc(doc) {
+  if (isLayered(doc)) return compileLayers(doc);
+  /* one layer with anything on it: that layer, as the map always was —
+     whichever layer happens to be open in the editor */
+  const lone = layersOf(doc).find(g => g.sectors.length || g.linedefs.length);
+  if (lone && lone.k !== (doc.layer | 0)) doc = { ...doc, ...layerGeom(doc, lone.k) };
+  return compileCore(doc, null);
+}
+
+/**
+ * A MAP IN LAYERS: each layer's linedefs stood up and its problems found
+ * on their own, then every layer laid over the others (overlay) and the
+ * faces that come out compiled as one plan, a column of rooms each.
+ */
+function compileLayers(doc) {
+  const lays = layersOf(doc).filter(g => g.sectors.length || g.linedefs.length);
+  const problems = [], wallProblems = [];
+  const built = lays.map((g, li) => {
+    const d = { ...doc, ...g, layer: g.k, things: doc.things.filter(t => (t.layer | 0) === g.k) };
+    const w = linedefWalls(d, wallProblems, (doc.nextId | 0) + 100000 * (li + 1));
+    for (const p of problemsOf(w)) if (p.kind !== 'map') problems.push({ ...p, layer: g.k, msg: `layer ${g.k}: ${p.msg}` });
+    return { k: g.k, vertices: w.vertices, sectors: w.sectors, lines: g.lines || {} };
+  });
+  for (const p of wallProblems) problems.push(p);
+  if (!doc.things.some(t => t.type === 'START')) problems.push({ kind: 'map', msg: 'there is no player start' });
+  const ov = overlay(built);
+  const F = {
+    ...doc, vertices: ov.vertices, lines: {}, linedefs: [],
+    sectors: ov.faces.map((f, i) => ({ id: -(i + 1), verts: f.verts, __void: !f.stack.length,
+      __stack: f.stack.map(e => ({ k: built[e.li].k, s: e.s })) })),
+  };
+  return compileCore(F, { problems, layers: built });
+}
+
+/** The rooms of one column, bottom-up, as MapBuilder.column wants them:
+ *  each storey's ceiling meets the floor of the one over it (the deck
+ *  between them), and a storey open to the sky under another has that
+ *  one's floor over it instead. One that starts below the floor of the
+ *  one under it cannot be stacked and is left out, and said. */
+function stackProps(stack, poly, problems) {
+  const out = [];
+  for (const e of stack) {
+    const p = sectorProps(e.s, poly);
+    const lo = out[out.length - 1];
+    if (lo) {
+      if (p.floor < lo.p.floor) {
+        problems.push({ kind: 'sector', id: e.s.id, layer: e.k,
+          msg: `layer ${e.k}: sector ${e.s.id} starts at ${p.floor}, under the floor of sector ${lo.s.id} on layer ${lo.k} (${lo.p.floor}) — raise it` });
+        continue;
+      }
+      if (p.floor < lo.p.ceil) {
+        problems.push({ kind: 'sector', id: e.s.id, layer: e.k,
+          msg: `layer ${e.k}: sector ${e.s.id}'s floor (${p.floor}) cuts into sector ${lo.s.id} under it (ceiling ${lo.p.ceil}) — the room under is cut down to it` });
+      }
+      lo.p.ceil = p.floor;
+      if (lo.p.ceilTex === 'SKY' || lo.p.ceilTex === 'NONE') lo.p.ceilTex = p.floorTex;
+    }
+    out.push({ k: e.k, s: e.s, p });
+  }
+  return out;
+}
+
+function compileCore(doc, ctx) {
   const wallProblems = [];
-  doc = linedefWalls(doc, wallProblems);
-  const problems = [...problemsOf(doc), ...wallProblems];
+  if (!ctx) doc = linedefWalls(doc, wallProblems);
+  const problems = ctx ? ctx.problems : [...problemsOf(doc), ...wallProblems];
   const mb = new MapBuilder((doc.name || 'EDIT').slice(0, 16).toUpperCase());
   const V = doc.vertices;
 
@@ -1017,14 +1322,29 @@ export function compileDoc(doc) {
   /* 3. and every sector into the builder */
   const flatHoles = new Map();
   const index = new Array(doc.sectors.length).fill(-1);
+  /* EVERY ROOM BUILT, and the document sector it is: one a sector, or
+     one a storey where the map is in layers */
+  const pieces = [];
   doc.sectors.forEach((s, i) => {
-    if (plain[i].length < 3 || selfCrosses(plain[i])) return;
+    if (plain[i].length < 3 || selfCrosses(plain[i]) || s.__void) return;
     const kids = [];
     parentOf.forEach((p, j) => { if (p === i) kids.push(j); });
     const holes = holeOutlines(kids, ringIdx, V, problems, s);
     const poly = holes.length ? bridge(rings[i], holes) : rings[i];
-    const base = sectorProps(s, plain[i]);
     try {
+      if (s.__stack) {
+        /* A PIECE OF A MAP IN LAYERS: the room of every layer over it */
+        const st = stackProps(s.__stack, plain[i], problems);
+        if (!st.length) return;
+        const got = st.length === 1 ? [mb.sector(poly, st[0].p)] : mb.column(poly, st.map(e => e.p));
+        index[i] = got[0];
+        got.forEach((L, j) => {
+          pieces.push({ s: st[j].s, L });
+          if (holes.length) flatHoles.set(L, { outer: rings[i], holes });
+        });
+        return;
+      }
+      const base = sectorProps(s, plain[i]);
       if (FEATURES.storeys && s.storeys?.length) {
         /* ROOM OVER ROOM: the ground storey and every one above it, one
            outline — see MapBuilder.column, which throws if they do not
@@ -1032,8 +1352,10 @@ export function compileDoc(doc) {
            crash */
         const stack = [base, ...s.storeys.map(st => sectorProps({ ...s, ...st, floorSlope: st.floorSlope, ceilSlope: st.ceilSlope }, plain[i]))];
         index[i] = mb.column(poly, stack)[0];
+        pieces.push({ s, L: index[i] });
       } else {
         index[i] = mb.sector(poly, base);
+        pieces.push({ s, L: index[i] });
         /* and where the holes are, for drawing the floor round them —
            see addFlats in js/mapgeo.js */
         if (holes.length) flatHoles.set(index[i], { outer: rings[i], holes });
@@ -1049,8 +1371,10 @@ export function compileDoc(doc) {
   const scattered = [];
   const grown = new Map();
   if (doc.scatters?.length) {
-    const ringById = new Map(doc.sectors.map(s => [s.id, ringOf(doc, s)]));
-    const areas = doc.sectors.map((s, i) => [s, plain[i], Math.abs(signedArea(plain[i]))]).filter(e => e[1].length >= 3);
+    /* on a map in layers, the scatters spread over the ground layer */
+    const G = ctx ? (ctx.layers.find(g => g.k === 0) || ctx.layers[0]) : doc;
+    const ringById = new Map(G.sectors.map(s => [s.id, ringOf(G, s)]));
+    const areas = G.sectors.map(s => { const r = ringOf(G, s); return [s, r, Math.abs(signedArea(r))]; }).filter(e => e[1].length >= 3);
     /* where a thing can stand: the smallest sector the point is in, if
        that sector is a room with head-room rather than a pillar */
     const standable = (x, y) => {
@@ -1076,7 +1400,15 @@ export function compileDoc(doc) {
   for (const t of [...doc.things, ...scattered]) {
     if (!THING_TYPES[t.type] || t.type === 'PLANT') continue;
     if (t.type === 'START') { if (started) continue; started = true; }
-    mb.thing(t.type, t.x, t.y, t.angle || 0, t.variant !== undefined ? { variant: t.variant } : {});
+    const opts = t.variant !== undefined ? { variant: t.variant } : {};
+    /* A THING ON AN UPPER LAYER stands on the floor of that layer's room
+       — the game puts it in the storey at that height */
+    if (ctx && t.layer) {
+      const g = ctx.layers.find(q => q.k === (t.layer | 0));
+      const s = g && sectorIn(g, t.x, t.y);
+      if (s) opts.z = s.floor ?? 0;
+    }
+    mb.thing(t.type, t.x, t.y, t.angle || 0, opts);
   }
   if (!started) {
     /* a map with no start is a map the game throws on — so it gets one,
@@ -1095,7 +1427,7 @@ export function compileDoc(doc) {
   const level = mb.build();
   /* which document sector each level sector is, for a line's two sides
      (see SIDES below) */
-  doc.sectors.forEach((s, i) => { if (index[i] >= 0 && level.sectors[index[i]]) level.sectors[index[i]].docId = s.id; });
+  for (const { s, L } of pieces) if (level.sectors[L]) level.sectors[L].docId = s.id;
   for (const [k, f] of flatHoles) {
     const L = level.sectors[k];
     if (L) { L.flatOuter = f.outer; L.flatHoles = f.holes; }
@@ -1119,11 +1451,15 @@ export function compileDoc(doc) {
       return segDist(a[0], a[1], b[0], b[1], p[0], p[1]).d < 0.5 && segDist(a[0], a[1], b[0], b[1], q[0], q[1]).d < 0.5;
     });
   };
-  for (const [k, o] of Object.entries(doc.lines || {})) {
-    const [ai, bi] = k.split(',').map(Number);
-    const a = V[ai], b = V[bi];
-    if (!a || !b) continue;
-    for (const l of levelLinesOn(a, b)) applyLine(l, o);
+  /* on a map in layers, each layer's lines, in its own vertices */
+  const opened = new Set();
+  for (const g of ctx ? ctx.layers : [{ vertices: V, lines: doc.lines || {} }]) {
+    for (const [k, o] of Object.entries(g.lines || {})) {
+      const [ai, bi] = k.split(',').map(Number);
+      const a = g.vertices[ai], b = g.vertices[bi];
+      if (!a || !b) continue;
+      for (const l of levelLinesOn(a, b)) { applyLine(l, o); if (o.opening) opened.add(l); }
+    }
   }
   function applyLine(l, o) {
     if (o.blocking) l.blocking = true;
@@ -1180,7 +1516,30 @@ export function compileDoc(doc) {
      standing in the opening, solid, blocking walking and sight — unless
      the line says it is a doorway. Its texture is the line's middle if
      it has one, or the inside sector's walls. */
-  for (const dl of linesOf(doc)) {
+  const srcOf = new Map(pieces.map(p => [level.sectors[p.L], p.s]));
+  const roofed = s => !!s && !!s.ceilTex && s.ceilTex !== 'SKY';
+  if (ctx) {
+    /* IN LAYERS, storey by storey: a line is a building's outside wall
+       where every opening in it has a room with a roof on one side and
+       the open air on the other — as the rooms were drawn, not as the
+       stacking roofed them */
+    for (const l of level.lines) {
+      if (!l.bands || !l.holes?.length || opened.has(l)) continue;
+      const odd = l.holes.map(h => [srcOf.get(h.front), srcOf.get(h.back), h]).filter(([a, b]) => roofed(a) !== roofed(b));
+      if (!odd.length) continue;
+      const inside = roofed(odd[0][0]) ? odd[0][0] : odd[0][1];
+      /* only the openings that are inside against outside are walled —
+         a terrace over a house is open air beside open air */
+      if (odd.length < l.holes.length) l.midZ = odd.map(([, , h]) => [h.z0, h.z1]);
+      l.middle = l.midOnce && l.middle ? l.middle : (inside.wallTex || 'GRIDWALL');
+      l.midHeight = undefined;
+      l.midOnce = false;
+      l.blocking = true;
+      l.blockSight = true;
+      l.exterior = true;
+    }
+  }
+  for (const dl of ctx ? [] : linesOf(doc)) {
     if (dl.sectors.length !== 2) continue;
     const [sa, sb] = dl.sectors.map(i => doc.sectors[i]);
     const inA = sa.ceilTex && sa.ceilTex !== 'SKY', inB = sb.ceilTex && sb.ceilTex !== 'SKY';
@@ -1212,21 +1571,23 @@ export function compileDoc(doc) {
     for (const l of level.lines) for (const bd of l.bands || []) {
       if (bd.kind === 'upper' && bd.open?.ceilTex === 'SKY' && bd.from && bd.from.ceilTex !== 'SKY') bd.tex = 'NONE';
     }
-    doc.sectors.forEach((s, i) => {
-      const L = level.sectors[index[i]];
-      if (!L || L.ceilTex === 'SKY' || L.ceilTex === 'NONE') return;
+    for (const { s, L: li } of pieces) {
+      const L = level.sectors[li];
+      if (!L || L.ceilTex === 'SKY' || L.ceilTex === 'NONE') continue;
+      /* a storey with another over it has that one's floor for a roof */
+      if (L.above !== null && L.above !== undefined) continue;
       L.roofTex = s.roofTex || L.ceilTex;
       L.editorRoof = true;
-    });
+    }
   }
 
   /* 5b. DOOM 64'S COLOURS: each sector's floor, ceiling and things, and
      its walls from the top colour down to the bottom one */
   const wL = { ...defaultWorld(), ...(doc.world || {}) };
   const fogW = wL.fog || {};
-  doc.sectors.forEach((s, i) => {
-    const L = index[i] >= 0 ? level.sectors[index[i]] : null;
-    if (!L) return;
+  for (const { s, L: li } of pieces) {
+    const L = level.sectors[li];
+    if (!L) continue;
     const c = s.colors || {};
     /* A SECTOR'S LIGHT COLOUR: one colour for all the light in it,
        multiplied into each of the five above (white where one is not
@@ -1247,7 +1608,7 @@ export function compileDoc(doc) {
       const rgb = hexRGB(fogW.override && fogW.color ? fogW.color : (own.color || '#808080'));
       L.fog = [rgb[0], rgb[1], rgb[2], Math.min(100, own.density)];
     }
-  });
+  }
   /* AND THE MAP'S OWN LIGHT, for the renderer (applyMapLight in
      js/material.js): its light colour, its ambient light, its default
      fog, and whether that fog's colour overrides every other */
@@ -1336,7 +1697,8 @@ export function parseDoc(text) {
   d.textures = d.textures || [];
   d.world = { ...defaultWorld(), ...(d.world || {}) };
   let top = 1;
-  for (const x of [...d.sectors, ...d.things, ...d.props, ...d.scatters]) top = Math.max(top, (x.id | 0) + 1);
+  const layered = Object.values(d.layers || {}).flatMap(g => g?.sectors || []);
+  for (const x of [...d.sectors, ...layered, ...d.things, ...d.props, ...d.scatters]) top = Math.max(top, (x.id | 0) + 1);
   d.nextId = Math.max(d.nextId | 0, top);
   return d;
 }

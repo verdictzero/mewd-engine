@@ -51,7 +51,7 @@ import { loadSky } from '../texpack.js';
 import { world, applyMapLight, worldUniforms, WORLD_UNIFORMS_GLSL, WORLD_SHADE_GLSL, SECTOR_GRID_GLSL } from '../material.js';
 import { applySectorGrid } from '../sectorgrid.js';
 import { Weather } from '../weather.js';
-import { THING_TYPES, ringOf, centroid, pointInPoly, FEATURES, DEFAULT_FLOOR } from './doc.js';
+import { THING_TYPES, ringOf, centroid, pointInPoly, FEATURES, DEFAULT_FLOOR, layerFloorAt } from './doc.js';
 import { makeSky } from './editor.js';
 import { plantKind } from './scatter.js';
 import { scatterAt, paintBrush } from './view2d.js';
@@ -217,18 +217,28 @@ export class View3D {
   /** The camera to the player's start, standing. */
   toStart() {
     const t = this.ed.doc.things.find(q => q.type === 'START') || { x: 0, y: 0, angle: 0 };
-    this.cam = { x: t.x, y: t.y, z: this.floorZ(t.x, t.y) + EYE, yaw: t.angle || 0, pitch: -0.12 };
+    this.cam = { x: t.x, y: t.y, z: this.thingZ(t) + EYE, yaw: t.angle || 0, pitch: -0.12 };
     this.ed.emit('camera');
   }
 
   /** The floor at (x, y), as the compiled level has it — which is what
    *  the game will stand things on. */
   floorZ(x, y) {
+    /* ON AN UPPER LAYER, the floor of that layer: what is drawn and
+       placed there stands on it (see LAYERS in js/editor/doc.js) */
+    if (this.ed.layer) return this.ed.layerFloor(x, y);
     const L = this.ed.compiled?.level;
     const s = L?.sectorAt(x, y);
     if (s) return L.floorAt(s, x, y);
     const ds = this.ed.sectorAt(x, y);
     return ds ? zOf(this.ed.doc, ds, 'floor', x, y) : 0;
+  }
+
+  /** The floor a thing stands on: its own layer's, where it has one. */
+  thingZ(t) {
+    if ((t.layer | 0) === this.ed.layer) return this.floorZ(t.x, t.y);
+    const z = layerFloorAt(this.ed.doc, t.layer | 0, t.x, t.y);
+    return z ?? this.floorZ(t.x, t.y);
   }
 
   /* ------------------------------------------------------------------
@@ -294,7 +304,7 @@ export class View3D {
     const arrows = [];
     list.forEach(([t, grown], i) => {
       const def = THING_TYPES[t.type] || { color: '#f0f', radius: 16 };
-      const z = this.floorZ(t.x, t.y);
+      const z = this.thingZ(t);
       const hgt = thingHeight(t), r = def.radius * 0.6;
       m.compose(new THREE.Vector3(t.x, z, -t.y), q, new THREE.Vector3(r, hgt, r));
       mesh.setMatrixAt(i, m);
@@ -551,8 +561,9 @@ export class View3D {
     }
     /* and the things placed by hand, as posts as tall as they stand */
     for (const th of d.things) {
+      if (!this.ed.onLayer(th)) continue;
       const def = THING_TYPES[th.type] || { radius: 16 };
-      const z = this.floorZ(th.x, th.y);
+      const z = this.thingZ(th);
       const rad = Math.max(8, def.radius * 0.6);
       const t = slab(R, [th.x - rad, th.x + rad], [th.y - rad, th.y + rad], [z, z + thingHeight(th)]);
       if (t !== null) take({ t, kind: 'thing', id: th.id });
@@ -613,7 +624,7 @@ export class View3D {
       return;
     }
     if (mode === 'things') {
-      if (hit?.kind === 'thing') { const t = ed.doc.things.find(q => q.id === hit.id); grab('thing', hit.id, this.floorZ(t.x, t.y), [t.x, t.y]); return; }
+      if (hit?.kind === 'thing') { const t = ed.doc.things.find(q => q.id === hit.id); grab('thing', hit.id, this.thingZ(t), [t.x, t.y]); return; }
       /* a click on the floor lets go; a double-click (or Insert) places */
       if (!e.shiftKey) ed.clearSel();
       return;
@@ -778,7 +789,7 @@ export class View3D {
     }
     if (h?.kind === 'prop') {
       const id = h.id;
-      ed.edit(`prop ${step > 0 ? 'up' : 'down'}`, d => { for (const p of d.props) if (p.id === id) { p.z0 += step; p.z1 += step; } }, { tidy: false });
+      ed.edit(`prop ${step > 0 ? 'up' : 'down'}`, d => { for (const p of d.props) if (p.id === id) { const z = ed.snapZ(p.z0, step); p.z1 += z - p.z0; p.z0 = z; } }, { tidy: false });
       return;
     }
     if (h?.kind === 'thing') { ed.say('things stand on the floor: raise the floor under it, or Ctrl+wheel for its light'); return; }
@@ -915,7 +926,7 @@ export class View3D {
       const t = d.things.find(q => q.id === h.id);
       if (t) {
         const def = THING_TYPES[t.type] || { radius: 16 };
-        const z = this.floorZ(t.x, t.y), r = def.radius;
+        const z = this.thingZ(t), r = def.radius;
         box(P, t.x - r, t.y - r, z, t.x + r, t.y + r, z + thingHeight(t));
       }
     }

@@ -5568,6 +5568,68 @@ Doom Builder:
   rather than 1024 (GROUND_DEFAULTS and NEW_MAP_AMBIENT in
   js/editor/doc.js). What is drawn on it takes the same.
 
+  SNAP STAYS WHERE YOU LEFT IT. Snap on or off (G, or the button, which
+  now says "Snap on" / "Snap off") and the grid size are remembered
+  between visits (localStorage gss-edit:prefs). With snap on everything
+  that places or moves snaps — corners, shapes, things, props, scatter
+  brushes, drags and arrow nudges to the grid, and heights too: the
+  wheel and PgUp/PgDn land a floor, a ceiling or a prop on a multiple
+  of the step (8, or 1 with Shift), so a floor at 3 goes to 8, not 11.
+
+  LAYERS: THE MAP IN STOREYS, up the Z axis. Layer 0 is the ground and
+  what stands on it. Go up a layer (the ▲ by "Layer 0" in the toolbar,
+  or Alt+PgUp; ▼ / Alt+PgDn for down) and the plan is empty, with the
+  layers under it ghosted in blue-grey and the ones over it dashed in
+  orange: draw there exactly as on the ground. A room drawn on layer 1
+  stands on the room of the layer under it — its floor on that one's
+  ceiling, as tall, in its textures — and its corners snap to the
+  corners under it, so a storey goes straight up. So:
+      layer 0   the ground, and the ground floor of a house (roof it,
+                Inside, or give it walls)
+      layer 1   the first floor, standing on it: its floor IS the
+                ceiling of the room under it
+      layer 2   the next, and so on; layer -1 is a cellar under the
+                ground.
+  Each layer is a plan of its own (vertices, sectors, lines and linedefs,
+  nothing shared), so every tool works on it as it does on the ground.
+  The quick way up: select the ground floor's rooms, Ctrl+C, go up a
+  layer, Ctrl+Shift+V (paste in place) — the copy stands on top.
+  Things put down on a layer are on it (and stand on its floor in the
+  game); things of other layers are ghosts you cannot pick. A problem
+  on another layer takes you there when you click it.
+  How it is built (js/editor/doc.js, LAYERS and compileLayers): every
+  layer's outlines are laid over each other and cut where they cross
+  (overlay), and each piece of the map becomes a column of the rooms of
+  every layer over it — the engine's own room-over-room (MapBuilder.
+  column). A room's ceiling meets the floor of the one over it; one
+  open to the sky under another gets that one's floor over it instead;
+  only the top room of a column has a roof. The outside wall of a house
+  goes up only in the openings that are inside against outside, so a
+  roof terrace is open air, and you can walk off it. In the game,
+  standing on a deck is standing in the storey above it (Level.spanIn).
+  A map on one layer is the same file it always was.
+
+  THE STEP GENERATOR (js/editor/steps.js), in the Inspect tab of a
+  sector, under Heights:
+    ▤ Stairs  draw a sector between two of different heights — the
+              street and a terrace, a floor and the next layer's — and
+              Make stairs cuts it across into steps from the low
+              neighbour up to the high one: as many as keep each rise
+              to the step height (16), the last a step below the top.
+              Give "Climb to" a height to climb to something else.
+    ◎ Rings   cuts the sector into rings, one inside the next, from its
+              own floor to "Middle at" in the middle: above it for a
+              mound, a mesa or a cliff in terraces, below it for a
+              caldera, a pit or an amphitheatre.
+  Both keep each step's head-room (tick it off to leave the ceilings),
+  are one undo, and leave ordinary sectors behind — the rooms either
+  side get the new corners, so everything still meets.
+
+  BACK TO THE EDITOR FROM A TEST RUN. Play (F5) opens the game on the
+  map with a "◀ EDITOR F2" chip at the top of the screen (tap it) and
+  BACK TO EDITOR in the pause menu (Esc); F2 goes back from anywhere.
+  The editor opens on the map as it was played.
+
   THE PLAN'S VIEWS. The selector on the plan (or K) shades every sector
   by its brightness, its floor or its ceiling, with the number on it —
   Doom Builder's brightness view, and its height views.

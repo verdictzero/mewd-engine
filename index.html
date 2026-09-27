@@ -103,6 +103,10 @@
      scrolled, at the user's request: a phone held sideways is a wide,
      short window, and a long column in one is empty down both sides and
      cut off at the bottom. -->
+<!-- ON A TEST RUN FROM THE EDITOR, a way back that is always on screen:
+     tapped on a touch screen, or F2 / Esc on a keyboard -->
+<button id="to-editor" type="button" hidden>&#9664; EDITOR <kbd>F2</kbd></button>
+
 <div id="pause" class="gone">
   <div class="panel menu">
     <h2>PAUSED</h2>
@@ -211,6 +215,9 @@
          js/pack.js, and RUN-ME.txt inside the archive. -->
     <div class="foot">
       <button id="btn-resume" class="btn primary" type="button">RESUME</button>
+      <!-- a test run from the editor's Play button: straight back to it
+           (F2 does the same from anywhere) -->
+      <button id="btn-editor" class="btn" type="button" hidden>BACK TO EDITOR</button>
       <button id="btn-restart" class="btn quiet" type="button">RESTART</button>
       <button id="btn-download" class="btn quiet" type="button">DOWNLOAD</button>
     </div>

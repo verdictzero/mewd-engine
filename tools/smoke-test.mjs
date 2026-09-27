@@ -14990,6 +14990,155 @@ section('light and fog');
    its own falls back to GRIDWALL, which is drawn here, and nothing on
    screen says so. So the COMPILED level is walked, every surface of it,
    and every name it wears is held to the pack. */
+/* ---------- layers, steps, and a snap that stays ---------- */
+section('layers and steps');
+{
+  const E = await import('../js/editor/editor.js');
+  const D = await import('../js/editor/doc.js');
+  const ST = await import('../js/editor/steps.js');
+  const fsL = await import('node:fs');
+  const rdL = f => fsL.readFileSync(f, 'utf8');
+  const Rq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const mk = () => { const e = new E.Editor(null); e.history = new D.History(D.newDoc('L', 4096)); return e; };
+
+  /* THE SNAP: remembered, and heights land on the wheel's step */
+  {
+    const e = mk();
+    const was = e.snap;
+    e.setSnap(false);
+    check('G turns snap off and on', e.snap === false && (e.setSnap(true), e.snap === true) && was === true);
+    check('with snap on a height nudged from 3 lands on 8, not 11', e.snapZ(3, 8) === 8 && e.snapZ(8, 8) === 16);
+    e.setSnap(false);
+    check('and with it off it moves by the step exactly', e.snapZ(3, 8) === 11);
+    e.setSnap(true);
+    const src = rdL;
+    check('snap and the grid size are kept between visits', /PREFS_KEY = 'gss-edit:prefs'/.test(src('js/editor/editor.js')) && /this\.savePrefs\(\)/.test(src('js/editor/editor.js')) &&
+      /prefs\.snap !== false/.test(src('js/editor/editor.js')));
+    check('the Snap button says whether it is on', /Snap on' : 'Snap off'/.test(src('js/editor/ui.js')));
+    check('props raised on the wheel snap too', /ed\.snapZ\(p\.z0, step\)/.test(src('js/editor/view3d.js')));
+  }
+
+  /* LAYERS: a plan each, swapped in and out */
+  {
+    const e = mk();
+    e.addSector(Rq(1024, 1024, 2048, 2048));
+    const house = e.doc.sectors[e.doc.sectors.length - 1];
+    e.edit('roof', d => { const s = d.sectors.find(x => x.id === house.id); s.ceilTex = 'CEILTILE'; s.ceil = 192; });
+    check('a map starts on layer 0 and is not in layers', e.layer === 0 && !D.isLayered(e.doc));
+    e.setLayer(1);
+    check('layer 1 is empty and the ground is put away', e.layer === 1 && e.doc.sectors.length === 0 && e.doc.layers?.[0]?.sectors.length === 2);
+    e.addSector(Rq(1024, 1024, 2048, 2048));
+    const up = e.doc.sectors[0];
+    check('a room drawn on layer 1 stands on the room under it, as tall', up.floor === 192 && up.ceil === 384, `${up.floor}-${up.ceil}`);
+    check('its corners snap to the corners of the layer under it', e.snapAt(1030, 1030, 16).kind === 'vertex');
+    check('it takes the textures of the room under it, roof and all', up.ceilTex === 'CEILTILE');
+    /* and it is made a roof terrace: open to the sky */
+    e.edit('terrace', d => { d.sectors[0].ceilTex = 'SKY'; }, { tidy: false });
+    e.thingType = 'SHOPPER'; e.addThing(1500, 1500);
+    const th = e.doc.things[e.doc.things.length - 1];
+    check('a thing placed on layer 1 is on layer 1', th.layer === 1);
+    check('the map is in layers now', D.isLayered(e.doc));
+    e.compile();
+    const L = e.compiled.level;
+    const col = L.columnAt(1500, 1500);
+    check('the compiler stacks the two into one column: the house, and the room on it',
+      col.length === 2 && col[0].floor === 0 && col[0].ceil === 192 && col[1].floor === 192 && col[1].ceil === 384, col.map(s => `${s.floor}-${s.ceil}`).join(' '));
+    check('outside the house the ground is a column of one', L.columnAt(3000, 3000).length === 1);
+    check('the thing on layer 1 is placed at that floor', L.things.find(t => t.type === 'SHOPPER')?.z === 192);
+    check('and the game finds the upper room at that height: feet on a deck stand on the storey above',
+      L.spanIn(col[0], 192) === col[1] && L.spanIn(col[0], 100) === col[0]);
+    check('the house\'s own ceiling is under the room on it, and only the top storey has a roof',
+      !col[0].roofTex && col[0].ceilTex === 'CEILTILE');
+    check('no problems with a storey drawn on a storey', !e.compiled.problems.length, e.compiled.problems.map(p => p.msg).join('; '));
+    /* an overhang: layer 1 reaching out over the open ground */
+    e.addSector(Rq(2048, 1024, 2560, 2048));
+    e.compile();
+    const over = e.compiled.level.columnAt(2300, 1500);
+    check('a room of layer 1 over the open ground: the ground under it has its floor for a ceiling',
+      over.length === 2 && over[0].ceilTex !== 'SKY' && over[0].ceil === over[1].floor, over.map(s => `${s.floor}-${s.ceil} ${s.ceilTex}`).join(' '));
+    const ext = e.compiled.level.lines.filter(l => l.exterior);
+    check('the house is walled where it meets the street at the ground floor', ext.length >= 3);
+    check('and not in the open air above it: that opening is not filled, and does not block up there',
+      ext.some(l => l.midZ) && ext.filter(l => l.midZ).every(l => !e.compiled.level.lineBlocks(l, 192, 56, false)) &&
+      ext.filter(l => l.midZ).every(l => e.compiled.level.lineBlocks(l, 0, 56, false) === 'blocking'));
+    /* undo and redo go back across the switch */
+    e.setLayer(0);
+    check('switching back: layer 0 again, with the house', e.layer === 0 && e.doc.sectors.some(s => s.id === house.id));
+    e.undo();
+    check('undo of a switch is the switch back', e.layer === 1);
+    e.redo();
+    const saved = D.serialise(e.doc), back = D.parseDoc(saved);
+    check('a map in layers saves and opens again', D.isLayered(back) && D.layersOf(back).length === 2);
+    check('ids stay unique over every layer', back.nextId > Math.max(...D.layersOf(back).flatMap(g => g.sectors.map(s => s.id))));
+    /* paste in place onto a layer goes up a storey */
+    e.select('sector', [house.id]); e.copySel();
+    e.setLayer(2);
+    e.paste({ inPlace: true });
+    const p2 = e.doc.sectors[0];
+    check('Ctrl+Shift+V on layer 2 puts the copy on top of what is under it there', p2 && p2.floor === 384, p2 && `${p2.floor}-${p2.ceil}`);
+    e.compile();
+    check('three storeys in one column', e.compiled.level.columnAt(1500, 1500).length === 3);
+    /* a cellar */
+    const c = mk();
+    c.setLayer(-1);
+    c.addSector(Rq(512, 512, 1024, 1024));
+    const cel = c.doc.sectors[0];
+    check('a room on layer -1 hangs under the ground', cel.ceil === 0 && cel.floor < 0, `${cel.floor}-${cel.ceil}`);
+    c.compile();
+    check('and builds under it in the same column', c.compiled.level.columnAt(700, 700).length === 2);
+    check('the overlay cuts layers where they cross', (() => {
+      const o = D.overlay([{ k: 0, vertices: Rq(0, 0, 100, 100), sectors: [{ id: 1, verts: [0, 1, 2, 3] }] },
+                           { k: 1, vertices: Rq(50, 50, 150, 150), sectors: [{ id: 2, verts: [0, 1, 2, 3] }] }]);
+      return o.faces.length === 3 && o.faces.filter(f => f.stack.length === 2).length === 1;
+    })());
+    const srcE = rdL('js/editor/editor.js');
+    check('Alt+PgUp and Alt+PgDn change layer, and the toolbar has the switch',
+      /k === 'PageUp' \|\| k === 'PageDown'\) && e\.altKey/.test(srcE) && /ed-layers/.test(rdL('js/editor/ui.js')));
+    check('the plan ghosts the other layers', /drawLayers\(\)/.test(rdL('js/editor/view2d.js')));
+  }
+
+  /* STEPS: stairs between two heights, and rings */
+  {
+    const e = mk();
+    e.addSector(Rq(2048, 1024, 3072, 2048));
+    e.edit('terrace', d => { const s = d.sectors[d.sectors.length - 1]; s.floor = 128; s.ceil = 384; });
+    e.addSector(Rq(1536, 1024, 2048, 2048));
+    const made = e.makeSteps('stairs', {});
+    const steps = e.doc.sectors.filter(s => made.includes(s.id)).map(s => [D.centroid(D.ringOf(e.doc, s))[0], s.floor]).sort((a, b) => a[0] - b[0]);
+    check('stairs between the ground (0) and a terrace (128): seven steps of 16', steps.length === 7 && steps.every(([, f], i) => f === 16 * (i + 1)),
+      steps.map(s => s[1]).join(','));
+    check('rising towards the terrace', steps[0][1] < steps[6][1] && steps[6][0] > steps[0][0]);
+    check('each keeping its head-room', e.doc.sectors.filter(s => made.includes(s.id)).every(s => s.ceil - s.floor === 256));
+    e.compile();
+    check('and they build with no problems', !e.compiled.problems.length, e.compiled.problems.map(p => p.msg).join('; '));
+    check('the terrace got the new corners of the cut, so it still meets the top step', e.doc.sectors.find(s => s.floor === 128 && s.ceil === 384).verts.length >= 4);
+    e.undo();
+    check('stairs are one undo', e.doc.sectors.length === 3);
+    const r = mk();
+    r.addSector(Rq(1024, 1024, 2048, 2048));
+    const cald = r.makeSteps('rings', { to: -64, stepH: 16 });
+    const fl = r.doc.sectors.filter(s => cald.includes(s.id)).map(s => s.floor);
+    check('a caldera: five rings from 0 down to -64 in the middle', cald.length === 5 && fl[0] === 0 && fl[4] === -64 && fl.every((f, i) => !i || f < fl[i - 1]), fl.join(','));
+    r.compile();
+    check('rings build as holes one in another, with no problems', !r.compiled.problems.length && r.compiled.level.sectorAt(1536, 1536).floor === -64,
+      r.compiled.problems.map(p => p.msg).join('; '));
+    const m = mk();
+    m.addSector(Rq(1024, 1024, 1536, 2048));
+    const mound = m.makeSteps('rings', { to: 96, count: 4 });
+    check('a mound: as many rings as asked, up to the height asked', mound.length === 4 && m.doc.sectors.find(s => s.id === mound[3]).floor === 96);
+    const d = D.newDoc('S', 4096);
+    check('stairs in a sector with nothing to bridge ask for a height', !!ST.makeStairs(d, d.sectors[0], {}).error);
+    check('the inspector has the step generator', /stepsBlock\(s\)/.test(rdL('js/editor/ui.js')));
+  }
+
+  /* BACK TO THE EDITOR from a test run */
+  {
+    const html = rdL('index.html'), mainJ = rdL('js/main.js');
+    check('a test run from the editor has a way back: a chip on the screen and a button in the menu',
+      /id="to-editor"/.test(html) && /id="btn-editor"/.test(html) && /b\.hidden = !fromEditor/.test(mainJ) && /\?edit'/.test(mainJ));
+  }
+}
+
 section('the sprawl');
 {
   const SP = await import('../js/maps/sprawl.js');

@@ -41,7 +41,9 @@ import {
   History, compileDoc, gridDoc, newDoc, parseDoc, serialise, compact,
   THING_TYPES, SECTOR_DEFAULTS, takeId, ringOf, pointInPoly, signedArea, linesOf, lineKey,
   segDist, strictlyInside, selfCrosses, segCross, WELD, DEFAULT_FLOOR, holeParents, alignTextures,
+  layersOf, layerGeom, layerBase, setLayer, LAYER_MIN, LAYER_MAX,
 } from './doc.js';
+import { makeStairs, makeRings } from './steps.js';
 import { View2D } from './view2d.js';
 import { View3D } from './view3d.js';
 import { buildUI } from './ui.js';
@@ -53,6 +55,12 @@ import { PACK_NAMES, loadPack, packNamesIn, PackAnimator } from '../texpack.js';
 /* where the editor keeps its work in the browser */
 export const AUTOSAVE_KEY = 'gss-edit:autosave';
 export const PLAY_KEY = 'gss-edit:play';
+/* THE EDITOR'S OWN SETTINGS, kept between visits at the user's request:
+   snap on or off, and the grid size, as they were left */
+export const PREFS_KEY = 'gss-edit:prefs';
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
 
 /* the grid ladder: Doom Builder's own, powers of two */
 export const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
@@ -146,8 +154,9 @@ export class Editor {
     this.root = root;
     this.listeners = new Map();
     this.mode = 'sectors';
-    this.grid = 64;
-    this.snap = true;
+    const prefs = loadPrefs();
+    this.grid = prefs.grid >= 1 && prefs.grid <= GRID_MAX ? Math.round(prefs.grid) : 64;
+    this.snap = prefs.snap !== false;
     this.thingType = 'SHOPPER';
     /* the plant a PLANT thing is placed as, and the mix the scatter
        brush paints with */
@@ -226,6 +235,8 @@ export class Editor {
    *  rather than on every mouse move of a drag. */
   changed({ now = false } = {}) {
     this._lines = null;
+    /* an undo, a redo or an open can land on another layer */
+    if (this.layer !== this._lastLayer) { this._lastLayer = this.layer; this._otherKey = null; this.emit('layer', this.layer); }
     this.emit('doc');
     /* the map's own textures, drawn again if they changed */
     const tk = textureKey(this.doc);
@@ -330,6 +341,7 @@ export class Editor {
     g = Math.round(+g);
     if (!(g >= 1)) return;
     this.grid = Math.min(GRID_MAX, g);
+    this.savePrefs();
     this.emit('grid');
     this.say(`grid ${this.grid}${this.snap ? '' : ' (snap is off: G)'}`);
   }
@@ -342,6 +354,24 @@ export class Editor {
     else this.say(`grid ${g} is the ${dir > 0 ? 'largest' : 'smallest'} there is`);
   }
   snapV(v) { return this.snap ? Math.round(v / this.grid) * this.grid : Math.round(v); }
+  /** SNAP ON OR OFF (G, or the Snap button), remembered for next time.
+   *  On, everything that places or moves snaps: corners, shapes, things,
+   *  props, scatters, drags, nudges — and heights, to the wheel's step. */
+  setSnap(on = !this.snap) {
+    this.snap = !!on;
+    this.savePrefs();
+    this.emit('grid');
+    this.say(`snap ${this.snap ? 'on' : 'off'}${this.snap ? ` — grid ${this.grid}` : ' — free placement, whole units'}`);
+  }
+  savePrefs() {
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), snap: this.snap, grid: this.grid })); } catch (e) { /* private mode */ }
+  }
+  /** A height moved by `dz`: with snap on it lands on a multiple of the
+   *  step, so a floor nudged from 3 goes to 8, 16, 24 and not 11, 19. */
+  snapZ(z, dz) {
+    const v = z + dz, q = Math.abs(dz);
+    return this.snap && q > 1 ? Math.round(v / q) * q : v;
+  }
 
   /**
    * WHERE A POINT GOES, the way Doom Builder decides it: onto a VERTEX
@@ -364,6 +394,15 @@ export class Editor {
         if (q < bd) { bd = q; best = i; }
       });
       if (best >= 0) return { pt: [...d.vertices[best]], kind: 'vertex', id: best };
+      /* AND THE CORNERS OF THE OTHER LAYERS, so a storey is drawn
+         straight up off the one under it — the new corner is this
+         layer's own, at the same place */
+      let ghost = null;
+      for (const g of this.otherLayers()) for (const v of g.vertices) {
+        const q = (v[0] - x) ** 2 + (v[1] - y) ** 2;
+        if (q < bd) { bd = q; ghost = v; }
+      }
+      if (ghost) return { pt: [...ghost], kind: 'vertex', id: null };
     }
     if (lines && r > 0) {
       let best = null, bd = r;
@@ -471,12 +510,75 @@ export class Editor {
     this.edit(label, d => moveThings(d, kind, ids, dx, dy));
   }
 
+  /* ------------------------------------------------------------------
+     LAYERS — see LAYERS in js/editor/doc.js
+     ------------------------------------------------------------------ */
+  get layer() { return this.doc.layer | 0; }
+  /** The layers not being edited, with something on them, bottom-up. */
+  otherLayers() {
+    const d = this.doc;
+    if (this._otherKey !== d || this._otherLayer !== this.layer) {
+      this._other = layersOf(d).filter(g => g.k !== this.layer && g.sectors.length);
+      this._otherKey = d; this._otherLayer = this.layer;
+    }
+    return this._other;
+  }
+  /** Edit layer `k`: its plan in both views, the others ghosted under
+   *  and over it. An undo step, as Doom Builder's own switches are
+   *  not — but here the layer IS where the map's arrays are. */
+  setLayer(k) {
+    k = Math.max(LAYER_MIN, Math.min(LAYER_MAX, Math.round(+k || 0)));
+    if (k === this.layer) return;
+    this.cancelPath();
+    this.clearSel();
+    this.history.push(`layer ${k}`);
+    setLayer(this.doc, k);
+    this._otherKey = null;
+    this.changed({ now: true });
+    const g = layerGeom(this.doc, k);
+    this.say(`layer ${k}${k === 0 ? ' (the ground)' : ''} — ${g.sectors.length ? `${g.sectors.length} sector${g.sectors.length === 1 ? '' : 's'}` : 'empty: draw on it, and rooms stand on the layer under'}; Alt+PgUp / Alt+PgDn change layer`);
+  }
+  /** The floor things on the layer being edited stand on at (x, y). */
+  layerFloor(x, y) {
+    const s = this.sectorAt(x, y);
+    if (s) return s.floor ?? 0;
+    const b = layerBase(this.doc, this.layer, x, y);
+    return b ? b.floor : 0;
+  }
+  /** Is this thing on the layer being edited? */
+  onLayer(t) { return (t.layer | 0) === this.layer; }
+
+  /**
+   * THE STEP GENERATOR (js/editor/steps.js) on the selected sectors, or
+   * the one under the mouse: `kind` 'stairs' (across, bridging its
+   * neighbours) or 'rings' (in, to `to` at the middle). One undo step.
+   */
+  makeSteps(kind, opts = {}) {
+    const ids = this.targetOr('sector');
+    if (!ids.size) { this.say('select a sector to make steps in'); return null; }
+    let res = null, made = [], errs = [];
+    this.edit(kind === 'rings' ? 'rings' : 'stairs', d => {
+      for (const id of ids) {
+        const S = d.sectors.find(x => x.id === id);
+        if (!S) continue;
+        res = kind === 'rings' ? makeRings(d, S, opts) : makeStairs(d, S, opts);
+        if (res.error) errs.push(res.error);
+        made.push(...(res.ids || []));
+      }
+    });
+    if (made.length) this.select('sector', made);
+    this.say(errs.length && !made.length ? errs[0]
+      : `${made.length} ${kind === 'rings' ? 'rings' : 'steps'}${res?.rise ? `, each ${Math.abs(+res.rise.toFixed(1))} high` : ''}${errs.length ? ` — ${errs[0]}` : ''}`);
+    return made;
+  }
+
   /** Put a thing of the current type at (x, y). */
   addThing(x, y) {
     const type = this.thingType;
     this.edit(`add ${type}`, d => {
       if (THING_TYPES[type]?.one) d.things = d.things.filter(t => t.type !== type);
       const t = { id: takeId(d), type, x: this.snapV(x), y: this.snapV(y), angle: Math.PI / 2 };
+      if (d.layer) t.layer = d.layer;
       if (type === 'PLANT') t.kind = this.plantKind;
       d.things.push(t);
     });
@@ -669,8 +771,8 @@ export class Editor {
     this.edit(`${part} ${dz > 0 ? '+' : ''}${dz}`, d => {
       for (const s of d.sectors) {
         if (!which.has(s.id)) continue;
-        if (part === 'floor') s.floor = (s.floor ?? 0) + dz;
-        else s.ceil = (s.ceil ?? 256) + dz;
+        if (part === 'floor') s.floor = this.snapZ(s.floor ?? 0, dz);
+        else s.ceil = this.snapZ(s.ceil ?? 256, dz);
       }
     }, { tidy: false, group: `height ${part} ${[...which].join(',')}` });
   }
@@ -815,15 +917,22 @@ export class Editor {
     const pts = kind === 'sector' ? clip.items.flatMap(i => i.ring) : kind === 'prop' ? clip.items.map(p => [p.x0, p.y0])
       : kind === 'scatter' ? clip.items.map(c => [c.area.x ?? c.area.x0 ?? 0, c.area.y ?? c.area.y0 ?? 0]) : clip.items.map(t => [t.x, t.y]);
     clip.anchor = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1]))];
+    clip.layer = this.layer;
     this.clipboard = clip;
     this.say(`copied ${clip.items.length} ${kind}${clip.items.length > 1 ? 's' : ''}`);
     return true;
   }
-  paste() {
-    const clip = this.clipboard, c = this.cursor;
+  /** Paste at the cursor — or, `inPlace` (Ctrl+Shift+V), exactly where
+   *  it was copied from: the way to put a storey straight on top of the
+   *  one it was copied from, on the layer above. */
+  paste({ inPlace = false } = {}) {
+    const clip = this.clipboard, c = inPlace ? clip?.anchor : this.cursor;
     if (!clip) { this.say('the clipboard is empty'); return; }
     if (!c) { this.say('point at where to paste'); return; }
-    const dx = this.snapV(c[0] - clip.anchor[0]), dy = this.snapV(c[1] - clip.anchor[1]);
+    const dx = inPlace ? 0 : this.snapV(c[0] - clip.anchor[0]), dy = inPlace ? 0 : this.snapV(c[1] - clip.anchor[1]);
+    /* PASTED ONTO ANOTHER LAYER, rooms go up (or down) with it: each
+       stands on what is under it there, as tall as it was */
+    const moved = (clip.layer ?? 0) !== this.layer;
     const made = [];
     if (clip.kind === 'sector') {
       this.history.push(`paste ${clip.items.length} sectors`);
@@ -831,6 +940,11 @@ export class Editor {
         const d = this.doc;
         const ring = it.ring.map(([x, y]) => vertexFor(d, x + dx, y + dy));
         const s = { ...JSON.parse(JSON.stringify(it.props)), id: takeId(d), verts: ring.filter((v, k, a) => v !== a[(k + 1) % a.length]) };
+        if (moved && this.layer) {
+          const [cx, cy] = it.ring.reduce((a, p) => [a[0] + (p[0] + dx) / it.ring.length, a[1] + (p[1] + dy) / it.ring.length], [0, 0]);
+          const b = layerBase(d, this.layer, cx, cy);
+          if (b) { const hgt = (s.ceil ?? 256) - (s.floor ?? 0); s.floor = b.floor; s.ceil = b.floor + hgt; }
+        }
         if (s.verts.length >= 3) { d.sectors.push(s); made.push(s.id); }
       }
       compact(this.doc);
@@ -840,7 +954,7 @@ export class Editor {
         for (const it of clip.items) {
           const o = JSON.parse(JSON.stringify(it));
           o.id = takeId(d);
-          if (clip.kind === 'thing') { o.x += dx; o.y += dy; d.things.push(o); }
+          if (clip.kind === 'thing') { o.x += dx; o.y += dy; if (this.layer) o.layer = this.layer; else delete o.layer; d.things.push(o); }
           if (clip.kind === 'prop') { o.x0 += dx; o.x1 += dx; o.y0 += dy; o.y1 += dy; d.props.push(o); }
           if (clip.kind === 'scatter') {
             const a = o.area;
@@ -1387,8 +1501,10 @@ export function insertSector(d, idx) {
   const [cx, cy] = pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length], [0, 0]);
   const parent = sectorContaining(d, cx, cy);
   /* a deep copy: the parent's colours are its own, not shared */
+  /* on an upper layer, with nothing of its own round it: standing on the
+     room of the layer under (layerBase in js/editor/doc.js) */
   const base = parent ? JSON.parse(JSON.stringify({ ...parent, id: undefined, verts: undefined, name: '', storeys: undefined }))
-    : { ...SECTOR_DEFAULTS };
+    : { ...SECTOR_DEFAULTS, ...(layerBase(d, d.layer | 0, cx, cy) || {}) };
   const made = { ...base, id: takeId(d), verts: ring };
   /* DRAWN AGAINST THE PARENT'S OWN WALL, it is cut out of the parent
      rather than laid over it — a room drawn in a corner of the field
@@ -1451,7 +1567,7 @@ export function moveThings(d, kind, ids, dx, dy) {
     for (const s of d.sectors) {
       if (!ids.has(s.id)) continue;
       const r = s.verts.map(i => [d.vertices[i][0] - dx, d.vertices[i][1] - dy]);
-      for (const t of d.things) if (pointInPoly(r, t.x, t.y)) { t.x += dx; t.y += dy; }
+      for (const t of d.things) if ((t.layer | 0) === (d.layer | 0) && pointInPoly(r, t.x, t.y)) { t.x += dx; t.y += dy; }
     }
   }
 }
@@ -1595,7 +1711,7 @@ export async function startEditor() {
     /* copy and paste of the selection itself (in 3D, over a surface,
        Ctrl+C and Ctrl+V are its texture, taken just above) */
     if (ctrl && k.toLowerCase() === 'c') { e.preventDefault(); ed.copySel(); return; }
-    if (ctrl && k.toLowerCase() === 'v') { e.preventDefault(); ed.paste(); return; }
+    if (ctrl && k.toLowerCase() === 'v') { e.preventDefault(); ed.paste({ inPlace: e.shiftKey }); return; }
     if (ctrl) return;
     /* VISUAL MODE, Doom Builder's Q: the 3D view on its own, the mouse
        looking, a crosshair to pick with — Q or Escape again to leave */
@@ -1621,6 +1737,7 @@ export async function startEditor() {
       return;
     }
     if (k === 'Insert') { e.preventDefault(); ed.insertAtCursor(); return; }
+    if ((k === 'PageUp' || k === 'PageDown') && e.altKey) { e.preventDefault(); ed.setLayer(ed.layer + (k === 'PageUp' ? 1 : -1)); return; }
     if (k === 'PageUp' || k === 'PageDown') {
       /* the floor of the selected or highlighted sectors, a grid step;
          Shift for the ceiling */
@@ -1637,7 +1754,7 @@ export async function startEditor() {
     for (const [m, def] of Object.entries(MODES)) if (def.key === up && !e.altKey) { ed.setMode(m); return; }
     if (up === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) { ed.alignSel('x'); return; }
     if (up === 'G' && e.shiftKey) { ed.snapSelToGrid(); return; }
-    if (up === 'G') { ed.snap = !ed.snap; ed.emit('grid'); ed.say(`snap ${ed.snap ? 'on' : 'off'}`); return; }
+    if (up === 'G') { ed.setSnap(); return; }
     if (k === ' ') { e.preventDefault(); ed.setMode('draw'); return; }
     if (up === 'F') { ed.emit('frame'); return; }
     if (up === 'B') { ed.view3d.setFullbright(!ed.view3d.fullbright); return; }
@@ -1668,7 +1785,7 @@ function selectAll(ed) {
   const m = ed.mode;
   if (m === 'vertices') ed.select('vertex', d.vertices.map((_, i) => i));
   else if (m === 'lines') ed.select('line', ed.lines().map(l => l.key));
-  else if (m === 'things') ed.select('thing', d.things.map(t => t.id));
+  else if (m === 'things') ed.select('thing', d.things.filter(t => ed.onLayer(t)).map(t => t.id));
   else if (m === 'props') ed.select('prop', d.props.map(p => p.id));
   else if (m === 'scatter') ed.select('scatter', d.scatters.map(p => p.id));
   else ed.select('sector', d.sectors.map(s => s.id));

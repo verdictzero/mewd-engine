@@ -291,6 +291,13 @@ export class Game {
     for (const t of this.level.things) {
       if (t.type === 'START') {
         this.player = new Player(this, t.x, t.y, t.angle);
+        /* A START ON AN UPPER LAYER of an edited map: in the storey at
+           its height, not the ground under it — a hair over the deck,
+           which is the ceiling of the room under it as well */
+        if (t.z !== undefined && this.player.sector) {
+          this.player.sector = this.level.spanIn(this.player.sector, t.z + 1);
+          this.player.z = this.player.sector.floor;
+        }
         continue;
       }
       const type = THING_TO_ACTOR[t.type];
@@ -302,7 +309,7 @@ export class Game {
         const sec = this.level.sectorAt(t.x, t.y);
         if (!sec || sec.outdoor || sec.ceil < 200) continue;
       }
-      const a = new Actor(this, type, t.x, t.y, t.angle, { variant: t.variant });
+      const a = new Actor(this, type, t.x, t.y, t.angle, t.z !== undefined ? { variant: t.variant, z: t.z + 1 } : { variant: t.variant });
       this.actors.push(a);
       if (a.monster) this.totalMonsters++;
       /* A light is kept for relight() and for nothing else: it has no
