@@ -132,6 +132,28 @@ function rng(seed) {
   return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
 }
 
+/** The black, blurred silhouette of a picture, as a texture with room
+ *  round it for the blur: `pad` is that room as a fraction of the
+ *  picture's width and height on each side. Null where there is no
+ *  canvas (the headless tests). */
+function shadowOf(img, blur) {
+  if (typeof document === 'undefined' || !img || !img.width) return null;
+  const k = Math.min(1, 720 / img.width);          // a shadow does not need the full picture
+  const w = Math.round(img.width * k), h = Math.round(img.height * k), b = Math.round(blur * k);
+  const c = document.createElement('canvas');
+  c.width = w + b * 4; c.height = h + b * 4;
+  const x = c.getContext('2d');
+  x.filter = `blur(${b}px)`;
+  x.drawImage(img, b * 2, b * 2, w, h);
+  x.filter = 'none';
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = '#000';
+  x.fillRect(0, 0, c.width, c.height);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return { tex, pad: { x: (b * 2) / w, y: (b * 2) / h } };
+}
+
 export class TitleForest {
   constructor({ seed = 2037 } = {}) {
     this.scene = new THREE.Scene();
@@ -164,6 +186,24 @@ export class TitleForest {
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
     this.logo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false, fog: false }));
+    this.logo.renderOrder = 2;
+    /* AND BEHIND IT, FOR CONTRAST, at the user's request: the logo's own
+       outline, blurred and black, twice — a tight drop shadow a little
+       down and right, which gives every letter an edge against the
+       grass, and a wide dark halo, which pushes the whole wood back
+       behind the word. Cut from the picture once, on a canvas; drawn
+       under the logo in the same overlay, so they go through the dither
+       with it. */
+    this.shadows = [];
+    for (const [blur, alpha, dx, dy, order] of [[70, 0.72, 0, 0.01, 0], [14, 0.9, 0.012, 0.03, 1]]) {
+      const st = shadowOf(t.image, blur);
+      if (!st) continue;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ map: st.tex, transparent: true, opacity: alpha, depthTest: false, depthWrite: false, fog: false }));
+      m.renderOrder = order;
+      scene.add(m);
+      this.shadows.push({ mesh: m, pad: st.pad, dx, dy });
+    }
     scene.add(this.logo);
     this.overlay = { scene, camera, visible: false };
     return this;
@@ -174,8 +214,15 @@ export class TitleForest {
     if (!this.logo || !v.width || !v.height || !r.width) { if (this.overlay) this.overlay.visible = false; return; }
     const cx = ((r.left + r.width / 2 - v.left) / v.width) * 2 - 1;
     const cy = 1 - ((r.top + r.height / 2 - v.top) / v.height) * 2;
+    const sw = r.width / v.width * 2, sh = r.height / v.height * 2;
     this.logo.position.set(cx, cy, -1);
-    this.logo.scale.set(r.width / v.width * 2, r.height / v.height * 2, 1);
+    this.logo.scale.set(sw, sh, 1);
+    /* the shadows are the logo's box grown by their blur, nudged by a
+       fraction of the logo's own size so they scale with it */
+    for (const s of this.shadows || []) {
+      s.mesh.position.set(cx + s.dx * sw, cy - s.dy * sh, -1);
+      s.mesh.scale.set(sw * (1 + 2 * s.pad.x), sh * (1 + 2 * s.pad.y), 1);
+    }
     this.overlay.visible = true;
   }
 
@@ -321,6 +368,7 @@ export class TitleForest {
     for (const t of this.textures.values()) t.dispose();
     this.skyTex?.dispose(); this.groundTex?.dispose(); this.logoTex?.dispose();
     this.logo?.material.dispose(); this.logo?.geometry.dispose();
+    for (const sh of this.shadows || []) { sh.mesh.material.map.dispose(); sh.mesh.material.dispose(); sh.mesh.geometry.dispose(); }
     this.geo.dispose();
   }
 }

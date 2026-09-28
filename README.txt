@@ -186,7 +186,10 @@ So the forest's materials write grey times BLUE (monoBlue), and the
 logo is drawn INTO the frame as an overlay — dithered, never tinted —
 over the box the page's own, now invisible, logo still takes in the
 layout (TitleForest.loadLogo / placeLogo), so it sits where the CSS
-puts it on every screen shape; a real
+puts it on every screen shape. Behind it, for contrast, its own outline
+blurred and black twice over: a tight drop shadow down and right and a
+wide dark halo (shadowOf), in the same overlay and under the same
+dither; a real
 perspective camera moving sideways does the parallax, and each row is
 a ring that re-dresses whatever falls off its left end as a different
 plant at a different size. It is drawn through the game's own pipeline
