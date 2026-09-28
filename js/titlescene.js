@@ -53,15 +53,36 @@ const FOV = 50;
    the logo, which is not part of the forest, is neither. */
 const BLUE = [0.34, 0.52, 1.0];
 const LUMA = 'vec3(0.299, 0.587, 0.114)';
+/* THE WIND, at the user's request: the clock every plant's vertex
+   shader bends to (see monoBlue) */
+const uWindTime = { value: 0 };
+
 /** Grey, then blue: added to a MeshBasicMaterial's fragment shader after
- *  its colour and texture have been read. */
-function monoBlue(m) {
+ *  its colour and texture have been read. With a `sway`, the vertex
+ *  shader BENDS the cutout in the wind too: the root stays put, the
+ *  push goes as the square of the height up the plant, so a tuft curls
+ *  over rather than tipping like a board — the cutouts are six strips
+ *  tall for it (TitleForest.geo). The push is in world units, so a tall
+ *  tree and a short tuft with the same `sway` lean the same angle, and
+ *  its phase is where the plant stands, so a gust runs along the row. */
+function monoBlue(m, sway = 0) {
   m.onBeforeCompile = sh => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
       `#include <map_fragment>
        diffuseColor.rgb = vec3(dot(diffuseColor.rgb, ${LUMA})) * vec3(${BLUE.map(v => v.toFixed(3)).join(', ')});`);
+    if (!sway) return;
+    sh.uniforms.uWindTime = uWindTime;
+    sh.vertexShader = 'uniform float uWindTime;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      `#include <begin_vertex>
+       {
+         float wx = modelMatrix[3].x, sx = modelMatrix[0].x, hy = modelMatrix[1].y;
+         float gust = 0.6 + 0.4 * sin(uWindTime * 0.37 - wx * 0.05);
+         float bend = sin(uWindTime * 1.3 - wx * 0.21) + 0.4 * sin(uWindTime * 3.1 + wx * 1.7);
+         float up = position.y * position.y;
+         transformed.x += ${sway.toFixed(4)} * hy * up * gust * (0.8 + bend) / sx;
+       }`);
   };
-  m.customProgramCacheKey = () => 'mewd-mono-blue';
+  m.customProgramCacheKey = () => 'mewd-mono-blue-' + sway;
   return m;
 }
 
@@ -73,23 +94,23 @@ function monoBlue(m) {
 const ROWS = [
   { name: 'wall', z: -200, wrap: 520, n: 190, h: [22, 32], tint: [0.30, 0.36, 0.46], sway: 0,
     kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4', 'fir_tall_1', 'fir_tall_2'] },
-  { name: 'far', z: -150, wrap: 420, n: 190, h: [16, 26], tint: [0.42, 0.52, 0.66], sway: 0,
+  { name: 'far', z: -150, wrap: 420, n: 190, h: [16, 26], tint: [0.42, 0.52, 0.66], sway: 0.012,
     kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4',
             'fir_tall_1', 'fir_tall_2', 'fir_medium', 'pine_barrens_tree'] },
-  { name: 'middle', z: -80, wrap: 230, n: 90, h: [12, 19], tint: [0.62, 0.70, 0.78], sway: 0,
+  { name: 'middle', z: -80, wrap: 230, n: 90, h: [12, 19], tint: [0.62, 0.70, 0.78], sway: 0.016,
     kinds: ['pine_fir_tree_1', 'pine_fir_tree_3', 'fir_tall_1', 'fir_medium',
             'new_meadow_tree_1', 'new_meadow_tree_2', 'meadow_tree_medium', 'pine_barrens_tree'] },
-  { name: 'near', z: -38, wrap: 120, n: 22, h: [10, 15], tint: [0.9, 0.92, 0.9], sway: 0,
+  { name: 'near', z: -38, wrap: 120, n: 22, h: [10, 15], tint: [0.9, 0.92, 0.9], sway: 0.02,
     kinds: ['new_meadow_tree_1', 'new_meadow_tree_2', 'new_meadow_tree_3', 'meadow_tree_really_big',
             'pine_fir_tree_2', 'pine_fir_tree_4', 'fir_tall_2', 'meadow_tree_big'] },
-  { name: 'scrub', z: -20, wrap: 68, n: 48, h: [1.6, 3.2], tint: [0.95, 0.95, 0.9], sway: 0.03,
+  { name: 'scrub', z: -20, wrap: 68, n: 48, h: [1.6, 3.2], tint: [0.95, 0.95, 0.9], sway: 0.05,
     kinds: ['new_meadow_bush_1', 'new_meadow_bush_2', 'new_meadow_bush_3', 'pine_fern_1', 'pine_fern_2',
             'pine_forest_bush_1', 'pine_forest_bush_2', 'new_meadow_fern_1', 'new_meadow_fern_3',
             'tundra_bush_2', 'bush_small_1', 'pine_juvenile_fir_tree_1'] },
-  { name: 'meadow', z: -13, wrap: 42, n: 110, h: [1.1, 2.0], tint: [1.0, 1.05, 0.95], sway: 0.05,
+  { name: 'meadow', z: -13, wrap: 42, n: 110, h: [1.1, 2.0], tint: [1.0, 1.05, 0.95], sway: 0.08,
     kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
             'grass', 'savanna_grass_short_2', 'new_meadow_fern_2', 'new_meadow_flower_2'] },
-  { name: 'grass', z: -5.5, wrap: 22, n: 120, h: [1.1, 2.1], tint: [1.25, 1.3, 1.1], sway: 0.07,
+  { name: 'grass', z: -5.5, wrap: 22, n: 120, h: [1.1, 2.1], tint: [1.25, 1.3, 1.1], sway: 0.11,
     kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
             'new_meadow_grass_tall_1', 'grass', 'savanna_grass_short_1', 'new_meadow_flower_1',
             'meadow_grass_var_a', 'meadow_grass_var_b'] },
@@ -115,7 +136,7 @@ export class TitleForest {
     this.materials = new Map();
     /* a plane standing on its bottom edge, so a scale is a height and a
        turn is a sway about the root */
-    this.geo = new THREE.PlaneGeometry(1, 1);
+    this.geo = new THREE.PlaneGeometry(1, 1, 1, 6);
     this.geo.translate(0, 0.5, 0);
   }
 
@@ -167,13 +188,13 @@ export class TitleForest {
     return this;
   }
 
-  _material(kind, tint) {
-    const key = kind + tint;
+  _material(kind, tint, sway = 0) {
+    const key = kind + tint + sway;
     let m = this.materials.get(key);
     if (!m) {
       m = new THREE.MeshBasicMaterial({ map: this.textures.get(kind), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
       m.color.setRGB(...tint);
-      monoBlue(m);
+      monoBlue(m, sway);
       this.materials.set(key, m);
     }
     return m;
@@ -232,8 +253,8 @@ export class TitleForest {
       const row = { def, items: [] };
       const step = def.wrap / def.n;
       for (let i = 0; i < def.n; i++) {
-        const m = new THREE.Mesh(this.geo, this._material(def.kinds[0], def.tint));
-        const it = { mesh: m, x: -def.wrap / 2 + (i + this.rand()) * step, phase: this.rand() * 6.28 };
+        const m = new THREE.Mesh(this.geo, this._material(def.kinds[0], def.tint, def.sway));
+        const it = { mesh: m, x: -def.wrap / 2 + (i + this.rand()) * step };
         this._dress(row, it);
         row.items.push(it);
         s.add(m);
@@ -250,12 +271,12 @@ export class TitleForest {
     const t = this.textures.get(kind);
     const aspect = t.image.width / t.image.height;
     const h = d.h[0] + r() * (d.h[1] - d.h[0]);
-    it.mesh.material = this._material(kind, d.tint);
+    it.mesh.material = this._material(kind, d.tint, d.sway);
     it.mesh.scale.set(h * aspect * (r() < 0.5 ? -1 : 1), h, 1);
     it.z = d.z + (r() - 0.5) * Math.abs(d.z) * 0.12;
     /* the grass stands a little below the ground line, so its roots are
        never a hard edge along the bottom */
-    it.y = row.def.sway >= 0.05 ? -0.25 - r() * 0.3 : -0.05;
+    it.y = row.def.z > -15 ? -0.25 - r() * 0.3 : -0.05;
   }
 
   /** One frame: the eye moves on, and what has gone by comes round. */
@@ -265,13 +286,12 @@ export class TitleForest {
     const cam = this.camera;
     if (Math.abs(cam.aspect - aspect) > 1e-4) { cam.aspect = aspect; cam.updateProjectionMatrix(); }
     cam.position.x = this.x;
-    const t = now / 1000;
+    uWindTime.value = now / 1000;
     for (const row of this.rows) {
       const w = row.def.wrap, lo = this.x - w / 2;
       for (const it of row.items) {
         if (it.x < lo) { it.x += w; this._dress(row, it); }
         it.mesh.position.set(it.x, it.y, it.z);
-        if (row.def.sway) it.mesh.rotation.z = row.def.sway * (Math.sin(t * 1.3 + it.phase) + 0.4 * Math.sin(t * 3.1 + it.phase * 2));
       }
     }
     /* the sky: far enough to be behind everything, big enough to fill

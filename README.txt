@@ -185,9 +185,22 @@ a ring that re-dresses whatever falls off its left end as a different
 plant at a different size. It is drawn through the game's own pipeline
 and thrown away when NEW GAME is taken.
 
+THE VEGETATION MOVES IN THE WIND, at the user's request, in the vertex
+shader. In the game's wood (PLANT_VERT in js/forest.js) every plant's
+top is pushed downwind and let back, the root fixed and the push going
+as the square of the height: a slow lean that rolls across the wood as
+a wave, so a gust visibly travels downwind, a flutter of each plant's
+own, and a gust that comes and goes. Which way and how hard is the
+weather's wind (climate.wind): a still night barely stirs the leaves, a
+storm bends the firs. A burnt plant does not sway. It is a shear of
+the four-vertex quad, since the wood is vertex-bound. The title's forest
+bends properly — its cutouts are six strips tall — with the grass
+curling most and the far treeline barely moving (the `sway` of each
+row in js/titlescene.js).
+
 THE MAIN MENU is Doom's, in this game's clothes: NEW GAME, CONTINUE,
 LOAD GAME, OPTIONS, MULTIPLAYER and QUIT GAME in a column under the
-logo, a blinking marker on the one you are on. Up/down (or W/S) walk
+logo, the one you are on filled in red with a blinking marker. Up/down (or W/S) walk
 it, enter, space or a click takes it. Only NEW GAME goes anywhere yet;
 the rest are dimmed and shake their heads. On a phone held sideways
 the logo takes the left of the screen and the menu stands at its right.

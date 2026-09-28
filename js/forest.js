@@ -804,6 +804,7 @@ export class Forest {
     this.kindArrays = [];
     this.uTime = { value: 0 };
     this.uRot = { value: 0 };
+    this.uWind = { value: new THREE.Vector3(1, 0, 0.3) };
     const ramp = EMBER_RAMP.map(c => new THREE.Vector3(c[0], c[1], c[2]));
 
     /* the ground */
@@ -966,7 +967,7 @@ export class Forest {
           const mat = new THREE.ShaderMaterial({
             uniforms: {
               map: { value: albedo }, burnMap: { value: burnTex },
-              billboardRot: this.uRot, uTime: this.uTime, ramp: { value: ramp },
+              billboardRot: this.uRot, uTime: this.uTime, uWind: this.uWind, ramp: { value: ramp },
               fadeBand: { value: new THREE.Vector2(...FADE(k)) },
               light: { value: 0.56 },
               ...worldUniforms(),
@@ -1064,6 +1065,12 @@ export class Forest {
     if (!this.mesh) { if (this._dirty.length > 4096) this._flush(); return; }
     this.uRot.value = billboardRot;
     this.uTime.value = time;
+    /* the wind: which way on the ground (map y is world -z), and how
+       hard — a still night barely moves the leaves, a storm bends the
+       firs; see the WIND IN THE LEAVES in PLANT_VERT */
+    const wx = climate.wind.x, wy = climate.wind.y, wl = Math.hypot(wx, wy);
+    if (wl > 1e-6) this.uWind.value.set(wx / wl, -wy / wl, Math.min(2.2, Math.max(0.15, wl / 0.4)));
+    else this.uWind.value.z = 0.15;
     this._flush();
     /* Hide the chunks past their kind's range. The frustum takes care of
        the ones behind you; this takes care of the ones in front and too
@@ -1284,6 +1291,11 @@ attribute float iFlip;
 attribute float iBurn;
 attribute float iSeed;
 uniform float billboardRot;
+uniform float uTime;
+/* THE WIND IN THE LEAVES, at the user's request: the weather's wind
+   (climate.wind, map units a tic) as a world direction and a strength —
+   see ForestSystem.render */
+uniform vec3  uWind;
 /* How far this KIND is worth drawing, and over how far it goes away.
    See FADE below for why the understory has a much shorter one. */
 uniform vec2  fadeBand;
@@ -1326,6 +1338,24 @@ void main() {
   vec3 p = vec3(position.x * iSize.x * keep, position.y * iSize.y * keep, 0.0);
   float c = cos(billboardRot), s = sin(billboardRot);
   p = vec3(p.x * c, p.y, -p.x * s) + iPos;
+  /* VERTEX WIND. The quad's top is pushed downwind and let back, the
+     root never moves, and the push goes as the square of the height up
+     the plant, so it bends from the ground rather than sliding. Three
+     parts: a slow lean that rolls across the wood as a WAVE (its phase
+     is where the plant stands, so a gust visibly travels downwind), a
+     faster flutter of each plant's own, and a gust that comes and goes
+     on a period that does not divide into the other two. A plant that
+     has burnt is a black stick and does not sway; four vertices a plant
+     is all the budget there is (see the top of build()), so this is a
+     shear and not a bend, and at forest distances that is the same
+     thing. */
+  float along = dot(iPos.xz, normalize(uWind.xy + vec2(1e-4)));
+  float gust = 0.55 + 0.45 * sin(uTime * 0.21 + along * 0.0009);
+  float wave = sin(uTime * 1.3 - along * 0.004 + iSeed * 0.8);
+  float flutter = sin(uTime * 3.7 + iSeed * 17.0) * 0.35;
+  float lean = uWind.z * gust * (0.6 + 0.4 * wave + flutter) * (1.0 - iBurn);
+  float up = position.y * position.y;
+  p.xz += uWind.xy * (lean * up * iSize.y * 0.045 * keep);
   vWorld = p;
   vec4 mv = viewMatrix * vec4(p, 1.0);
   vDepth = -mv.z;

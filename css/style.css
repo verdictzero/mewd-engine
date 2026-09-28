@@ -123,8 +123,8 @@ html, body {
 
 /* THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words,
    centred, one under another, and a marker by the one you are on that
-   blinks the way the skull did. The one you are on is filled in yellow
-   like the page you are on in the pause menu; the ones that go nowhere
+   blinks the way the skull did. The one you are on is filled in red,
+   the brick of the logo; the ones that go nowhere
    yet are dimmed, and still there to be walked past. */
 .mainmenu {
   display: flex; flex-direction: column; align-items: stretch;
@@ -147,7 +147,7 @@ html, body {
 }
 .mm:focus-visible { outline: none; }
 .mm[aria-disabled="true"] { color: rgba(207, 207, 214, .34); cursor: default; }
-.mm.on { color: #14161d; background: #e8c34a; border-color: #e8c34a; }
+.mm.on { color: #fff; background: #c8321e; border-color: #e0442c; }  /* red, at the user's request, the logo's brick */
 .mm.on[aria-disabled="true"] { color: rgba(207, 207, 214, .6); background: rgba(255, 255, 255, .05); border-color: rgba(207, 207, 214, .4); }
 /* the marker: a wedge at the start of the bar, where the eye starts */
 .mm.on::before {
