@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — state tables
+   MEWD — state tables
    =====================================================================
 
    Doom's monsters are a linked list of states. Each one says which

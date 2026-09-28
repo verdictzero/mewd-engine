@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM Editor — the plan
+   MEWD Editor — the plan
    =====================================================================
 
    The Doom Builder half: the map from above on a grid, north up. Every

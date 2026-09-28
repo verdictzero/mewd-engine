@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the gunship
+   MEWD — the gunship
    =====================================================================
 
    CLOSE AIR SUPPORT COMES WITH THE ARMY, at the user's request, and it

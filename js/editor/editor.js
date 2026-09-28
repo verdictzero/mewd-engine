@@ -1,10 +1,10 @@
 /* =====================================================================
-   DEWM Editor — the map editor
+   MEWD Editor — the map editor
    =====================================================================
 
    At the user's request: an editor for this game in the mould of SLADE
    and Ultimate Doom Builder, opened from the front-door terminal by
-   typing EDIT or DEWM Editor. It is the Doom mapping workflow — draw
+   typing EDIT or MEWD Editor. It is the Doom mapping workflow — draw
    sectors on a grid, drag vertices, flip between the plan and the 3D
    view, raise a floor with the mouse wheel, test the map in one key —
    on an engine that is actually 3D, so it edits the things Doom never
@@ -1641,7 +1641,7 @@ export async function startEditor() {
     document.head.appendChild(l);
     await loaded;
   }
-  document.title = 'DEWM Editor';
+  document.title = 'MEWD Editor';
 
   /* THE ART IS EARTH, the same box the game paints in, so a texture in
      the browser looks the way it does on the wall */

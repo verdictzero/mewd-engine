@@ -1,6 +1,6 @@
 {
-  "name": "DEWM Demo",
-  "short_name": "DEWM Demo",
+  "name": "MEWD Demo",
+  "short_name": "MEWD Demo",
   "description": "Burn down a supermarket at night. Then the forest.",
   "start_url": "./",
   "scope": "./",

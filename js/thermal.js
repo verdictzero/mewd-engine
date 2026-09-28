@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the thermal sight on the side of the box
+   MEWD — the thermal sight on the side of the box
    =====================================================================
 
    THE SAME METHOD AS THE LANCE'S SCREEN, at the user's request: "use

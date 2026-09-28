@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — decals: what a weapon leaves on a surface
+   MEWD — decals: what a weapon leaves on a surface
    =====================================================================
 
    THREE KINDS, at the user's request, and they are one system:
@@ -34,14 +34,28 @@
    EACH KIND IS ONE DRAW CALL: a pool of quads in a single geometry,
    positions written when a decal is placed and an intensity written
    every tic as it cools or thaws, and a slot that has faded to nothing
-   is free again. EVERY POOL IS A RING, and a small one, at the user's
-   request: a hundred of each kind, and when a pool is full the OLDEST
-   IN IT FADE OUT, IN ORDER, rather than being cut — the ten at the
-   old end of the ring lose an eighth a tic until they are gone, and
-   the cursor arrives on slots that are already empty. A thousand
-   rounds into one wall are the last hundred of them, the earliest
-   dissolving as the latest land, which reads as a wall being shot
-   rather than as a wall with a budget.
+   is free again. EVERY POOL IS A RING, at the user's request: a
+   hundred of each kind to begin with — FOUR hundred bullet holes now,
+   the user having asked for four times as many — and when a pool is
+   full the OLDEST IN IT FADE OUT, IN ORDER, rather than being cut — the
+   ten at the old end of the ring lose an eighth a tic until they are
+   gone, and the cursor arrives on slots that are already empty. A
+   thousand rounds into one wall are the last four hundred of them, the
+   earliest dissolving as the latest land, which reads as a wall being
+   shot rather than as a wall with a budget.
+
+   AND TWO MORE KINDS SINCE, which are the same system again:
+
+     SEARS   what the positron lance leaves where its column lands,
+             instead of the hole it used to cut. Enormous, charred,
+             glowing, splattered: see SEAR in js/beam.js for the sizes
+             and Decals.sear for the picture.
+
+     GORE    not a pool of its own but the blood one, used harder: a
+             round through somebody now throws blood up EVERY wall in
+             reach behind them rather than one, and a warhead that takes
+             somebody apart paints the room round them — see sprayWalls
+             and Giblets.eviscerate in js/people.js.
 
    A DECAL SITS ON ITS SURFACE: it is placed a hair off the wall along
    the wall's normal and drawn with a polygon offset, which between
@@ -60,12 +74,26 @@ import { WORLD_UNIFORMS_GLSL, WORLD_SHADE_GLSL, worldUniforms } from './material
 import { pRandom, TICRATE } from './util.js';
 
 /* the pools, and the numbers that make each kind what it is */
-export const POOLS = { hole: 100, heat: 100, frost: 100, blood: 120, burn: 24 };
-/* HOW MANY HOLES, AND HOW FAR. The hole pool is the MAX COUNT: a
-   hundred on the walls at once, at the user's request (it was five
-   hundred and twelve, and the accumulation was a cost), which a
-   minigun reaches in under a second of holding the trigger — the
-   scorches share it. WHEN IT IS FULL THE OLDEST FADE, IN ORDER, and
+export const POOLS = { hole: 400, heat: 100, frost: 100, blood: 480, burn: 24, sear: 96 };
+/* HOW MANY HOLES, AND HOW FAR. The hole pool is the MAX COUNT, and a
+   hole has no clock of its own — it lasts exactly as long as it takes
+   the ring to come round to it — so the count IS the lifetime. It was
+   five hundred and twelve, then a hundred at the user's request (the
+   accumulation was a cost), and it is FOUR HUNDRED now, at the user's
+   request again: "increase bullet hole lifetime count by 4x". Four
+   times the holes on the walls at once, and so four times as long
+   before any one of them goes, which a minigun still reaches in a few
+   seconds of holding the trigger — the scorches share it.
+
+   AND THE BLOOD FOUR TIMES WITH IT, near enough: a hundred and twenty
+   was sized for one spatter on the floor and at most one on the wall
+   per round, and a round now throws blood up every wall in reach and a
+   warhead through a crowd paints the room (see sprayWalls). At the old
+   size the second kill in a room wiped the first one's walls clean.
+
+   THE SEARS ARE FEW AND ENORMOUS: a crater and up to ten pieces of slag
+   a shot, so ninety-six is the last dozen or so shots of the lance, and
+   at three hundred units across that is already a street's worth. WHEN IT IS FULL THE OLDEST FADE, IN ORDER, and
    the order is the ring's own: the FADE_AHEAD slots at the old end
    are held to a strength that is their PLACE IN THE QUEUE — the one
    about to be overwritten at nothing, the one two dozen from it at
@@ -98,7 +126,19 @@ export const HOT_SCALE = 1.3;                 // a minigun round's hole, and its
 export const BLOOD_SIZE = [20, 38];           // a spatter, across
 export const POOL_SIZE = [44, 70];            // the pool under somebody, once it has spread
 export const BURN_SIZE = 84;                  // a warhead's burning hole
-export const BLOOD_REACH = 130;               // how far behind somebody a round throws them onto a wall
+export const BLOOD_REACH = 260;               // how far behind somebody a round throws them onto a wall
+/* AND HOW MUCH OF IT GOES UP THE WALL. A round through somebody used to
+   throw ONE spatter at the one point straight behind them, a hundred
+   and thirty units out — which in a shop aisle or a street is usually
+   nothing, and when it was something it was a single blot at chest
+   height. At the user's request ("i want blood spatter on walls too")
+   it is a SPRAY now: WALL_SPRAY rays in a cone round the line the round
+   was going, each one that reaches a wall leaving its own spatter, the
+   near ones big and the far ones smaller, thrown the way the ray went
+   and a little down, because blood does not go up. */
+export const WALL_SPRAY = 4;                  // rays in the cone behind somebody who is hit
+export const WALL_CONE = 0.42;                // and how wide it is either side, in radians
+export const WALL_SPATTER = [30, 64];         // a spatter up a wall, across: near..far is big..small
 export const SCORCH_SIZE = 46;                // the blot a hot spot leaves
 export const HEAT_SIZE = 38;
 export const FROST_SIZE = 44;
@@ -274,12 +314,15 @@ class Pool {
    alpha at all. */
 
 /* the kinds, as the shader numbers them */
-export const KIND = Object.freeze({ HOLE: 0, SCORCH: 1, HOT: 2, HEAT: 3, FROST: 4, SPATTER: 5, POOL: 6, BURN: 7 });
+export const KIND = Object.freeze({ HOLE: 0, SCORCH: 1, HOT: 2, HEAT: 3, FROST: 4, SPATTER: 5, POOL: 6, BURN: 7,
+                                   SEAR: 8, SLAG: 9 });
 
 /* how deep each kind's box reaches either side of the surface, over its
    width: a bullet hole is a skin, blood is thrown far enough to wrap
-   over a kerb, a burnt hole is a crater */
-const DEPTH = [0.22, 0.30, 0.22, 0.30, 0.30, 0.45, 0.18, 0.40];
+   over a kerb, a burnt hole is a crater, and a sear is thrown across
+   whatever is round it — but not so deep that one on a wall paints the
+   floor a man's height below it */
+const DEPTH = [0.22, 0.30, 0.22, 0.30, 0.30, 0.45, 0.18, 0.40, 0.20, 0.32];
 
 const DECAL_VERT = /* glsl */`
 attribute vec3 iC;
@@ -498,7 +541,7 @@ void main() {
     float sheen = (1.0 - dry) * smoothstep(0.6, 0.85, dfbm(p * 5.0 + seed * 2.0)) * (1.0 - rr) * 0.3;
     col = worldShade(c + sheen, lit, viewDepth, wp, 0.0);
     a = max(body, drips) * 0.95;
-  } else {
+  } else if (kind < 7.5) {
     /* A BURNING HOLE, the big one: what a warhead leaves in a wall or a
        floor. A crater of black, the edge of it torn and still molten —
        an orange line along the rim — a ring of cracked char round it
@@ -529,6 +572,103 @@ void main() {
     glow = hotRamp(clamp(heat * 1.1, 0.0, 1.0)) * rim * heat * 2.2
          + hotRamp(clamp(heat * 0.9, 0.0, 1.0)) * max(coals, cr) * heat * flick * 1.5
          + vec3(1.0, 0.35, 0.05) * hole * heat * 0.12 * (1.0 - rr / 0.34);
+  } else if (kind < 8.5) {
+    /* A SEAR: where the positron column landed, and the biggest mark in
+       the game by a factor of three. It is not a hole — nothing is cut,
+       at the user's request — it is what a surface looks like after a
+       column of plasma has sat on it for a second:
+
+         a CRATER of vitrified black glass, with a sheen of the lance's
+           own green in it, white-hot for the first second
+         a RIM round that, still molten, orange for ten seconds
+         CHAR thrown out of it in a STARBURST of streaks of uneven
+           length, longer on the side the beam was going (+x, which the
+           decal's turn points along the throw)
+         cracks and veins through the char with the coals still in
+           them, a dull red for half a minute
+         DROPLETS of slag flung past the rim, drawn out along the way
+           they flew, glowing while they are fresh
+         and a soot of smoke-black under all of it, out to the edge
+
+       Every one of those is noise off the decal's own seed, so the
+       number of streaks, how long each is, how far it is stretched and
+       where every drop landed is different every shot. */
+    float core = exp(-age / 0.9);
+    float heat = exp(-age / 5.0);
+    float ember = exp(-age / 14.0);
+    float stretch = 1.0 + 0.35 * dh1(vec2(seed, 1.7));
+    vec2 q = vec2((p.x + 0.06) / stretch, p.y);
+    float rq = length(q);
+    float aq = atan(q.y, q.x);
+    float R = rag(aq, seed, 0.24);
+    float rr = rq / R;
+    /* the starburst */
+    float nStreak = 9.0 + floor(dh1(vec2(seed, 5.3)) * 10.0);
+    float ks = aq * nStreak / 6.2831853 + seed * 3.0;
+    float cellS = floor(ks);
+    float lenS = (0.46 + 0.46 * dh1(vec2(cellS, seed * 7.0))) * (1.0 + 0.3 * max(0.0, cos(aq)));
+    float wob = (dnoise(vec2(rq * 7.0, cellS * 2.3 + seed)) - 0.5) * 0.3;
+    float streak = (1.0 - smoothstep(0.10, 0.34, abs(fract(ks) - 0.5 + wob) + rq * 0.22))
+                 * (1.0 - smoothstep(lenS * 0.65, lenS, rq)) * step(0.2, rq);
+    /* the crater, the rim, the char and the soot */
+    float crater = 1.0 - smoothstep(0.23, 0.28, rr);
+    float rim = smoothstep(0.19, 0.27, rr) * (1.0 - smoothstep(0.29, 0.40, rr));
+    float charZ = 1.0 - smoothstep(0.28, 0.60, rr * (0.8 + 0.4 * dfbm(q * 3.0 + seed)));
+    float soot = (1.0 - smoothstep(0.42, 1.0, rq)) * (0.4 + 0.6 * dfbm(q * 4.0 + seed * 3.0));
+    /* the droplets, thrown out past the rim and drawn out along the
+       way each one flew */
+    float drops = 0.0;
+    for (int i = 0; i < 18; i++) {
+      vec2 h = dh2(vec2(float(i) * 2.13, seed * 5.7));
+      float th = h.x * 6.2831853;
+      float dist = 0.34 + 0.56 * h.y * (0.8 + 0.25 * max(0.0, cos(th)));
+      vec2 dir = vec2(cos(th), sin(th));
+      vec2 dq = p - dir * dist;
+      float al = dot(dq, dir) / (1.0 + dist * 1.8), ac = dot(dq, vec2(-dir.y, dir.x));
+      float sz = mix(0.075, 0.022, h.y) * (0.6 + 0.8 * dh1(h * 3.1));
+      drops = max(drops, 1.0 - smoothstep(sz * 0.7, sz, length(vec2(al, ac))));
+    }
+    float glassN = dfbm(q * 7.0 + seed * 2.0);
+    vec3 glass = mix(vec3(0.015, 0.025, 0.022), vec3(0.07, 0.15, 0.11), smoothstep(0.55, 0.82, glassN));
+    vec3 charC = mix(vec3(0.03, 0.025, 0.02), vec3(0.10, 0.08, 0.06), dfbm(q * 12.0 + seed));
+    col = mix(charC, glass, crater);
+    a = max(crater, max(charZ * 0.97, max(streak * 0.9, max(soot * 0.82, drops * 0.95))));
+    col = worldShade(col, lit, viewDepth, wp, 0.0);
+    float cr = cracks(q, seed, 13.0) * step(0.27, rr) * (1.0 - smoothstep(0.55, 0.9, rr));
+    float n2 = dfbm(q * 8.0 + seed * 9.0);
+    float veins = (1.0 - smoothstep(0.0, 0.05, abs(n2 - 0.5))) * charZ * step(0.29, rr);
+    float flick = 0.75 + 0.25 * dnoise(q * 10.0 + vec2(uTime * 2.7, -uTime * 2.1));
+    glow = hotRamp(clamp(0.55 + 0.45 * core, 0.0, 1.0)) * crater * (core * 2.2 + heat * 0.3 * (1.0 - rr / 0.28))
+         + hotRamp(clamp(heat * 1.1, 0.0, 1.0)) * rim * heat * 2.6
+         + hotRamp(clamp(ember * 0.8, 0.0, 1.0)) * max(cr, veins) * ember * flick * 1.6
+         + hotRamp(clamp(heat, 0.0, 1.0)) * (drops + streak * 0.35) * heat * 1.3
+         + vec3(0.45, 1.0, 0.6) * rim * core * 0.9;
+  } else {
+    /* SLAG: a gob of what the sear threw, landed round it. A ragged
+       blob with a spray of drops ahead of it along the throw, the way a
+       spatter of blood is drawn but in black glass — orange from the
+       edge in while it is fresh, cooling out over a few seconds. */
+    float heat = exp(-age / 4.0);
+    float R = rag(ang, seed, 0.4);
+    float rb = r / (R * (0.8 + 0.2 * dh1(vec2(seed, 3.0))));
+    float blob = 1.0 - smoothstep(0.26, 0.33, rb);
+    float drops = 0.0;
+    for (int i = 0; i < 10; i++) {
+      vec2 h = dh2(vec2(float(i) * 1.91, seed * 6.3));
+      float dist = 0.28 + 0.66 * h.x;
+      vec2 c = vec2(dist * 0.95 - 0.1, (h.y - 0.5) * 1.2 * dist);
+      float sz = mix(0.10, 0.03, dist) * (0.6 + 0.8 * dh1(h * 4.0));
+      vec2 dq = p - c;
+      dq.x /= 1.0 + dist * 2.0;
+      drops = max(drops, 1.0 - smoothstep(sz * 0.75, sz, length(dq)));
+    }
+    float m = max(blob, drops);
+    float n = dfbm(p * 6.0 + seed * 4.0);
+    float soot = (1.0 - smoothstep(0.2, 0.8, rb)) * 0.6 * (0.5 + 0.5 * n);
+    col = worldShade(mix(vec3(0.025, 0.022, 0.02), vec3(0.09, 0.08, 0.07), n), lit, viewDepth, wp, 0.0);
+    a = max(m * 0.96, soot);
+    float edge = blob * smoothstep(0.14, 0.30, rb);
+    glow = hotRamp(clamp(heat * (0.6 + 0.5 * n), 0.0, 1.0)) * (m * 0.6 + edge * 1.2) * heat * 1.8;
   }
   a *= fade;
   glow *= fade;
@@ -555,10 +695,12 @@ export class Decals {
     this.pools = {
       hole: new Pool('hole', POOLS.hole), heat: new Pool('heat', POOLS.heat), frost: new Pool('frost', POOLS.frost),
       blood: new Pool('blood', POOLS.blood), burn: new Pool('burn', POOLS.burn),
+      sear: new Pool('sear', POOLS.sear),
     };
     this.tics = 0;
     this.holes = 0; this.scorches = 0;      // counts, for the readout and the test
     this.bloods = 0; this.burns = 0;
+    this.sears = 0; this.slags = 0;
     this._n = { nx: 0, ny: 0, nz: 0 };
     this._basis = { ux: 0, uy: 0, uz: 0, vx: 0, vy: 0, vz: 0 };
   }
@@ -617,9 +759,10 @@ export class Decals {
 
   /** SOMEBODY HAS BEEN HIT at (hx, hy, hz) by something going along
    *  (dx, dy, dz): a spatter on the floor at their feet, thrown the way
-   *  the round went, and — if there is a wall close enough behind them —
-   *  a second one up the wall, at the height the round would have
-   *  reached it. Nothing at all for something that does not bleed. */
+   *  the round went, and — on every wall close enough behind them — a
+   *  spray of it up the wall, at the heights the blood would have
+   *  reached it. See WALL_SPRAY. Nothing at all for something that does
+   *  not bleed. */
   bleed(a, hx, hy, hz, dx, dy, dz = 0) {
     if (!bleeds(a, this.game.player)) return 0;
     const len = Math.hypot(dx, dy, dz) || 1;
@@ -631,10 +774,43 @@ export class Decals {
     const fx = hx + ux * k, fy = hy + uy * k;
     const sec = lv?.sectorAt?.(fx, fy);
     if (sec) { this.blood(fx, fy, a.z ?? sec.floor, UP, ux, uy, 0); n++; }
-    /* and the wall behind them, if there is one in reach */
-    const wall = lv?.rayHitWall?.(hx, hy, hz, hx + ux * BLOOD_REACH, hy + uy * BLOOD_REACH, hz + uz * BLOOD_REACH);
-    if (wall && wall.line) {
-      this.blood(wall.x, wall.y, wall.z, wallNormal(wall.line, hx, hy), ux, uy, uz - 0.35);
+    /* and the walls behind them */
+    n += this.sprayWalls(hx, hy, hz, ux, uy, uz, WALL_SPRAY, BLOOD_REACH, WALL_CONE);
+    return n;
+  }
+
+  /** BLOOD UP THE WALLS round (hx, hy, hz): `rays` rays in a cone of
+   *  `cone` radians either side of (ux, uy, uz) — the first one down
+   *  the middle, so the straight-behind spatter a round always left is
+   *  still there — out to `reach`, and every one that meets a wall
+   *  leaves a spatter on it, facing the side the blood came from and
+   *  thrown along the ray and a little down. The nearer the wall the
+   *  bigger the spatter: blood that has a foot to travel arrives as a
+   *  sheet, blood that has two metres arrives as drops. `scale` is for
+   *  the warhead, which throws more of it than a round does. A cone of
+   *  pi is every direction at once. Returns how many landed. */
+  sprayWalls(hx, hy, hz, ux, uy, uz, rays, reach, cone, scale = 1) {
+    const lv = this.game.level;
+    if (!lv?.rayHitWall) return 0;
+    const base = Math.atan2(uy, ux);
+    const flat = Math.hypot(ux, uy) || 1;
+    const under = lv.sectorAt?.(hx, hy);
+    const fl = under ? under.floor : -Infinity;
+    let n = 0;
+    for (let k = 0; k < rays; k++) {
+      const yaw = k === 0 ? base : base + (cosmetic() * 2 - 1) * cone;
+      const rise = k === 0 ? uz / flat : uz / flat + (cosmetic() - 0.62) * 0.7;
+      const c = Math.cos(yaw), s = Math.sin(yaw);
+      const wall = lv.rayHitWall(hx, hy, hz, hx + c * reach, hy + s * reach, hz + rise * reach);
+      if (!wall || !wall.line) continue;
+      /* NOT UNDER THE FLOOR: a ray thrown down met a one-sided wall
+         below the floor's own level, where nobody will ever see it, so
+         it is brought up to the skirting — which is where blood thrown
+         at the foot of a wall ends up anyway */
+      if (wall.z < fl + 2) wall.z = fl + 2 + cosmetic() * 10;
+      const near = 1 - wall.t;
+      const size = (WALL_SPATTER[0] + (WALL_SPATTER[1] - WALL_SPATTER[0]) * (near * 0.75 + cosmetic() * 0.25)) * scale;
+      this.blood(wall.x, wall.y, wall.z, wallNormal(wall.line, hx, hy), c, s, rise - 0.35, size);
       n++;
     }
     return n;
@@ -649,6 +825,32 @@ export class Decals {
     P.place(i, x, y, z, n, size * (0.85 + 0.3 * cosmetic()), cosmetic() * Math.PI * 2, 1, light, sky, 0);
     P.born[i] = this.tics;
     this.burns++;
+    return i;
+  }
+
+  /** A SEAR: where the positron lance's column landed — the crater,
+   *  enormous, turned so its streaks lean the way the beam was going
+   *  (dx, dy, dz). It glows for as long as its age says; see the SEAR
+   *  branch of the shader, and SEAR in js/beam.js for the size. */
+  sear(x, y, z, n, size, dx = 0, dy = 0, dz = 0) {
+    const P = this.pools.sear;
+    const i = P.alloc(true);
+    const { light, sky } = this._surface(x, y);
+    P.place(i, x, y, z, n, size * (0.9 + 0.2 * cosmetic()), this.throwAngle(n, dx, dy, dz), 1, light, sky, 0);
+    P.born[i] = this.tics;
+    this.sears++;
+    return i;
+  }
+
+  /** And a gob of SLAG thrown out of it, landed at (x, y, z) on the same
+   *  surface, thrown along (dx, dy, dz). */
+  slag(x, y, z, n, size, dx = 0, dy = 0, dz = 0) {
+    const P = this.pools.sear;
+    const i = P.alloc(true);
+    const { light, sky } = this._surface(x, y);
+    P.place(i, x, y, z, n, size, this.throwAngle(n, dx, dy, dz), 1, light, sky, 1);
+    P.born[i] = this.tics;
+    this.slags++;
     return i;
   }
 
@@ -900,6 +1102,7 @@ export class Decals {
       case 'heat': return KIND.HEAT;
       case 'frost': return KIND.FROST;
       case 'blood': return P.frame[i] === 1 ? KIND.POOL : KIND.SPATTER;
+      case 'sear': return P.frame[i] === 1 ? KIND.SLAG : KIND.SEAR;
       default: return KIND.BURN;
     }
   }
@@ -917,9 +1120,11 @@ export class Decals {
     const A = this._at;
     const C = A.iC.array, U = A.iU.array, V = A.iV.array, Nn = A.iN.array, Pp = A.iP.array, L = A.iL.array;
     let n = 0;
-    /* in this order, which is the order they paint in: the blood and
-       the burns under the holes, the rime over them, the glow on top */
-    for (const key of ['blood', 'burn', 'hole', 'frost', 'heat']) {
+    /* in this order, which is the order they paint in: the sears under
+       everything, since they are the biggest and the oldest-looking,
+       then the blood and the burns under the holes, the rime over them,
+       the glow on top */
+    for (const key of ['sear', 'blood', 'burn', 'hole', 'frost', 'heat']) {
       const P = this.pools[key];
       let drawn = 0;
       for (let i = 0; i < P.max; i++) {

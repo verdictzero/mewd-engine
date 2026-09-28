@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — fire
+   MEWD — fire
    =====================================================================
 
    The store burning down is the game. Everything else — the zombies, the
@@ -1100,6 +1100,12 @@ export class FireSystem {
      damageStructure and for the same reason: a region clipped by the
      edge of the column is grazed and one straddling the middle is cut,
      and averaging the cells in between would say neither.
+
+     NOTHING CALLS THIS ANY MORE. The lance was its only caller and at
+     the user's request the lance no longer changes the level at all —
+     no holes, no collapse (see the head of js/beam.js). It is kept,
+     because the walk is right and a line is the one shape the blast
+     and the fire do not already cover.
 
      @param from    { x, y, z } the muzzle, in game coordinates
      @param angle   which way, and `slope` the rise per unit travelled

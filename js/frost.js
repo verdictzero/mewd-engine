@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the cold
+   MEWD — the cold
    =====================================================================
 
    What comes out of the extinguisher, and it is the flamethrower's

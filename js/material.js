@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — materials, and light that steps instead of fading
+   MEWD — materials, and light that steps instead of fading
    =====================================================================
 
    There is one material in this game and it is unlit. Nothing here has a
@@ -210,7 +210,7 @@ export const world = {
   thermal: { value: 0.0 },
 
   /* ------------------------------------------------------------------
-     A MAP'S OWN LIGHT AND FOG, set by DEWM Editor's World panel (see
+     A MAP'S OWN LIGHT AND FOG, set by MEWD Editor's World panel (see
      applyMapLight in js/editor/doc.js). All of them do nothing at
      their defaults, so the game's own levels are untouched.
 
@@ -893,7 +893,7 @@ vec3 worldShade(vec3 albedo, float l, float depth, vec3 world, float fullbright)
 const COMMON_VERT = /* glsl */`
 /* DOOM 64'S COLOURED LIGHT: what colour the light falling on this
    surface is, multiplied into its picture. White everywhere unless a
-   map says otherwise — see TINT below, and the sector colours DEWM Editor
+   map says otherwise — see TINT below, and the sector colours MEWD Editor
    sets (js/editor/). */
 varying vec3  vTint;
 varying vec4  vFog;

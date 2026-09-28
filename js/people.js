@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the people, and what is left of them
+   MEWD — the people, and what is left of them
    =====================================================================
 
    THE PEOPLE ARE STANDEES. One drawing each, seen from every side, and
@@ -41,7 +41,7 @@
 import { Particles } from './particles.js';
 import { stripFrames } from './spriteload.js';
 import { pRandom, dist2 } from './util.js';
-import { UP } from './decals.js';
+import { UP, wallNormal } from './decals.js';
 
 /* Pixels, which in this game are world units — a sprite is drawn one
    unit to the pixel, so a 62-tall shopper is 62 units of person. */
@@ -236,6 +236,64 @@ export const GIB = {
   maxSplats: 140,     // sprites left lying about before the oldest goes
 };
 
+/* --------------------------------------------------------------------
+   AND BLOWN APART, which is a different thing from coming apart
+
+   At the user's request: "i also want people to literally explode into
+   viscera and gore chunks when hit by a rocket in a more extreme way".
+   The burst above is what EVERY death of a shopper is — a flame, a
+   fire, a bore, a van — and it is sized for that: thirteen pieces in
+   a two-aisle circle, on fire. A warhead going off in somebody is not
+   that. It is the most violent thing that can happen to a person in
+   this game and it should look it, so a rocket kill is the burst AND
+   THEN THIS, on top of it (see Giblets.eviscerate, and MissileSystem.
+   detonate in js/missiles.js, which is the only thing that calls it):
+
+     MANY MORE PIECES, and not on fire. Viscera, not embers: the same
+       gore art, a wet dark tint on some of it, sixty of them against
+       thirteen, and they trail BLOOD through the air rather than flame.
+     THROWN AWAY FROM THE BLAST, not in a ring. The warhead has a side
+       it went off on, and the body goes the other way — a cone round the
+       line from the blast through the body, wide enough that the back
+       of it still gets some, and faster and higher than any burst: at
+       fifteen units a tic a piece clears a shop aisle and the next one.
+     A SPRAY OF BLOOD in the air, a mist and drops both (Effects.
+       bloodSpray), hundreds of them for the second it takes.
+     AND THE ROOM PAINTED. A great pool where they stood, a ring of
+       spatters thrown out across the floor round it, and blood up every
+       wall in reach in every direction — Decals.sprayWalls with a cone
+       of the whole circle — the nearer the wall, the bigger the mark.
+       Every piece that lands leaves its own spatter too, on the wall it
+       hit if it hit one, facing the right way.
+
+     count       pieces
+     speed       units a tic, min..max, before `force`
+     rise        units a tic up, min..max
+     cone        radians either side of the throw
+     spray       blood particles in the air
+     floor       spatters thrown across the floor, and how far
+     walls       rays to the walls round them, and how far
+     pool        the size of the pool under them
+   ------------------------------------------------------------------- */
+export const GORE = {
+  count: 60,
+  speedMin: 4.0, speedMax: 15.0,
+  riseMin: 5.0,  riseMax: 15.0,
+  cone: 1.9,
+  sizeMin: 7, sizeMax: 17,
+  lifeMin: 70, lifeMax: 150,
+  gravity: -0.55,
+  drag: 0.988,
+  spray: 90,
+  floor: 12, floorReach: 190,
+  walls: 20, wallReach: 360,
+  pool: 118,
+  trailEvery: 3,       // tics between blood off a piece in the air
+};
+/* the wet dark ones, which is the tint that says viscera rather than
+   meat — multiplied onto the gore art the way the frozen one is */
+const WET_GIB = [0.78, 0.55, 0.55];
+
 /* What a piece of somebody frozen is coloured. Multiplied onto the gore
    art, so it is a lighting decision and not a repaint: red barely moves,
    green and blue lift hard, and dark red meat comes out the pale
@@ -253,7 +311,10 @@ export class Giblets {
     /* The pieces themselves: cut-out art, lit by the room like anything
        else, so a hand landing in a dark aisle is dark. */
     this.chunks = new Particles({
-      max: 260, texture: art?.giblets?.texture || null, frames: art?.giblets?.frames || GIBLETS,
+      /* seven hundred and twenty and not two hundred and sixty since
+         the warhead: one kill by it is sixty pieces, and a salvo of
+         four through a queue is four of those at once */
+      max: 720, texture: art?.giblets?.texture || null, frames: art?.giblets?.frames || GIBLETS,
       blend: 'cutout', fullbright: false, light: 0.9, name: 'giblets', renderOrder: 13, nearShrink: 80,
     });
     /* And the fire coming off them: the same fireballs the gun fires,
@@ -283,6 +344,7 @@ export class Giblets {
     this.bursts = 0;
     this.shatters = 0;
     this.ashes = 0;
+    this.eviscerations = 0;
   }
 
   attach(scene) { this.chunks.attach(scene); this.shards.attach(scene); this.trail.attach(scene); }
@@ -326,6 +388,78 @@ export class Giblets {
         drag: GIB.drag, gravity: GIB.gravity,
       });
     }
+  }
+
+  /* ------------------------------------------------------------------
+     BLOWN APART BY A WARHEAD — see GORE for what and why. `a` is who,
+     `at` is where the warhead went off, and `force` scales the whole
+     throw: one for a body in the blast, more for the one it went off
+     IN. Nothing for a thing that does not bleed.
+     ------------------------------------------------------------------ */
+  eviscerate(a, at = null, force = 1) {
+    const g = this.game;
+    if (!a || a.vehicle || a.frozen) return 0;
+    this.eviscerations++;
+    g.sound?.play('gib', a);
+    const mid = a.z + (a.height > 8 ? a.height : 56) * 0.5;
+    /* which way the body goes: away from the blast, and up with it if
+       the blast was under them */
+    let dx = at ? a.x - at.x : 0, dy = at ? a.y - at.y : 0;
+    const dz = at ? Math.max(0, mid - at.z) : 0;
+    const dl = Math.hypot(dx, dy);
+    const dir = dl > 1 ? Math.atan2(dy, dx) : null;
+    if (dl > 1) { dx /= dl; dy /= dl; } else { dx = 0; dy = 0; }
+
+    /* THE PIECES */
+    for (let k = 0; k < GORE.count; k++) {
+      const spin = (pRandom() / 255) * Math.PI * 2;
+      const ang = dir === null ? spin : dir + ((pRandom() / 128) - 1) * GORE.cone;
+      const sp = (GORE.speedMin + (pRandom() / 255) * (GORE.speedMax - GORE.speedMin)) * force;
+      const size = GORE.sizeMin + (pRandom() / 255) * (GORE.sizeMax - GORE.sizeMin);
+      const wet = (k & 1) === 0 ? WET_GIB : [1, 1, 1];
+      this.chunks.spawn({
+        x: a.x, y: a.y, z: a.z + 4 + (pRandom() / 255) * Math.max(8, a.height > 8 ? a.height : 56) * 0.9,
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        vz: (GORE.riseMin + (pRandom() / 255) * (GORE.riseMax - GORE.riseMin)) * (0.8 + 0.2 * force) + dz * 0.02,
+        life: GORE.lifeMin + (pRandom() % (GORE.lifeMax - GORE.lifeMin)),
+        size0: size, size1: size,
+        c0: wet, c1: wet, a0: 1, a1: 1,
+        frame: pRandom() % GIBLETS,
+        drag: GORE.drag, gravity: GORE.gravity, kind: 2,
+      });
+    }
+
+    /* THE SPRAY, in the air: half of it thrown with the pieces and half
+       of it every way at once */
+    g.fx?.bloodSpray?.(a.x, a.y, mid, dx, dy, 0.4, GORE.spray >> 1, 1.2 * force);
+    g.fx?.bloodSpray?.(a.x, a.y, mid, 0, 0, 0, GORE.spray >> 1, 0.9 * force);
+    for (let k = 0; k < 6; k++) g.fx?.bloodPuff?.(a.x, a.y, mid + (k - 3) * 6);
+
+    /* AND THE ROOM. The pool where they stood, bigger than any other in
+       the game; the spatters across the floor, thrown out the way the
+       pieces went; and blood up every wall round them. */
+    const D = g.decals;
+    let marks = 0;
+    if (D) {
+      const sec = g.level?.sectorAt?.(a.x, a.y);
+      const floor = sec ? (a.z ?? sec.floor) : a.z;
+      this.splat(a.x, a.y, floor, GORE.pool * (0.85 + 0.3 * (pRandom() / 255)));
+      marks++;
+      for (let k = 0; k < GORE.floor; k++) {
+        const ang = dir === null || (k & 3) === 3 ? (pRandom() / 255) * Math.PI * 2
+                                                  : dir + ((pRandom() / 128) - 1) * GORE.cone;
+        const d = 20 + (pRandom() / 255) * GORE.floorReach;
+        const c = Math.cos(ang), s = Math.sin(ang);
+        /* only as far as the floor goes: a spatter on the far side of a
+           wall is a spatter through it */
+        const wall = g.level?.rayHitWall?.(a.x, a.y, floor + 4, a.x + c * d, a.y + s * d, floor + 4);
+        const far = wall ? Math.max(0, wall.t * d - 6) : d;
+        D.blood(a.x + c * far, a.y + s * far, floor, UP, c, s, 0, 34 + (pRandom() / 255) * 50);
+        marks++;
+      }
+      marks += D.sprayWalls?.(a.x, a.y, mid, dx || 1, dy, 0.05, GORE.walls, GORE.wallReach, Math.PI, 1.5) || 0;
+    }
+    return marks;
   }
 
   /* ------------------------------------------------------------------
@@ -459,10 +593,12 @@ export class Giblets {
       /* A piece that goes through the frozen aisle wall and lands in the
          car park is funny exactly once. */
       const wall = lv.rayHitWall(x, y, z, nx, ny, nz);
-      if (wall) { this._land(wall.x, wall.y, wall.z, C.kind[i]); return true; }
+      /* ON THE WALL IT HIT, facing the side it came from — it used to
+         be laid as though every wall were a floor */
+      if (wall) { this._land(wall.x, wall.y, wall.z, C.kind[i], wall.line ? wallNormal(wall.line, x, y) : UP, C.vx[i], C.vy[i]); return true; }
       const sec = lv.sectorAt(nx, ny);
       const floor = sec ? sec.floor : 0;
-      if (nz <= floor + 1) { this._land(nx, ny, floor, C.kind[i]); return true; }
+      if (nz <= floor + 1) { this._land(nx, ny, floor, C.kind[i], UP, C.vx[i], C.vy[i]); return true; }
       return false;
     });
 
@@ -472,6 +608,13 @@ export class Giblets {
       const phase = C.tics;
       for (let i = 0; i < C.max; i++) {
         if (!C.alive[i] || C.kind[i] === 1) continue;
+        /* A PIECE OFF A WARHEAD TRAILS BLOOD, not fire: it was never
+           alight, it was blown out of somebody */
+        if (C.kind[i] === 2) {
+          if ((phase + i) % GORE.trailEvery === 0 && (i & 1) === 0)
+            g.fx?.bloodSpray?.(C.x[i], C.y[i], C.z[i], -C.vx[i], -C.vy[i], 0, 1, 0.15);
+          continue;
+        }
         if ((phase + i) % GIB.trailEvery) continue;
         this.trail.spawn({
           x: C.x[i], y: C.y[i], z: C.z[i],
@@ -514,11 +657,21 @@ export class Giblets {
    *  and it was also an automatic win. The pieces still come off alight,
    *  because a body going up is a body going up; they simply do not hand
    *  the fire on any more. Carrying it is the player's job. */
-  _land(x, y, z, kind = 0) {
+  _land(x, y, z, kind = 0, n = UP, vx = 0, vy = 0) {
     const g = this.game;
+    /* A PIECE OF VISCERA off a warhead lands WET: a big spatter thrown
+       the way it was flying, on whatever it hit, and a pool under it one
+       time in four — not every time, or sixty pieces is sixty pools and
+       the ring has eaten the room's walls by the time they are down. */
+    if (kind === 2) {
+      const sp = Math.hypot(vx, vy) || 1;
+      g.decals?.blood(x, y, z, n, vx / sp, vy / sp, n === UP ? 0 : -0.4, 26 + Math.random() * 30);
+      if (n === UP && (pRandom() & 3) === 0) this.splat(x, y, z, 28 + Math.random() * 24);
+      return;
+    }
     /* a piece that was never alight lands as blood, not as sparks */
-    if (kind !== 1) g.decals?.blood(x, y, z, UP, Math.random() - 0.5, Math.random() - 0.5, 0, 12 + Math.random() * 16);
-    if (pRandom() < GIB.splatChance) this.splat(x, y, z, 24 + Math.random() * 16);
+    if (kind !== 1) g.decals?.blood(x, y, z, n, Math.random() - 0.5, Math.random() - 0.5, 0, 12 + Math.random() * 16);
+    if (n === UP && pRandom() < GIB.splatChance) this.splat(x, y, z, 24 + Math.random() * 16);
   }
 
   /** And a cold one, which is the same minus every single thing that

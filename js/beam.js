@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the positron beam
+   MEWD — the positron beam
    =====================================================================
 
    WHAT THE USER ASKED FOR: "the beam from Wing Zero's buster rifle,
@@ -22,31 +22,48 @@
    and everything the line has crossed by the time it stops is gone.
 
    ---------------------------------------------------------------------
-   THE FOUR THINGS IT DOES, and the order is the order of the tic
+   THE THREE THINGS IT DOES, and the order is the order of the tic
 
      1  the bodies      everything soft inside the column, every tic,
                         for enough that there is no survivable stage
-     2  the buildings   integrity off every region the column passes
-                        through, on a slower clock — see PASS_EVERY
-     3  the fire        heat and accelerant laid down the whole length,
-                        store grid and woodland both, so what the beam
-                        did not finish burns
-     4  the picture     fireballs and dust up the line, which is what
+     2  the mark        where the column meets the first thing that is
+                        NOT a person — a wall, a floor, a ceiling — it
+                        leaves a SEAR: an enormous charred, glowing,
+                        splattered burn, and nothing else. See SEAR
+     3  the picture     fireballs and dust up the line, and a boil of
+                        fire and sparks where it lands, which is what
                         makes it read as a column of detonation rather
                         than a strip light
 
-   WHY THE BUILDINGS ARE ON A SLOWER CLOCK THAN THE BODIES. Taking a
-   region down is a walk over the fire grid — see FireSystem.damageLine,
-   which is where that walk lives, because the grid belongs to the fire
-   and not to this. A stage-three column is eight metres across and a
-   hundred and sixty metres long, and the box that bounds it is a good
-   part of the town: doing it thirty-five times a second for five
-   seconds is a hundred and seventy-five sweeps of a grid to answer a
-   question whose answer changes about ten times. PASS_EVERY makes it
-   about twelve times a second, with the bite multiplied to match, so
-   the same amount of building comes down and the arithmetic happens
-   a third as often. Bodies are a flat loop over the actor list and
-   cost nothing, so they run every tic where the player can see them.
+   ---------------------------------------------------------------------
+   IT DOES NOT TOUCH THE LEVEL ANY MORE, at the user's request, and it
+   is worth being blunt about what that took out, because all of it was
+   deliberate once and all of it will look like a good idea again:
+
+     THE HOLES. Every wall the column crossed used to have a rectangle
+     cut out of it (js/breach.js, BreachSystem.cut), which crumbled
+     wider over a few seconds and shed debris. The user's words: "still
+     shooting holes through stuff, i just want massive interesting
+     decals, no geometry changes". So it cuts nothing.
+
+     THE COLLAPSE. Every region the column passed through lost integrity
+     on a structural clock (FireSystem.damageLine), and three shots took
+     a building down. Gone with the holes: that is the level changing
+     shape, which is the one thing it must not do.
+
+     THE FIRE IN THE STREET. The column used to lay heat and accelerant
+     the whole length of itself, store grid and woodland both — and a
+     region that burns long enough COMES DOWN (see js/fire.js and
+     js/ruin.js), so a stripe of fire was a slower way of doing exactly
+     what the two above did. Gone too. A PERSON the column touches still
+     catches, because a person is not the level.
+
+   AND SO THE LINE STOPS. A column that cuts nothing cannot go through
+   anything: it goes as far as the first wall, floor or ceiling along
+   its line and no further, and that point is where the mark goes — see
+   _impact. Everybody standing between the muzzle and the mark is
+   inside it, however many of them there are; nobody behind the wall
+   is, because the wall is still there.
 
    ---------------------------------------------------------------------
    HOW IT IS DRAWN, and why it is a TUBE
@@ -84,11 +101,14 @@
 
 import * as THREE from 'three';
 import { world } from './material.js';
+import { wallNormal, UP, DOWN } from './decals.js';
 
-/* HOW FAR IT REACHES, in game units. The town is about six thousand
-   across and the store another two: this crosses either of them and
-   keeps going, which is the point — the shot is a line THROUGH the map
-   and not a line within it. */
+/* HOW FAR IT CAN REACH, in game units. The town is about six thousand
+   across and the store another two: this crosses either of them. It
+   used to be how far every shot went, because the column went through
+   everything; it goes as far as the first wall now (see _impact), and
+   this is only how far it goes down a street with nothing at the end
+   of it before it is over the horizon. */
 export const BEAM_RANGE = 8200;
 
 /* AND HOW WIDE, by stage, and this is the number the whole dial-back
@@ -108,13 +128,13 @@ export const BEAM_RANGE = 8200;
    the difference between a siege engine and a rifle, and it is a single
    number.
 
-   AND IT CANNOT GO NARROWER, which is the part worth writing down. This
-   radius is also the radius of the hole the shot bores through every
-   wall it crosses (see breaches.cut below), and the player is thirty-
-   two units across: at forty-eight there are eight units of clearance
-   either side and you can walk through your own hole, which is a thing
-   this game already promises. At thirty you could not. Twenty-four is
-   the floor and the reason is collision, not taste.
+   IT USED TO BE THE FLOOR, and the reason was collision rather than
+   taste: this radius was also the radius of the hole the shot bored
+   through every wall it crossed, and at forty-eight across a thirty-two
+   unit player could walk through their own hole. The column cuts no
+   holes now (see the head of this file), so that floor is gone with
+   them — but twenty-four is still the right width for a rifle, and the
+   mark it leaves is sized off it (see SEAR), so it stays.
 
    IT IS STILL VISIBLE, which was the other worry. Forty-eight units at
    five hundred away is about fifty pixels on an 853-wide render, and it
@@ -131,56 +151,53 @@ export const BEAM_RADIUS = [10, 16, 24];
    street is inside it, not what being inside it costs. */
 export const BEAM_DAMAGE = [900, 1800, 3200];
 
-/* AND TO A BUILDING: integrity off a region at the centre of the
-   column, per pass. A region starts at 1.
+/* ---------------------------------------------------------------------
+   THE MARK IT LEAVES, and it is the whole of what the lance does to the
+   level now
 
-   THESE USED TO BRING A HOUSE DOWN IN ONE SHOT — 1.30 a pass at the top
-   stage, which is the whole of a region's integrity in a single pass,
-   with fifty-odd passes left to go. Every discharge levelled whatever
-   it was aimed through, and the hole the beam punched in the front of
-   the building was academic because the building followed it down a
-   quarter of a second later.
+   The user asked for "massive interesting decals" in place of the holes,
+   and every word of that is a number here.
 
-   Now no single shot can take anything down, at any stage, however
-   squarely it is aimed: the absolute worst a stage-three discharge can
-   do to one region is 0.50, and the measured figure against the town is
-   0.34. THREE shots do it. You hold four cells, so levelling a building
-   costs three quarters of everything you have and twenty-one seconds of
-   charging — a decision rather than a side effect of shooting at a man
-   standing in front of it. That is the dial-back in one line: you can
-   still do it, and you can no longer do it by accident.
+   MASSIVE. A bullet hole is eight to thirteen units across and a
+   warhead's burning crater eighty-four. The sear is SIZE by stage, and
+   the top stage is three hundred and twenty: ten people wide, the whole
+   of a shopfront between the windows, a crater of char you can see from
+   the far end of the street. Nothing else in the game leaves a mark
+   within a factor of three of it, which is correct — nothing else in
+   the game is a positron column.
 
-   TWO THINGS TO MIND IN THE ARITHMETIC, both of which bit while these
-   numbers were being set:
+   INTERESTING. One decal, however big, is a disc. So a sear is a CRATER
+   and a SPLASH: the crater is one big decal (Decals.sear) with its own
+   shader — a vitrified core, char thrown out of it in a starburst of
+   uneven streaks, a rim still molten, droplets of slag flung past the
+   rim — and round it SLAG more, smaller decals of molten spatter thrown
+   out across the same surface, each with its own seed, so no two shots
+   leave the same shape. The streaks and the drops lean the way the beam
+   was going, which is the detail that says which way it came from.
 
-     PASS_EVERY. These are per pass and the CALLER multiplies by it, so
-     a stage-three discharge is 49 tics = 16 passes x 3 x 0.0105 = 0.50,
-     not 16 x 0.0105. Forgetting that factor is how the first cut of
-     this table came out at 1.34 and levelled a house in one shot
-     anyway — the exact thing it was written to stop.
+   AND IT GLOWS. Not only while the beam is out: the crater is white at
+   the core for the first second, the rim is orange for ten, and the
+   cracks in the char are still a dull red half a minute later. The age
+   is the decal's own and the shader cools it; nothing here has to tick.
 
-     AND 0.50 IS THE CEILING, NOT THE FIGURE. damageLine bites
-     `amount * (1 - |t| / radius)` and keeps the largest bite any sample
-     of a region took (see FireSystem.damageLine), so only a region the
-     column's dead centre passes through gets the whole of it. Measured
-     against the town the worst-hit region loses 0.34 a shot, which is
-     where the three comes from. The suite checks the CEILING, because
-     that is the part that can be proved from the constants and is also
-     the part that matters: under 1.0 means never in one shot. */
-export const BEAM_STRUCTURE = [0.0028, 0.0058, 0.0105];
+     size     across, in world units, of the crater, by stage
+     slag     how many satellites, by stage
+     reach    how far out they are thrown, as a multiple of the crater
+     slagSize their size, as a fraction of the crater, min..max
+   ------------------------------------------------------------------- */
+export const SEAR = {
+  size: [170, 240, 320],
+  slag: [5, 7, 10],
+  reach: [0.42, 0.95],
+  slagSize: [0.16, 0.34],
+};
 
-/* HOW MUCH HEAT AND ACCELERANT IT LEAVES, by stage. It was 200, 320
-   and 470, which set fire to the whole street it crossed — appropriate
-   for a weapon that had just flattened the street, and absurd for one
-   that has drilled a hole through a wall. A quarter of it: the line is
-   scorched, what was already flammable along it catches, and the town
-   does not go up every time you take a shot. */
-export const BEAM_HEAT = [40, 70, 110];
-
-/* TICS BETWEEN STRUCTURAL PASSES. See the note above: the bite is
-   multiplied by this, so the building comes down at the same rate and
-   the grid is walked a third as often. */
-export const PASS_EVERY = 3;
+/* HOW FINE THE WALK FOR THE FLOOR IS, in units along the ground. The
+   walls are one call to Level.rayHitWall; a floor or a ceiling has no
+   line to cross, so _impact steps along the column asking the storey
+   under each step whether the column is still inside it. Twelve is
+   finer than any step in the town and the walk happens once a shot. */
+export const IMPACT_STEP = 12;
 
 /* HOW FAR FROM THE AXIS THE LIGHT REACHES, by stage: several times the
    column's own radius, because what the user asked to see is the street
@@ -448,13 +465,14 @@ export class BeamSystem {
     this.stage = 0;
     this.tics = 0;              // how many tics the beam has been out
     this.total = 0;             // how many it will be out for
-    this.pass = 0;              // the structural clock
     this.shots = 0;             // how many have been fired, for the tests
-    this.downed = 0;            // regions brought down by the one in progress
-    this.holed = 0;             // and walls it has punched a hole through
-                                /* as a MAX over the passes, not a sum
-                                   — see the note in tic() */
     this.killed = 0;
+    /* WHERE THE LINE STOPS, taken with the line and kept with it: how
+       far along the ground the column reaches, and the surface it ends
+       on — { x, y, z, n } — or null if it ends in the air. See _impact. */
+    this.reach = BEAM_RANGE;
+    this.hit = null;
+    this.seared = 0;            // marks left, for the tests
     /* where the column is THIS tic — recomputed every tic from the
        player, because the barrel moves while the feet do not */
     this.from = { x: 0, y: 0, z: 0 };
@@ -474,6 +492,9 @@ export class BeamSystem {
   }
 
   get radius() { return BEAM_RADIUS[this.stage - 1] || 0; }
+  /** How long the column is along its own axis: `reach` is along the
+   *  ground, and a pitched column is longer than its shadow. */
+  get length() { return this.reach * Math.hypot(1, this.slope); }
   /** 0 at the muzzle flash, 1 as it dies — what the geometry fades on. */
   get age() { return this.total > 0 ? this.tics / this.total : 0; }
 
@@ -488,14 +509,17 @@ export class BeamSystem {
     this.stage = clamp(stage | 0, 1, BEAM_RADIUS.length);
     this.tics = 0;
     this.total = player.beamTics || 1;
-    this.pass = 0;
     this.shots++;
-    this.downed = 0;
-    this.holed = 0;
     this.killed = 0;
     /* THE LINE, TAKEN ONCE AND KEPT. See _aim: nothing moves it again
        until the next shot, which is what makes this a rifle. */
     this._aim(player);
+    /* AND SO IS WHERE IT STOPS, and the mark goes there now, once —
+       the line does not move, so neither does the place it lands, and a
+       sear laid every tic would be forty of the same sear on top of each
+       other. */
+    this._impact();
+    this._sear();
     /* THE MUZZLE GOES FIRST. A column that simply appears has no
        beginning; a flash and a ring of dust at the metal is the half
        second that says it left a gun. Smaller than it was, because the
@@ -527,14 +551,13 @@ export class BeamSystem {
 
        Only when it did something, and only ever one line. A shot that
        hit nobody and went through nothing says nothing, which is itself
-       the answer to "did I get him". */
-    if (this.live && (this.killed || this.holed)) {
-      const said = [];
-      if (this.killed) said.push(`${this.killed} DOWN`);
-      if (this.holed) said.push(`${this.holed} THROUGH`);
-      if (this.downed) said.push(`${this.downed} COLLAPSED`);
-      this.game.toast?.(said.join('  \u00b7  '));
-    }
+       the answer to "did I get him".
+
+       IT USED TO SAY HOW MANY WALLS IT WENT THROUGH, and how many
+       buildings came down. It goes through nothing and brings nothing
+       down now (see the head of this file), so the bodies are the whole
+       of the report. */
+    if (this.live && this.killed) this.game.toast?.(`${this.killed} DOWN`);
     this.live = false;
     this.stage = 0;
     this.tics = 0;
@@ -557,8 +580,97 @@ export class BeamSystem {
     else { this.from.x = player.x; this.from.y = player.y; this.from.z = player.eyeZ; }
     this.angle = player.angle;
     /* the pitch as a RISE PER UNIT of ground travelled, because that is
-       what a walk over a floor grid wants — see FireSystem.damageLine */
+       what a walk along the ground wants — see _bodies and _impact */
     this.slope = Math.tan(clamp(player.pitch, -1.4, 1.4));
+  }
+
+  /** WHERE THE LINE STOPS: the first wall, floor or ceiling along it,
+   *  as a distance along the GROUND in `reach` and the surface in `hit`
+   *  — { x, y, z, n }, n the face it lands on, turned toward the gun —
+   *  or BEAM_RANGE and null for a shot that ends in the sky.
+   *
+   *  THE WALLS ARE ONE CALL, the same one every round in the game makes,
+   *  and it already knows about a step you could shoot over and a lintel
+   *  you could not. A floor or a ceiling has no line to cross, so the
+   *  rest is a walk: IMPACT_STEP at a time along the column, asking the
+   *  storey under each step whether the column has left it through the
+   *  bottom or the top. Once a shot, not once a tic — the line is fixed
+   *  at the trigger, so the place it stops is too.
+   *
+   *  AN OUTDOOR CEILING IS THE SKY and the column goes on into it; a
+   *  shot up over the roofs is a shot that lands nowhere, and leaves
+   *  nothing, which is the truth. */
+  _impact() {
+    const g = this.game, lv = g.level;
+    const f = this.from, sl = this.slope;
+    const ux = Math.cos(this.angle), uy = Math.sin(this.angle);
+    this.reach = BEAM_RANGE;
+    this.hit = null;
+    if (!lv) return null;
+    const tx = f.x + ux * BEAM_RANGE, ty = f.y + uy * BEAM_RANGE, tz = f.z + sl * BEAM_RANGE;
+    const wall = lv.rayHitWall?.(f.x, f.y, f.z, tx, ty, tz);
+    if (wall) {
+      this.reach = wall.t * BEAM_RANGE;
+      this.hit = { x: wall.x, y: wall.y, z: wall.z, n: wallNormal(wall.line, f.x, f.y) };
+    }
+    if (lv.spanAt && lv.floorAt) {
+      for (let s = IMPACT_STEP; s < this.reach; s += IMPACT_STEP) {
+        const x = f.x + ux * s, y = f.y + uy * s, z = f.z + sl * s;
+        const sec = lv.spanAt(x, y, z);
+        if (!sec) continue;
+        const fl = lv.floorAt(sec, x, y);
+        const ce = lv.ceilAt(sec, x, y);
+        const under = z < fl, above = !sec.outdoor && z > ce;
+        if (!under && !above) continue;
+        /* back along the step to the plane it crossed, which for the
+           flat floors that are nearly all of them is exact */
+        const plane = under ? fl : ce;
+        const back = sl !== 0 ? clamp((plane - f.z) / sl, s - IMPACT_STEP, s) : s;
+        this.reach = back;
+        this.hit = { x: f.x + ux * back, y: f.y + uy * back, z: plane, n: under ? UP : DOWN };
+        break;
+      }
+    }
+    return this.hit;
+  }
+
+  /** THE MARK, where the column lands — see SEAR for what it is and why
+   *  it is this size. The crater first, then the slag thrown across the
+   *  same surface round it, each at its own distance and angle and size,
+   *  leaning the way the beam was going. Nothing at all for a shot that
+   *  ended in the air. */
+  _sear() {
+    const h = this.hit, d = this.game.decals;
+    if (!h || !d?.sear) return 0;
+    const st = this.stage - 1;
+    const size = SEAR.size[st];
+    /* the way the beam was going, which the crater's streaks lean along */
+    const cp = 1 / Math.hypot(1, this.slope);
+    const dx = Math.cos(this.angle) * cp, dy = Math.sin(this.angle) * cp, dz = this.slope * cp;
+    d.sear(h.x, h.y, h.z, h.n, size, dx, dy, dz);
+    let n = 1;
+    /* THE SLAG, across the surface the crater is on: two directions in
+       its plane, from the same basis every decal is laid in */
+    const nx = h.n.nx, ny = h.n.ny, nz = h.n.nz;
+    const flat = Math.abs(nz) > 0.5;
+    const ax = flat ? 1 : -ny, ay = flat ? 0 : nx, az = 0;
+    const bx = 0, by = flat ? 1 : 0, bz = flat ? 0 : 1;
+    /* and the lean, in those two: the beam's own direction laid flat on
+       the surface, so more of it goes on past the crater than back */
+    const la = dx * ax + dy * ay + dz * az, lb = dx * bx + dy * by + dz * bz;
+    const ll = Math.hypot(la, lb) || 1;
+    for (let k = 0; k < SEAR.slag[st]; k++) {
+      const th = Math.random() * Math.PI * 2;
+      const push = 0.55 * (Math.cos(th) * la + Math.sin(th) * lb) / ll;
+      const rr = size * (SEAR.reach[0] + Math.random() * (SEAR.reach[1] - SEAR.reach[0])) * (1 + push);
+      const ou = Math.cos(th) * rr, ov = Math.sin(th) * rr;
+      d.slag(h.x + ax * ou + bx * ov, h.y + ay * ou + by * ov, h.z + az * ou + bz * ov, h.n,
+             size * (SEAR.slagSize[0] + Math.random() * (SEAR.slagSize[1] - SEAR.slagSize[0])),
+             Math.cos(th) * ax + Math.sin(th) * bx, Math.cos(th) * ay + Math.sin(th) * by, Math.sin(th) * bz);
+      n++;
+    }
+    this.seared += n;
+    return n;
   }
 
   /* ------------------------------------------------------------------
@@ -570,39 +682,18 @@ export class BeamSystem {
     /* AND THE LINE IS NOT RE-READ. _aim used to run here, chasing the
        barrel; the shot is fixed at the trigger now — see the note above
        _aim and the one at the head of this file. */
-    const g = this.game;
     const r = this.radius;
 
     /* ---- 1. everything soft in the column --------------------------- */
     this._bodies(player, r);
 
-    /* ---- 2. and everything standing in it, on the slower clock ------ */
-    if (++this.pass >= PASS_EVERY) {
-      this.pass = 0;
-      this.downed += g.fire?.damageLine(this.from, this.angle, this.slope, BEAM_RANGE, r,
-                                        BEAM_STRUCTURE[this.stage - 1] * PASS_EVERY) || 0;
-      /* AND A HOLE THROUGH EVERY WALL IT CROSSES, at the user's
-         request. Integrity is a question about whether a REGION is
-         still standing; this is a question about the brick itself, and
-         they are not the same question — a beam through the front of a
-         house leaves a hole in the front of the house long before the
-         house comes down, and usually instead of it. See js/breach.js. */
-      /* MAX AND NOT PLUS, and this mattered the moment the number
-         started being shown to the player rather than only to the
-         tests. cut() returns how many walls it opened on THAT pass, and
-         the line does not move any more, so every pass after the first
-         re-opens the same ones: a shot through 39 walls accumulated to
-         624 over sixteen passes and the gun cheerfully said so. The
-         most any one pass opened IS the number of walls the line
-         crosses, because the first pass opens all of them. */
-      this.holed = Math.max(this.holed,
-        g.breaches?.cut(this.from, this.angle, this.slope, BEAM_RANGE, r) || 0);
-    }
+    /* ---- 2. NOTHING STANDING IN IT, at the user's request ----------
+       This is where the column used to take integrity off every region
+       it crossed, cut a hole in every wall and lay fire the length of
+       itself. None of it now: the mark was left once, in fire(), and
+       the level is exactly the shape it was. See the head of this file. */
 
-    /* ---- 3. what it sets alight ------------------------------------- */
-    this._burn(r);
-
-    /* ---- 4. and what it looks like on the ground -------------------- */
+    /* ---- 3. and what it looks like, up the line and where it lands -- */
     this._dress(r);
 
     /* ---- and the light, which is the column's own axis --------------- */
@@ -610,7 +701,7 @@ export class BeamSystem {
     const L = this.lit;
     L.x = this.from.x; L.y = this.from.y; L.z = this.from.z;
     L.dx = Math.cos(this.angle) * cp; L.dy = Math.sin(this.angle) * cp; L.dz = this.slope * cp;
-    L.len = BEAM_RANGE;
+    L.len = this.length;
     this.glow = 1;
     this.glowStage = this.stage;
 
@@ -660,7 +751,9 @@ export class BeamSystem {
       if (a === player || a.removed || a.dead || !a.shootable) continue;
       const wx = a.x - f.x, wy = a.y - f.y;
       const s = wx * ux + wy * uy;
-      if (s < 0 || s > BEAM_RANGE) continue;
+      /* NOT PAST WHERE IT STOPPED: the wall it landed on is still
+         there, so whoever is behind it is behind a wall */
+      if (s < 0 || s > this.reach) continue;
       const px = wx - ux * s, py = wy - uy * s;
       const reach = r + (a.radius || 16);
       if (px * px + py * py > reach * reach) continue;
@@ -672,30 +765,6 @@ export class BeamSystem {
       a.damage(dmg, player, { fire: true });
       a.ignite?.(600);
       if (!was && a.dead) this.killed++;
-    }
-  }
-
-  /** Heat and accelerant the whole length of it, store grid and
-   *  woodland both, at intervals rather than at every cell: the fire
-   *  spreads on its own and a stripe of ignitions a radius apart joins
-   *  up inside a tic. */
-  _burn(r) {
-    const g = this.game;
-    const ux = Math.cos(this.angle), uy = Math.sin(this.angle);
-    const f = this.from;
-    const step = Math.max(64, r * 1.4);
-    const heat = BEAM_HEAT[this.stage - 1];
-    for (let s = 0; s <= BEAM_RANGE; s += step) {
-      const bz = f.z + this.slope * s;
-      const x = f.x + ux * s, y = f.y + uy * s;
-      /* ONLY WHERE THE COLUMN IS NEAR THE GROUND. A shot up the road at
-         ten degrees is over the roofs by the end of the street, and a
-         beam that lit the pavement under it wherever it happened to be
-         in the sky would set fire to the whole town from one shot
-         through a first-floor window. */
-      if (bz > 400 + r) continue;
-      g.fire?.ignite(x, y, heat, r);
-      g.forest?.ignite(x, y, r * 1.1);
     }
   }
 
@@ -716,7 +785,7 @@ export class BeamSystem {
        request — this is the biggest thing that happens in this game and
        it should look like it. */
     const n = SAMPLES;
-    const step = BEAM_RANGE / n;
+    const step = this.reach / n;
     const jitter = (this.tics * 0.37) % 1;
     for (let i = 0; i < n; i++) {
       const s = (i + jitter) * step;
@@ -748,6 +817,20 @@ export class BeamSystem {
       /* embers thrown out of the column sideways, which is the detail
          that says it is chewing through something */
       if (Math.random() < 0.5) g.fx.ember?.(x, y, z, 1, 1);
+    }
+    /* AND A BOIL WHERE IT LANDS, every tic it is out: the crater is
+       being made while you watch, so fire and sparks come off it and a
+       little smoke rolls out of it. Off the surface along its own
+       normal, so a hit on a wall throws toward the gun and one on the
+       floor throws up. */
+    const h = this.hit;
+    if (h) {
+      const lift = r * 0.5;
+      const hx = h.x + h.n.nx * lift, hy = h.y + h.n.ny * lift, hz = h.z + h.n.nz * lift;
+      if ((this.tics & 1) === 0) g.fx.fireball(hx, hy, hz, r * (1.3 + Math.random() * 1.2), 12 + (this.tics & 7));
+      g.spawnSparks?.(hx, hy, hz, 3);
+      if (Math.random() < 0.6) g.fx.ember?.(hx, hy, hz, 2, 1.2);
+      if ((this.tics & 3) === 0) g.fx.puff(hx, hy, hz, r * 1.6, 70);
     }
     /* and sparks at the metal, every tic, so the muzzle is always the
        brightest thing in the picture */
@@ -856,6 +939,8 @@ export class BeamSystem {
        constants were written — see the note at NECK */
     const neckLen = Math.max(NECK, R * NECK_R);
     const hideLen = Math.max(HIDE, R * HIDE_R);
+    /* and as long as the line is, to where it stopped */
+    const len = this.length;
 
     /* the axis, in game coordinates, and two perpendiculars to sweep the
        rings around */
@@ -890,7 +975,7 @@ export class BeamSystem {
     for (const sh of SHELLS) {
       for (let i = 0; i <= SEGS; i++) {
         const t = i / SEGS;
-        const s = t * BEAM_RANGE;
+        const s = t * len;
         /* the profile: a neck at the metal opening out over NECK units
            of real distance (see the note there — this is the number that
            stops the player standing inside their own beam), a slow pulse
@@ -898,7 +983,9 @@ export class BeamSystem {
            recedes rather than being cut off */
         const neck = 0.05 + 0.95 * Math.min(1, s / neckLen);
         const pulse = 1 + 0.12 * Math.sin(t * 26 - time * 9);
-        const tail = 1 - 0.55 * Math.max(0, (t - 0.9) / 0.1);
+        /* only when it ends in the air: a column that lands on a wall
+           goes into it at full width, and the boil hides the join */
+        const tail = this.hit ? 1 : 1 - 0.55 * Math.max(0, (t - 0.9) / 0.1);
         const rad = R * sh.r * neck * pulse * tail;
         /* and nothing at all within HIDE of the muzzle: what is there is
            the bloom, which is particles */
@@ -919,7 +1006,7 @@ export class BeamSystem {
        pulse */
     for (let i = 0; i < RINGS; i++) {
       const trav = ((time * RING_SPEED + i / RINGS) % 1);
-      const s = trav * BEAM_RANGE;
+      const s = trav * len;
       const rad = R * (1.25 + trav * 1.7) * (0.06 + 0.94 * Math.min(1, s / neckLen));
       const wide = R * 0.055;
       /* DIM, and dimmer than the first cut by a lot: a ring is a thing
@@ -942,7 +1029,7 @@ export class BeamSystem {
     /* and the cap centres, on the axis at CAP_SEG, facing back down the
        beam at whoever fired it */
     for (let c = 0; c < CAPS; c++) {
-      const s = (CAP_SEG / SEGS) * BEAM_RANGE;
+      const s = (CAP_SEG / SEGS) * len;
       const fd = life * SHELLS[c].w * Math.min(1, Math.max(0, (s - hideLen * 0.25) / hideLen));
       put(f.x + dx * s, f.y + dy * s, f.z + dz * s, -dx, -dy, -dz, fd);
     }

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM Editor — the bars round the views
+   MEWD Editor — the bars round the views
    =====================================================================
 
    The top bar (menus, modes, the grid, PLAY), the panel down the right
@@ -157,7 +157,7 @@ export function buildUI(ed) {
   };
 
   const top = h('div', { id: 'ed-top' },
-    h('span', { class: 'brand' }, 'DEWM Editor'),
+    h('span', { class: 'brand' }, 'MEWD Editor'),
     menu('File', [
       ['New map', '', () => ed.fileNew(false)],
       ['New from THE GRID', '', () => ed.fileNew(true)],

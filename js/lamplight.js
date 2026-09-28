@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the street lamps' own light
+   MEWD — the street lamps' own light
    =====================================================================
 
    Every street lamp in the town is a photograph stood up in the map

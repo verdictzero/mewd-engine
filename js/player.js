@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the player
+   MEWD — the player
    =====================================================================
 
    Doom's movement numbers, exactly, because they are the reason it feels

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — laying out a shop in rectangles
+   MEWD — laying out a shop in rectangles
    =====================================================================
 
    MapBuilder welds two sectors into a doorway when they share an EDGE,

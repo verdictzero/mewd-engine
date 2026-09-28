@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — transports: the pipe a message goes down
+   MEWD — transports: the pipe a message goes down
 
    One interface, however the bytes travel:
 

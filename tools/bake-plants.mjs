@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — real plants into the wood's own format
+   MEWD — real plants into the wood's own format
    =====================================================================
 
      node tools/bake-plants.mjs

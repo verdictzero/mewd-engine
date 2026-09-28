@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the town
+   MEWD — the town
    =====================================================================
 
    A strip mall in a wood is a firebreak with a shop in it. You burn one

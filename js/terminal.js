@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the front door
+   MEWD — the front door
    =====================================================================
 
    The page is not the game any more. It is a terminal: black glass, red
@@ -75,12 +75,12 @@ const REFUSED = entry => [
 /* And what it says on the way in. */
 /* what it says for the editor */
 const EDITOR = [
-  'DEWM EDITOR',
+  'MEWD EDITOR',
   'LOADING WORKSPACE',
 ];
 
 const GRANTED = [
-  'DEWM DEMO',
+  'MEWD DEMO',
   'LOADING',
 ];
 

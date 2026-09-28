@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — smoke test
+   MEWD — smoke test
    =====================================================================
 
    node tools/smoke-test.mjs
@@ -4240,7 +4240,7 @@ await (async () => {
   check('G and GAME open the game', /const GAME_WORDS = \['G', 'GAME'\];/.test(term) && /GAME_WORDS\.includes\(entry\)\) \{ await this\.open\(\); return; \}/.test(term));
   check('E and EDIT open the editor', /const EDIT_WORDS = \['E', 'EDIT'\];/.test(term) && /EDIT_WORDS\.includes\(entry\)\) \{ await this\.open\('\.\/editor\/editor\.js'\)/.test(term));
   check('QUIT and EXIT go to news.asr.institute', /const QUIT_WORDS = \['QUIT', 'EXIT'\];/.test(term) && /QUIT_URL = 'https:\/\/news\.asr\.institute'/.test(term) && /location\.href = QUIT_URL/.test(term));
-  check('and the old words are gone: no hashes, no demo, no DEWM', !/KEYS/.test(term) && !/hash\(/.test(term));
+  check('and the old words are gone: no hashes, no demo, no MEWD', !/KEYS/.test(term) && !/hash\(/.test(term));
   check('and it refuses everything else as an undefined command',
     /'UNDEFINED COMMAND \/ SYNTAX ERROR'/.test(term) && !/UNABLE TO COMPUTE/.test(term));
   check('the page loads the terminal, not the game',
@@ -4985,15 +4985,14 @@ section('the holes');
     check('it sheds debris while it does it', puffs.length >= B.DECAY_STEPS * 3);
     check('and then it stops, because a hole that grew for ever would eat the building',
       sys.live.length === 0);
-    check('the beam punches on its structural clock and not every tic',
-      /g\.breaches\?\.cut\(this\.from, this\.angle, this\.slope, BEAM_RANGE, r\)/.test(beamSrc2) &&
-      beamSrc2.indexOf('breaches?.cut') > beamSrc2.indexOf('if (++this.pass >= PASS_EVERY)'));
-    /* AND THE TALLY OF THEM IS A MAX AND NOT A SUM, which only started
-       mattering when the number began being shown to the player: the
-       line is fixed at the trigger now, so every pass re-opens the same
-       walls and a sum counts each of them once per pass. */
-    check('and the tally of walls opened is the most one pass did, not the sum',
-      /this\.holed = Math\.max\(this\.holed,/.test(beamSrc2));
+    /* AND THE BEAM NO LONGER CUTS ANY OF THEM, at the user's request:
+       "no geometry changes". The machinery above is kept and still
+       checked, because the renderer, the collision, the bullets and the
+       sight line all still read a hole; what is gone is the one thing
+       that made them. The code and not the comments, which name what
+       used to be there. */
+    check('the beam no longer cuts a hole in anything, nor counts the walls it went through',
+      !/breaches|\.cut\(|holed/.test(beamSrc2.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')));
     check('and a hole is lit, so it goes on burning after the beam has stopped',
       /g\.fire\?\.ignite\(w\.x, w\.y, 150/.test(breachSrc));
     /* A WALL THAT IS GONE WAS HOLDING SOMETHING UP. Without this the
@@ -5065,7 +5064,7 @@ section('the lance');
   check('and a later stage is always a longer, wider, harder shot',
     P.BEAM_TICS[0] < P.BEAM_TICS[1] && P.BEAM_TICS[1] < P.BEAM_TICS[2] &&
     B.BEAM_RADIUS[0] < B.BEAM_RADIUS[1] && B.BEAM_RADIUS[1] < B.BEAM_RADIUS[2] &&
-    B.BEAM_STRUCTURE[0] < B.BEAM_STRUCTURE[2] && B.BEAM_DAMAGE[0] < B.BEAM_DAMAGE[2]);
+    B.SEAR.size[0] < B.SEAR.size[2] && B.BEAM_DAMAGE[0] < B.BEAM_DAMAGE[2]);
 
   /* ---- and the dial and the weapon cannot disagree about them ------ */
   {
@@ -5177,38 +5176,94 @@ section('the lance');
       return !/lanceHot|lanceHeat/.test(body) && /this\.cellTick = 0;/.test(body);
     })());
 
-  /* ---- the line, and what it takes down ----------------------------- */
-  check('the beam is a line through the map and not a shot that stops at a wall',
-    B.BEAM_RANGE > 6000 && !/rayHitWall|trace\(/.test(beamSrc));
-  check('the fire system owns the walk, because it owns the grid',
-    /damageLine\(from, angle, slope, range, radius, amount\)/.test(fs.readFileSync('js/fire.js', 'utf8')) &&
-    /g\.fire\?\.damageLine\(this\.from, this\.angle, this\.slope, BEAM_RANGE, r,/.test(beamSrc));
-  check('and it walks in the line\'s own frame, so a pitched shot is through the upper storeys',
-    /const bz = oz \+ slope \* s;/.test(fs.readFileSync('js/fire.js', 'utf8')) &&
-    /for \(let lv = 0; lv < this\.levels; lv\+\+\)/.test(fs.readFileSync('js/fire.js', 'utf8')));
-  /* AND IT MARCHES THE LINE RATHER THAN SCANNING ITS BOX. The blast's
-     walk takes the rectangle that bounds the shape; for a segment eight
-     thousand units long laid diagonally that rectangle is the whole
-     town — a quarter of a million cells to find the two thousand under
-     the beam, twelve times a second. Marching is about eight thousand
-     points and does not care which way the shot is pointing. */
-  check('the line is marched at half a cell rather than scanned over its bounding box',
-    (() => {
-      const f = fs.readFileSync('js/fire.js', 'utf8');
-      const body = f.slice(f.indexOf('damageLine(from, angle'), f.indexOf('/** Will the fire travel here'));
-      return /const step = CELL \* 0\.5;/.test(body) &&
-             /for \(let s = 0; s <= range; s \+= step\)/.test(body) &&
-             /for \(let t = -radius; t <= radius; t \+= step\)/.test(body) &&
-             !/cellX\(Math\.min/.test(body);
-    })());
-  check('the structural pass is slower than the tic, with the bite multiplied to match',
-    B.PASS_EVERY > 1 && /BEAM_STRUCTURE\[this\.stage - 1\] \* PASS_EVERY/.test(beamSrc));
+  /* ---- the line, and where it stops --------------------------------- */
+  /* IT STOPS AT THE FIRST WALL NOW, and that is the whole of the second
+     dial-back. It used to be a line THROUGH the map — every wall it
+     crossed holed, every region it crossed weakened, the street it lay
+     along set alight — and at the user's request it changes nothing
+     about the level: "i just want massive interesting decals, no
+     geometry changes". So the checks below are that the three ways it
+     used to change the level are gone from the CODE (the comments name
+     them, on purpose), and then that a real shot across the real town
+     proves it: not a wall opened, not a region touched, and a sear
+     where it landed. */
+  const beamCode = beamSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  check('the beam stops at the first wall, floor or ceiling rather than going through the map',
+    B.BEAM_RANGE > 6000 && /lv\.rayHitWall\?\.\(f\.x, f\.y, f\.z, tx, ty, tz\)/.test(beamSrc) &&
+    /const sec = lv\.spanAt\(x, y, z\);/.test(beamSrc) && B.IMPACT_STEP > 0 && B.IMPACT_STEP <= 16);
+  check('and it changes nothing about the level: no holes, no collapse, no fire in the street',
+    !/breaches|damageLine|g\.fire\?\.|g\.forest\?\.|_burn\(/.test(beamCode) &&
+    B.BEAM_STRUCTURE === undefined && B.BEAM_HEAT === undefined && B.PASS_EVERY === undefined);
   check('bodies are done every tic, because that is what the player watches',
-    /this\._bodies\(player, r\);/.test(beamSrc) && !/PASS_EVERY[\s\S]{0,80}_bodies/.test(beamSrc));
-  check('and it sets fire to what it does not finish, in the store and in the wood',
-    /g\.fire\?\.ignite\(/.test(beamSrc) && /g\.forest\?\.ignite\(/.test(beamSrc));
-  check('but only where the column is near the ground, or one shot up a street burns the town',
-    /if \(bz > 400 \+ r\) continue;/.test(beamSrc));
+    /this\._bodies\(player, r\);/.test(beamSrc));
+  check('but nobody behind the wall it stopped at, because the wall is still there',
+    /if \(s < 0 \|\| s > this\.reach\) continue;/.test(beamSrc));
+  check('a person it touches still catches, because a person is not the level',
+    /a\.ignite\?\.\(600\);/.test(beamSrc));
+  {
+    const D = await import('../js/decals.js');
+    const start = level.things.find(t => t.type === 'START');
+    const floor = level.sectorAt(start.x, start.y)?.floor ?? 0;
+    const integrity = level.sectors.map(sec => sec.integrity ?? 1);
+    const collapsed = level.sectors.map(sec => !!sec.collapsed);
+    const fake = { level, actors: [], player: null, toast() {} };
+    fake.decals = new D.Decals(fake);
+    const bs = new B.BeamSystem(fake);
+    const pl = { x: start.x, y: start.y, eyeZ: floor + 41, angle: start.angle || 0, pitch: 0,
+                 beamTics: P.BEAM_TICS[2] };
+    /* level shots, and one nearly straight down at the floor in front
+       of the feet — steep, so no kerb gets in the way of it */
+    const shots = [];
+    for (const [ang, pitch] of [[pl.angle, 0], [pl.angle + 1.3, 0], [pl.angle, -1.3], [pl.angle + 2.6, 0.05]]) {
+      pl.angle = ang; pl.pitch = pitch;
+      bs.fire(pl, 3);
+      for (let i = 0; i < P.BEAM_TICS[2]; i++) bs.tic(pl);
+      shots.push({ reach: bs.reach, hit: bs.hit && { ...bs.hit, n: { ...bs.hit.n } } });
+      bs.stop();
+    }
+    const sear = fake.decals.pools.sear;
+    note('four shots across the town',
+      shots.map(q => q.hit ? `${q.reach.toFixed(0)}u to ${q.hit.n.nz > 0.5 ? 'floor' : q.hit.n.nz < -0.5 ? 'ceiling' : 'wall'}` : 'into the sky').join(', ') +
+      `; ${fake.decals.sears} sears and ${fake.decals.slags} slag`);
+    check('a real shot across the town opens no wall at all',
+      !level.lines.some(l => l.breach && l.breach.length));
+    check('and takes nothing off any region',
+      level.sectors.every((sec, i) => (sec.integrity ?? 1) === integrity[i] && !!sec.collapsed === collapsed[i]));
+    check('it stops where the town does, well short of the far side of the map',
+      shots.filter(q => q.hit).length >= 3 && shots.every(q => q.reach <= B.BEAM_RANGE) &&
+      shots.filter(q => q.hit).every(q => q.reach < B.BEAM_RANGE));
+    check('and a shot at the ground lands on the ground, in front of the feet',
+      shots[2].hit && shots[2].hit.n.nz === 1 && shots[2].reach < 200 &&
+      Math.abs(shots[2].hit.z - (level.spanAt(shots[2].hit.x, shots[2].hit.y, shots[2].hit.z + 1)?.floor ?? 0)) < 1e-6);
+    check('every shot that landed left a sear, once, and slag round it',
+      fake.decals.sears === shots.filter(q => q.hit).length &&
+      fake.decals.slags >= fake.decals.sears * B.SEAR.slag[2] - 1e-9 &&
+      sear.count === fake.decals.sears + fake.decals.slags);
+    /* MASSIVE, which was the word: bigger than anything else in the
+       game leaves, by a wide margin, at every stage */
+    check('and the sear is massive: many times a bullet hole and bigger than a warhead\'s crater',
+      B.SEAR.size.every(v => v > D.BURN_SIZE * 1.5 && v > D.HOLE_SIZE[1] * 10) &&
+      B.SEAR.size.every((v, i) => i === 0 || v > B.SEAR.size[i - 1]) &&
+      [...Array(sear.max).keys()].filter(i => sear.strength[i] > 0 && sear.frame[i] === 0)
+        .every(i => sear.size[i] >= B.SEAR.size[2] * 0.9 - 1e-6));
+    check('with the slag thrown across the same surface as the crater, each its own size',
+      (() => {
+        const live = [...Array(sear.max).keys()].filter(i => sear.strength[i] > 0 && sear.frame[i] === 1);
+        const sizes = new Set(live.map(i => sear.size[i].toFixed(2)));
+        return live.length > 0 && sizes.size > live.length * 0.8;
+      })());
+    check('the crater and the slag are their own kinds in the shader, charred and glowing',
+      D.KIND.SEAR === 8 && D.KIND.SLAG === 9 &&
+      /A SEAR: where the positron column landed/.test(fs.readFileSync('js/decals.js', 'utf8')) &&
+      /float streak = /.test(fs.readFileSync('js/decals.js', 'utf8')) &&
+      /hotRamp\(clamp\(heat \* 1\.1, 0\.0, 1\.0\)\) \* rim \* heat \* 2\.6/.test(fs.readFileSync('js/decals.js', 'utf8')));
+    check('and a shot that ends in the sky leaves nothing hanging in the air',
+      (() => {
+        const n = fake.decals.sears;
+        bs.hit = null;
+        return bs._sear() === 0 && fake.decals.sears === n;
+      })());
+  }
 
   /* ---- and the picture it makes ------------------------------------- */
   check('the column is a tube and not a view-facing quad, because the eye is at one end of it',
@@ -5251,9 +5306,10 @@ section('the lance');
                           .replace(/\/\*[\s\S]*?\*\//g, '');
       return !/this\._aim\(/.test(body) && /this\.tics\+\+;/.test(body) && body.length > 400;
     })());
-  check('and what it cuts is that same line, so the picture and the damage agree',
+  check('and what it hurts is that same line, to where it stopped, so the picture and the damage agree',
     /const ux = Math\.cos\(this\.angle\), uy = Math\.sin\(this\.angle\);/.test(beamSrc) &&
-    /g\.fire\?\.damageLine\(this\.from, this\.angle, this\.slope/.test(beamSrc));
+    /const tx = f\.x \+ ux \* BEAM_RANGE, ty = f\.y \+ uy \* BEAM_RANGE, tz = f\.z \+ sl \* BEAM_RANGE;/.test(beamSrc) &&
+    /const len = this\.length;/.test(beamSrc));
   /* AND THE NEAR END IS CLOSED. A tube is hollow, and the front is the
      only end the player ever sees: without a cap you look past the near
      opening, down the inside and THROUGH to the world beyond, and the
@@ -5672,7 +5728,7 @@ section('the lance, dialled back');
   /* ---- the overcharge is gone, all of it --------------------------- */
   note('what one discharge is now',
     `${P.BEAM_SECONDS[2]}s of beam, r${B.BEAM_RADIUS[2]} (a person is 32 wide), ` +
-    `${(B.BEAM_STRUCTURE[2] * B.PASS_EVERY * Math.floor(P.BEAM_TICS[2] / B.PASS_EVERY)).toFixed(2)} of a region, ` +
+    `a sear ${B.SEAR.size[2]} across and nothing off any region, ` +
     `heard at ${(playerSrc.match(/this\.game\.noise\(this, (\d+)\);/) || [])[1]} units`);
   check('no constant anywhere still describes an overcharge',
     P.OVERCHARGE_TICS === undefined && P.OVERCHARGE_CALLS === undefined &&
@@ -5742,45 +5798,22 @@ section('the lance, dialled back');
     /if \(def\.heat && o\.material\.name === def\.heat\.material\) heatMaterial = o\.material;/.test(w3Src));
 
   /* ---- and the armageddon is out of the numbers -------------------- */
-  /* A SIXTH OF THE WIDTH IT WAS, and there is a floor under it that is
-     not aesthetic: the beam's radius is also the radius of the hole it
-     bores through every wall it crosses, and a hole you cannot walk
-     through would quietly undo 'walk through it, shoot through it, see
-     through it'. A 48-unit bore against a 32-unit player is eight units
-     of clearance either side — the narrowest this can go and keep that.
-     Which is still one and a half people rather than eight. */
-  check('the column is a sixth of the width it was, and is the narrowest it can be',
+  /* A SIXTH OF THE WIDTH IT WAS. There used to be a floor under it
+     that was not aesthetic — the radius was also the radius of the hole
+     it bored, and a hole you could not walk through undid 'walk through
+     it' — but it bores nothing now, so what is left is the width of a
+     rifle: narrower than two people, wider than one. */
+  check('the column is a sixth of the width it was, and no wider than a rifle needs',
     B.BEAM_RADIUS[2] <= 130 / 5 && B.BEAM_RADIUS[2] * 2 < 32 * 2 &&
     B.BEAM_RADIUS[2] * 2 > U.PLAYER_RADIUS * 2 &&
     B.BEAM_RADIUS.every((r, i) => i === 0 || r > B.BEAM_RADIUS[i - 1]));
-  check('so you can still walk through the hole your own shot leaves',
-    B.BEAM_RADIUS[2] > U.PLAYER_RADIUS);
-  /* THE CEILING AND NOT THE FIGURE. damageLine keeps the largest bite
-     any sample of a region took and the bite falls off across the
-     column, so only a region the dead centre goes through takes the
-     whole of this; measured against the town the worst-hit region loses
-     about two thirds of it. The ceiling is what can be proved from the
-     constants, and it is also the half that matters — under 1.0 means
-     no shot can EVER level anything, however squarely it is aimed. */
-  check('no single discharge can bring a region down, at any stage, however well aimed',
-    B.BEAM_STRUCTURE.every((v, i) =>
-      Math.floor(P.BEAM_TICS[i] / B.PASS_EVERY) * v * B.PASS_EVERY < 1));
-  /* BUT A HANDFUL CAN, which is the other half: you hold four cells, so
-     levelling a building is a deliberate act costing most of a magazine
-     and twenty-one seconds of charging, rather than a side effect of
-     shooting at a man standing in front of it. */
-  check('but it is not decorative either: a few of the top stage will',
-    (() => {
-      const ceil = Math.floor(P.BEAM_TICS[2] / B.PASS_EVERY) * B.BEAM_STRUCTURE[2] * B.PASS_EVERY;
-      note('what it takes to level a region',
-        `at most ${ceil.toFixed(2)} a shot, ~0.34 measured, so 3 shots of ${P.CELLS}`);
-      return ceil < 1 && ceil > 0.25;
-    })());
-  check('the hole through the wall is untouched, because that is the precise part',
-    /g\.breaches\?\.cut\(this\.from, this\.angle, this\.slope, BEAM_RANGE, r\) \|\| 0\);/.test(beamSrc));
-  check('it no longer sets the street alight, nor lights it like a flashbulb',
-    B.BEAM_HEAT.every((v, i) => v < [200, 320, 470][i] * 0.4) &&
-    B.LIGHT_PEAK[2] < 0.7 && B.LIGHT_RANGE[2] < 600);
+  /* AND NO SHOT CAN BRING ANYTHING DOWN, at any stage, which used to be
+     a ceiling proved from the constants (under 1.0 of a region a shot)
+     and is now simply true: the constants are gone with the walk. */
+  check('no discharge can bring a region down, at any stage, because none touches one',
+    B.BEAM_STRUCTURE === undefined && B.PASS_EVERY === undefined);
+  check('it no longer sets the street alight at all, nor lights it like a flashbulb',
+    B.BEAM_HEAT === undefined && B.LIGHT_PEAK[2] < 0.7 && B.LIGHT_RANGE[2] < 600);
   check('and the town no longer comes to the window for every shot',
     (() => {
       const m = playerSrc.slice(playerSrc.indexOf('  fireBeam(stage) {'))
@@ -5805,17 +5838,18 @@ section('the lance, dialled back');
     (() => {
       const said = [];
       const bs = Object.create(B.BeamSystem.prototype);
-      Object.assign(bs, { live: true, stage: 3, tics: 0, killed: 2, holed: 5, downed: 0,
+      Object.assign(bs, { live: true, stage: 3, tics: 0, killed: 2,
                           game: { toast: t => said.push(t) } });
       B.BeamSystem.prototype.stop.call(bs);
       note('what the gun says about a shot', said.join(' / ') || '(nothing)');
-      return said.length === 1 && /2 DOWN/.test(said[0]) && /5 THROUGH/.test(said[0]);
+      /* and never THROUGH or COLLAPSED any more: it goes through nothing */
+      return said.length === 1 && /2 DOWN/.test(said[0]) && !/THROUGH|COLLAPSED/.test(said[0]);
     })());
   check('and a shot that hit nothing says nothing, which is itself the answer',
     (() => {
       const said = [];
       const bs = Object.create(B.BeamSystem.prototype);
-      Object.assign(bs, { live: true, stage: 3, tics: 0, killed: 0, holed: 0, downed: 0,
+      Object.assign(bs, { live: true, stage: 3, tics: 0, killed: 0,
                           game: { toast: t => said.push(t) } });
       B.BeamSystem.prototype.stop.call(bs);
       return said.length === 0;
@@ -9597,8 +9631,12 @@ section('the decals');
   /* THE RING: a thousand rounds into one wall are still one pool */
   for (let k = 0; k < D.POOLS.hole + 50; k++) g.decals.hole(q.x, q.y, 0, D.UP);
   check('the holes are a ring, so the pool never overflows', g.decals.pools.hole.count === D.POOLS.hole && g.decals.holes === D.POOLS.hole + 52);
-  check('and the ring is the MAX COUNT, a hundred, at the user\'s request',
-    D.POOLS.hole === 100 && D.POOLS.heat === 100 && D.POOLS.frost === 100,
+  /* FOUR HUNDRED, at the user's request: "increase bullet hole
+     lifetime count by 4x". A hole has no clock, so the count is the
+     lifetime — four times as many on the walls, each staying four times
+     as long. The heat and the frost were not asked about. */
+  check('and the ring is the MAX COUNT, four times the hundred it was, at the user\'s request',
+    D.POOLS.hole === 4 * 100 && D.POOLS.heat === 100 && D.POOLS.frost === 100,
     `${D.POOLS.hole}, ${D.POOLS.heat}, ${D.POOLS.frost}`);
 
   /* --- AND A FULL POOL FADES ITS OLDEST OUT, IN ORDER -----------------
@@ -9615,7 +9653,7 @@ section('the decals');
     /* fill it exactly, in order, each hole a step along the wall so
        they can be told apart */
     for (let k = 0; k < D.POOLS.hole; k++) dF.hole(fx + k, fy, 40, D.UP);
-    check('a hundred rounds fill the pool and no more than fill it',
+    check('a pool\'s worth of rounds fill the pool and no more than fill it',
       H.count === D.POOLS.hole && H.next === 0, `${H.count} live, cursor ${H.next}`);
     const oldest = [];
     H.oldest(D.FADE_AHEAD, oldest);
@@ -9660,7 +9698,7 @@ section('the decals');
       }
       check('and under a held minigun every hole the ring reaches has already faded out',
         worst < 0.05, `the brightest overwritten was ${worst.toFixed(3)}`);
-      check('and the wall still holds a hundred of them', H.count <= D.POOLS.hole && H.count > D.POOLS.hole * 0.8, `${H.count}`);
+      check('and the wall still holds nearly the whole pool of them', H.count <= D.POOLS.hole && H.count > D.POOLS.hole * 0.8, `${H.count}`);
     }
     /* AND THE SAME FOR THE OTHER KINDS, at the user's request: they
        are one system and one rule. A hundred separate hot spots, far
@@ -9704,7 +9742,7 @@ section('the decals');
     check('and the pipeline draws them between the world and the gun',
       /this\.afterWorld\(r, camera, this\.target\)/.test(readFileSync(new URL('../js/lofi.js', import.meta.url), 'utf8')) &&
       /pipeline\.afterWorld = \(r, cam, target\) => game\.decals\.draw\(r, cam, target\)/.test(readFileSync(new URL('../js/main.js', import.meta.url), 'utf8')));
-    check('eight kinds, each its own look', Object.keys(D.KIND).length === 8 && D.POOLS.blood > 0 && D.POOLS.burn > 0);
+    check('ten kinds, each its own look', Object.keys(D.KIND).length === 10 && D.POOLS.blood > 0 && D.POOLS.burn > 0 && D.POOLS.sear > 0);
     const gB = mk(), dB = gB.decals;
     dB.attach(gB.scene);
     const victim = gB.actors.find(a => a.monster && a.shootable && !a.vehicle && !a.dead);
@@ -9714,6 +9752,29 @@ section('the decals');
     const k = dB.bleed(victim, victim.x, victim.y, victim.z + 40, 1, 0, 0);
     check('a round through somebody puts blood on the floor at their feet', k >= 1 && dB.pools.blood.count === n0 + k &&
       dB.pools.blood.nz[(dB.pools.blood.next + dB.pools.blood.max - k) % dB.pools.blood.max] === 1);
+    /* AND UP THE WALLS BEHIND THEM, at the user's request: "i want
+       blood spatter on walls too". Somebody stood a little way in front
+       of a wall and shot toward it: a spray of it up the wall, several
+       spatters and not one, every one facing back toward them. */
+    {
+      const q2 = inTheOpen(gB);
+      const far = gB.level.rayHitWall(q2.x, q2.y, q2.eyeZ, q2.x + Math.cos(q2.angle) * 4000, q2.y + Math.sin(q2.angle) * 4000, q2.eyeZ);
+      if (far) {
+        const back = 90;
+        const ux = Math.cos(q2.angle), uy = Math.sin(q2.angle);
+        const who = { monster: true, x: far.x - ux * back, y: far.y - uy * back, z: q2.z };
+        const B = dB.pools.blood, before = new Set([...Array(B.max).keys()].filter(i => B.strength[i] > 0));
+        const n = dB.bleed(who, who.x, who.y, q2.z + 40, ux, uy, 0);
+        const onWall = [...Array(B.max).keys()].filter(i => B.strength[i] > 0 && !before.has(i) && B.nz[i] === 0);
+        note('a round through somebody a little in front of a wall', `${n} spatters, ${onWall.length} of them up the wall`);
+        check('a round through somebody in front of a wall sprays blood up it, not one blot',
+          onWall.length >= 2 && onWall.length <= D.WALL_SPRAY && D.WALL_SPRAY >= 3 && D.BLOOD_REACH > 130);
+        check('every spatter on the wall faces back the way the blood came, above the floor',
+          onWall.every(i => B.nx[i] * (who.x - B.x[i]) + B.ny[i] * (who.y - B.y[i]) > 0 && B.z[i] > q2.z));
+        check('and they are big enough to read, not flecks',
+          onWall.every(i => B.size[i] >= D.WALL_SPATTER[0] * 0.99));
+      } else check('a wall to bleed on', false);
+    }
     const bi = dB.blood(victim.x, victim.y, victim.z, D.UP, 0, 1, 0);
     check('and a spatter is turned to face the way it was thrown', Math.abs(dB.pools.blood.rot[bi] - Math.PI / 2) < 1e-6);
     const ri = dB.burn(victim.x, victim.y, victim.z, D.UP);
@@ -10804,6 +10865,60 @@ section('the quad launcher');
     check('the warhead hurts a trooper, whose kit shrugs off fire', sw.health < h0 || sw.dead, `${h0} -> ${sw.health}`);
     const src = fs.readFileSync('js/missiles.js', 'utf8');
     check('because it lands as impact, never as fire', /\{ impact: true \}/.test(src) && !/fire: true/.test(src));
+  }
+  /* AND WHAT IT DOES TO A PERSON IT KILLS, at the user's request: "i
+     also want people to literally explode into viscera and gore chunks
+     when hit by a rocket in a more extreme way". The ordinary burst is
+     thirteen burning pieces in a ring; a warhead kill is that and then
+     sixty pieces of viscera thrown away from the blast, faster and
+     higher than any burst, a spray of blood in the air, a great pool
+     under them and the floor and walls round them painted. */
+  {
+    const PP = await import('../js/people.js');
+    const DD = await import('../js/decals.js');
+    const G = g.giblets, Dc = g.decals;
+    G.chunks.killAll(); g.fx.gore.killAll();
+    const who = g.spawn('SHOPPER', p.x + 420, p.y + 60, undefined, {});
+    const ev = G.eviscerations, b0 = Dc.bloods, sprays = g.fx.gore.count;
+    const at = { x: who.x - 50, y: who.y, z: who.z + 20 };
+    M.detonate(at, null);
+    const C = G.chunks;
+    const pieces = [...Array(C.max).keys()].filter(i => C.alive[i] && C.kind[i] === 2);
+    const fastest = Math.max(...pieces.map(i => Math.hypot(C.vx[i], C.vy[i])));
+    const away = pieces.filter(i => C.vx[i] > 0).length;
+    note('a shopper a warhead went off beside',
+      `${pieces.length} pieces of viscera (a burst is ${PP.GIB.count}), fastest ${fastest.toFixed(1)}/tic, ` +
+      `${away} thrown away from the blast, ${g.fx.gore.count - sprays} blood in the air, ${Dc.bloods - b0} blood decals at once`);
+    check('a person a warhead kills is blown apart, not merely burst',
+      who.dead && G.eviscerations === ev + 1 && pieces.length === PP.GORE.count && PP.GORE.count >= PP.GIB.count * 4);
+    check('and the pieces fly further and higher than any burst throws them',
+      PP.GORE.speedMax > PP.GIB.speedMax * 1.5 && PP.GORE.riseMax > PP.GIB.riseMax * 1.5 && fastest > PP.GIB.speedMax);
+    check('mostly away from where it went off',
+      away > pieces.length * 0.6, `${away} of ${pieces.length}`);
+    check('with a heavy spray of blood in the air',
+      g.fx.gore.count - sprays >= PP.GORE.spray * 0.9);
+    check('and a great pool under them and blood thrown across the floor round them',
+      Dc.bloods - b0 >= 1 + PP.GORE.floor &&
+      [...Array(Dc.pools.blood.max).keys()].some(i => Dc.pools.blood.strength[i] > 0 && Dc.pools.blood.frame[i] === 1 &&
+                                                      Dc.pools.blood.size[i] >= PP.GORE.pool * 0.85 - 1e-6));
+    /* the pieces trail blood, not fire, and every one that lands leaves
+       blood where it landed */
+    const landed0 = Dc.bloods;
+    g.fx.gore.killAll();
+    for (let t = 0; t < 12; t++) G.tic();
+    check('the viscera trail blood through the air, not flame',
+      g.fx.gore.count > 0 &&
+      /if \(C\.kind\[i\] === 2\) \{[\s\S]{0,200}?bloodSpray[\s\S]{0,80}?continue;/.test(fs.readFileSync('js/people.js', 'utf8')),
+      `${g.fx.gore.count} blood`);
+    for (let t = 0; t < 300; t++) G.tic();
+    check('and every piece that comes down leaves blood where it came down',
+      C.count === 0 && Dc.bloods - landed0 >= PP.GORE.count * 0.9, `${Dc.bloods - landed0} more`);
+    check('a warhead kill takes the gore death for a trooper, however much health was left',
+      /opts\.gib \|\| this\.health < \(this\.info\.gibHealth/.test(fs.readFileSync('js/actor.js', 'utf8')) &&
+      /a\.damage\(n, p, \{ impact: true, gib: true \}\);/.test(fs.readFileSync('js/missiles.js', 'utf8')));
+    check('and blood goes up the walls round them in every direction, from the same spray a round uses',
+      /D\.sprayWalls\?\.\(a\.x, a\.y, mid, dx \|\| 1, dy, 0\.05, GORE\.walls, GORE\.wallReach, Math\.PI, 1\.5\)/
+        .test(fs.readFileSync('js/people.js', 'utf8')) && DD.WALL_SPRAY >= 3);
   }
 
   /* ---- THE THERMAL SIGHT ---------------------------------------------- */
@@ -13045,7 +13160,7 @@ section('the town on fire');
 }
 
 /* ---------- the editor ---------- */
-/* DEWM Editor (js/editor/), the map editor opened from the terminal with
+/* MEWD Editor (js/editor/), the map editor opened from the terminal with
    EDIT. What can be checked without a browser is everything that is not
    drawing: the document, the compiler that turns it into the same Level
    the game runs, the edits the views make, the undo stack, and the two
@@ -15389,7 +15504,7 @@ section('the network, steps one and three');
     const esc = await fetch(`http://127.0.0.1:${host.port}/%2e%2e/%2e%2e/etc/passwd`);
     const dot = await fetch(`http://127.0.0.1:${host.port}/.git/config`);
     check('and it serves the game to a browser on the LAN, and nothing outside it',
-      page.status === 200 && /DEWM/.test(await page.text()) && esc.status >= 400 && dot.status === 403, `${esc.status} ${dot.status}`);
+      page.status === 200 && /MEWD/.test(await page.text()) && esc.status >= 400 && dot.status === 403, `${esc.status} ${dot.status}`);
     W.close();
   } finally { await host.close(); }
   check('the server is one command, with nothing to install',

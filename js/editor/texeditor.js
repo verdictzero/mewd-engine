@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM Editor — the texture editor
+   MEWD Editor — the texture editor
    =====================================================================
 
    SLADE's texture editor, for the map's own textures (the drawing is

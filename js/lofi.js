@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the lo-fi pipeline
+   MEWD — the lo-fi pipeline
    =====================================================================
 
    The whole game is drawn into a buffer, filtered down onto a grid of

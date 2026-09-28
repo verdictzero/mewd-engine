@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the automatic doors
+   MEWD — the automatic doors
    =====================================================================
 
    Doom had exactly one door: a ceiling that goes up. Every "door" in the

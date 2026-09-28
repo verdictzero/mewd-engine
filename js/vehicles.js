@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the car park, and what happens to it
+   MEWD — the car park, and what happens to it
    =====================================================================
 
    js/car.js reads a GLB off the disk and hands back its triangles. This

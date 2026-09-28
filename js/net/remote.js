@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the game's side of a network client
+   MEWD — the game's side of a network client
 
    Step three of the LAN plan, the half that runs in the browser. A
    NetGame takes a Game built for the map the host named and a NetClient

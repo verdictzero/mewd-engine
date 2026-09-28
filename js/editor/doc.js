@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — THE EDITOR'S MAP, AS A DOCUMENT
+   MEWD — THE EDITOR'S MAP, AS A DOCUMENT
    =====================================================================
 
    What the editor edits, and what it hands the game. At the user's

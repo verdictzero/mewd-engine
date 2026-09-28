@@ -1,6 +1,6 @@
 #!/bin/sh
 # =====================================================================
-# DEWM — assemble the deployable site into public/
+# MEWD — assemble the deployable site into public/
 # =====================================================================
 #
 #   tools/build-site.sh [outdir]

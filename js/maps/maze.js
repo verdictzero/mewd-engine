@@ -1,10 +1,10 @@
 /* =====================================================================
-   DEWM — THE MAZE, the demo's world
+   MEWD — THE MAZE, the demo's world
 
    At the user's request the demo opens on a PROCEDURALLY GENERATED MAZE
    with tons of people in it. A new one every time the game starts (or
    the one `?seed=N` names, to go back to a maze you liked), built as a
-   DEWM Editor document and compiled by the same compiler as any map
+   MEWD Editor document and compiled by the same compiler as any map
    drawn by hand — so it opens in the editor as well (File → Open demo).
 
    THE MAZE is a perfect maze carved by a depth-first walk over a grid of

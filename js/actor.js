@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — actors: the state machine, and Doom's chase
+   MEWD — actors: the state machine, and Doom's chase
    =====================================================================
 
    An actor is a position, a state, and a countdown. Every tic the
@@ -631,7 +631,11 @@ export class Actor {
        out is a way to start something rather than a way to finish it. */
     if (this.info.explodes) { this.game.explode(this, { structure: 0.17, structureRadius: 190 }); }
 
-    const gibbed = this.info.xdeath && this.health < (this.info.gibHealth ?? -1000);
+    /* OR BLOWN APART, whatever the arithmetic says: a warhead kill
+       (opts.gib, from MissileSystem.detonate) takes the gore death every
+       time, because a trooper a rocket went off beside does not lie down
+       in one piece. */
+    const gibbed = this.info.xdeath && (opts.gib || this.health < (this.info.gibHealth ?? -1000));
     const st = gibbed ? this.info.xdeath : this.info.death;
     if (st) this.setState(st);
     else this.remove();

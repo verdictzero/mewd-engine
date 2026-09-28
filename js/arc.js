@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the arc maw's lightning
+   MEWD — the arc maw's lightning
    =====================================================================
 
    THE SEVENTH WEAPON, at the user's request, and the request was the

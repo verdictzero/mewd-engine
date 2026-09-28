@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the game
+   MEWD — the game
    =====================================================================
 
    Holds the level, the actors, the fire and the player, and runs the
@@ -205,10 +205,14 @@ export class Game {
        that is the player's business. See js/beam.js. */
     this.beam = new BeamSystem(this);
     if (fxAtlases) this.beam.attach(scene);
-    /* AND THE HOLES IT LEAVES IN THINGS. A wall with a piece blown out
-       of it is geometry and not a decal — see js/breach.js — so this
-       owns the punching, the crumbling and the debris, and the rebuild
-       goes through markBreached below. */
+    /* AND THE HOLES IT USED TO LEAVE IN THINGS. A wall with a piece
+       blown out of it is geometry and not a decal — see js/breach.js —
+       so this owns the punching, the crumbling and the debris, and the
+       rebuild goes through markBreached below. THE LANCE NO LONGER
+       PUNCHES, at the user's request: it leaves a sear where it lands
+       and changes nothing about the level (see js/beam.js). The system
+       stays, with nothing calling it, because everything that reads a
+       hole still does. */
     this.breaches = new BreachSystem(this);
     /* where the last hitscan stopped, for a tracer to be drawn to */
     this.lastHit = { x: 0, y: 0, z: 0 };

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the sprite bank
+   MEWD — the sprite bank
    =====================================================================
 
    Doom's sprite naming, because it is a good scheme and because every

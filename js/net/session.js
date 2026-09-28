@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — sessions: where the player's command each tic comes from
+   MEWD — sessions: where the player's command each tic comes from
 
    Game.tic no longer hands the player the Input object. It asks its
    SESSION for this tic's command (js/net/ticcmd.js) and hands the

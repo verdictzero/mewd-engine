@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — embers and smoke
+   MEWD — embers and smoke
    =====================================================================
 
    A fire that only glows is a picture of a fire. What sells it is what
@@ -126,6 +126,16 @@ export class Effects {
       max: 460, texture: flameAtlas?.texture || null, frames: flameAtlas?.frames || 1,
       blend: 'add', fullbright: true, name: 'body-fire', renderOrder: 13, nearShrink: 40,
     });
+    /* AND THE BLOOD IN THE AIR WHEN SOMEBODY IS BLOWN APART, which is
+       its own pool and not the smoke's for the reason the body fire is
+       its own: a warhead through a crowd wants several hundred of these
+       at once, for a second, and in the smoke's pool that is a second in
+       which every fire in the building stops smoking. Same puffs, drawn
+       dark red and shaded by the room, and they FALL — see bloodSpray. */
+    this.gore = new Particles({
+      max: 700, texture: atlases?.smoke || null, frames: SMOKE_PUFFS,
+      blend: 'alpha', fullbright: false, light: 0.7, name: 'gore-spray', renderOrder: 14, nearShrink: 60,
+    });
     this._samples = [];
     /* the per-tic budget and the light the burning bodies throw, both
        reset by the first caller in a tic rather than by the frame, so
@@ -139,6 +149,7 @@ export class Effects {
     this.embers.attach(scene);
     this.smoke.attach(scene);
     this.bodyFlames.attach(scene);
+    this.gore.attach(scene);
   }
 
   /* ------------------------------------------------------------------
@@ -319,6 +330,38 @@ export class Effects {
     });
   }
 
+  /** A SPRAY OF BLOOD out of (x, y, z), thrown along (dx, dy, dz) — or
+   *  every way at once if that is zero — `n` of it, at `force`. Two
+   *  things in one call, because a body coming apart is two things: a
+   *  MIST that hangs and spreads, dark red going brown, and DROPS, small
+   *  and fast and heavy, that arc out and come down, which is what makes
+   *  it read as liquid rather than as smoke. The drops stop at the floor
+   *  and leave nothing: the decals are what is left, and the caller lays
+   *  those — see Giblets.eviscerate. */
+  bloodSpray(x, y, z, dx = 0, dy = 0, dz = 0, n = 12, force = 1) {
+    const dl = Math.hypot(dx, dy, dz);
+    for (let k = 0; k < n; k++) {
+      const th = (pRandom() / 255) * Math.PI * 2, ph = (pRandom() / 255) * 2 - 1;
+      const cs = Math.sqrt(1 - ph * ph);
+      /* a direction: round the throw if there is one, anywhere if not */
+      let ux = Math.cos(th) * cs, uy = Math.sin(th) * cs, uz = Math.abs(ph) * 0.8 + 0.2;
+      if (dl > 0) { ux = ux * 0.55 + dx / dl; uy = uy * 0.55 + dy / dl; uz = uz * 0.55 + dz / dl + 0.3; }
+      const sp = force * (1.5 + (pRandom() / 255) * 6.5);
+      const drop = (k & 1) === 0;
+      this.gore.spawn({
+        x: x + (pRandom() / 255 - 0.5) * 10, y: y + (pRandom() / 255 - 0.5) * 10, z,
+        vx: ux * sp, vy: uy * sp, vz: uz * sp * (drop ? 1.1 : 0.4),
+        life: drop ? 26 + (pRandom() % 22) : 30 + (pRandom() % 30),
+        size0: drop ? 4 + (pRandom() & 3) : 12 + (pRandom() % 12),
+        size1: drop ? 3 : 34 + (pRandom() % 20),
+        c0: drop ? [0.55, 0.02, 0.02] : [0.62, 0.04, 0.035], c1: drop ? [0.35, 0.01, 0.01] : [0.28, 0.03, 0.02],
+        a0: drop ? 1 : 0.82, a1: drop ? 0.9 : 0,
+        frame: pRandom() % SMOKE_PUFFS, frameRate: drop ? 0 : 0.15,
+        drag: drop ? 0.985 : 0.93, gravity: drop ? -0.42 : -0.03, kind: drop ? 1 : 0,
+      });
+    }
+  }
+
   /** Where a flame landed: a spit of sparks and a little smoke. */
   splash(x, y, z) {
     this.ember(x, y, z + 6, 2, 0.8);
@@ -461,15 +504,22 @@ export class Effects {
       const s = lv.sectorAt(nx, ny);
       return !s || nz <= s.floor - 2 || nz >= s.ceil;
     });
+    /* the blood: a drop stops at the floor, the mist at nothing */
+    if (this.gore.count) this.gore.tic((i, nx, ny, nz) => {
+      if (this.gore.kind[i] !== 1) return false;
+      const s = lv.sectorAt(nx, ny);
+      return !s || nz <= s.floor + 1;
+    });
   }
 
   render(billboardRot) {
     this.embers.render(billboardRot);
     this.smoke.render(billboardRot);
     this.bodyFlames.render(billboardRot);
+    this.gore.render(billboardRot);
   }
 
-  get liveCount() { return this.embers.count + this.smoke.count; }
+  get liveCount() { return this.embers.count + this.smoke.count + this.gore.count; }
 }
 
 /* --------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — a client's end of the line
+   MEWD — a client's end of the line
 
    Says hello, learns who it is and which map to build, sends a command
    a tic, keeps the snapshots, and measures the line. What it does NOT

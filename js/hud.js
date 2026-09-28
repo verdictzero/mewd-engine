@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the readout, and the two things that are
+   MEWD — the readout, and the two things that are
    not the readout
    =====================================================================
 

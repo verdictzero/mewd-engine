@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the pixel toolkit
+   MEWD — the pixel toolkit
    =====================================================================
 
    Every texture and every sprite in this game is generated here, in

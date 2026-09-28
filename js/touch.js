@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — touch
+   MEWD — touch
    =====================================================================
 
    The phone's keyboard. One layer that turns fingers into the same four

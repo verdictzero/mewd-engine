@@ -1,10 +1,19 @@
 /* =====================================================================
-   DEWM — a hole through a wall
+   MEWD — a hole through a wall
    =====================================================================
 
    AT THE USER'S REQUEST: "any structure in the path of the beam has a
    hole blown through it, the hole will then decay into debris and
    burning". This file is the hole.
+
+   AND THE BEAM NO LONGER CALLS IT, at the user's later request: "still
+   shooting holes through stuff, i just want massive interesting decals,
+   no geometry changes". The positron lance stops at the first wall and
+   leaves a SEAR there instead (js/beam.js, js/decals.js), so nothing in
+   the game cuts a hole today. The machinery below is kept, whole and
+   tested, because everything that READS a hole — the renderer, the
+   collision, the bullets, the sight line — still does, and the next
+   thing that wants to open a wall should not have to rebuild it.
 
    ---------------------------------------------------------------------
    WHY IT IS NOT A DECAL

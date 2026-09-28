@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the wire: what a client and a host say to each other
+   MEWD — the wire: what a client and a host say to each other
 
    Two kinds of message, because they are two kinds of traffic:
 

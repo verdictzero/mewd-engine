@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — turning a floor plan into triangles
+   MEWD — turning a floor plan into triangles
    =====================================================================
 
    A two-sided line is a hole between two sectors, and what you actually
@@ -71,7 +71,7 @@ function paintWall(s, lo = null, hi = null) {
 const paintFlat = c => (c ? () => c : null);
 
 /* ONE SIDE OF A LINE, as the face looking into sector `s` wears it: the
-   line with that side's own textures and offsets over it (DEWM Editor's
+   line with that side's own textures and offsets over it (MEWD Editor's
    front and back sidedefs — see SIDES in js/editor/doc.js), or the line
    itself when it has no sides. */
 function sideOf(l, s) {
@@ -810,7 +810,7 @@ export function boxGeometry(set, p) {
   const { x0, y0, x1, y1, z0, z1 } = p;
   if (x1 - x0 <= 0 || y1 - y0 <= 0 || z1 - z0 <= 0) return 0;
   /* the colour and fog of the sector it stands in, if the map gave it
-     them (a box from DEWM Editor — see level.props in js/editor/doc.js) */
+     them (a box from MEWD Editor — see level.props in js/editor/doc.js) */
   const was = [PAINT, FOGV];
   PAINT = paintFlat(p.tint); FOGV = p.fog || null;
   try { return boxQuads(set, p); } finally { [PAINT, FOGV] = was; }
@@ -987,7 +987,7 @@ function surfaceTris(pts, tris, slope) {
 
 function addFlats(set, level, s, bank) {
   /* A SECTOR WITH HOLES IN IT — a room drawn inside another, in a map
-     from DEWM Editor (js/editor/doc.js) — is one ring bridged out to each
+     from MEWD Editor (js/editor/doc.js) — is one ring bridged out to each
      hole and back by a slit, because that is what a sector is here; but
      a triangulator handed that ring can fill the holes in, and a pit
      then has the ground drawn over the top of it. So a sector that says

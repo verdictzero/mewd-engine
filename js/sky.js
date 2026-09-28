@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the sky
+   MEWD — the sky
    =====================================================================
 
    A sky sector in this engine draws nothing and lets the background

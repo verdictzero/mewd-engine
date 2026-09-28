@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — a match: the rules that hold between players
+   MEWD — a match: the rules that hold between players
 
    Step three of the LAN plan. A host (js/net/server.js) makes one of
    these for its Game, and from then on the game has RULES: who is on

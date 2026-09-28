@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DEWM — bring the vandre project's plants and ground over
+MEWD — bring the vandre project's plants and ground over
 
     tools/prep-vandre.py /path/to/vandre
 

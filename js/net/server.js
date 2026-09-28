@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the host: an authoritative simulation behind a message interface
+   MEWD — the host: an authoritative simulation behind a message interface
 
    A SimServer owns one Game and the clients talking to it. It does not
    care where it is running: the dedicated server (tools/server.mjs)

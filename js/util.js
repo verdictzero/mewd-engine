@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the small stuff everything else stands on
+   MEWD — the small stuff everything else stands on
    =====================================================================
 
    Units are Doom units, and that is a decision, not an accident. The

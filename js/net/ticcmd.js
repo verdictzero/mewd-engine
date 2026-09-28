@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the TicCmd: one tic of a player's hands, as data
+   MEWD — the TicCmd: one tic of a player's hands, as data
 
    The first step toward LAN play, at the user's request. Doom called it
    a ticcmd and so does this: everything a player does to the world in

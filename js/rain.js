@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the rain
+   MEWD — the rain
    =====================================================================
 
    A box of streaks round the camera, and nothing else. Two thousand

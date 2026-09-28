@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — noises
+   MEWD — noises
    =====================================================================
 
    Synthesised, not sampled. Same reason as the textures: nothing to

@@ -1,7 +1,7 @@
-DEWM
+MEWD
 ====
 
-The engine is DEWM; the game is DEWM Demo; the map editor is DEWM
+The engine is MEWD; the game is MEWD Demo; the map editor is MEWD
 Editor (at the user's request — it was Grocery Store Simulator and
 GSS-EDIT).
 
@@ -183,13 +183,43 @@ it, enter, space or a click takes it. Only NEW GAME goes anywhere yet;
 the rest are dimmed and shake their heads. On a phone held sideways
 the logo takes the left of the screen and the menu stands at its right.
 
-THE DEMO IS A MAZE, at the user's request: DEWM Demo opens on a hedge
+THE NAME IS MEWD, at the user's request: Doom backwards, misspelt, and
+what the logo says. Every DEWM in the page, the manifest, the terminal,
+the editor and the comments is MEWD now; the terminal's prompt still
+reads INTERFACE 2037.
+
+THE LANCE NO LONGER CHANGES THE LEVEL, at the user's request. It cuts no
+holes, fells no buildings and lights no street; the column stops at the
+first wall, floor or ceiling it meets (BeamSystem._impact) and SEARS it
+instead — one enormous burn, 170, 240 or 320 units across by the charge
+it was fired at, glowing and then cooling to a charred crater with
+orange cracks, and a scatter of slag splashes round it leaning the way
+the beam was going (BeamSystem._sear, SEAR in js/beam.js). It still
+kills and lights everybody between the muzzle and that wall.
+
+HOLES LAST FOUR TIMES AS LONG: the ring keeps 400 of them, up from 100,
+and blood 480, up from 120 (js/decals.js).
+
+BLOOD GOES UP THE WALLS: a hit sprays four rays in a cone behind the
+victim, 24 degrees each side of the shot and 260 units long, and every
+one that meets a wall leaves a spatter on it (sprayWalls). Gore that
+hits a wall now lies on the wall rather than as if it were floor.
+
+A ROCKET TAKES PEOPLE APART (Giblets.eviscerate, GORE in js/people.js):
+everyone a blast kills goes up as sixty chunks thrown out from the
+blast and trailing blood, ninety particles of mist and drops (their own
+pool, Effects.bloodSpray), a pool where they stood, a dozen spatters
+across the floor and twenty rays of blood up every wall within 360
+units — and a trooper always plays the gore death, however much health
+they had.
+
+THE DEMO IS A MAZE, at the user's request: MEWD Demo opens on a hedge
 maze generated afresh every time the game starts (js/maps/maze.js) —
 18 by 18 corridors carved by a depth-first walk, braided so there is
 more than one way round, with paved plazas cleared in it (a lamp in
 each corner, a tree in the middle) — and over five hundred people
 wandering it. ?seed=N plays maze N again (the seed is in the console);
-?sprawl is THE SPRAWL, the world it used to be. The maze is a DEWM
+?sprawl is THE SPRAWL, the world it used to be. The maze is a MEWD
 Editor document like any other: File → Open demo: a new MAZE opens one
 in the editor, and File → Open THE SPRAWL the old one.
 
@@ -199,7 +229,7 @@ in any case:
 
   G  or  GAME     the game (js/main.js boots it; the terminal fades off
                   in front of the loading screen)
-  E  or  EDIT     the map editor: see DEWM Editor, THE MAP EDITOR below
+  E  or  EDIT     the map editor: see MEWD Editor, THE MAP EDITOR below
   QUIT  or  EXIT  leaves for news.asr.institute
 
 Nothing under js/main.js knows the terminal exists.
@@ -827,7 +857,7 @@ js/decals.js:
            core inside a ragged pale lip — the chipped plaster, which
            is what you actually see, because the shop is dark at night
            and a dark spot on a dark wall is nothing — a hand across,
-           turned at random. A HUNDRED of them in a ring — the MAX
+           turned at random. FOUR HUNDRED of them now (a hundred before) — the MAX
            COUNT, at the user's request, down from five hundred and
            twelve, because the accumulation was costing a frame it
            should not have — and when the ring is full THE OLDEST FADE
@@ -3665,7 +3695,7 @@ AND THE WEATHER below; the photograph stays in assets/sky, unloaded.
 The name is set in Michroma — the open-licensed cousin of the extended
 square sans the Flight Simulator wordmark uses, bundled in assets/fonts
 so nothing is fetched — as two SVG text lines held to one width by
-textLength, DEWM large over DEMO small, the pair skewed
+textLength, MEWD large over DEMO small, the pair skewed
 together so they lean as one. The title screen is that and a way in,
 over the car park standing still, with the eye wandering very slightly
 so the picture breathes. Nothing else on it but the version number,
@@ -5435,7 +5465,7 @@ with it in your hands — stops the loop through one line, and none of
 them has to remember to.
 
 
-DEWM Editor, THE MAP EDITOR
+MEWD Editor, THE MAP EDITOR
 
 At the user's request: a map editor for this game in the mould of SLADE
 and Ultimate Doom Builder. Type E or EDIT at the terminal, or open index.html?edit to go straight in. It is the
@@ -6044,7 +6074,7 @@ which have no fog, are untouched.
 
 THE SPRAWL, THE GAME'S OWN WORLD (js/maps/sprawl.js). At the user's
 request: a sprawling level made of every asset the user has given and
-none that were generated. DEWM at the terminal opens it, and so does a
+none that were generated. MEWD at the terminal opens it, and so does a
 reload; DEMO and index.html?demo say so outright; index.html?grid is
 THE GRID, the test area the game used to open in. Or open it in the
 editor (File > Open demo: THE SPRAWL) to take it apart. It is an

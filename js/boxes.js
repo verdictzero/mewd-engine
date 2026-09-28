@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — THE BOXES, AND HOW THEY BURN
+   MEWD — THE BOXES, AND HOW THEY BURN
    =====================================================================
 
    The things standing on the grid (js/maps/grid.js): cubes two cells to

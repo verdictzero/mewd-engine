@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the quad launcher's seeker and its missiles
+   MEWD — the quad launcher's seeker and its missiles
    =====================================================================
 
    FOUR TUBES AND A HEAT SEEKER, at the user's request: "a heat seeking
@@ -64,7 +64,7 @@ import { pRandom, dist2 } from './util.js';
 import { Particles } from './particles.js';
 import { SMOKE_PUFFS } from './effects.js';
 import { climate } from './weather.js';
-import { wallNormal, UP, DOWN } from './decals.js';
+import { wallNormal, UP, DOWN, bleeds } from './decals.js';
 
 export const SEEKER = {
   range: 4200,          // how far away a heat source can be taken
@@ -559,10 +559,29 @@ export class MissileSystem {
     if (p) g.noise(at, 1600);
 
     const hit = new Set();
+    /* WHO IT MIGHT KILL, for the gore — see the end of this, and GORE
+       in js/people.js. EVERYBODY IN REACH WHO WAS ALIVE WHEN IT WENT
+       OFF, taken BEFORE anything is hurt, and not only whoever the loop
+       below kills itself: a shopper killed first goes up in their own
+       burst, and that burst can finish the one next to them before the
+       loop gets there — they died of this warhead all the same. So the
+       list is taken first and asked about at the end. */
+    const blown = [];
+    const took = (a, force) => {
+      if (!a || a.dead || a.vehicle) return;
+      if (!blown.some(b => b.a === a)) blown.push({ a, force });
+    };
+    const R0 = WARHEAD.radius;
+    for (const a of g.actors) {
+      if (a.removed || a.dead || !a.shootable || a.vehicle || a === direct) continue;
+      const d = Math.hypot(a.x - at.x, a.y - at.y, (a.z + (a.height || 56) * 0.5) - at.z) - (a.radius || 16);
+      if (d < R0) took(a, 1 - 0.4 * Math.max(0, d) / R0);
+    }
     if (direct) {
       hit.add(direct);
       this.hits++;
-      direct.damage?.(WARHEAD.direct, p, { impact: true });
+      took(direct, 1.35);
+      direct.damage?.(WARHEAD.direct, p, { impact: true, gib: true });
       direct.ignite?.(WARHEAD.ignite);
     }
     const R = WARHEAD.radius;
@@ -580,9 +599,18 @@ export class MissileSystem {
       hit.add(who);
       const n = Math.round(WARHEAD.splash * (1 - d / R));
       if (n <= 0) continue;
-      a.damage(n, p, { impact: true });
+      a.damage(n, p, { impact: true, gib: true });
       if (a.info?.flammable) a.ignite?.(WARHEAD.ignite);
     }
+    /* AND EVERYBODY IT KILLED IS BLOWN APART, at the user's request —
+       "literally explode into viscera and gore chunks when hit by a
+       rocket in a more extreme way". The ordinary burst (a shopper) or
+       the gore death (a trooper, forced by `gib` above) has already
+       happened in damage(); this is on top of it: sixty pieces thrown
+       away from the blast, a spray of blood in the air and the room
+       round them painted. See Giblets.eviscerate. */
+    for (const b of blown)
+      if (b.a.dead && bleeds(b.a, p)) g.giblets?.eviscerate?.(b.a, at, b.force);
     /* AND YOU, because you are standing in it or you are not */
     if (p && !p.dead) {
       const h = Math.max(0, Math.sqrt(dist2(at.x, at.y, p.x, p.y)) - p.radius);

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — tracers
+   MEWD — tracers
    =====================================================================
 
    THE MINIGUN'S ROUNDS ARE SEEN, at the user's request. A round in this

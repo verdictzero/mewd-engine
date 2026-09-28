@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — JESSE, the PvP maze
+   MEWD — JESSE, the PvP maze
 
    At the user's request: two FORTIFIABLE STAGING AREAS, one at each end,
    joined by a massive MULTITHREADED maze — dead ends, loops, turn-
@@ -10,7 +10,7 @@
    THE SAME FORMAT AS THE MAZE (js/maps/maze.js): a grid of tiles, a
    thin 64-unit wall line between every pair of 256-unit corridor cells,
    a wall tile raised to a hedge's height, runs of one kind merged into
-   rectangles and those into a DEWM Editor document the ordinary
+   rectangles and those into a MEWD Editor document the ordinary
    compiler builds — so it opens in the editor like any other map.
 
    WILDLY DIFFERENT, because nothing about it is fixed but the idea:

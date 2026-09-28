@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the forest, and it burns
+   MEWD — the forest, and it burns
    =====================================================================
 
    The parade stands in the middle of a wood that runs for miles: a
@@ -366,7 +366,7 @@ export class Forest {
     this.bounds = b;
     this.originX = b[0]; this.originY = b[1];
     /* PLANTS AND NO WOOD: a map that places its own plants and has no
-       forest floor for a scatter to grow over — a map made in DEWM Editor
+       forest floor for a scatter to grow over — a map made in MEWD Editor
        (js/editor/), whose decorations are placed or spread there. The
        grid is laid over the map so the plants have cells to stand in
        and collide by, and nothing else is grown. */

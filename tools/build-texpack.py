@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DEWM — build the texture pack
+MEWD — build the texture pack
 
     tools/build-texpack.py SRC [SRC ...]
 

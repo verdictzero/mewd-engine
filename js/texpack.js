@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the texture pack
+   MEWD — the texture pack
    =====================================================================
 
    Every other texture in this game is DRAWN, in the page, at start-up

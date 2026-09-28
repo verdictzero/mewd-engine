@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the pictures somebody else drew
+   MEWD — the pictures somebody else drew
    =====================================================================
 
    Everything else the game draws it draws itself, from ramps and noise,

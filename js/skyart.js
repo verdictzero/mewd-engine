@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the sky, baked in the page
+   MEWD — the sky, baked in the page
    =====================================================================
 
    The sky used to be the one picture in the game that was a

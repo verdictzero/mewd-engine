@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — bringing real artwork in
+   MEWD — bringing real artwork in
    =====================================================================
 
      node tools/bake-art.mjs

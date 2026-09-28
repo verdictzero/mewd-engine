@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the water
+   MEWD — the water
    =====================================================================
 
    What comes out of the fire truck's cannon (see FireTruck in

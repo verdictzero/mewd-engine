@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the sector grid
+   MEWD — the sector grid
    =====================================================================
 
    At the user's request: sprites, trees and 3D objects are lit, coloured

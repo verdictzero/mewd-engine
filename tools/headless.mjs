@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — a Game with no screen, for a host that has none
+   MEWD — a Game with no screen, for a host that has none
 
    The dedicated server (tools/server.mjs) and the tests both need the
    real simulation — the real Game, Player, level and fire — with

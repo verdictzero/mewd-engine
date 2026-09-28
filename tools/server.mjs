@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* =====================================================================
-   DEWM — the dedicated server
+   MEWD — the dedicated server
 
      node tools/server.mjs [--map jesse|maze] [--seed N] [--port 7777]
                            [--max 16] [--frags N] [--no-files]
@@ -198,7 +198,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     rules: { ...(arg('frags') ? { fragLimit: +arg('frags'), teamLimit: +arg('frags') } : {}) },
     files: !process.argv.includes('--no-files'),
   });
-  console.log(`DEWM host on port ${host.port}, up to ${host.sim.maxPlayers} players`);
+  console.log(`MEWD host on port ${host.port}, up to ${host.sim.maxPlayers} players`);
   console.log(`${host.sim.match.mode === 'tdm' ? 'team deathmatch' : 'deathmatch'}, to ${host.sim.match.limit}`);
   for (const a of lanAddresses()) console.log(`  play:  http://${a}:${host.port}/?join     socket: ws://${a}:${host.port}/net`);
   const bye = async () => { console.log('closing'); await host.close(); process.exit(0); };

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the title's own level: a forest that goes by for ever
+   MEWD — the title's own level: a forest that goes by for ever
 
    At the user's request the title no longer stands on the map the game
    is about to play. It has a world of its own behind it: a forest seen

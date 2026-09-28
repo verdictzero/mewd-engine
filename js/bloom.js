@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — the police lights, and the bloom off them
+   MEWD — the police lights, and the bloom off them
    =====================================================================
 
    THE LIGHT BAR. The police van arrives with its light bar as a part of

@@ -1,5 +1,5 @@
 /* =====================================================================
-   DEWM — what is holding up a roof that is not there
+   MEWD — what is holding up a roof that is not there
    =====================================================================
 
    A REGION THAT HAS BURNT OUT USED TO BECOME SKY. Its ceiling texture
