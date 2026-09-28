@@ -160,9 +160,19 @@ The world's depth is copied once a frame (eight-bit packed) so the
 boxes can read it while they draw; see Decals.draw and the afterWorld
 hook in js/lofi.js.
 
-THE LOGO is the user's DEWM mark (assets/logo/dewm.webp, their image
-with its transparent edge cropped off), on the loading screen and over
-the title.
+THE LOGO is the user's MEOW mark (art/title-logo.png, their image with
+its transparent edge cropped off), cut to four widths in assets/logo/
+(meow-480, -960, -1440 and -1951.webp) so the browser fetches the one
+the screen needs. It is small on the loading screen and BIG over the
+title: nearly the width of the glass, and as much of its height as
+leaves room for the menu.
+
+THE MAIN MENU is Doom's, in this game's clothes: NEW GAME, CONTINUE,
+LOAD GAME, OPTIONS, MULTIPLAYER and QUIT GAME in a column under the
+logo, a blinking marker on the one you are on. Up/down (or W/S) walk
+it, enter, space or a click takes it. Only NEW GAME goes anywhere yet;
+the rest are dimmed and shake their heads. On a phone held sideways
+the logo takes the left of the screen and the menu stands at its right.
 
 THE DEMO IS A MAZE, at the user's request: DEWM Demo opens on a hedge
 maze generated afresh every time the game starts (js/maps/maze.js) —

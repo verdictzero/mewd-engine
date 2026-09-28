@@ -1073,9 +1073,35 @@ async function boot() {
     else input.requestLock();
     input.keys.clear();
   }
-  title.addEventListener('click', start);
+  /* THE MAIN MENU, Doom's: up and down walk the marker, enter or a
+     click takes the one it is on. Only NEW GAME goes anywhere yet; the
+     others shake their heads. */
+  const menuItems = [...document.querySelectorAll('#main-menu .mm')];
+  let menuAt = 0;
+  const menuMark = i => {
+    menuAt = (i + menuItems.length) % menuItems.length;
+    menuItems.forEach((b, j) => b.classList.toggle('on', j === menuAt));
+  };
+  const menuTake = i => {
+    menuMark(i);
+    const b = menuItems[menuAt];
+    if (b.getAttribute('aria-disabled') === 'true') {
+      b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope');
+      audio.resume();
+      return;
+    }
+    if (b.dataset.act === 'new') start();
+  };
+  menuItems.forEach((b, i) => {
+    b.addEventListener('pointerenter', () => menuMark(i));
+    b.addEventListener('click', e => { e.stopPropagation(); menuTake(i); });
+  });
   addEventListener('keydown', e => {
-    if (!started && (e.code === 'Space' || e.code === 'Enter')) { start(); return; }
+    if (!started) {
+      if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); menuMark(menuAt - 1); return; }
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); menuMark(menuAt + 1); return; }
+      if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); menuTake(menuAt); return; }
+    }
     /* THE MENU ON A KEYBOARD. The arrows turn the page, or move the
        slider when a window is open; escape shuts the window rather than
        the menu, and the key is taken off the input on the way past so
@@ -1104,7 +1130,7 @@ async function boot() {
     /* BACK TO THE EDITOR, from a test run or from anywhere */
     if (e.code === 'F2') { e.preventDefault(); location.href = location.pathname + '?edit'; }
   });
-  renderer.domElement.addEventListener('mousedown', () => { if (!started) start(); else audio.resume(); });
+  renderer.domElement.addEventListener('mousedown', () => { if (started) audio.resume(); });
 
   function setDetail(i) {
     detailIndex = Math.max(0, Math.min(DETAIL.length - 1, i));

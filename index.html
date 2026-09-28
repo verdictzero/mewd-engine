@@ -64,21 +64,35 @@
 <div id="loading">
   <div class="panel">
     <div class="logo-slot small">
-    <img class="logo" src="assets/logo/dewm.webp" alt="DEWM" width="1534" height="654" decoding="async">
+    <img class="logo" src="assets/logo/meow-960.webp"
+         srcset="assets/logo/meow-480.webp 480w, assets/logo/meow-960.webp 960w, assets/logo/meow-1440.webp 1440w, assets/logo/meow-1951.webp 1951w"
+         sizes="min(64vw, 36rem)" alt="MEOW" width="1951" height="938" decoding="async">
     </div>
     <div id="load-status">RETICULATING SPLINES</div>
     <div class="bar"><div id="load-bar"></div></div>
   </div>
 </div>
 
-<!-- The title: the name over the car park, and a way in. The picture
-     behind it is the game itself, standing still. Nothing else. -->
+<!-- The title: the name over the car park, as big as the glass will
+     take it, and under it the menu, the way Doom did it — a column of
+     words and a marker beside the one you are on. Up and down move the
+     marker, enter or a tap takes it. Only NEW GAME goes anywhere yet;
+     the rest are there, dimmed, where they will be. -->
 <div id="title" class="gone">
-  <div class="panel">
-    <div class="logo-slot">
-    <img class="logo" src="assets/logo/dewm.webp" alt="DEWM" width="1534" height="654" decoding="async">
+  <div class="title-wrap">
+    <div class="logo-slot big">
+    <img class="logo" src="assets/logo/meow-960.webp"
+         srcset="assets/logo/meow-480.webp 480w, assets/logo/meow-960.webp 960w, assets/logo/meow-1440.webp 1440w, assets/logo/meow-1951.webp 1951w"
+         sizes="(max-height: 520px) min(60vw, 150vh), min(96vw, 112vh, 1951px)" alt="MEOW" width="1951" height="938" decoding="async">
     </div>
-    <p class="prompt"><span class="desk-only">CLICK TO START</span><span class="touch-only">TAP TO START</span></p>
+    <nav id="main-menu" class="mainmenu" aria-label="Main menu">
+      <button class="mm on" type="button" data-act="new">NEW GAME</button>
+      <button class="mm" type="button" data-act="continue" aria-disabled="true">CONTINUE</button>
+      <button class="mm" type="button" data-act="load" aria-disabled="true">LOAD GAME</button>
+      <button class="mm" type="button" data-act="options" aria-disabled="true">OPTIONS</button>
+      <button class="mm" type="button" data-act="multi" aria-disabled="true">MULTIPLAYER</button>
+      <button class="mm" type="button" data-act="quit" aria-disabled="true">QUIT GAME</button>
+    </nav>
   </div>
   <!-- which build this is: js/version.js, written in by main.js -->
   <div id="version"></div>
