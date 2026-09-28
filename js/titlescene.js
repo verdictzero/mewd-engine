@@ -39,11 +39,31 @@ const SPEED = 3.2;                     // units a second, the eye going right
 const EYE_Y = 2.6;
 const GROUND_TILE = 4;                // units a repeat of the forest floor covers
 const FOV = 50;
-/* THE RED, at the user's request: one colour multiplied into everything
-   in this world — every plant, the ground, the sky and the air — so the
-   whole forest is seen through it */
-const RED = [1.0, 0.26, 0.2];
-const red = (r, g, b) => [r * RED[0], g * RED[1], b * RED[2]];
+/* THE LAYERS, at the user's request, top to bottom:
+
+     the menu            HTML, over everything
+     the dither LUT      the game's own post pass (js/lofi.js)
+     MEWD                the logo, drawn INTO the picture as an overlay,
+                         so it is dithered and snapped with the forest
+     the blue overlay    BLUE, multiplied over ...
+     monochrome          ... the forest taken to grey
+     the forest          everything below
+
+   So the forest's materials are patched to write grey times BLUE, and
+   the logo, which is not part of the forest, is neither. */
+const BLUE = [0.34, 0.52, 1.0];
+const LUMA = 'vec3(0.299, 0.587, 0.114)';
+/** Grey, then blue: added to a MeshBasicMaterial's fragment shader after
+ *  its colour and texture have been read. */
+function monoBlue(m) {
+  m.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
+      `#include <map_fragment>
+       diffuseColor.rgb = vec3(dot(diffuseColor.rgb, ${LUMA})) * vec3(${BLUE.map(v => v.toFixed(3)).join(', ')});`);
+  };
+  m.customProgramCacheKey = () => 'mewd-mono-blue';
+  return m;
+}
 
 /* the rows: depth, how wide the ring is, how many in it, what grows
    there and how tall, and its TINT, which is the air: the game swaps
@@ -99,6 +119,36 @@ export class TitleForest {
     this.geo.translate(0, 0.5, 0);
   }
 
+  /* THE LOGO, IN THE PICTURE. An orthographic overlay the pipeline
+     draws over the forest and before its post pass, so MEWD goes
+     through the dither and the palette like everything else. WHERE it
+     goes is still decided by the page: the HTML logo stays in the
+     title's layout, invisible, and its box is copied here every frame
+     — so the logo sits exactly where the CSS puts it, on every screen
+     shape, and the menu under it never moves. */
+  async loadLogo(url) {
+    const t = await new Promise((ok, no) => new THREE.TextureLoader().load(url, ok, undefined, no));
+    t.colorSpace = THREE.SRGBColorSpace;
+    this.logoTex = t;
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
+    this.logo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false, fog: false }));
+    scene.add(this.logo);
+    this.overlay = { scene, camera, visible: false };
+    return this;
+  }
+
+  /** Put the logo over the box `r` of the page, in a view whose box is `v`. */
+  placeLogo(r, v) {
+    if (!this.logo || !v.width || !v.height || !r.width) { if (this.overlay) this.overlay.visible = false; return; }
+    const cx = ((r.left + r.width / 2 - v.left) / v.width) * 2 - 1;
+    const cy = 1 - ((r.top + r.height / 2 - v.top) / v.height) * 2;
+    this.logo.position.set(cx, cy, -1);
+    this.logo.scale.set(r.width / v.width * 2, r.height / v.height * 2, 1);
+    this.overlay.visible = true;
+  }
+
   /** Fetch the pictures and build the rows. Resolves when it can be drawn. */
   async load() {
     const loader = new THREE.TextureLoader();
@@ -122,7 +172,8 @@ export class TitleForest {
     let m = this.materials.get(key);
     if (!m) {
       m = new THREE.MeshBasicMaterial({ map: this.textures.get(kind), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
-      m.color.setRGB(...red(...tint));
+      m.color.setRGB(...tint);
+      monoBlue(m);
       this.materials.set(key, m);
     }
     return m;
@@ -131,7 +182,7 @@ export class TitleForest {
   _build(sky, ground) {
     const s = this.scene;
     /* behind it all, the colour the sky has at the horizon */
-    s.background = new THREE.Color().setRGB(...red(0.10, 0.13, 0.18));
+    s.background = new THREE.Color().setRGB(...BLUE.map(v => v * 0.12));
 
     /* THE SKY, the top half of BSKY1 on a plane that rides with the
        eye; its own drift is a slow slide of the picture */
@@ -142,7 +193,8 @@ export class TitleForest {
       sky.offset.set(0, 0.5);
       this.skyTex = sky;
       const m = new THREE.MeshBasicMaterial({ map: sky, fog: false, depthWrite: false });
-      m.color.setRGB(...red(1.1, 1.1, 1.1));
+      m.color.setScalar(1.1);
+      monoBlue(m);
       this.sky = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
       this.sky.renderOrder = -1;
       s.add(this.sky);
@@ -150,12 +202,12 @@ export class TitleForest {
 
     /* THE GROUND, a strip that rides with the eye and slides its
        texture the other way, which is the same as standing still */
-    const g = new THREE.MeshBasicMaterial({ color: 0x5a6a3a, fog: false });
+    const g = monoBlue(new THREE.MeshBasicMaterial({ color: 0x5a6a3a, fog: false }));
     if (ground) {
       ground.colorSpace = THREE.SRGBColorSpace;
       ground.wrapS = ground.wrapT = THREE.RepeatWrapping;
       ground.repeat.set(600 / GROUND_TILE, 300 / GROUND_TILE);
-      g.map = ground; g.color.setRGB(...red(0.55, 0.6, 0.5));
+      g.map = ground; g.color.setRGB(0.55, 0.6, 0.5);
       this.groundTex = ground;
     }
     this.ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 300), g);
@@ -171,7 +223,7 @@ export class TitleForest {
        colour of a wood in shadow from the ground to well up their
        trunks, so what shows between them low down is more forest and
        never sky */
-    const band = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(...red(0.09, 0.12, 0.10)), fog: false });
+    const band = monoBlue(new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.09, 0.12, 0.10), fog: false }));
     this.band = new THREE.Mesh(new THREE.PlaneGeometry(900, 16), band);
     this.band.position.set(0, 8 - 0.5, -215);
     s.add(this.band);
@@ -238,7 +290,8 @@ export class TitleForest {
   dispose() {
     this.scene.traverse(o => { if (o.material) o.material.dispose?.(); });
     for (const t of this.textures.values()) t.dispose();
-    this.skyTex?.dispose(); this.groundTex?.dispose();
+    this.skyTex?.dispose(); this.groundTex?.dispose(); this.logoTex?.dispose();
+    this.logo?.material.dispose(); this.logo?.geometry.dispose();
     this.geo.dispose();
   }
 }

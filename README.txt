@@ -172,9 +172,14 @@ right to left for ever, with grass close enough to the eye to fill the
 bottom of the screen (js/titlescene.js). Seven rows of cutouts from
 assets/forest at seven depths, packed tight, with a solid dark
 treeline and a band behind it so nothing shows between the trunks,
-on a forest floor of GRASS5, under the top half of BSKY1 — and all of
-it, sky included, seen through one RED that is multiplied into every
-material in that world; a real
+on a forest floor of GRASS5, under the top half of BSKY1. THE LAYERS,
+top to bottom, at the user's request: the HTML menu; the game's dither
+and palette LUT; MEWD; a blue overlay; a monochrome filter; the forest.
+So the forest's materials write grey times BLUE (monoBlue), and the
+logo is drawn INTO the frame as an overlay — dithered, never tinted —
+over the box the page's own, now invisible, logo still takes in the
+layout (TitleForest.loadLogo / placeLogo), so it sits where the CSS
+puts it on every screen shape; a real
 perspective camera moving sideways does the parallax, and each row is
 a ring that re-dresses whatever falls off its left end as a different
 plant at a different size. It is drawn through the game's own pipeline

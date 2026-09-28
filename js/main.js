@@ -1165,6 +1165,14 @@ async function boot() {
      taken it is thrown away. */
   let titleForest = new TitleForest();
   titleForest.load().catch(e => { console.warn('title forest', e); titleForest = null; });
+  /* and MEWD goes INTO that picture, under the dither, at the user's
+     request: the page's logo keeps its place in the layout, invisible,
+     and the one drawn in the frame is laid over its box (see
+     TitleForest.loadLogo). Until it is in, the page's own shows. */
+  const titleLogo = title.querySelector('.logo-slot.big .logo');
+  const logoReady = titleLogo.complete ? Promise.resolve() : new Promise(ok => titleLogo.addEventListener('load', ok, { once: true }));
+  logoReady.then(() => titleForest?.loadLogo(titleLogo.currentSrc || titleLogo.src))
+    .catch(e => console.warn('title logo', e));
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.25, (now - last) / 1000);
@@ -1245,9 +1253,11 @@ async function boot() {
     if (started && titleForest) { titleForest.dispose(); titleForest = null; }
     if (!started && titleForest?.ready) {
       titleForest.update(dt, camera.aspect, now);
+      if (titleForest.overlay) titleForest.placeLogo(titleLogo.getBoundingClientRect(), container.getBoundingClientRect());
+      title.classList.toggle('live', !!titleForest.overlay?.visible);
       const after = pipeline.afterWorld;
       pipeline.afterWorld = null;            // the game's decals are not in this world
-      pipeline.render(titleForest.scene, titleForest.camera);
+      pipeline.render(titleForest.scene, titleForest.camera, [titleForest.overlay]);
       pipeline.afterWorld = after;
     } else pipeline.render(scene, camera, overlays);
 
