@@ -588,16 +588,24 @@ html.touch .desk-only, html:not(.touch) .touch-only { display: none !important; 
 #touch.lefty .hint-look { right: auto; left: 30%; }
 #touch.used-move .hint-move, #touch.used-look .hint-look { opacity: 0; }
 
-/* a first-person game held upright is a keyhole; say so, once, quietly */
+/* A PHONE HELD UPRIGHT IS AN ERROR, at the user's request: the whole
+   glass red, over everything — the terminal, the title, the game — with
+   a black rotate glyph and ROTATE DEVICE, until it is turned. A phone is
+   a coarse pointer (known before the game has loaded) or a machine the
+   game has already put in touch mode. */
 #rotate {
   display: none;
-  position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px);
-  padding: .5rem 1rem; z-index: 7;
-  font-size: .68rem; letter-spacing: .18em; text-align: center;
-  color: #e8c34a; background: rgba(5, 6, 10, .78);
-  pointer-events: none;
+  position: fixed; inset: 0; z-index: 1000;
+  flex-direction: column; align-items: center; justify-content: center; gap: 1.6rem;
+  background: #d0201a;
+  color: #000;
 }
-@media (orientation: portrait) { html.touch #rotate { display: block; } }
+#rotate .rot-icon { width: min(38vw, 11rem); height: auto; fill: currentColor; animation: rot-nudge 2.4s ease-in-out infinite; }
+#rotate .rot-text { font-family: 'Michroma', ui-monospace, monospace; font-size: clamp(1rem, 6vw, 1.6rem); letter-spacing: .2em; }
+@keyframes rot-nudge { 0%, 35% { transform: rotate(0deg); } 55%, 90% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+@media (prefers-reduced-motion: reduce) { #rotate .rot-icon { animation: none; } }
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+@media (orientation: portrait) { html.touch #rotate { display: flex; } }
 
 /* the debug readout: off unless asked for with the ` key */
 #fps {

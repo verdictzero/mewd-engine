@@ -208,6 +208,13 @@ bends properly — its cutouts are six strips tall — with the grass
 curling most and the far treeline barely moving (the `sway` of each
 row in js/titlescene.js).
 
+A PHONE HELD UPRIGHT IS AN ERROR, at the user's request: the whole screen
+goes red, over the terminal, the title and the game alike, with a black
+rotate glyph (Material Icons' screen_rotation, inlined as its path so
+nothing is fetched) and ROTATE DEVICE, until it is turned. A phone is a
+coarse pointer, so it shows before the game has even loaded. It replaced
+the quiet line at the top that used to suggest turning it.
+
 THE MAIN MENU is Doom's, in this game's clothes: NEW GAME, CONTINUE,
 LOAD GAME, OPTIONS, MULTIPLAYER and QUIT GAME in a column under the
 logo, the one you are on filled in red with a blinking marker. Up/down (or W/S) walk
