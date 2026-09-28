@@ -7,11 +7,12 @@
    out, with grass close enough to the eye to fill the bottom of the
    glass.
 
-   IT IS SIX ROWS OF CUTOUTS AT SIX DEPTHS, and the depth is all of the
+   IT IS SEVEN ROWS OF CUTOUTS AT SEVEN DEPTHS, and the depth is all of the
    parallax: the eye is a real perspective camera moving along x, so a
    row twice as far away goes by half as fast without anything being
    told to. Far to near:
 
+     wall      a solid dark treeline at the back, with a band behind it
      far       fir and pine, tall, close-packed, faded into the air
      middle    pines and broad trees
      near      the trees you could walk up to, well spaced
@@ -36,7 +37,13 @@ import * as THREE from 'three';
 const DIR = 'assets/forest/';
 const SPEED = 3.2;                     // units a second, the eye going right
 const EYE_Y = 2.6;
+const GROUND_TILE = 4;                // units a repeat of the forest floor covers
 const FOV = 50;
+/* THE RED, at the user's request: one colour multiplied into everything
+   in this world — every plant, the ground, the sky and the air — so the
+   whole forest is seen through it */
+const RED = [1.0, 0.26, 0.2];
+const red = (r, g, b) => [r * RED[0], g * RED[1], b * RED[2]];
 
 /* the rows: depth, how wide the ring is, how many in it, what grows
    there and how tall, and its TINT, which is the air: the game swaps
@@ -44,23 +51,25 @@ const FOV = 50;
    nothing of this scene, so the fog is off here and each row is
    coloured for how much air it stands behind — the far ones blue. */
 const ROWS = [
-  { name: 'far', z: -150, wrap: 420, n: 110, h: [16, 26], tint: [0.42, 0.52, 0.66], sway: 0,
+  { name: 'wall', z: -200, wrap: 520, n: 190, h: [22, 32], tint: [0.30, 0.36, 0.46], sway: 0,
+    kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4', 'fir_tall_1', 'fir_tall_2'] },
+  { name: 'far', z: -150, wrap: 420, n: 190, h: [16, 26], tint: [0.42, 0.52, 0.66], sway: 0,
     kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4',
             'fir_tall_1', 'fir_tall_2', 'fir_medium', 'pine_barrens_tree'] },
-  { name: 'middle', z: -80, wrap: 230, n: 46, h: [12, 19], tint: [0.62, 0.70, 0.78], sway: 0,
+  { name: 'middle', z: -80, wrap: 230, n: 90, h: [12, 19], tint: [0.62, 0.70, 0.78], sway: 0,
     kinds: ['pine_fir_tree_1', 'pine_fir_tree_3', 'fir_tall_1', 'fir_medium',
             'new_meadow_tree_1', 'new_meadow_tree_2', 'meadow_tree_medium', 'pine_barrens_tree'] },
-  { name: 'near', z: -38, wrap: 120, n: 13, h: [10, 15], tint: [0.9, 0.92, 0.9], sway: 0,
+  { name: 'near', z: -38, wrap: 120, n: 22, h: [10, 15], tint: [0.9, 0.92, 0.9], sway: 0,
     kinds: ['new_meadow_tree_1', 'new_meadow_tree_2', 'new_meadow_tree_3', 'meadow_tree_really_big',
             'pine_fir_tree_2', 'pine_fir_tree_4', 'fir_tall_2', 'meadow_tree_big'] },
-  { name: 'scrub', z: -20, wrap: 68, n: 24, h: [1.6, 3.2], tint: [0.95, 0.95, 0.9], sway: 0.03,
+  { name: 'scrub', z: -20, wrap: 68, n: 48, h: [1.6, 3.2], tint: [0.95, 0.95, 0.9], sway: 0.03,
     kinds: ['new_meadow_bush_1', 'new_meadow_bush_2', 'new_meadow_bush_3', 'pine_fern_1', 'pine_fern_2',
             'pine_forest_bush_1', 'pine_forest_bush_2', 'new_meadow_fern_1', 'new_meadow_fern_3',
             'tundra_bush_2', 'bush_small_1', 'pine_juvenile_fir_tree_1'] },
-  { name: 'meadow', z: -11, wrap: 36, n: 44, h: [0.8, 1.6], tint: [1.0, 1.05, 0.95], sway: 0.05,
+  { name: 'meadow', z: -13, wrap: 42, n: 110, h: [1.1, 2.0], tint: [1.0, 1.05, 0.95], sway: 0.05,
     kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
             'grass', 'savanna_grass_short_2', 'new_meadow_fern_2', 'new_meadow_flower_2'] },
-  { name: 'grass', z: -5.5, wrap: 22, n: 46, h: [1.1, 2.1], tint: [1.25, 1.3, 1.1], sway: 0.07,
+  { name: 'grass', z: -5.5, wrap: 22, n: 120, h: [1.1, 2.1], tint: [1.25, 1.3, 1.1], sway: 0.07,
     kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
             'new_meadow_grass_tall_1', 'grass', 'savanna_grass_short_1', 'new_meadow_flower_1',
             'meadow_grass_var_a', 'meadow_grass_var_b'] },
@@ -102,7 +111,7 @@ export class TitleForest {
       this.textures.set(k, t);
     }));
     const sky = await get('assets/skies/BSKY1.png').catch(() => null);
-    const ground = await get(DIR + 'ground.png').catch(() => null);
+    const ground = await get('assets/textures/GRASS5.png').catch(() => null);
     this._build(sky, ground);
     this.ready = true;
     return this;
@@ -113,7 +122,7 @@ export class TitleForest {
     let m = this.materials.get(key);
     if (!m) {
       m = new THREE.MeshBasicMaterial({ map: this.textures.get(kind), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
-      m.color.setRGB(...tint);
+      m.color.setRGB(...red(...tint));
       this.materials.set(key, m);
     }
     return m;
@@ -122,7 +131,7 @@ export class TitleForest {
   _build(sky, ground) {
     const s = this.scene;
     /* behind it all, the colour the sky has at the horizon */
-    s.background = new THREE.Color(0x2c4c72);
+    s.background = new THREE.Color().setRGB(...red(0.10, 0.13, 0.18));
 
     /* THE SKY, the top half of BSKY1 on a plane that rides with the
        eye; its own drift is a slow slide of the picture */
@@ -133,6 +142,7 @@ export class TitleForest {
       sky.offset.set(0, 0.5);
       this.skyTex = sky;
       const m = new THREE.MeshBasicMaterial({ map: sky, fog: false, depthWrite: false });
+      m.color.setRGB(...red(1.1, 1.1, 1.1));
       this.sky = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
       this.sky.renderOrder = -1;
       s.add(this.sky);
@@ -144,8 +154,8 @@ export class TitleForest {
     if (ground) {
       ground.colorSpace = THREE.SRGBColorSpace;
       ground.wrapS = ground.wrapT = THREE.RepeatWrapping;
-      ground.repeat.set(600 / 6, 300 / 6);
-      g.map = ground; g.color.setRGB(0.34, 0.36, 0.28);
+      ground.repeat.set(600 / GROUND_TILE, 300 / GROUND_TILE);
+      g.map = ground; g.color.setRGB(...red(0.55, 0.6, 0.5));
       this.groundTex = ground;
     }
     this.ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 300), g);
@@ -156,6 +166,15 @@ export class TitleForest {
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.position.set(0, 0, -150);
     s.add(this.ground);
+
+    /* NO GAPS AT THE BACK: behind the last row of trees, a band the
+       colour of a wood in shadow from the ground to well up their
+       trunks, so what shows between them low down is more forest and
+       never sky */
+    const band = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(...red(0.09, 0.12, 0.10)), fog: false });
+    this.band = new THREE.Mesh(new THREE.PlaneGeometry(900, 16), band);
+    this.band.position.set(0, 8 - 0.5, -215);
+    s.add(this.band);
 
     for (const def of ROWS) {
       const row = { def, items: [] };
@@ -212,7 +231,8 @@ export class TitleForest {
       this.skyTex.offset.x = (this.x * 0.0006) % 1;
     }
     this.ground.position.x = this.x;
-    if (this.groundTex) this.groundTex.offset.x = (this.x / 6) % 1;
+    this.band.position.x = this.x;
+    if (this.groundTex) this.groundTex.offset.x = (this.x / GROUND_TILE) % 1;
   }
 
   dispose() {

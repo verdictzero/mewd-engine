@@ -169,8 +169,12 @@ leaves room for the menu.
 
 THE TITLE HAS ITS OWN LEVEL: a forest seen from the side, sliding past
 right to left for ever, with grass close enough to the eye to fill the
-bottom of the screen (js/titlescene.js). Six rows of cutouts from
-assets/forest at six depths, under the top half of BSKY1; a real
+bottom of the screen (js/titlescene.js). Seven rows of cutouts from
+assets/forest at seven depths, packed tight, with a solid dark
+treeline and a band behind it so nothing shows between the trunks,
+on a forest floor of GRASS5, under the top half of BSKY1 — and all of
+it, sky included, seen through one RED that is multiplied into every
+material in that world; a real
 perspective camera moving sideways does the parallax, and each row is
 a ring that re-dresses whatever falls off its left end as a different
 plant at a different size. It is drawn through the game's own pipeline
