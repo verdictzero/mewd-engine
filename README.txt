@@ -160,12 +160,21 @@ The world's depth is copied once a frame (eight-bit packed) so the
 boxes can read it while they draw; see Decals.draw and the afterWorld
 hook in js/lofi.js.
 
-THE LOGO is the user's MEOW mark (art/title-logo.png, their image with
+THE LOGO is the user's MEWD mark (art/title-logo.png, their image with
 its transparent edge cropped off), cut to four widths in assets/logo/
-(meow-480, -960, -1440 and -1951.webp) so the browser fetches the one
+(mewd-480, -960, -1440 and -1951.webp) so the browser fetches the one
 the screen needs. It is small on the loading screen and BIG over the
 title: nearly the width of the glass, and as much of its height as
 leaves room for the menu.
+
+THE TITLE HAS ITS OWN LEVEL: a forest seen from the side, sliding past
+right to left for ever, with grass close enough to the eye to fill the
+bottom of the screen (js/titlescene.js). Six rows of cutouts from
+assets/forest at six depths, under the top half of BSKY1; a real
+perspective camera moving sideways does the parallax, and each row is
+a ring that re-dresses whatever falls off its left end as a different
+plant at a different size. It is drawn through the game's own pipeline
+and thrown away when NEW GAME is taken.
 
 THE MAIN MENU is Doom's, in this game's clothes: NEW GAME, CONTINUE,
 LOAD GAME, OPTIONS, MULTIPLAYER and QUIT GAME in a column under the

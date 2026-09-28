@@ -63,6 +63,7 @@ import { ThermalScope } from './thermal.js';
 import { KINDS } from './forest.js';
 import { Music } from './music.js';
 import { VERSION } from './version.js';
+import { TitleForest } from './titlescene.js';
 
 const $ = id => document.getElementById(id);
 /* THE LOADING SCREEN SAYS ONE THING, at the user's request, and it is
@@ -1158,6 +1159,12 @@ async function boot() {
   let last = performance.now();
   let fpsAccum = 0, fpsFrames = 0;
   game.idle = true;
+  /* THE TITLE'S OWN LEVEL, at the user's request: a forest going by
+     sideways for ever (js/titlescene.js). Until its pictures are in, the
+     title stands on the game's map as it used to; once NEW GAME is
+     taken it is thrown away. */
+  let titleForest = new TitleForest();
+  titleForest.load().catch(e => { console.warn('title forest', e); titleForest = null; });
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.25, (now - last) / 1000);
@@ -1235,7 +1242,14 @@ async function boot() {
     if (started) { scope.update(p, game.tics); thermal.update(p, game.tics); }
     overlays[0].visible = started && weapon3d.ready && !p.dead;
     overlays[1].visible = started;
-    pipeline.render(scene, camera, overlays);
+    if (started && titleForest) { titleForest.dispose(); titleForest = null; }
+    if (!started && titleForest?.ready) {
+      titleForest.update(dt, camera.aspect, now);
+      const after = pipeline.afterWorld;
+      pipeline.afterWorld = null;            // the game's decals are not in this world
+      pipeline.render(titleForest.scene, titleForest.camera);
+      pipeline.afterWorld = after;
+    } else pipeline.render(scene, camera, overlays);
 
     fpsAccum += dt; fpsFrames++;
     if (fpsAccum > 0.5) {
