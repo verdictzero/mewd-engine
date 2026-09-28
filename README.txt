@@ -167,12 +167,19 @@ the screen needs. It is small on the loading screen and BIG over the
 title: nearly the width of the glass, and as much of its height as
 leaves room for the menu.
 
-THE TITLE HAS ITS OWN LEVEL: a forest seen from the side, sliding past
-right to left for ever, with grass close enough to the eye to fill the
-bottom of the screen (js/titlescene.js). Seven rows of cutouts from
-assets/forest at seven depths, packed tight, with a solid dark
-treeline and a band behind it so nothing shows between the trunks,
-on a forest floor of GRASS5, under the top half of BSKY1. THE LAYERS,
+THE TITLE HAS ITS OWN LEVEL: grass and pines seen from the side, sliding
+past right to left for ever, a quarter as fast as it first went, at the
+user's request (js/titlescene.js). SEVEN ROWS OF GRASS from under the
+eye back to the trees and SEVEN ROWS OF PINES behind them, each row of
+pines taller than the one in front. NO GAPS by arithmetic: every row
+reaches high enough to hide the roots of the row behind it, twice over,
+and its plants stand closer than a third of their height so they
+overlap; a dark band stands behind the last pines. A real perspective
+camera moving sideways does the parallax, and each row is a ring that
+re-dresses whatever falls off its left end as a different plant at a
+different size. The wind is AGGRESSIVE: gusts rolling along the rows, a
+sway and a whip at the tips, the grass bending hardest. Under the top
+half of BSKY1, on GRASS5. THE LAYERS,
 top to bottom, at the user's request: the HTML menu; the game's dither
 and palette LUT; MEWD; a blue overlay; a monochrome filter; the forest.
 So the forest's materials write grey times BLUE (monoBlue), and the

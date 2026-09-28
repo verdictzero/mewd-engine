@@ -7,18 +7,11 @@
    out, with grass close enough to the eye to fill the bottom of the
    glass.
 
-   IT IS SEVEN ROWS OF CUTOUTS AT SEVEN DEPTHS, and the depth is all of the
-   parallax: the eye is a real perspective camera moving along x, so a
-   row twice as far away goes by half as fast without anything being
-   told to. Far to near:
-
-     wall      a solid dark treeline at the back, with a band behind it
-     far       fir and pine, tall, close-packed, faded into the air
-     middle    pines and broad trees
-     near      the trees you could walk up to, well spaced
-     scrub     bushes and ferns along the foot of the near trees
-     meadow    short grass and flowers between the scrub and the eye
-     grass     right under the eye, big, swaying
+   IT IS FOURTEEN ROWS OF CUTOUTS AT FOURTEEN DEPTHS — seven of grass
+   and seven of pines behind them (see ROWS) — and the depth is all of
+   the parallax: the eye is a real perspective camera moving along x,
+   so a row twice as far away goes by half as fast without anything
+   being told to.
 
    FOR EVER is a ring per row. A row is WRAP units wide, centred on the
    eye; a cutout that falls off the left end moves WRAP to the right,
@@ -35,7 +28,7 @@
 import * as THREE from 'three';
 
 const DIR = 'assets/forest/';
-const SPEED = 3.2;                     // units a second, the eye going right
+const SPEED = 0.8;                     // units a second, the eye going right: a quarter of what it was, at the user's request
 const EYE_Y = 2.6;
 const GROUND_TILE = 4;                // units a repeat of the forest floor covers
 const FOV = 50;
@@ -76,8 +69,12 @@ function monoBlue(m, sway = 0) {
       `#include <begin_vertex>
        {
          float wx = modelMatrix[3].x, sx = modelMatrix[0].x, hy = modelMatrix[1].y;
-         float gust = 0.6 + 0.4 * sin(uWindTime * 0.37 - wx * 0.05);
-         float bend = sin(uWindTime * 1.3 - wx * 0.21) + 0.4 * sin(uWindTime * 3.1 + wx * 1.7);
+         /* AGGRESSIVE, at the user's request: gusts that roll along the
+            row and nearly die between, a sway, and a whip at the tips */
+         float gust = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(uWindTime * 0.45 - wx * 0.06), 2.0)
+                    + 0.25 * sin(uWindTime * 1.1 - wx * 0.13);
+         float bend = sin(uWindTime * 1.9 - wx * 0.27) + 0.45 * sin(uWindTime * 4.3 + wx * 1.7)
+                    + 0.2 * sin(uWindTime * 9.1 + wx * 3.3) * position.y;
          float up = position.y * position.y;
          transformed.x += ${sway.toFixed(4)} * hy * up * gust * (0.8 + bend) / sx;
        }`);
@@ -91,30 +88,42 @@ function monoBlue(m, sway = 0) {
    three's fog out for its own sector fog (js/material.js), which knows
    nothing of this scene, so the fog is off here and each row is
    coloured for how much air it stands behind — the far ones blue. */
+/* THE ROWS, at the user's request: GRASS AND PINES AND NOTHING ELSE —
+   seven rows of grass from under the eye back to the trees, and seven
+   rows of pines behind them, each row of pines TALLER than the one in
+   front, so the wood rises as it goes back.
+
+   NO GAPS is arithmetic. A row hides the ground at the foot of the row
+   behind it when its plants reach EYE_Y * (1 - z / zBehind) up — the
+   line from the eye over their tops lands on the next row's roots —
+   and a cutout is not solid, so every row is made twice that tall or
+   more. Across a row, the plants stand closer than a third of their
+   own height, so they overlap three deep and no sky shows between
+   them. And behind the last pines is a dark band (see _build).
+
+   Each row's TINT dims with depth — the air — and its SWAY is how hard
+   the wind bends it: the grass hard, the tall pines at the back barely
+   (see monoBlue). */
+const GRASS = ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
+               'new_meadow_grass_tall_1', 'grass', 'savanna_grass_short_1', 'savanna_grass_short_2',
+               'savanna_grass_tall_1', 'savanna_grass_tall_2'];
+const PINES = ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4',
+               'fir_tall_1', 'fir_tall_2', 'fir_medium', 'pine_barrens_tree'];
+/* the widest a view gets, width over height, and how far past its edges
+   a row runs so nothing is ever seen arriving */
+const MAX_ASPECT = 2.6;
+const ringFor = z => Math.abs(z) * 2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * MAX_ASPECT * 1.25 + 8;
+const GRASS_Z = [-5.5, -8, -11, -15, -20, -26, -33];
+const PINE_Z = [-40, -55, -75, -100, -130, -170, -220];
+const PINE_H = [9, 12, 16, 21, 27, 34, 42];
 const ROWS = [
-  { name: 'wall', z: -200, wrap: 520, n: 190, h: [22, 32], tint: [0.30, 0.36, 0.46], sway: 0,
-    kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4', 'fir_tall_1', 'fir_tall_2'] },
-  { name: 'far', z: -150, wrap: 420, n: 190, h: [16, 26], tint: [0.42, 0.52, 0.66], sway: 0.012,
-    kinds: ['pine_fir_tree_1', 'pine_fir_tree_2', 'pine_fir_tree_3', 'pine_fir_tree_4',
-            'fir_tall_1', 'fir_tall_2', 'fir_medium', 'pine_barrens_tree'] },
-  { name: 'middle', z: -80, wrap: 230, n: 90, h: [12, 19], tint: [0.62, 0.70, 0.78], sway: 0.016,
-    kinds: ['pine_fir_tree_1', 'pine_fir_tree_3', 'fir_tall_1', 'fir_medium',
-            'new_meadow_tree_1', 'new_meadow_tree_2', 'meadow_tree_medium', 'pine_barrens_tree'] },
-  { name: 'near', z: -38, wrap: 120, n: 22, h: [10, 15], tint: [0.9, 0.92, 0.9], sway: 0.02,
-    kinds: ['new_meadow_tree_1', 'new_meadow_tree_2', 'new_meadow_tree_3', 'meadow_tree_really_big',
-            'pine_fir_tree_2', 'pine_fir_tree_4', 'fir_tall_2', 'meadow_tree_big'] },
-  { name: 'scrub', z: -20, wrap: 68, n: 48, h: [1.6, 3.2], tint: [0.95, 0.95, 0.9], sway: 0.05,
-    kinds: ['new_meadow_bush_1', 'new_meadow_bush_2', 'new_meadow_bush_3', 'pine_fern_1', 'pine_fern_2',
-            'pine_forest_bush_1', 'pine_forest_bush_2', 'new_meadow_fern_1', 'new_meadow_fern_3',
-            'tundra_bush_2', 'bush_small_1', 'pine_juvenile_fir_tree_1'] },
-  { name: 'meadow', z: -13, wrap: 42, n: 110, h: [1.1, 2.0], tint: [1.0, 1.05, 0.95], sway: 0.08,
-    kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
-            'grass', 'savanna_grass_short_2', 'new_meadow_fern_2', 'new_meadow_flower_2'] },
-  { name: 'grass', z: -5.5, wrap: 22, n: 120, h: [1.1, 2.1], tint: [1.25, 1.3, 1.1], sway: 0.11,
-    kinds: ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
-            'new_meadow_grass_tall_1', 'grass', 'savanna_grass_short_1', 'new_meadow_flower_1',
-            'meadow_grass_var_a', 'meadow_grass_var_b'] },
-];
+  /* back to front, the order they were added in */
+  ...PINE_Z.map((z, i) => ({ name: 'pines ' + (7 - i), z, h: [PINE_H[i] * 0.85, PINE_H[i] * 1.15], sink: 0.05,
+    tint: 0.95 - i * 0.09, sway: 0.075 - i * 0.007, gap: 0.26, kinds: PINES })).reverse(),
+  ...GRASS_Z.map((z, i) => ({ name: 'grass ' + (7 - i), z, h: [1.5 + i * 0.12, 2.3 + i * 0.16], sink: 0.35,
+    tint: 1.25 - i * 0.05, sway: 0.34 - i * 0.025, gap: 0.3, kinds: GRASS })).reverse(),
+].map(r => ({ ...r, tint: [r.tint, r.tint, r.tint], wrap: ringFor(r.z),
+              n: Math.ceil(ringFor(r.z) / (r.gap * (r.h[0] + r.h[1]) / 2)) }));
 
 /* a small seeded generator, so the forest is the same forest each time
    the page opens and differs only as far as it has been walked */
@@ -245,8 +254,8 @@ export class TitleForest {
        trunks, so what shows between them low down is more forest and
        never sky */
     const band = monoBlue(new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.09, 0.12, 0.10), fog: false }));
-    this.band = new THREE.Mesh(new THREE.PlaneGeometry(900, 16), band);
-    this.band.position.set(0, 8 - 0.5, -215);
+    this.band = new THREE.Mesh(new THREE.PlaneGeometry(1400, 30), band);
+    this.band.position.set(0, 15 - 0.5, -240);
     s.add(this.band);
 
     for (const def of ROWS) {
@@ -276,7 +285,7 @@ export class TitleForest {
     it.z = d.z + (r() - 0.5) * Math.abs(d.z) * 0.12;
     /* the grass stands a little below the ground line, so its roots are
        never a hard edge along the bottom */
-    it.y = row.def.z > -15 ? -0.25 - r() * 0.3 : -0.05;
+    it.y = -row.def.sink * (0.5 + r());
   }
 
   /** One frame: the eye moves on, and what has gone by comes round. */
