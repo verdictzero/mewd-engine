@@ -30,6 +30,7 @@ var tracers: Tracers
 var decals: Decals
 var hud: Hud
 var weapon3d: Weapon3D
+var sound: Sound
 ## where the last round stopped, for the tracer
 var last_hit := Vector3()
 var _slot := 0
@@ -193,11 +194,6 @@ func _process(dt: float) -> void:
 	flame.particles.draw()
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
-	_frames += 1
-	if _shot != "" and _frames == _shot_frames:
-		await RenderingServer.frame_post_draw
-		get_tree().root.get_texture().get_image().save_png(_shot)
-		get_tree().quit()
 
 func tic() -> void:
 	var cmd := {
@@ -265,8 +261,9 @@ func thing_in_way(who, nx: float, ny: float):
 			return a
 	return null
 
-func play_sound(_name, _at) -> void:
-	pass
+func play_sound(name, at) -> void:
+	if sound != null:
+		sound.play(name, at)
 
 ## Everyone within `r` of (x, y) who can be frightened, frightened.
 func scare(x: float, y: float, r: float) -> void:
