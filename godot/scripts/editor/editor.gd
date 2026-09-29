@@ -319,6 +319,12 @@ func compile_now() -> void:
 	_apply_compile(_compile(EdDoc.clone(doc)))
 
 func _start_compile() -> void:
+	# A BUILD WITHOUT THREADS (the web page: GitHub Pages cannot send the
+	# headers a browser wants before it lends a page threads): here and now
+	if not OS.has_feature("threads"):
+		var g: bool = view3d != null and view3d.active
+		_apply_compile(_compile_geo(EdDoc.clone(doc), bank if g else null))
+		return
 	if _thread != null:
 		_compile_again = true
 		return

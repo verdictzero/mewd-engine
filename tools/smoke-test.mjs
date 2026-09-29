@@ -7270,7 +7270,9 @@ section('the van');
          it is a rule five files were already breaking. */
       {
         const asks = [];
-        for (const f of fs.readdirSync('assets/models')) {
+        // (the .glb files alone: the Godot port keeps its .import
+        // sidecars beside them)
+        for (const f of fs.readdirSync('assets/models').filter(f => f.endsWith('.glb'))) {
           const b = fs.readFileSync('assets/models/' + f);
           let o = 12, j = null;
           while (o < b.length) { const L = b.readUInt32LE(o), ty = b.toString('ascii', o + 4, o + 8);

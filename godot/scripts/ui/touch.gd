@@ -55,9 +55,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the menus still want the taps as clicks; the game ignores those
 	# while the glass is up (Game.handle_input)
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["monospace", "DejaVu Sans Mono"])
-	font = f
+	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"]))
 
 ## the buttons, where the web build's stylesheet puts them
 func _buttons() -> Dictionary:

@@ -46,6 +46,14 @@ cp -r css js vendor "$OUT/"
 # and the texture pack and its skies (js/texpack.js): pictures the user
 # handed over, loaded when a map wears one or the editor opens
 cp -r assets/forest assets/people assets/models assets/fonts assets/music assets/sfx assets/textures assets/skies assets/logo "$OUT/assets/"
+# none of the Godot port's own files
+# (and the pictures its importer pulled out of the models, the page
+# reading the .glb files whole), its import sidecars (x.png.import), its
+# .gdignore markers, and the fonts it bundles for a page with no system
+# fonts (GODOT.txt)
+find "$OUT/assets/models" -type f ! -name '*.glb' -delete
+find "$OUT" \( -name '*.import' -o -name '.gdignore' \) -delete
+rm -rf "$OUT/assets/fonts/dejavu"
 
 # THE PACKING LIST, for the DOWNLOAD in the pause menu. The page has no
 # way to ask a static host what is on it, so the site carries a list of

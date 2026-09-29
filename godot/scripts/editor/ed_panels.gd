@@ -632,7 +632,7 @@ func _door_preset_items() -> Array:
 func _door_items(o: Dictionary) -> Array:
 	var dr = o.get("door")
 	if not dr is Dictionary:
-		return [EdStyle.flow([EdStyle.small_button("🚪 Door here", func(): each("door", func(x):
+		return [EdStyle.flow([EdStyle.small_button("+ Door here", func(): each("door", func(x):
 			x["opening"] = true
 			var dp: Dictionary = ed.door_preset.duplicate()
 			dp.erase("w")
@@ -1373,8 +1373,11 @@ func render_map() -> void:
 	if sd != null:
 		var names := []
 		for f in sd.get_files():
-			if f.ends_with(".png"):
-				names.append(f.get_basename())
+			# (an exported game lists "x.png.import", the picture itself
+			# being imported away)
+			var fn := f.trim_suffix(".import").trim_suffix(".remap")
+			if fn.ends_with(".png") and not names.has(fn.get_basename()):
+				names.append(fn.get_basename())
 		names.sort()
 		for n in names:
 			skies.append([n, n])

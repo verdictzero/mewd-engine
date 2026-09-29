@@ -50,9 +50,7 @@ var tiles := {}
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["monospace", "DejaVu Sans Mono"])
-	font = f
+	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"]))
 	load_prefs()
 	var shade := ColorRect.new()
 	shade.color = Color(4 / 255.0, 5 / 255.0, 9 / 255.0, 0.88)

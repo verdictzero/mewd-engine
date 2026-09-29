@@ -21,20 +21,17 @@ static var _mono: Font = null
 static var _sans: Font = null
 static var _theme: Theme = null
 
+const MONO_NAMES := ["Cascadia Mono", "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Consolas", "monospace"]
+const SANS_NAMES := ["Segoe UI", "DejaVu Sans", "Liberation Sans", "Roboto", "Helvetica", "Arial", "sans-serif"]
+
 static func mono() -> Font:
 	if _mono == null:
-		var f := SystemFont.new()
-		f.font_names = PackedStringArray(["Cascadia Mono", "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Consolas", "monospace"])
-		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-		_mono = f
+		_mono = U.ui_font(MONO_NAMES, true)
 	return _mono
 
 static func sans() -> Font:
 	if _sans == null:
-		var f := SystemFont.new()
-		f.font_names = PackedStringArray(["Segoe UI", "DejaVu Sans", "Liberation Sans", "Roboto", "Helvetica", "Arial", "sans-serif"])
-		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-		_sans = f
+		_sans = U.ui_font(SANS_NAMES, false)
 	return _sans
 
 static var _bold := {}
@@ -43,11 +40,7 @@ static var _bold := {}
 static func bold(is_mono := false) -> Font:
 	var k := "m" if is_mono else "s"
 	if not _bold.has(k):
-		var f := SystemFont.new()
-		f.font_names = (mono() if is_mono else sans()).font_names
-		f.font_weight = 700 if is_mono else 600
-		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-		_bold[k] = f
+		_bold[k] = U.ui_font(MONO_NAMES if is_mono else SANS_NAMES, is_mono, 700 if is_mono else 600)
 	return _bold[k]
 
 static func box(bg: Color, border := Color(0, 0, 0, 0), radius := 4, bw := 1, pad := Vector4(6, 2, 6, 2)) -> StyleBoxFlat:

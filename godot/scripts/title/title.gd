@@ -42,9 +42,7 @@ var _shake := {}
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"])
-	font = f
+	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"]))
 	logo = TextureRect.new()
 	logo.texture = load("res://assets/logo/mewd-1440.webp")
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

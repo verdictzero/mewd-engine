@@ -4,3 +4,6 @@ node_modules
 
 # Godot
 .godot/
+
+# the web export (tools/build-web.sh)
+build/

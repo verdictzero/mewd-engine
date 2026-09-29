@@ -519,10 +519,7 @@ func _rich(color := EdStyle.DIM) -> RichTextLabel:
 	r.scroll_active = false
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_theme_font_override("normal_font", EdStyle.mono())
-	var bf := SystemFont.new()
-	bf.font_names = EdStyle.mono().font_names
-	bf.font_weight = 700
-	r.add_theme_font_override("bold_font", bf)
+	r.add_theme_font_override("bold_font", EdStyle.bold(true))
 	r.add_theme_font_size_override("normal_font_size", 11)
 	r.add_theme_font_size_override("bold_font_size", 11)
 	r.add_theme_color_override("default_color", color)

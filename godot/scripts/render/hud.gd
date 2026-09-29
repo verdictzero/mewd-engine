@@ -26,9 +26,7 @@ var font: Font
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"])
-	font = f
+	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"]))
 
 func _process(_dt: float) -> void:
 	queue_redraw()

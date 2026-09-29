@@ -382,6 +382,21 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   game does not animate them either).
 
 
+THE WEB BUILD (the site)
+
+  The GitHub Pages site is this, exported for the web: Godot 4.3's Web
+  export (export_presets.cfg, "Web"), the Compatibility renderer on
+  WebGL 2, and no threads — GitHub Pages cannot send the headers a
+  browser wants before it lends a page threads, so the export is the
+  no-threads one, and the editor compiles in place instead of on its
+  thread when OS.has_feature("threads") says there are none.
+  tools/build-web.sh [outdir] makes it (Godot 4.3 on the path and its
+  web export template installed); the publish job in
+  .github/workflows/pages.yml fetches both (the template kept in the
+  Actions cache), exports it to the root of the site, and puts the web
+  build in js/ (tools/build-site.sh) under classic/. Hosting a match
+  needs a machine (--server); a page can JOIN one over WebSocket.
+
 TESTS
 
     tools/godot-test.sh

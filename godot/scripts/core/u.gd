@@ -92,3 +92,19 @@ static func p_random() -> int:
 	s ^= (s << 5) & 0xFFFFFFFF
 	_pr = s
 	return s & 255
+
+## A FONT FOR THE UI: the system's (the first of `names` it has), with
+## the bundled DejaVu behind it for any glyph it lacks — or, in a web
+## page, which has no system fonts to lend, the bundled DejaVu itself
+## (assets/fonts/dejavu/, the Bitstream Vera licence beside it).
+static func ui_font(names: PackedStringArray, mono := true, weight := 400) -> Font:
+	var bold := weight >= 600
+	var own: Font = load("res://assets/fonts/dejavu/DejaVuSans%s%s.ttf" % ["Mono" if mono else "", "-Bold" if bold else ""])
+	if OS.has_feature("web"):
+		return own
+	var f := SystemFont.new()
+	f.font_names = names
+	f.font_weight = weight
+	f.fallbacks = [own]
+	return f
+

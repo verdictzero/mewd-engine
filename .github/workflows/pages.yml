@@ -58,8 +58,36 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # THE SITE IS THE GODOT BUILD (GODOT.txt), for WebGL 2, at the root;
+      # the web build in js/ stays up under classic/.
+      - name: Godot 4.3
+        run: |
+          curl -sSL -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          mkdir -p "$HOME/bin"
+          unzip -q -o /tmp/godot.zip -d /tmp/godot
+          mv /tmp/godot/Godot_v4.3-stable_linux.x86_64 "$HOME/bin/godot"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      # the templates come in a 1 GB archive of every platform's; only the
+      # web one is kept, and kept between runs
+      - id: templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.3.stable
+          key: godot-4.3-web-templates
+      - name: Godot's web export template
+        if: steps.templates.outputs.cache-hit != 'true'
+        run: |
+          T="$HOME/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p "$T"
+          curl -sSL -o /tmp/tpl.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          unzip -o -j /tmp/tpl.tpz templates/web_nothreads_release.zip templates/version.txt -d "$T"
+          rm /tmp/tpl.tpz
+      - name: export the Godot build for the web
+        run: sh tools/build-web.sh build/web
       - name: assemble the site
-        run: sh tools/build-site.sh public
+        run: |
+          sh tools/build-site.sh public/classic
+          cp -r build/web/. public/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: public }
