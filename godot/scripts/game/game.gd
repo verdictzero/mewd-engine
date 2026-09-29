@@ -167,6 +167,10 @@ func _ready() -> void:
 					# a fourth: the layer it stands on (a map in storeys)
 					if at.size() >= 4:
 						t["layer"] = int(at[3])
+		# and --eye=rise,pitch lifts the eye off the body and tilts it
+		if a.begins_with("--eye="):
+			var e := a.substr(6).split(",")
+			eye_hook = Vector2(float(e[0]), float(e[1]) if e.size() > 1 else 0.0)
 	start_map(doc)
 
 func start_map(doc: Dictionary) -> void:
@@ -565,6 +569,9 @@ func tic() -> void:
 	if net != null:
 		net.tic()
 
+## a picture's eye, off the body (--eye=rise,pitch): rise, pitch degrees
+var eye_hook := Vector2.ZERO
+
 func _place_camera(f: float) -> void:
 	var p := player
 	var x := lerpf(p.prev.x, p.x, f)
@@ -576,6 +583,9 @@ func _place_camera(f: float) -> void:
 	var yaw := U.angle_norm(p.angle - net_look.x)
 	var pt := clampf(p.pitch - net_look.y, -Player.MAX_PITCH, Player.MAX_PITCH)
 	camera.rotation = Vector3(pt, yaw - PI / 2.0, 0.0)
+	if eye_hook != Vector2.ZERO:
+		camera.position += U.v3(0.0, 0.0, eye_hook.x)
+		camera.rotation.x = deg_to_rad(eye_hook.y)
 	# THE SHAKE, on the eye and not the player, so the aim stays put:
 	# four sines at rates that do not divide into each other
 	var sh: float = beam.shake if beam != null else 0.0

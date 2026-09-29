@@ -21,8 +21,12 @@
 ## highest one under it). A line joins two whole columns (front_col,
 ## back_col, bottom-up), and what it does to a mover, a ray or an eye is
 ## asked of the two storeys at that height — so a hall's door is a door
-## and the landing over it is a wall. Between storeys the deck has no
-## thickness: the ceiling of the one under IS the floor of the one over.
+## and the landing over it is a wall. Between storeys is a DECK, DECK
+## thick: the ceiling of the one under is that far under the floor of
+## the one over, and the slab between is solid — to a mover, a ray and
+## an eye, and drawn round its edge (the web build's decks have no
+## thickness). A roof is as thick, over the ceiling of the room it
+## roofs.
 ## A two-sided line of a column is drawn as its BANDS — every interval
 ## of z where exactly one side is open (line_bands) — and its HOLES,
 ## where both are. Rays and eyes (ray_hit_flat, and sight_blocked on a
@@ -34,6 +38,8 @@ extends RefCounted
 const BLOCK := 128.0
 const WELD := 0.5
 const ZEPS := 1e-6
+## how thick every deck between two storeys, and every roof, is
+const DECK := 16.0
 
 class Sector:
 	var index := 0
@@ -427,8 +433,8 @@ func sector_at(x: float, y: float, hint: Sector = null) -> Sector:
 
 ## WHICH STOREY (spanIn): walk the column from any sector of it and
 ## return the one whose floor..ceiling holds z, or the highest one below
-## it — never null for a real sector. On a deck with no thickness, feet
-## at that height stand on the storey over it. A column of one answers
+## it — never null for a real sector (in a deck, the one under it). Feet
+## on the floor of a storey with a room under it stand in that storey. A column of one answers
 ## with itself, in one comparison.
 func span_in(s: Sector, z: float) -> Sector:
 	if s == null:
@@ -449,9 +455,9 @@ func span_in(s: Sector, z: float) -> Sector:
 
 ## THE STOREY A BODY STANDING AT z IS ON: the highest of the column whose
 ## floor is within a step of its feet — so the top of a stair a step
-## under a deck steps up onto the deck, where span_in would say the room
-## under it. (The web build asks span_in, and its stairs have to end AT
-## the deck.) A column of one answers with itself.
+## under a deck's floor steps up onto it, where span_in would say the
+## room under it. (The web build asks span_in, and its stairs have to
+## end AT the deck.) A column of one answers with itself.
 func stand_in(s: Sector, z: float) -> Sector:
 	if s == null:
 		return null
@@ -767,8 +773,13 @@ func assign_bands(l: Line) -> void:
 			else:
 				from = highest
 				kind = "upper"
+		# THE EDGE OF A DECK: shut between a storey's ceiling and the
+		# floor of the one over it
+		var deck := false
+		if kind == "lower" and from.below != -1 and absf(sectors[from.below].ceil - z0) <= ZEPS:
+			deck = true
 		l.bands.append({"z0": z0, "z1": z1, "open": open, "from": from, "kind": kind, "open_front": f != null,
-			"tex": from.upper_tex if kind == "upper" else from.lower_tex})
+			"tex": from.upper_tex if kind == "upper" else from.lower_tex, "deck": deck})
 	var fs := sectors[l.front]
 	var bs := sectors[l.back]
 	var up = null

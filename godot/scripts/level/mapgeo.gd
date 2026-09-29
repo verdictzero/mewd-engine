@@ -26,13 +26,15 @@
 ## door, a fence, a painted horizon, drawn once at its own height, or a
 ## building's outside wall filling the opening; NONE for no wall at all;
 ## pegging and scale; floors round HOLES (earcut, from the outline and
-## the holes); a ROOF over every roofed room; the free BOXES (level
+## the holes); a ROOF over every roofed room, Level.DECK over its
+## ceiling, and round its edge the side of the slab; the free BOXES (level
 ## props); and each surface's Doom 64 colour and fog, per vertex, for
 ## godot/shaders/world_tint.gdshader, which such a level is drawn with.
 ##
 ## AND A MAP IN STOREYS (Level's columns, addLine in js/mapgeo.js): every
 ## storey's floor and ceiling (the ceiling of the room under a deck is
-## the underside of the floor over it); a one-sided wall a storey at a
+## the deck's underside, Level.DECK under the floor over it, and the edge
+## of the slab between is a band like any other); a one-sided wall a storey at a
 ## time, each in its own skin; a two-sided line as its BANDS — every
 ## interval of z where exactly one of its columns is open, the face of
 ## whatever is in the way — and a middle once per HOLE, where both are
@@ -115,6 +117,7 @@ func build(lv: Level) -> Node3D:
 		_flats(s)
 	for l in lv.lines:
 		_walls(lv, l)
+		_roof_edge(lv, l)
 	for p in lv.props:
 		_box(p)
 	var root := Node3D.new()
@@ -238,9 +241,10 @@ func _flats(s: Level.Sector) -> void:
 			var p := [poly[tris[i]], poly[tris[i + 1]], poly[tris[i + 2]]]
 			b.tri(U.v3(p[0].x, p[0].y, s.ceil), U.v3(p[1].x, p[1].y, s.ceil), U.v3(p[2].x, p[2].y, s.ceil),
 				p[0] / ts, p[1] / ts, p[2] / ts, color)
-	# AND THE SAME SURFACE FROM ABOVE, which is a roof: lit as open sky,
-	# in the map's own air
+	# AND OVER IT A ROOF, Level.DECK thick (its edge is _roof_edge's): lit
+	# as open sky, in the map's own air
 	if s.roof_tex != "" and s.roof_tex != "NONE":
+		var rz := s.ceil + Level.DECK
 		_paint = null
 		_fog = NO_FOG
 		var b := _batch(s.roof_tex)
@@ -248,10 +252,48 @@ func _flats(s: Level.Sector) -> void:
 		var rc := _light(minf(1.2, s.light), 1.0)
 		for i in range(0, tris.size(), 3):
 			var p := [poly[tris[i]], poly[tris[i + 1]], poly[tris[i + 2]]]
-			b.tri(U.v3(p[0].x, p[0].y, s.ceil), U.v3(p[2].x, p[2].y, s.ceil), U.v3(p[1].x, p[1].y, s.ceil),
+			b.tri(U.v3(p[0].x, p[0].y, rz), U.v3(p[2].x, p[2].y, rz), U.v3(p[1].x, p[1].y, rz),
 				p[0] / ts, p[2] / ts, p[1] / ts, rc)
 	_paint = null
 	_fog = NO_FOG
+
+## THE EDGE OF A ROOF: the side of the slab (Level.DECK thick) over a
+## roofed room, facing out of it wherever what is over the line on the
+## other side is lower than the roof's top — the open air over the
+## street (above the facade), another roof (from its top up; a lower
+## building's roof looks up at the higher one's wall, which the lintel
+## inside only faces into the room), or nothing at all. In the room's
+## own outside skin, lit as its roof is.
+func _roof_edge(lv: Level, l: Level.Line) -> void:
+	for side in 2:
+		var own := l.front if side == 0 else l.back
+		if own == -1:
+			continue
+		var a := lv.top_of(lv.sectors[own])
+		if a.roof_tex == "" or a.roof_tex == "NONE":
+			continue
+		var z0 := a.ceil
+		var other := l.back if side == 0 else l.front
+		if other != -1:
+			var b := lv.top_of(lv.sectors[other])
+			if b.col_base == a.col_base:
+				continue
+			if b.roof_tex != "" and b.roof_tex != "NONE":
+				z0 = b.ceil + Level.DECK
+			elif b.ceil_tex == "SKY" or b.ceil_tex == "NONE":
+				z0 = maxf(z0, b.floor)
+			else:
+				continue
+		var z1 := a.ceil + Level.DECK
+		if z1 - z0 <= 1e-3:
+			continue
+		var tex = l.middle if l.exterior and not _none(l.middle) else (a.wall_tex if a.wall_tex != "" else a.roof_tex)
+		if _none(tex):
+			continue
+		var sd := {"xoff": l.xoff, "yoff": l.yoff, "xscale": l.xscale, "yscale": l.yscale}
+		_paint = null
+		_fog = NO_FOG
+		_quad(l, str(tex), z0, z1, side == 1, z1 + sd.yoff, minf(1.2, a.light) + l.contrast, 1.0, sd)
 
 func _walls(lv: Level, l: Level.Line) -> void:
 	if l.multi:

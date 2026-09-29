@@ -93,10 +93,10 @@ func _compile() -> void:
 	var office: Level.Sector = _named(lv, "office")[0]
 	var shop: Level.Sector = _named(lv, "shop")[0]
 	var terrace: Level.Sector = _named(lv, "terrace")[0]
-	check(office.below == shop.index and shop.ceil == 128.0 and office.floor == 128.0, "the office stands on the shop, the deck at 128")
+	check(office.below == shop.index and shop.ceil == 112.0 and office.floor == 128.0, "the office stands on the shop, on a deck 112..128")
 	var under: Level.Sector = lv.sectors[terrace.below]
-	check(under.name == "yard" and under.ceil == 128.0 and under.ceil_tex == "CONC_3",
-		"the yard runs on under the terrace, the terrace's floor its ceiling (%s)" % under.ceil_tex)
+	check(under.name == "yard" and under.ceil == 112.0 and under.ceil_tex == "CONC_3",
+		"the yard runs on under the terrace, the underside of its deck its ceiling (%s)" % under.ceil_tex)
 	check(office.roof_tex != "" and shop.roof_tex == "" and terrace.roof_tex == "", "a roof over the office only")
 	check(lv.edge_conflicts == 0, "no edge claimed by three columns")
 	# the walls: the office's stand upstairs only, and each door is on its own storey
@@ -104,13 +104,18 @@ func _compile() -> void:
 	var east_door := _line_at(lv, Vector2(1152, 768))
 	check(west_door != null and west_door.blocking and west_door.mid_z == [Vector2(128, 320)],
 		"the shop's door (layer 0) is a wall upstairs, the office's west side (%s)" % str(west_door.mid_z if west_door else null))
-	check(east_door != null and east_door.blocking and east_door.mid_z == [Vector2(0, 128)],
+	check(east_door != null and east_door.blocking and east_door.mid_z == [Vector2(0, 112)],
 		"the office's door (layer 1) is a wall downstairs, the shop's east side (%s)" % str(east_door.mid_z if east_door else null))
 	var north := _line_at(lv, Vector2(960, 512))
-	check(north != null and north.blocking and north.mid_z.is_empty() and north.bands.size() == 1,
+	check(north != null and north.blocking and north.mid_z.is_empty() and north.holes.size() == 2,
 		"the building's north face is a wall on both storeys")
+	var edge := north.bands.filter(func(bd): return bd.deck) if north else []
+	check(edge.size() == 1 and edge[0].z0 == 112.0 and edge[0].z1 == 128.0 and edge[0].tex == north.middle,
+		"and across the deck between them, in the same outside wall (%s)" % str(edge.map(func(bd): return [bd.z0, bd.z1, bd.tex])))
 	var terr_edge := _line_at(lv, Vector2(1344, 512))
 	check(terr_edge != null and not terr_edge.blocking and terr_edge.holes.size() == 2, "and the terrace's edge is open, over open yard")
+	var slab := terr_edge.bands.filter(func(bd): return absf(bd.z0 - 112.0) < 0.01 and absf(bd.z1 - 128.0) < 0.01) if terr_edge else []
+	check(slab.size() == 1, "and the edge of its deck, 16 thick, a band over the yard (%s)" % str(terr_edge.bands.map(func(bd): return [bd.z0, bd.z1]) if terr_edge else null))
 	var steps := 0
 	for s in lv.sectors:
 		if s.floor > 0.0 and s.floor < 128.0:
@@ -202,13 +207,13 @@ func _under(lv: Level) -> void:
 	var p = game.player
 	# 5. UNDER THE TERRACE: the yard with the deck for a ceiling
 	_put(p, 1344, 900, 0, -PI / 2)
-	check(p.sector.name == "yard" and p.sector.ceil == 128.0 and p.sector.above != -1, "under the terrace, in the yard, the deck overhead")
+	check(p.sector.name == "yard" and p.sector.ceil == 112.0 and p.sector.above != -1, "under the terrace, in the yard, the deck overhead")
 	var w := _drive(1.0, 30)
 	check(w.hi == 0.0 and p.y < 900.0, "walking about under it, on the ground (z %.0f..%.0f)" % [w.lo, w.hi])
 	var pilot: Pilot = p.session
 	pilot.c.jump = true
 	w = _drive(0.0, 40)
-	check(w.hi > 0.0 and w.head <= 128.0 + 0.01 and p.z == 0.0, "a jump, and the deck stops the head (head at %.1f)" % w.head)
+	check(w.hi > 0.0 and w.head <= 112.0 + 0.01 and p.z == 0.0, "a jump, and the deck's underside stops the head (head at %.1f)" % w.head)
 	# 6. COLLISION DOWNSTAIRS: the shop's east wall, under the office's door
 	_put(p, 1344, 768, 0, PI)
 	w = _drive(1.0, 90)
@@ -248,10 +253,10 @@ func _shots(lv: Level) -> void:
 	check(tr.actor == down, "from under the terrace, a level shot finds the shopper beside you")
 	var pitch := atan2(up.z + 30.0 - p.eye_z(), 120.0)
 	tr = game.trace(p, p.angle, pitch, 2000.0)
-	check(tr.actor == null and absf(tr.z - 128.0) < 0.01, "aimed up at the one on the terrace: the deck (z %.1f)" % tr.z)
+	check(tr.actor == null and absf(tr.z - 112.0) < 0.01, "aimed up at the one on the terrace: the deck's underside (z %.1f)" % tr.z)
 	var hp: float = up.health
 	var got = game.hitscan(p, p.angle, 2000.0, 10.0, {"pitch": pitch, "shot": true})
-	check(got == null and up.health == hp and absf(game.last_hit.z - 128.0) < 0.01,
+	check(got == null and up.health == hp and absf(game.last_hit.z - 112.0) < 0.01,
 		"and a round fired so stops in the deck (at %.1f), the shopper over it untouched" % game.last_hit.z)
 	# from the yard, over the terrace's edge
 	_put(p, 1344, 100, 0, PI / 2)
@@ -260,7 +265,7 @@ func _shots(lv: Level) -> void:
 	check(tr.actor == up, "from the yard, a round over the terrace's edge finds the shopper on it")
 	var low := atan2(up.z + 30.0 - p.eye_z(), 540.0) - 0.06
 	tr = game.trace(p, p.angle, low, 2000.0)
-	check(tr.actor == null and absf(tr.z - 128.0) < 0.01, "and one aimed lower goes under the edge and into the deck's underside")
+	check(tr.actor == null and absf(tr.z - 112.0) < 0.01, "and one aimed lower goes under the edge and into the deck's underside")
 	# from the terrace, down at the one under it
 	_put(p, 1344, 760, 128, -PI / 2)
 	pitch = atan2(down.z + 30.0 - p.eye_z(), 120.0)

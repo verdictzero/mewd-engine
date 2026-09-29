@@ -30,6 +30,8 @@ RUNNING IT
                          (THE ANNEXE: a map in two storeys, room over room)
     --at=X,Y,DEG[,LAYER] stand the start somewhere else (for pictures);
                          LAYER: on that layer's floor, on a map in layers
+    --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
+                         degrees (for pictures)
     --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
                          MINIGUN, LANCE, LAUNCHER or ARC
     --autofire           hold the trigger (for pictures and tests)
@@ -103,9 +105,15 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   layer's outlines laid over each other (DocCompile.overlay — cut where
   they cross, walked face by face), and each face built as a COLUMN,
   Level.add_column: the room of every layer over it, bottom-up, each
-  storey's ceiling brought down to the floor of the one over it (the
-  DECK between them has no thickness; the room under an upper floor
-  has that floor's texture for its ceiling). Every other sector is a
+  storey's ceiling brought down to the underside of the DECK under the
+  one over it. A deck is Level.DECK (16) thick, always — the web
+  build's have none: the slab between is solid to movers, rays, eyes
+  and fire, and its edge is drawn as a band (in a building's outside
+  wall where the line is one); an upper floor with no room for a deck
+  over the floor under it is left out and said. The room under has the
+  upper floor's texture for its ceiling. A ROOF is as thick, over the
+  ceiling of the room it roofs, and its edge is drawn wherever what is
+  beside it is lower (MapGeo._roof_edge) — on every map with roofs. Every other sector is a
   column of one — every sector of every map not in layers — and for
   those nothing below is asked or costs anything different (the level's
   `layered` is false and each new question is behind it or behind a
@@ -115,7 +123,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
       span_in / span_at (the one whose floor..ceiling holds z, or the
       highest under it — the web build's spanIn), and stand_in for a
       body on its feet: the highest floor a step (24) or less over them,
-      so the top of a stair a step under a deck walks onto the deck.
+      so the top of a stair a step under an upper floor walks onto it.
     - A line joins two whole columns (front_col, back_col). Walking
       through it asks the two storeys at the mover's height (a hall's
       door is a door, the landing over it a wall); the crowd will not
@@ -369,8 +377,8 @@ WHAT IS NOT PORTED YET
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
   - Of MEWD Editor: see THE MAP EDITOR above — the Godot-scene export.
-  - Of room over room: a deck has no thickness (as in the web build);
-    the troops' chase is Doom's, on the plan, so they do not find the
+  - Of room over room: the web build's decks have no thickness and
+    these always do (not a port, a change); the troops' chase is Doom's, on the plan, so they do not find the
     stairs to somebody upstairs; the crowd's scare and the rain's
     spawning ask the plan; a match's spawn pads are on the ground.
   - Of network play: the Node host's serving of the web build's files

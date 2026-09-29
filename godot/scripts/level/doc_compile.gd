@@ -28,12 +28,13 @@
 ## cut wherever two cross or a corner of one lands on another, and
 ## walked face by face), and each face built as a COLUMN of the rooms of
 ## every layer over it, bottom-up (Level.add_column) — each storey's
-## ceiling brought down to the floor of the one over it, the deck between
-## them. A layer's line overrides land on the level lines along them;
-## a line is a building's outside wall only in the openings where a
-## roofed room meets the open air (its mid_z); things on an upper layer
-## stand on the floor of their layer's room (their `z`); the scatters
-## spread over the ground layer.
+## ceiling brought down to the underside of the deck under the one over
+## it (a deck is Level.DECK thick; the web build's have none). A layer's
+## line overrides land on the level lines along them; a line is a
+## building's outside wall only in the openings where a roofed room
+## meets the open air (its mid_z); things on an upper layer stand on the
+## floor of their layer's room (their `z`); the scatters spread over the
+## ground layer.
 ##
 ## Not ported: the sector's own storeys and slopes (FEATURES.storeys and
 ## FEATURES.slopes are off in the web build too) and the editor's
@@ -138,10 +139,10 @@ static func _compile_layers(doc: Dictionary, lays: Array) -> Level:
 	return _compile_core(F, {"layers": built})
 
 ## The rooms of one column, bottom-up, as Level.add_column wants them
-## (stackProps): each storey's ceiling brought down to the floor of the
-## one over it, and a storey open to the sky under another roofed by
-## that one's floor. One that starts below the floor of the one under
-## it cannot be stacked, and is left out and said.
+## (stackProps): each storey's ceiling brought down to a deck's thickness
+## (Level.DECK) under the floor of the one over it, and a storey open to
+## the sky under another roofed by that one's floor. One that leaves no room for the deck over the floor
+## of the one under it cannot be stacked, and is left out and said.
 static func _stack_props(stack: Array) -> Array:
 	var out := []
 	for e in stack:
@@ -153,11 +154,19 @@ static func _stack_props(stack: Array) -> Array:
 					"msg": "layer %d: sector %s starts at %s, under the floor of sector %s on layer %d (%s) — raise it" % [
 						e.k, str(e.s.get("id")), str(p.floor), str(lo.s.get("id")), lo.k, str(lo.p.floor)]})
 				continue
-			if p.floor < lo.p.ceil:
+			# THE DECK HAS A THICKNESS (Level.DECK): the room under ends
+			# that far under the floor over it, and must still be there
+			if p.floor - Level.DECK < lo.p.floor:
+				problems.append({"kind": "sector", "id": e.s.get("id"), "layer": e.k,
+					"msg": "layer %d: sector %s's floor (%s) leaves no room for a %d-thick deck over sector %s on layer %d (floor %s) — raise it" % [
+						e.k, str(e.s.get("id")), str(p.floor), int(Level.DECK), str(lo.s.get("id")), lo.k, str(lo.p.floor)]})
+				continue
+			# (the open air under a floor is not a room being cut)
+			if p.floor < lo.p.ceil and lo.p.ceilTex != "SKY" and lo.p.ceilTex != "NONE":
 				problems.append({"kind": "sector", "id": e.s.get("id"), "layer": e.k,
 					"msg": "layer %d: sector %s's floor (%s) cuts into sector %s under it (ceiling %s) — the room under is cut down to it" % [
 						e.k, str(e.s.get("id")), str(p.floor), str(lo.s.get("id")), str(lo.p.ceil)]})
-			lo.p.ceil = p.floor
+			lo.p.ceil = p.floor - Level.DECK
 			if lo.p.ceilTex == "SKY" or lo.p.ceilTex == "NONE":
 				lo.p.ceilTex = p.floorTex
 		out.append({"k": e.k, "s": e.s, "p": p})
@@ -394,6 +403,11 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			l.blocking = true
 			l.block_sight = true
 			l.exterior = true
+			# and the edges of the decks between its storeys are the
+			# same outside wall
+			for bd in l.bands:
+				if bd.get("deck", false):
+					bd.tex = l.middle
 	for dl in ([] if layered else _doc_lines(S, parent_of)):
 		if dl.sectors.size() != 2:
 			continue
