@@ -154,9 +154,12 @@ WHAT IS NOT PORTED YET
     to sector (a surface here is fogged by its own sector's over the
     whole distance), and a sector's thing colour and fog on sprites and
     plants.
-  - The sky baker (js/skyart.js) for maps without a skybox; rain;
-    breaches and ruins; the thermal sight; the VTOL gunship.
-  - The MEWD Editor and the
-    network play (js/net/, tools/server.mjs) — Godot has its own editor
+  - THE NIGHT ON A SKYBOX MAP: the maze and THE SPRAWL wear the BSKY2
+    photograph, and the web build darkens the world and the photograph
+    for the hour (02:00 by default) and lays the map's fog over the
+    sky; here both stay nearer daylight. Geometry and placement match.
+  - Breaches and ruins; the charred sectors' geometry; the thermal
+    sight (the launcher's — Scope is ready for it); the VTOL gunship.
+  - The MEWD Editor and the network play (js/net/, tools/server.mjs) — Godot has its own editor
     and its own networking, and whether these are ported line for line
     or rebuilt on Godot's is a decision still to make.
