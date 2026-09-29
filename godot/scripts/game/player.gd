@@ -56,6 +56,10 @@ var dry := {}
 var spin := 0.0
 var heat := 0.0
 var shots_fired := 0
+## the launcher: the trigger is down and the seeker is looking; and the
+## one refusal that is heard, once per press
+var seeking := false
+var clicked := false
 
 ## where the body was at the start of this tic, for the frame to draw
 ## between the two

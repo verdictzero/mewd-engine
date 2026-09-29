@@ -32,6 +32,8 @@ uniform vec4 base : source_color = vec4(1.0);
 // "this is the colour", 0 means "there is a picture" (the INK attribute)
 uniform bool vertex_ink = false;
 uniform vec3 centre = vec3(0.0);
+// false where the normals were turned outward when the mesh was built
+uniform bool outward = true;
 // the sector the vehicle stands in, and how burnt it is (js/vehicles.js
 // charTic: `light` comes down, `charred` goes up)
 uniform float light = 0.74;
@@ -51,7 +53,7 @@ varying vec3 wpos;
 
 void vertex() {
 	vec3 n = NORMAL;
-	if (dot(n, VERTEX - centre) < 0.0) n = -n;
+	if (outward && dot(n, VERTEX - centre) < 0.0) n = -n;
 	wnormal = normalize((MODEL_MATRIX * vec4(n, 0.0)).xyz);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	depth = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;

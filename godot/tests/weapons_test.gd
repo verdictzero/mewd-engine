@@ -29,6 +29,7 @@ func _init() -> void:
 	_flamer(p, run)
 	_extinguisher(p, run)
 	_bore(p, run)
+	_launcher(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
 
@@ -109,3 +110,20 @@ func _bore(p, run: Vector2) -> void:
 	check(v.bored > 0, "BORE: the bore arrived and is drilling after %d tics" % n)
 	_settle(90)
 	check(v.removed or v.dead, "BORE: and they went off")
+
+func _launcher(p, run: Vector2) -> void:
+	_settle(40)
+	var v := _victim(p, run, 600.0)
+	var w := _victim(p, run, 640.0)
+	p.pitch = 0.0
+	p.ammo.rockets = 4
+	# hold: the seeker takes a lock or four, then let go
+	_hold("LAUNCHER", 80)
+	var locked: int = game.missiles.locks.size()
+	check(locked >= 1, "LAUNCHER: the seeker took %d locks" % locked)
+	_settle(1)
+	check(game.missiles.salvo_left() > 0 or game.missiles.fired > 0, "LAUNCHER: letting go fired the salvo")
+	_settle(90)
+	check(game.missiles.fired >= 1 and game.missiles.blasts >= 1, "LAUNCHER: %d fired, %d blasts" % [game.missiles.fired, game.missiles.blasts])
+	check((v.dead or v.removed) and (w.dead or w.removed), "LAUNCHER: both people down the run are dead")
+	check(game.giblets.eviscerations >= 1, "LAUNCHER: and came apart (%d eviscerations)" % game.giblets.eviscerations)

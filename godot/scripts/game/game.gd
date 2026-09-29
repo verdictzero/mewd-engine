@@ -31,6 +31,8 @@ var flame: FlameStream
 var frost: FrostStream
 ## the bore's sight and lock, which the player's trigger asks (Player.armed)
 var bore: BoreSystem
+## the quad launcher's seeker and its missiles
+var missiles: MissileSystem
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
@@ -109,6 +111,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(frost.particles)
 	bore = BoreSystem.new(self)
 	add_child(bore)
+	missiles = MissileSystem.new(self)
+	add_child(missiles)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -220,6 +224,7 @@ func _process(dt: float) -> void:
 	flame.particles.draw()
 	frost.particles.draw()
 	bore.draw(camera, tics + _acc / U.SEC)
+	missiles.draw(camera)
 	fx.draw()
 	giblets.draw()
 	if weapon3d != null:
@@ -253,6 +258,7 @@ func tic() -> void:
 	flame.tic()
 	frost.tic()
 	bore.tic()
+	missiles.tic()
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
@@ -318,6 +324,45 @@ func gib(a: Actor) -> void:
 	giblets.burst(a)
 	a.remove()
 
+## Everything alive within `radius` of `at` (map space), players included.
+func actors_in_cone_around(at, radius: float) -> Array:
+	var out := []
+	var r2 := radius * radius
+	for a in actors:
+		if not a.removed and not a.dead and a.shootable and U.dist2(at.x, at.y, a.x, a.y) < r2:
+			out.append(a)
+	if player != null and not player.dead and U.dist2(at.x, at.y, player.x, player.y) < r2:
+		out.append(player)
+	return out
+
+## A fuel can or a car going up (Game.explode in js/game.js). `a` only has
+## to have a position (x, y, and z if it is off the floor): the heat into
+## the grid, a burn on the floor under it, the building if `structure`
+## says so, and everybody in `radius` hurt by how near and set alight.
+func explode(a, opts := {}) -> void:
+	var radius: float = opts.get("radius", 150.0)
+	var dmg: float = opts.get("damage", 60.0)
+	var heat: float = opts.get("heat", 230.0)
+	var heat_radius: float = opts.get("heatRadius", 86.0)
+	var ign: int = opts.get("ignite", 320)
+	var structure: float = opts.get("structure", 0.0)
+	var structure_radius: float = opts.get("structureRadius", radius * 1.4)
+	play_sound(opts.get("sound", "explode"), a)
+	fire.ignite(a.x, a.y, heat, heat_radius)
+	var under := level.sector_at(a.x, a.y)
+	var az: float = a.z if "z" in a else (under.floor if under else 0.0)
+	if under and az - under.floor < 64.0:
+		decals.hole(Vector3(a.x, a.y, under.floor), Vector3(0, 0, 1), true)
+	if structure > 0.0:
+		fire.damage_structure(a.x, a.y, structure_radius, structure)
+	for o in actors_in_cone_around(a, radius):
+		if o == a:
+			continue
+		var d := sqrt(U.dist2(a.x, a.y, o.x, o.y))
+		o.damage(roundf(dmg * (1.0 - d / radius)), null, {"fire": true})
+		if o.has_method("ignite"):
+			o.ignite(ign)
+
 ## how much of the place has gone, for the readout's first bar
 func burn_percent() -> float:
 	return fire.burn_percent() if fire != null else 0.0
@@ -373,7 +418,12 @@ func nozzle(p) -> Vector3:
 	var s := sin(p.angle)
 	return Vector3(p.x + c * 18.0 + s * 9.0, p.y + s * 18.0 - c * 9.0, p.view_z - 9.0)
 
-func weapon_system(_kind: String):
+## the weapons that do not run on frames tic themselves: kind is one of
+## "charge" (the lance), "seeker" (the launcher), "arc" (the maw)
+func weapon_system(kind: String):
+	match kind:
+		"seeker":
+			return missiles
 	return null
 
 ## Being shot at wakes the place up, and so does setting fire to it.
