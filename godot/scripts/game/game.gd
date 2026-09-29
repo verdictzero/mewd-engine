@@ -26,6 +26,8 @@ var lamps: Lamps
 var tics := 0
 var kills := 0
 var weather := Weather.new()
+## the skybox's material, when the map wears one (_make_sky)
+var skybox_mat: ShaderMaterial = null
 var rain: Rain
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
@@ -44,6 +46,8 @@ var fx: Effects
 var giblets: Giblets
 var beam: BeamSystem
 var scope: Scope
+## and the quad launcher's thermal sight (render/thermal.gd), the same kind of thing
+var thermal: ThermalScope
 var _zoom := false
 var hud: Hud
 var weapon3d: Weapon3D
@@ -73,6 +77,8 @@ var _frames := 0
 ## test hooks: hold the trigger, start with a given gun
 var _autofire := false
 var _start_weapon := ""
+## --zoom=N: the gun in hand's scope starts at step N (for pictures)
+var _start_zoom := 0
 
 func _ready() -> void:
 	_bind_keys()
@@ -94,6 +100,8 @@ func _ready() -> void:
 			_set_hour = weather.hour
 		elif a.begins_with("--weapon="):
 			_start_weapon = a.substr(9)
+		elif a.begins_with("--zoom="):
+			_start_zoom = int(a.substr(7))
 	var which := map_name
 	for a in args:
 		if a.begins_with("--map="):
@@ -175,6 +183,10 @@ func start_map(doc: Dictionary) -> void:
 	scope.set_stages(player.stage_marks())
 	if weapon3d != null:
 		weapon3d.scopes["LANCE"] = scope
+	thermal = ThermalScope.new(self)
+	add_child(thermal)
+	if weapon3d != null:
+		weapon3d.scopes["LAUNCHER"] = thermal
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -194,31 +206,71 @@ func _make_sky(name: String) -> void:
 	var path := "res://assets/skies/%s.png" % name
 	if name != "" and name != "<null>" and ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
-		var sm := PanoramaSkyMaterial.new()
-		sm.panorama = tex
-		sm.filter = false
+		# the picture decoded to linear and shown so, with the map's fog
+		# over it (godot/shaders/skybox.gdshader, js/sky.js)
+		var sm := ShaderMaterial.new()
+		sm.shader = preload("res://godot/shaders/skybox.gdshader")
+		sm.set_shader_parameter("panorama", tex)
+		var ml: Dictionary = level.map_light
+		var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
+		var amb: Color = ml.get("ambient", Color.BLACK)
+		sm.set_shader_parameter("fog_default", Vector4(fog.r, fog.g, fog.b, fog.a))
+		sm.set_shader_parameter("ambient", Vector3(amb.r, amb.g, amb.b))
+		sm.set_shader_parameter("fog_ambient", float(ml.get("fogAmbient", 1.0)))
 		sky.sky_material = sm
+		skybox_mat = sm
+		# the air fades to the sky's horizon texel (worldShade's `air`): the
+		# row just over the middle, decoded to linear as the web build's
+		# fetch is — averaged round the horizon, where the web build takes
+		# the texel in each fragment's own azimuth
 		var img := tex.get_image()
 		if img:
+			img = img.duplicate()
+			if img.is_compressed():
+				img.decompress()
 			var c := Color()
-			var h := img.get_height() / 2
-			for i in 16:
-				c += img.get_pixel(i * img.get_width() / 16, h)
-			RenderingServer.global_shader_parameter_set("air_color", c / 16.0)
+			var h := maxi(0, img.get_height() / 2 - 1)
+			for i in 64:
+				c += img.get_pixel(i * img.get_width() / 64, h).srgb_to_linear()
+			RenderingServer.global_shader_parameter_set("air_color", c / 64.0)
+		# and the level's own surfaces take it in their own azimuth
+		# (world_air_at in world_light.gdshaderinc)
+		RenderingServer.global_shader_parameter_set("air_sky", tex)
+		RenderingServer.global_shader_parameter_set("air_sky_on", 1.0)
 	else:
 		var sm := ShaderMaterial.new()
+		RenderingServer.global_shader_parameter_set("air_sky_on", 0.0)
 		sm.shader = preload("res://godot/shaders/sky.gdshader")
 		sky.sky_material = sm
 		weather.sky_mat = sm
-		var skin = level.world.get("sky")
-		if skin is Dictionary:
-			weather.sky_skin = skin
+		# the web build's sky for a map without a skybox (js/main.js): the
+		# grid's green, with the map's own colours over it, and whatever
+		# those say, BARE — no stars, no moon, no cloud, no town glow
+		var skin: Dictionary = {"horizon": "#1d9a48", "mid": "#06301a", "zenith": "#000000", "ground": "#05180c",
+			"midAmt": 1.0, "midPow": 0.95}
+		var own = level.world.get("sky")
+		if own is Dictionary:
+			skin.merge(own, true)
+		skin["bare"] = true
+		weather.sky_skin = skin
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+
+## Where the fog over the skybox stops, over the eye: FOG_TOP (320) over
+## the floor under the open sky, the ceiling under a roof (fogTopAt in
+## js/material.js, from js/sectorgrid.js) — the eye's own sector's.
+func _skybox_fog() -> void:
+	var s := level.sector_at(player.x, player.y)
+	if s == null:
+		return
+	var open: bool = s.outdoor or s.ceil_tex == "SKY"
+	var top: float = s.floor + 320.0 if open else s.ceil
+	skybox_mat.set_shader_parameter("fog_top", top - camera.position.y)
+	skybox_mat.set_shader_parameter("fog_fade", 128.0 if open else 1.0)
 
 func _bind_keys() -> void:
 	var keys := {
@@ -305,9 +357,13 @@ func _process(dt: float) -> void:
 	if touch != null and touch.visible:
 		touch.sens = look_sens
 		_look += touch.take_look() * Vector2(1.0, -1.0 if invert else 1.0)
-	# a zoomed scope slows the look with the view
+	# a zoomed scope slows the look with the view. TWO GUNS HAVE ONE — the
+	# lance's screen and the launcher's thermal sight — and whichever is in
+	# hand takes the zoom; the other is put down and zeroed
 	var lance: bool = player.weapon == "LANCE" and not player.dead
-	var slow: float = scope.view_scale() if lance else 1.0
+	var launcher: bool = player.weapon == "LAUNCHER" and not player.dead
+	var sighted: Scope = scope if lance else (thermal if launcher else null)
+	var slow: float = sighted.view_scale() if sighted != null else 1.0
 	player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
 	_look = Vector2()
 	_acc += dt
@@ -321,26 +377,36 @@ func _process(dt: float) -> void:
 	_place_camera(_acc / U.SEC)
 	beam.draw((tics + _acc / U.SEC) * U.SEC, dt)
 	scope.held = lance
+	thermal.held = launcher
 	if touch != null:
-		touch.scope_on = lance
-		touch.scope_up = scope.zoom_index > 0
+		touch.scope_on = sighted != null
+		touch.scope_up = sighted != null and sighted.zoom_index > 0
 		if touch.aim_pulse:
 			touch.aim_pulse = false
-			if lance:
-				scope.toggle_aim()
+			if sighted != null:
+				sighted.toggle_aim()
 		if touch.zoom_pulse:
 			touch.zoom_pulse = false
-			if lance:
-				scope.step_aimed()
-	if not lance and scope.zoom_index > 0:
-		scope.set_zoom(0)
-	elif lance and _zoom:
-		scope.work("cycle")
+			if sighted != null:
+				sighted.step_aimed()
+	for sc in [scope, thermal]:
+		if sc != sighted and sc.zoom_index > 0:
+			sc.set_zoom(0)
+	if sighted != null and _zoom:
+		sighted.work("cycle")
+	if sighted != null and _start_zoom > 0:
+		sighted.set_zoom(_start_zoom)
+		_start_zoom = 0
 	_zoom = false
-	camera.fov = BASE_FOV * slow
+	# (off the step it is at now, not the one it was at when the look was taken)
+	camera.fov = BASE_FOV * (sighted.view_scale() if sighted != null else 1.0)
 	scope.render(camera)
+	thermal.render(camera)
 	scope.update(player, tics)
+	thermal.update(player, tics)
 	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
+	if skybox_mat != null:
+		_skybox_fog()
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
 	lamps.draw(camera.position, Vector2(cos(player.angle), sin(player.angle)), weather.frame.get("skyLight", 0.85))
 	standees.draw(actors, camera.position, tics)

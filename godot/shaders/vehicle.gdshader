@@ -23,6 +23,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D map : source_color, filter_nearest_mipmap, repeat_enable;
 uniform bool has_map = true;
@@ -42,6 +43,9 @@ uniform float charred = 0.0;
 // what the WHITE paint in the sheet is multiplied by — see PAINT in
 // js/vehicles.js
 uniform vec3 paint = vec3(1.0);
+// HOW WARM THE ENGINE IS, for the thermal sight only (js/material.js
+// `warmth`, set per vehicle by ThermalScope off MissileSystem.is_hot)
+uniform float warmth = 0.0;
 
 const float ROOF_LIT = 1.12;
 const float UNDER_LIT = 0.40;
@@ -90,7 +94,8 @@ void fragment() {
 	// a charring vehicle loses most of its light as it goes black
 	l *= 1.0 - 0.62 * clamp(charred, 0.0, 1.0);
 	float band = world_band(l, depth, sky);
-	vec3 c = t.rgb * band * light_color.rgb;
+	vec3 c = t.rgb * world_lit(band);
+	vec3 coal = vec3(0.0);
 	// THE COALS: chunky blobs in fourteen-unit cells, one in twelve of
 	// them alight and breathing, in proportion to the char — the same
 	// idea as emberOf in js/material.js, at a fraction of its code
@@ -103,7 +108,15 @@ void fragment() {
 		float on = step(1.0 - charred / 12.0 * 1.4, h);
 		float breath = 0.55 + 0.45 * sin(TIME * (1.3 + h * 2.1) + h * 40.0);
 		float fade = 1.0 - clamp(depth / 2400.0, 0.0, 1.0);
-		c += vec3(1.0, 0.36, 0.06) * blob * on * breath * fade * clamp(charred, 0.0, 1.0) * 0.9;
+		coal = vec3(1.0, 0.36, 0.06) * blob * on * breath * fade * clamp(charred, 0.0, 1.0) * 0.9;
+		c += coal;
 	}
-	ALBEDO = world_air(c, depth);
+	ALBEDO = world_fog(world_air(c, depth), depth);
+	// the thermal sight's feed: the body as a surface, the engine by its
+	// warmth with the paint giving it its shape, the coals as heat
+	if (thermal_on(VIEWPORT_SIZE)) {
+		float h = thermal_of(t.rgb, band, depth, wpos, 0.0);
+		h = max(h, warmth * (0.64 + 0.14 * dot(thermal_srgb(t.rgb), vec3(0.30, 0.59, 0.11))));
+		ALBEDO = thermal_out(h + thermal_glow(coal));
+	}
 }

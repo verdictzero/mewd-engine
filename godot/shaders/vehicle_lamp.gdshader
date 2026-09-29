@@ -14,6 +14,9 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
+#include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
+
 uniform vec3 left_lens = vec3(1.0, 0.06, 0.04);
 uniform vec3 right_lens = vec3(0.10, 0.25, 1.0);
 uniform float phase = 0.0;
@@ -38,5 +41,7 @@ void fragment() {
 		vec3 lens = side > 0.0 ? left_lens : right_lens;
 		// the lens lit, pushed toward white the way the bloom's core does
 		ALBEDO = mix(lens * 0.16, mix(lens, vec3(1.0), 0.28) * 1.6, on);
+		// through the thermal sight a lamp is a lamp: warm, and hot when lit
+		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(0.55 + 0.35 * on);
 	}
 }

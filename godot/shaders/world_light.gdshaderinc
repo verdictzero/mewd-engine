@@ -24,10 +24,49 @@ float world_band(float light_in, float d, float sky) {
 	return floor(l * 32.0 + 0.5) / 32.0;
 }
 
-// the air: toward the sky's horizon between air_near and air_far
+// the air: toward the sky's horizon between air_near and air_far, on a
+// smooth ramp, so it starts gently (worldShade's `at`)
 vec3 world_air(vec3 c, float d) {
 	float at = clamp((d - air_near) / max(1.0, air_far - air_near), 0.0, 1.0);
-	return mix(c, air_color.rgb, at * at);
+	return mix(c, air_color.rgb, at * at * (3.0 - 2.0 * at));
+}
+
+// THE AIR IN THE FRAGMENT'S OWN AZIMUTH, for a map with a skybox: what a
+// surface fades to is the skybox's texel on the row just over the horizon
+// in the direction it lies from the eye (worldShade: atan2(z, x) over a
+// full turn, the sphere's own u — godot/shaders/skybox.gdshader), decoded
+// to linear as the web build's fetch is. `to` is the fragment less the
+// eye. air_sky_on 0 (no skybox) is world_air, toward air_color.
+global uniform sampler2D air_sky : filter_nearest, repeat_enable;
+global uniform float air_sky_on;
+vec3 world_air_at(vec3 c, float d, vec3 to) {
+	if (air_sky_on < 0.5) return world_air(c, d);
+	float at = clamp((d - air_near) / max(1.0, air_far - air_near), 0.0, 1.0);
+	vec2 sz = vec2(textureSize(air_sky, 0));
+	vec3 s = texture(air_sky, vec2(fract(atan(to.z, to.x) * 0.15915494), 0.5 - 0.5 / sz.y)).rgb;
+	vec3 air = mix(s / 12.92, pow((s + 0.055) / 1.055, vec3(2.4)), step(0.04045, s));
+	return mix(c, air, at * at * (3.0 - 2.0 * at));
+}
+
+// A MAP'S OWN AMBIENT LIGHT AND DEFAULT FOG (js/material.js applyMapLight:
+// ambientColor, fogDefault, fogAmbient), for the surfaces that are not
+// the level's own — a sprite, a plant, a car; the tinted level shader
+// has its own. Nothing at their defaults (MapGeo sets them).
+global uniform vec4 ambient_light;
+global uniform vec4 map_fog;
+global uniform float map_fog_ambient;
+
+// the light on a surface: its banded light in the map's light colour,
+// and the ambient light on top however dark it is (worldShade)
+vec3 world_lit(float l) {
+	return l * light_color.rgb + ambient_light.rgb;
+}
+
+// the map's fog, GZDoom's: half-way in at 25600/density units
+vec3 world_fog(vec3 c, float d) {
+	if (map_fog.a <= 0.0) return c;
+	float ff = 1.0 - exp2(-d * map_fog.a / 25600.0);
+	return mix(c, map_fog.rgb * light_color.rgb + ambient_light.rgb * map_fog_ambient, ff);
 }
 
 // THE POSITRON LANCE'S LIGHT (js/material.js beamPos, and js/beam.js

@@ -482,7 +482,7 @@ func _build(seed: int, opts: Dictionary) -> Dictionary:
 	var world := {
 		"noBurn": true, "noSquads": true, "noCellFire": true,
 		"sky": {"horizon": "#1d9a48", "mid": "#06301a", "zenith": "#000000", "ground": "#05180c", "midPow": 0.95},
-		"skybox": "BSKY2", "ambient": 0.3, "ambient_color": Color("#ffffff"), "light_color": Color("#fff6ea"),
+		"skybox": "BSKY2", "ambient": {"color": "#ffffff", "amount": 0.3}, "lightColor": "#fff6ea",
 		"seed": seed & 0xFFFFFFFF, "jesseSeed": seed & 0xFFFFFFFF,
 	}
 	var d := {

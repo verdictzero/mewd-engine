@@ -11,6 +11,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, blend_add, depth_draw_never, skip_vertex_transform, shadows_disabled;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D strip : source_color, filter_nearest;
 uniform float cells = 1.0;
@@ -34,5 +35,7 @@ void fragment() {
 	// the air: an added light fades out rather than toward a colour
 	float at = clamp((depth - air_near) / max(1.0, air_far - air_near), 0.0, 1.0);
 	ALBEDO = c.rgb * (1.0 - at * at);
+	// the thermal sight's feed: fire is the hottest thing there is
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(1.0 - at * at);
 	ALPHA = c.a;
 }

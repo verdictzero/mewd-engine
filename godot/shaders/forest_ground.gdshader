@@ -10,6 +10,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D ground_map : source_color, filter_nearest_mipmap, repeat_enable;
 uniform sampler2D burnt_map : source_color, filter_nearest_mipmap, repeat_enable;
@@ -46,7 +47,7 @@ void fragment() {
 	   the whole way, so burnt ground is dark ground and not black */
 	vec3 col = mix(g, min(vec3(1.0), b * 1.9 + 0.06), k * 0.85);
 	float l = world_band(light, depth, 1.0);
-	vec3 c = world_air(col * l * light_color.rgb, depth);
+	vec3 c = world_fog(world_air(col * world_lit(l), depth), depth);
 	/* Fresh char glows: a band in the middle of the burn, gone when cold. */
 	float q = (burn - 0.5) / 0.26;
 	float glow = exp(-q * q) * (0.75 + 0.25 * sin(u_time * 7.0 + mp.x * 0.09 + mp.y * 0.07));
@@ -54,4 +55,6 @@ void fragment() {
 	glow *= 0.35 + 0.65 * smoothstep(0.25, 0.7, lum);   // through the litter, not over it
 	c += RAMP[int(floor(clamp(glow, 0.0, 1.0) * 6.0 + 0.5))] * glow * 0.85;
 	ALBEDO = c;
+	// the thermal sight's feed: the ground, and the fresh char warm
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, l, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0) + thermal_glow(RAMP[int(floor(clamp(glow, 0.0, 1.0) * 6.0 + 0.5))] * glow * 0.85));
 }

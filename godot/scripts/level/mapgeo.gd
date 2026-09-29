@@ -140,6 +140,15 @@ func build(lv: Level) -> Node3D:
 		# the map's light colour is on everything, sprites and plants too
 		if lv.map_light.has("lightColor"):
 			RenderingServer.global_shader_parameter_set("light_color", lv.map_light.lightColor)
+	# and its ambient light and default fog, on the things that are not
+	# the level's own surfaces (world_lit and world_fog in
+	# world_light.gdshaderinc) — nothing, for a level without them
+	var ml: Dictionary = lv.map_light if tinted else {}
+	var amb: Color = ml.get("ambient", Color.BLACK)
+	var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
+	RenderingServer.global_shader_parameter_set("ambient_light", Color(amb.r, amb.g, amb.b, 1.0))
+	RenderingServer.global_shader_parameter_set("map_fog", Vector4(fog.r, fog.g, fog.b, fog.a))
+	RenderingServer.global_shader_parameter_set("map_fog_ambient", float(ml.get("fogAmbient", 1.0)))
 	return root
 
 static func _light(l: float, sky: float) -> Color:

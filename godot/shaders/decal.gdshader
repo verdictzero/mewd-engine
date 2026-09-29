@@ -9,6 +9,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
 varying vec4 cd;
@@ -59,4 +60,6 @@ void fragment() {
 	}
 	if (a < 0.5) discard;
 	ALBEDO = world_air(col, depth);
+	// the thermal sight's feed: how warm the mark is (a hot rim is)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
 }

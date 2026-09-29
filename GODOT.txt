@@ -37,11 +37,14 @@ RUNNING IT
     --title              with --shot, stay on the title
     --pause              open the pause menu
     --touch              the phone's controls, without a touch screen
+    --zoom=N             the scope of the gun in hand starts at step N
+                         (the lance's screen, the launcher's thermal)
 
   Controls are the web build's: WASD or the arrows (Q/E strafe too),
   mouse to look (click to capture it), Shift to run, Space to jump, F
   to use, left mouse or Ctrl to fire, Z, C or the right button to put
-  the lance's scope up and step its zoom, 1-7 or the wheel for the guns,
+  the lance's scope or the launcher's thermal sight up and step its zoom
+  (AIM and ZOOM on the phone), 1-7 or the wheel for the guns,
   Esc or P to pause. On the title, up/down and Enter, or the mouse.
 
 
@@ -116,6 +119,8 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/missiles.js                game/missiles.gd
     js/arc.js                     game/arc.gd
     js/beam.js, js/scope.js       game/beam.gd (+ weapon3d aim/screen)
+    js/thermal.js, world.thermal  render/thermal.gd, shaders/thermal.gdshaderinc,
+                                  shaders/thermal_screen.gdshader
     js/weapon3d.js                render/weapon3d.gd, shaders/gun.gdshader
     js/people.js (gore), effects  game/giblets.gd, game/effects.gd
     js/decals.js                  render/decals.gd, render/gore_decals.gd
@@ -158,8 +163,8 @@ WHAT IS NOT PORTED YET
     photograph, and the web build darkens the world and the photograph
     for the hour (02:00 by default) and lays the map's fog over the
     sky; here both stay nearer daylight. Geometry and placement match.
-  - Breaches and ruins; the charred sectors' geometry; the thermal
-    sight (the launcher's — Scope is ready for it); the VTOL gunship.
+  - Breaches and ruins; the charred sectors' geometry; the VTOL
+    gunship (and so its heat through the thermal sight).
   - The MEWD Editor and the network play (js/net/, tools/server.mjs) — Godot has its own editor
     and its own networking, and whether these are ported line for line
     or rebuilt on Godot's is a decision still to make.

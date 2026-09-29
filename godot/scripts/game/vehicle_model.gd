@@ -478,7 +478,8 @@ func chunk_material() -> ShaderMaterial:
 	sm.shader = VEHICLE_SHADER
 	sm.set_shader_parameter("has_map", texture != null)
 	if texture != null:
-		sm.set_shader_parameter("map", texture)
+		# decoded to linear, as the web build's fetch is (TexBank.decoded)
+		sm.set_shader_parameter("map", TexBank.decoded(texture))
 	sm.set_shader_parameter("vertex_ink", true)
 	sm.set_shader_parameter("outward", false)   # the normals are already outward
 	return sm

@@ -30,6 +30,9 @@ const WARHEAD := {"direct": 420, "splash": 150, "radius": 190.0, "heat": 240.0, 
 const TRAIL := {"step": 14.0, "max": 1000, "life": 44, "size0": 6.0, "size1": 34.0, "light": 0.82}
 const BOOM := {"tics": 3, "frames": 8, "size": 136.0}
 
+## the visual layer the lock brackets are drawn on (see _ready)
+const RETICLE_LAYER := 1 << 19
+
 var game
 var locks := []          # {t, lost} — a target may appear more than once
 var acquiring = null
@@ -67,6 +70,10 @@ func _ready() -> void:
 		m.no_depth_test = pair[1]
 		if pair[1]:
 			m.render_priority = 10
+			# THE BRACKETS ARE NOT IN THE WORLD: the thermal sight draws its
+			# own on its glass, and a bracket in its feed would be a hot
+			# square — so they are on a layer its camera does not draw
+			mi.layers = RETICLE_LAYER
 		mi.material_override = m
 		mi.custom_aabb = box
 		add_child(mi)
@@ -104,13 +111,17 @@ func acquire_fraction() -> float:
 		return 0.0
 	return minf(1.0, float(dwell) / (SEEKER.next if locks.size() else SEEKER.first))
 
-## WHAT IS HOT, answered in one place: people who are alive and not
-## frozen, and anything the vehicles say is running or burning
+## WHAT IS HOT, answered in one place — the seeker asks it to pick a
+## target and the thermal sight (ThermalScope) to decide what glows:
+## people who are alive and not frozen, and a vehicle with its engine
+## running or on fire. A parked car is cold. A dead one is cold.
 func is_hot(t) -> bool:
 	if t == null:
 		return false
 	if t.has_method("is_hot"):
 		return t.is_hot()
+	if t is Vehicle:
+		return t.whole() and (t.state == "driving" or t.state == "charring" or t.burning > 0)
 	return t is Actor and not t.removed and not t.dead and t.shootable and t.monster and not t.frozen
 
 func heat_sources() -> Array:
@@ -118,8 +129,8 @@ func heat_sources() -> Array:
 	for a in game.actors:
 		if a.monster and is_hot(a):
 			out.append(a)
-	if game.get("vehicles") != null and game.vehicles.has_method("all"):
-		for v in game.vehicles.all():
+	if game.get("vehicles") != null:
+		for v in game.vehicles.all:
 			if is_hot(v):
 				out.append(v)
 	return out

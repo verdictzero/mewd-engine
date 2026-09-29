@@ -97,7 +97,7 @@ func _build_plants() -> void:
 		if layers.has(ki):
 			continue
 		var kname: String = Forest.KINDS[ki].name
-		var a := _tile("res://assets/forest/%s.png" % kname)
+		var a := _tile("res://assets/forest/%s.png" % kname, true)
 		var b := _tile("res://assets/forest/%s_burn.png" % kname)
 		if a == null or b == null:
 			push_warning("plant art: no %s" % kname)
@@ -194,7 +194,9 @@ func _build_plants() -> void:
 
 ## One sprite tile as a layer: RGBA8, TILE square (nearest, so a pixel
 ## stays a pixel), with mipmaps (the JS's NearestMipmapNearest).
-static func _tile(path: String) -> Image:
+## The albedo is decoded to linear, as the web build's SRGBColorSpace
+## fetch is (TexBank.decoded); the burn map is data and is not.
+static func _tile(path: String, colour := false) -> Image:
 	if not ResourceLoader.exists(path):
 		return null
 	var tex: Texture2D = load(path)
@@ -208,6 +210,8 @@ static func _tile(path: String) -> Image:
 	img.convert(Image.FORMAT_RGBA8)
 	if img.get_width() != TILE or img.get_height() != TILE:
 		img.resize(TILE, TILE, Image.INTERPOLATE_NEAREST)
+	if colour:
+		img.srgb_to_linear()
 	img.generate_mipmaps()
 	return img
 
@@ -230,8 +234,8 @@ func _build_ground() -> void:
 	_mask_tex = ImageTexture.create_from_image(_mask_img)
 	_ground_mat = ShaderMaterial.new()
 	_ground_mat.shader = preload("res://godot/shaders/forest_ground.gdshader")
-	_ground_mat.set_shader_parameter("ground_map", load("res://assets/forest/ground.png"))
-	_ground_mat.set_shader_parameter("burnt_map", load("res://assets/forest/ground_burnt.png"))
+	_ground_mat.set_shader_parameter("ground_map", TexBank.decoded(load("res://assets/forest/ground.png")))
+	_ground_mat.set_shader_parameter("burnt_map", TexBank.decoded(load("res://assets/forest/ground_burnt.png")))
 	_ground_mat.set_shader_parameter("mask", _mask_tex)
 	_ground_mat.set_shader_parameter("mask_rect", Vector4(F.origin_x, F.origin_y, 1.0 / (F.cols * Forest.CELL), 1.0 / (F.rows * Forest.CELL)))
 	_ground_mat.set_shader_parameter("light", WOOD_LIGHT)

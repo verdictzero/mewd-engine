@@ -8,6 +8,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D tex : source_color, filter_nearest_mipmap, repeat_enable;
 uniform bool masked = false;
@@ -25,5 +26,7 @@ void fragment() {
 	if (masked && c.a < 0.5) discard;
 	float l = world_band(COLOR.r, depth, COLOR.g);
 	// and the lance's column, if one is out or has just been (world_beam)
-	ALBEDO = world_air(c.rgb * l * light_color.rgb + world_beam(c.rgb, wpos), depth);
+	ALBEDO = world_fog(world_air_at(c.rgb * world_lit(l) + world_beam(c.rgb, wpos), depth, wpos - CAMERA_POSITION_WORLD), depth);
+	// the thermal sight's feed: how warm, not what colour (thermal.gdshaderinc)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(c.rgb, l, depth, wpos, 0.0));
 }

@@ -19,6 +19,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_premul_alpha, fog_disabled, shadows_disabled, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
 // set by Decals off the rendering method: see the depth read below
@@ -205,4 +206,6 @@ void fragment() {
 	if (a < 0.004 && dot(glow, vec3(1.0)) < 0.004) discard;
 	ALBEDO = col * a + glow;
 	ALPHA = a;
+	// the thermal sight's feed: the scar as a surface, its glow as heat
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0)) * a + thermal_out(thermal_glow(glow));
 }

@@ -9,7 +9,9 @@
 ## them alight and they RUN, the EXTINGUISHER freezes them solid, and the
 ## BORE locks, flies, drills and bursts, and the LANCE charges to the red,
 ## lets go, and its column kills whoever is down the run and sears the
-## far wall. Prints OK or fails.
+## far wall; and the LAUNCHER's thermal sight comes up with it, takes the
+## zoom and the phone's AIM, draws a bracket on its lock, and its screen
+## is the model's own panel. Prints OK or fails.
 extends SceneTree
 
 var game
@@ -32,6 +34,7 @@ func _init() -> void:
 	_extinguisher(p, run)
 	_bore(p, run)
 	_launcher(p, run)
+	_thermal(p, run)
 	_arc(p, run)
 	_lance(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
@@ -131,6 +134,82 @@ func _launcher(p, run: Vector2) -> void:
 	check(game.missiles.fired >= 1 and game.missiles.blasts >= 1, "LAUNCHER: %d fired, %d blasts" % [game.missiles.fired, game.missiles.blasts])
 	check((v.dead or v.removed) and (w.dead or w.removed), "LAUNCHER: both people down the run are dead")
 	check(game.giblets.eviscerations >= 1, "LAUNCHER: and came apart (%d eviscerations)" % game.giblets.eviscerations)
+
+## THE THERMAL SIGHT (render/thermal.gd): the launcher's scope, driven by
+## the same zoom and touch AIM as the lance's, rendering a feed of the one
+## size the world's shaders take to be thermal, with the brackets of the
+## world's reticles left out of it and its own on the glass.
+func _thermal(p, run: Vector2) -> void:
+	_settle(40)
+	var th: ThermalScope = game.thermal
+	check(th != null and th.get_parent() == game, "THERMAL: the game has a thermal sight, in its world")
+	check(th.feed.size == Vector2i(172, 176) and th.feed.size != game.scope.feed.size,
+		"THERMAL: its feed is %s, a size of its own (the lance's is %s)" % [th.feed.size, game.scope.feed.size])
+	check((th.camera.cull_mask & MissileSystem.RETICLE_LAYER) == 0, "THERMAL: its camera does not draw the lock brackets")
+	check(th.camera.environment != null and th.camera.environment.background_mode == Environment.BG_COLOR,
+		"THERMAL: and has a cold sky of its own")
+	var tc := TouchControls.new()
+	game.touch = tc
+	p.weapon = "LAUNCHER"
+	p.pending_weapon = ""
+	game._process(0.0)
+	check(th.held and not game.scope.held and tc.scope_on and not tc.scope_up, "THERMAL: the launcher in hand holds it, and the phone gets AIM")
+	check(th._view_set == Vector2(172, 176), "THERMAL: and the world is told which viewport is thermal")
+	game._zoom = true
+	game._process(0.0)
+	check(th.zoom_index == 1 and th.magnification() == 2.5 and absf(game.camera.fov - game.BASE_FOV * 0.9) < 0.01,
+		"THERMAL: Z steps it to %sx and the view narrows to %.1f" % [th.magnification(), game.camera.fov])
+	game._process(0.0)
+	check(absf(th.camera.fov - game.camera.fov / th.magnification() * th.view_scale()) < 0.01, "THERMAL: the feed camera is the view over the magnification (%.2f)" % th.camera.fov)
+	tc.aim_pulse = true
+	game._process(0.0)
+	check(th.zoom_index == 0 and not tc.aim_pulse, "THERMAL: the phone's AIM puts it down")
+	tc.aim_pulse = true
+	game._process(0.0)
+	game._process(0.0)
+	check(th.zoom_index == 1 and tc.scope_up, "THERMAL: and back up to the step it was at, with ZOOM")
+	tc.zoom_pulse = true
+	game._process(0.0)
+	check(th.zoom_index == 2, "THERMAL: and ZOOM steps it on (%d)" % th.zoom_index)
+	# a lock, and the glass brackets it
+	var v := _victim(p, run, 500.0)
+	p.pitch = 0.0
+	p.ammo.rockets = 4
+	game._autofire = true
+	for i in 40:
+		game.tic()
+	game._process(0.0)
+	game._process(0.0)
+	var locks: int = game.missiles.locks.size()
+	var marks: Array = th.tst.marks
+	check(locks >= 1 and th.tst.locks == locks, "THERMAL: the glass counts %d locks" % th.tst.locks)
+	check(marks.size() >= 1 and int(marks[0].n) >= 1, "THERMAL: and brackets the target (%d marks)" % marks.size())
+	if not marks.is_empty():
+		check(absf(float(marks[0].x) - th.panel.size.x / 2.0) < th.panel.size.x * 0.2,
+			"THERMAL: in the middle of the glass (%d of %d)" % [marks[0].x, th.panel.size.x])
+	game._autofire = false
+	_settle(100)
+	check(v.dead or v.removed, "THERMAL: and the salvo got them")
+	# the lance takes the zoom back and the sight goes down
+	p.weapon = "LANCE"
+	game._process(0.0)
+	check(not th.held and th.zoom_index == 0 and game.scope.held and th._view_set == Vector2.ZERO,
+		"THERMAL: the lance in hand puts the sight down and zeroes it")
+	game.touch = null
+	tc.free()
+	# the screen is the launcher's own panel, measured off the model
+	var w3 := Weapon3D.new()
+	w3.scopes = {"LAUNCHER": th}
+	root.add_child(w3)
+	w3.set_weapon("LAUNCHER")
+	var box: Vector4 = th.screen.get_shader_parameter("box") if th.screen != null else Vector4()
+	var shape := box.w / box.z if box.z > 0.0 else 0.0
+	check(th.screen != null and th.screen.shader.resource_path.ends_with("thermal_screen.gdshader"),
+		"THERMAL: the launcher's display wears the thermal screen")
+	check(absf(shape - ThermalScope.ASPECT) < 0.03, "THERMAL: and its panel is the feed's shape (%.3f, the feed %.2f)" % [shape, ThermalScope.ASPECT])
+	# (left in the tree, hidden: freeing a loaded model under the headless
+	# renderer's dummy mesh storage complains)
+	w3.visible = false
 
 func _arc(p, run: Vector2) -> void:
 	_settle(60)

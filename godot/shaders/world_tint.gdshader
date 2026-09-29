@@ -20,6 +20,7 @@ shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_opaque;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D tex : source_color, filter_nearest_mipmap, repeat_enable;
 uniform sampler2D tex_smooth : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -47,11 +48,13 @@ void fragment() {
 	vec3 albedo = c.rgb * tint;
 	float l = world_band(COLOR.r, depth, COLOR.g);
 	vec3 col = albedo * l * light_color.rgb + albedo * ambient + world_beam(albedo, wpos);
-	col = world_air(col, depth);
+	col = world_air_at(col, depth, wpos - CAMERA_POSITION_WORLD);
 	vec4 fg = fog.a < 0.0 ? fog_default : fog;
 	if (fg.a > 0.0) {
 		float ff = 1.0 - exp2(-depth * fg.a / 25600.0);
 		col = mix(col, fg.rgb * light_color.rgb + ambient * fog_ambient, ff);
 	}
 	ALBEDO = col;
+	// the thermal sight's feed: how warm, not what colour (thermal.gdshaderinc)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(albedo, l, depth, wpos, 0.0));
 }

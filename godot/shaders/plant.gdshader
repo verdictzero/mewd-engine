@@ -13,6 +13,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2DArray albedo : source_color, filter_nearest_mipmap;
 // R coals, G char, B order (when this texel catches), A foliage
@@ -148,7 +149,9 @@ void fragment() {
 	}
 	// and lit by the region it stands in, under the sky
 	float l = world_band(light, depth, 1.0);
-	vec3 c = world_air(col * l * light_color.rgb, depth);
+	vec3 c = world_fog(world_air(col * world_lit(l), depth), depth);
 	// embers go on after the air, so a burning ridge glows through it
 	ALBEDO = c + hue * ember;
+	// the thermal sight's feed: the tree as a surface, the burning as heat
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, l, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0) + thermal_glow(hue * ember));
 }

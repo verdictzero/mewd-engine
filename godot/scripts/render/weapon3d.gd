@@ -28,7 +28,15 @@ const GUNS := {
 		"aim": {"pos": [-0.1894, 0.2730, 0], "rot": [-0.04, -0.17, 0.05], "out": 1.80},
 		"display": {"material": "dynamic_display_surface_mat"},
 		"optics": {"material": "optics_mat", "base": [0.34, 0.80, 0.0]}},
-	"LAUNCHER": {"url": "launcher.glb", "fit": GUN_LENGTH * 1.05, "out": 2.6, "pos": [0.20, -0.15, 0], "rot": [0.05, 0.16, -0.03], "tint": [1, 1, 1]},
+	# THE LAUNCHER'S SIGHT has a screen too, the thermal one (ThermalScope):
+	# a slightly domed panel on the back of the sight under a material the
+	# file spells `dyanmic_display_surface_mat`, and a second hold solved
+	# as the lance's was — `rot` cancels VIEW's own turn so the screen faces
+	# the eye, `pos` puts its middle straight ahead at about half the
+	# picture's height (js/weapon3d.js)
+	"LAUNCHER": {"url": "launcher.glb", "fit": GUN_LENGTH * 1.05, "out": 2.6, "pos": [0.20, -0.15, 0], "rot": [0.05, 0.16, -0.03], "tint": [1, 1, 1],
+		"aim": {"pos": [-0.1034, 0.2552, 0.4515], "rot": [-0.04, -0.17, 0.05], "out": 1.0},
+		"display": {"material": "dyanmic_display_surface_mat"}},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
 

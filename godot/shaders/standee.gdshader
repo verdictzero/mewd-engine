@@ -4,12 +4,14 @@
 //   x  the cell in the strip
 //   y  the light (sector light times the actor's own `lit`)
 //   z  how much of that light is sky
-//   w  flags: +1 mirrored, +2 fullbright
+//   w  flags: +1 mirrored, +2 fullbright, and for the thermal sight alone
+//      +4 a body (warm whatever it wears), +8 frozen, +16 alight
 // The quad is `cell` units: a sprite is drawn one unit to the pixel.
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D strip : source_color, filter_nearest;
 uniform float cells = 1.0;
@@ -19,12 +21,18 @@ varying float depth;
 varying float light;
 varying float sky;
 varying float fullbright;
+varying float warm;
+varying float frozen;
+varying float alight;
 
 void vertex() {
 	vec4 cd = INSTANCE_CUSTOM;
 	float flags = cd.w;
 	float mirror = mod(flags, 2.0);
-	fullbright = step(1.5, flags);
+	fullbright = mod(floor(flags / 2.0), 2.0);
+	warm = mod(floor(flags / 4.0), 2.0);
+	frozen = mod(floor(flags / 8.0), 2.0);
+	alight = mod(floor(flags / 16.0), 2.0);
 	light = cd.y;
 	sky = cd.z;
 	vec3 feet = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -42,5 +50,17 @@ void fragment() {
 	vec4 c = texture(strip, UV);
 	if (c.a < 0.5) discard;
 	float l = mix(world_band(light, depth, sky), 1.0, fullbright);
-	ALBEDO = world_air(c.rgb * l * light_color.rgb, depth);
+	// the map's ambient light and fog too, but not on what is its own light
+	ALBEDO = world_fog(world_air(c.rgb * world_lit(l) - c.rgb * ambient_light.rgb * fullbright, depth), depth * (1.0 - fullbright));
+	// THROUGH THE THERMAL SIGHT a person is warm whatever colour their coat
+	// is, a frozen one the coldest thing there is, a burning one white
+	// (js/material.js, the THERMAL block of COMMON_FRAG)
+	if (thermal_on(VIEWPORT_SIZE)) {
+		vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		float h = thermal_of(c.rgb, l, depth, wp, fullbright);
+		if (warm > 0.5 && fullbright < 0.5) h = thermal_body(c.rgb, depth);
+		h = mix(h, 0.02, frozen);
+		h = max(h, alight);
+		ALBEDO = thermal_out(h);
+	}
 }

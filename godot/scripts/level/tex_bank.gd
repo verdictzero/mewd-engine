@@ -48,8 +48,32 @@ func masked(name: String) -> bool:
 func texture(name: String) -> Texture2D:
 	if not _tex.has(name):
 		var path: String = OWN[name][0] if OWN.has(name) else DIR + name + ".png"
-		_tex[name] = load(path) if ResourceLoader.exists(path) else load(DIR + "64TEST.png")
+		var t: Texture2D = load(path) if ResourceLoader.exists(path) else load(DIR + "64TEST.png")
+		_tex[name] = TexBank.decoded(t)
 	return _tex[name]
+
+## THE PICTURE AS THE WEB BUILD SAMPLES IT. Every picture there is an
+## SRGBColorSpace texture, which WebGL decodes to linear on the fetch, and
+## the frame is written out without being encoded again (the lo-fi
+## buffer is a plain byte target, and nothing calls linearToOutputTexel):
+## so a surface is drawn at its picture's LINEAR value times its light —
+## darker in the middle tones than the picture itself. Godot's
+## Compatibility renderer does neither (a source_color fetch comes back
+## as the bytes, and ALBEDO goes out as it is), so the same darkening is
+## done here, once, to the picture.
+static func decoded(t: Texture2D, mips := true) -> Texture2D:
+	var img := t.get_image()
+	if img == null:
+		return t
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	img.clear_mipmaps()
+	img.convert(Image.FORMAT_RGBA8)
+	img.srgb_to_linear()
+	if mips:
+		img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 ## The world material wearing `name` — one per texture, shared, so the
 ## whole level changes with one uniform.

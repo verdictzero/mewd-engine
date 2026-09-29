@@ -85,3 +85,39 @@ beam_color={
 "type": "color",
 "value": Color(0.62, 1, 0.78, 1)
 }
+thermal_view={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+thermal_fire={
+"type": "vec4",
+"value": Vector4(0, -10000, 0, 0)
+}
+thermal_fire_range={
+"type": "float",
+"value": 420.0
+}
+thermal_raw={
+"type": "float",
+"value": 0.0
+}
+ambient_light={
+"type": "color",
+"value": Color(0, 0, 0, 1)
+}
+map_fog={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+map_fog_ambient={
+"type": "float",
+"value": 1.0
+}
+air_sky={
+"type": "sampler2D",
+"value": ""
+}
+air_sky_on={
+"type": "float",
+"value": 0.0
+}

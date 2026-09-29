@@ -94,7 +94,7 @@ static func build(seed: int = 1, cells: int = CELLS, people: int = PEOPLE) -> Di
 		"name": NAME, "vertices": [], "sectors": [], "lines": {}, "things": [],
 		# the grid's world under it (defaultWorld in js/editor/doc.js):
 		# nothing burns but people, nobody comes, the cell fire is off
-		"world": {"skybox": "BSKY2", "ambient": 0.3, "light_color": Color("#fff6ea"), "seed": seed,
+		"world": {"skybox": "BSKY2", "ambient": {"color": "#ffffff", "amount": 0.3}, "lightColor": "#fff6ea", "seed": seed,
 			"noBurn": true, "noSquads": true, "noCellFire": true},
 	}
 	var vmap := {}

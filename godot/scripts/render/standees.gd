@@ -39,7 +39,8 @@ func _ready() -> void:
 	_strip("GRV", "res://godot/data/stones.png", Vector2(32, 48))
 
 func _strip(key: String, path: String, cell: Vector2) -> void:
-	var tex: Texture2D = load(path)
+	# decoded to linear, as the web build's sprite fetch is (TexBank.decoded)
+	var tex: Texture2D = TexBank.decoded(load(path), false)
 	var s := Strip.new()
 	s.cell = cell
 	s.cells = int(tex.get_width() / cell.x)
@@ -124,6 +125,12 @@ func draw(actors: Array, cam: Vector3, tics: int) -> void:
 		var light: float = (sec.light if sec else 0.7) * float(a.info.get("lit", 1.0))
 		var sky: float = sec.sky if sec else 0.0
 		var flags := (1.0 if c[2] else 0.0) + (2.0 if (a.state.fullbright or a.info.get("fullbright", false)) else 0.0)
+		# and what only the launcher's thermal sight reads (standee.gdshader):
+		# a BODY is warm, a frozen one cold, a burning one white
+		if a.monster:
+			flags += 8.0 if a.frozen else (4.0 if a.ash <= 0.0 else 0.0)
+		if a.burning > 0:
+			flags += 16.0
 		var i := s.n * 16
 		if s.buf.size() < i + 16:
 			s.buf.resize(maxi(64 * 16, s.buf.size() * 2))

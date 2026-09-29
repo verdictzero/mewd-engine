@@ -200,8 +200,30 @@ func _push_sky(f: Dictionary) -> void:
 	m.set_shader_parameter("flatness", f.flat)
 	m.set_shader_parameter("cloud_time", cloud_time)
 	m.set_shader_parameter("wind", Vector2(f.wind.x, -f.wind.y))
-	# and the air fades to the horizon, as the web build's does to its texel
-	RenderingServer.global_shader_parameter_set("air_color", f.horizon)
+	# and the air fades to the horizon, as the web build's does to its
+	# texel — which the bake wrote snapped to the palette and then linear
+	# (js/skyart.js, THE PAINT), so it is that colour and not the byte
+	if not _air_memo.has(f.horizon):
+		_air_memo.clear()
+		_air_memo[f.horizon] = Weather.pal_snap(f.horizon).srgb_to_linear()
+	RenderingServer.global_shader_parameter_set("air_color", _air_memo[f.horizon])
+
+var _air_memo := {}
+static var _lut: Image = null
+
+## The nearest of the palette's colours, as the lo-fi pass snaps (the
+## 32x32x32 atlas, godot/data/palette_lut.png: blue picks the slice, red
+## is x within it, green is y).
+static func pal_snap(c: Color) -> Color:
+	if _lut == null:
+		var t: Texture2D = load("res://godot/data/palette_lut.png")
+		_lut = t.get_image()
+		if _lut.is_compressed():
+			_lut.decompress()
+	var r := int(floor(clampf(c.r, 0.0, 1.0) * 31.0 + 0.5))
+	var g := int(floor(clampf(c.g, 0.0, 1.0) * 31.0 + 0.5))
+	var b := int(floor(clampf(c.b, 0.0, 1.0) * 31.0 + 0.5))
+	return _lut.get_pixel(b * 32 + r, g)
 
 func wind() -> Vector2:
 	return frame.get("wind", Vector2(0.28, 0.05))

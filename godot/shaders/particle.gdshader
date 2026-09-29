@@ -9,6 +9,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D map : source_color, filter_nearest;
 uniform bool has_map = false;
@@ -60,5 +61,8 @@ void fragment() {
 	if (a < 0.02) discard;
 	float l = mix(world_band(light, depth, 1.0), 1.0, fullbright);
 	ALBEDO = world_air(t.rgb * col.rgb * l, depth);
+	// the thermal sight's feed: a flame is a source and white, a puff the
+	// surface it would be (thermal.gdshaderinc)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(t.rgb * col.rgb, l, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, fullbright));
 	ALPHA = a;
 }
