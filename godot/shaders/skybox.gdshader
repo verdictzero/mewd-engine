@@ -16,8 +16,9 @@
 // web build follows it sector by sector along the ray; here it is the
 // map's default fog along the whole ray, standing up to the eye sector's
 // fog top (FOG_TOP over the floor under the sky, the ceiling under a
-// roof) and thinning away above it — so it is a band over the horizon and
-// the zenith stays clear, as there.
+// roof) — the top a run of the same air keeps from where it began, as
+// fogAlong's does — and thinning away above it: a band over the horizon,
+// and the zenith clear, as there.
 shader_type sky;
 
 global uniform float air_far;
@@ -50,7 +51,7 @@ void sky() {
 	vec2 uv = vec2(fract(atan(d.z, d.x) / TAU), acos(clamp(d.y, -1.0, 1.0)) / PI);
 	vec3 c = srgb_to_lin(texture(panorama, uv).rgb);
 	if (fog_default.a > 0.0) {
-		float dz = EYEDIR.y * air_far;
+		float dz = d.y * air_far;
 		float thick = abs(dz) < 1.0 ? (0.0 <= fog_top ? 1.0 : exp(fog_top / fog_fade)) : (fog_g(dz) - fog_g(0.0)) / dz;
 		float t = exp2(-air_far * fog_default.a * thick / 25600.0);
 		c = c * t + (1.0 - t) * (fog_default.rgb * light_color.rgb + ambient * fog_ambient);
