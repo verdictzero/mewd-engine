@@ -43,12 +43,12 @@ const GUNS := {
 	# glass is glass, and every other part wears its own material — chrome,
 	# gold, red lacquer, the knotwork's normal maps, the shamrock decal —
 	# lit by a rig of its own ("pbr": _light_rig)
-	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.2, "pos": [0.05, -0.05, 0], "rot": [0.08, 0.30, -0.05], "tint": [1, 1, 1],
-		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true,
-		# the gun faces the way the file draws it (the sight at the back,
-		# by the eye, the hopper out front); raised, the screen is straight
-		# ahead a hand's breadth off
-		"aim": {"solve": {"dist": 0.16, "yaw": 0.0, "pitch": 0.0}}},
+	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.30, -0.02, 0], "rot": [0.10, 3.14159 + 0.55, -0.05], "tint": [1, 1, 1],
+		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true, "mirror": true,
+		# mirrored left to right (the file has it the other way about) and
+		# turned about; raised, the screen is straight ahead a hand's
+		# breadth off
+		"aim": {"solve": {"dist": 0.16, "yaw": 6.28318, "pitch": 0.0}}},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
 
@@ -170,13 +170,12 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				if v.size() > 0:
 					scope.set_panel_box(lo, hi - lo)
 				continue
-			# a GLASS part stays glass: the potatoes show through the hopper
+			# a GLASS part is glass: slightly rough and refractive, the
+			# potatoes bent through the hopper (gun_glass.gdshader)
 			if def.has("glass") and nm == def.glass:
-				var gm := StandardMaterial3D.new()
-				gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				gm.albedo_color = Color(0.75, 0.9, 0.85, 0.22)
-				gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+				var gm := ShaderMaterial.new()
+				gm.shader = preload("res://godot/shaders/gun_glass.gdshader")
+				gm.render_priority = 1
 				mi.set_surface_override_material(i, gm)
 				continue
 			if def.has("rainbow") and nm == def.rainbow:
