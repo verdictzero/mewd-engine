@@ -40,7 +40,7 @@ var guard_until := 0
 var respawn_in := 0
 ## the guns this player may pick up — every one alone; the match's
 ## loadout on a network (js/player.js `owned`)
-var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true}
+var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": true}
 var x := 0.0
 var y := 0.0
 var z := 0.0
@@ -315,7 +315,7 @@ func _weapon_tic(attack: bool) -> void:
 		lance_tic(attack)
 		return
 	# the other weapons that do not run on frames have their own tics
-	for special in ["seeker", "arc"]:
+	for special in ["seeker", "arc", "potato"]:
 		if d.get(special, false):
 			var sys = game.weapon_system(special)
 			if sys != null:

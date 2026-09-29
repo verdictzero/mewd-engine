@@ -12,6 +12,7 @@ const MAX_TICS := 6
 
 var doors: Doors = null
 var nav: Nav = null
+var potatoes: PotatoCannon = null
 var level: Level
 var bank: TexBank
 var player: Player
@@ -224,6 +225,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(bore)
 	missiles = MissileSystem.new(self)
 	add_child(missiles)
+	potatoes = PotatoCannon.new(self)
+	add_child(potatoes)
 	arc = ArcSystem.new(self)
 	add_child(arc)
 	decals = Decals.new()
@@ -396,7 +399,7 @@ func handle_input(event: InputEvent) -> void:
 		_cycle = 1
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.physical_keycode
-		if k >= KEY_1 and k <= KEY_7:
+		if k >= KEY_1 and k <= KEY_8:
 			_slot = k - KEY_0
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -561,6 +564,7 @@ func tic() -> void:
 	frost.tic()
 	bore.tic()
 	missiles.tic()
+	potatoes.tic()
 	arc.tic()
 	escalation.tic()
 	fx.tic()
@@ -601,6 +605,9 @@ func _place_camera(f: float) -> void:
 	# THE SHAKE, on the eye and not the player, so the aim stays put:
 	# four sines at rates that do not divide into each other
 	var sh: float = beam.shake if beam != null else 0.0
+	# (and the potato's nuke shakes it harder than anything)
+	if potatoes != null:
+		sh = maxf(sh, potatoes.shake * 1.6)
 	if sh > 0.001:
 		var t := Time.get_ticks_msec() * 0.001
 		var k := sh * sh
@@ -794,6 +801,8 @@ func weapon_system(kind: String):
 			return missiles
 		"arc":
 			return arc
+		"potato":
+			return potatoes
 		"charge":
 			return beam
 	return null

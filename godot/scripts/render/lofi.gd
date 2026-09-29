@@ -83,10 +83,18 @@ func _resize() -> void:
 func set_picture(bright: float, contrast: float, gamma: float) -> void:
 	mat.set_shader_parameter("picture", Vector3(bright, contrast, gamma))
 
+## THE PALETTE GIVES WAY, by k (0..1): the potato cannon's nuke is too
+## bright for it, and every colour it burns through gets onto the glass
+## (game/potatoes.gd). 0 puts the snap back as it was.
+func set_unsnap(k: float) -> void:
+	mat.set_shader_parameter("snap", _snap * (1.0 - clampf(k, 0.0, 1.0)))
+
 func set_tint(c: Color) -> void:
 	mat.set_shader_parameter("tint", Vector3(c.r, c.g, c.b))
 
 ## the filter on or off: off, the buffer is shown as it is
+var _snap := 1.0
 func set_filtered(on: bool) -> void:
-	mat.set_shader_parameter("snap", 1.0 if on else 0.0)
+	_snap = 1.0 if on else 0.0
+	mat.set_shader_parameter("snap", _snap)
 	mat.set_shader_parameter("dither", 1.0 if on else 0.0)

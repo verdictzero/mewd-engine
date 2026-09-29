@@ -31,6 +31,9 @@ const CELLS := 4
 const CELL_REGEN_EVERY := 25 * TICRATE
 const CHARGE_WALK := 0.35
 const ROCKETS := 4
+## the potato cannon's hopper, and a potato back into it every two seconds
+const POTATOES := 6
+const POTATO_REGEN_EVERY := 2 * TICRATE
 const ROCKET_REGEN_EVERY := 2 * TICRATE
 const VOLTS := 6
 const VOLT_REGEN_EVERY := 3 * TICRATE
@@ -40,7 +43,7 @@ const ARMOUR1 := 5 * HEALTH
 const ARMOUR2 := 10 * HEALTH
 
 ## the order the slots and the cycle go in
-const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC"]
+const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC", "POTATO"]
 
 const WEAPONS := {
 	"FLAMER": {"slot": 1, "name": "FLAMER", "fireTics": [2, 2], "ammo": "fuel", "ammoPerShot": 0,
@@ -54,6 +57,8 @@ const WEAPONS := {
 	"LANCE": {"slot": 5, "name": "POSITRON LANCE", "fireTics": [4, 4], "ammo": "cells", "ammoPerShot": 1, "charge": true},
 	"LAUNCHER": {"slot": 6, "name": "QUAD LAUNCHER", "fireTics": [3, 3], "ammo": "rockets", "ammoPerShot": 1, "seeker": true},
 	"ARC": {"slot": 7, "name": "ARC MAW", "fireTics": [3, 5], "ammo": "volts", "ammoPerShot": 1, "arc": true},
+	# (game/potatoes.gd)
+	"POTATO": {"slot": 8, "name": "IRISH POTATO CANNON", "fireTics": [20], "ammo": "potatoes", "ammoPerShot": 1, "potato": true},
 }
 
 ## the tanks: [cap, refill every n tics, the mark a dry one unlatches at]
@@ -65,6 +70,7 @@ const TANKS := {
 	"cells": [CELLS, CELL_REGEN_EVERY, 1.0 / CELLS],
 	"rockets": [ROCKETS, ROCKET_REGEN_EVERY, 0.0],
 	"volts": [VOLTS, VOLT_REGEN_EVERY, 0.0],
+	"potatoes": [POTATOES, POTATO_REGEN_EVERY, 0.0],
 }
 
 ## the minigun's damage: 24 to 48 a round

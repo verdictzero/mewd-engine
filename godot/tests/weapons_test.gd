@@ -37,6 +37,7 @@ func _init() -> void:
 	_thermal(p, run)
 	_arc(p, run)
 	_lance(p, run)
+	_potato(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
 
@@ -270,3 +271,63 @@ func _lance(p, run: Vector2) -> void:
 	check(beam.seared == 1 + game.decals.slags, "LANCE: and the beam counts them all (%d)" % beam.seared)
 	check(beam.glow > 0.0, "LANCE: the light outlives the column")
 	check(p.debug or p.ammo.cells == cells1 - 1, "LANCE: one cell spent")
+
+# ---- the Irish potato cannon (game/potatoes.gd) ------------------------------
+
+func _potato(p, run: Vector2) -> void:
+	print("weapons: potato cannon")
+	var pc: PotatoCannon = game.potatoes
+	check(pc != null and game.weapon_system("potato") == pc and Weapons.WEAPONS.POTATO.slot == 8,
+		"the potato cannon is slot 8, with a system of its own")
+	var hp0: float = p.health
+	p.health = 100000
+	p.ammo.potatoes = Weapons.POTATOES
+	# AT SOMEBODY: it goes off on them, a nuke
+	var v := _victim(p, run, 420.0)
+	p.pitch = 0.0
+	var fired0: int = pc.fired
+	_hold("POTATO", 120, func(): return pc.blasts > 0)
+	game._autofire = false
+	check(pc.fired > fired0, "the trigger fires a potato (%d fired)" % (pc.fired - fired0))
+	check(pc.blasts == 1 and v.dead, "it flies to the shopper and goes off on them (blasts %d, dead %s)" % [pc.blasts, v.dead])
+	check(not pc.nukes.is_empty(), "a nuke: the fireball, the column, the cap, the ring")
+	var alive := 0
+	for i in 40:
+		game.tic()
+	alive = pc.trail.count + pc.sparks.count
+	check(alive > 0, "and its rainbow sparks (%d alight)" % alive)
+	# AT A WALL: it bounces off, nobody there
+	for i in 400:
+		game.tic()
+	var b0: int = pc.bounces
+	var blasts0: int = pc.blasts
+	p.angle = run.x
+	p.pitch = 0.02
+	p.fire_index = -1
+	var s: Dictionary = pc.launch(p)
+	var t0: int = game.tics
+	var bounced := false
+	var went := false
+	for i in 12 * 35:
+		game.tic()
+		if pc.bounces > b0:
+			bounced = true
+		if pc.blasts > blasts0:
+			went = true
+			break
+	check(bounced, "down the clear run, it bounces off what it meets (%d bounces)" % (pc.bounces - b0))
+	check(went and game.tics - t0 <= PotatoCannon.SHOT.fuse + 2, "and goes off by itself in the end (%d tics)" % (game.tics - t0))
+	check(p.health > 0, "and the one who fired it lives (their own nuke is a share)")
+	# THE HOPPER fills again, a potato every two seconds
+	var dbg: bool = p.debug
+	p.debug = false
+	p.ammo.potatoes = 0
+	p.ammo_tick.potatoes = 0
+	for i in Weapons.POTATO_REGEN_EVERY + 2:
+		game.tic()
+	p.debug = dbg
+	check(p.ammo.potatoes == 1, "an empty hopper has a potato again in two seconds (%d)" % p.ammo.potatoes)
+	for i in 200:
+		game.tic()
+	p.health = hp0
+

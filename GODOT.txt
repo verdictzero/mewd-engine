@@ -35,7 +35,7 @@ RUNNING IT
     --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
                          degrees (for pictures)
     --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
-                         MINIGUN, LANCE, LAUNCHER or ARC
+                         MINIGUN, LANCE, LAUNCHER, ARC or POTATO
     --autofire           hold the trigger (for pictures and tests)
     --shot=out.png       render --shot-frames=N frames (default 20),
                          save the picture, quit — how every picture of
@@ -211,6 +211,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/bore.js                    game/bore.gd
     js/missiles.js                game/missiles.gd
     js/arc.js                     game/arc.gd
+    (the Godot build's own)       game/potatoes.gd, shaders/nuke.gdshader
     js/beam.js, js/scope.js       game/beam.gd (+ weapon3d aim/screen)
     js/thermal.js, world.thermal  render/thermal.gd, shaders/thermal.gdshaderinc,
                                   shaders/thermal_screen.gdshader
@@ -381,6 +382,29 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   eraser end; the texture pack's animation in the 3D view (the port's
   game does not animate them either).
 
+
+THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
+
+  Slot 8, at the user's request: "it will shoot potatoes that bounce
+  around until they hit something, with a thick rainbow particle trail.
+  when they hit something the explosion will be a spectacular color
+  cycling nuke equivalent". The model is the user's
+  (assets/models/potato_cannon.glb — its textures brought down to 512 on
+  the long side, 24 MB to 1.6), held turned about so the hopper of
+  potatoes (its glass kept glass) rides on top, its little screen
+  cycling every colour (shaders/rainbow_screen.gdshader). A potato
+  leaves down the sight, lofted, falls, and BOUNCES off walls, floors
+  and ceilings until it touches somebody — or its eight-second fuse
+  runs out, or it rolls to a stop; the shooter is safe from it for the
+  first few tics. Behind it a thick trail of added light, a hue on each
+  puff. The warhead: a nuke's worth of blast and fire, a white flash,
+  and a fireball, a climbing column, a cap and a ring of shock, every
+  colour and cycling (shaders/nuke.gdshader), a storm of rainbow sparks
+  and the heaviest shake in the game. While a potato is in the air the
+  palette gives way by half, and while a nuke burns all but completely
+  (Lofi.set_unsnap), so the rainbow reaches the glass as a rainbow. Six
+  in the hopper, one back every two seconds. godot/tests/potato_shot.gd
+  takes its pictures; the weapons test fires it.
 
 THE WEB BUILD (the site)
 

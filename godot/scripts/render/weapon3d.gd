@@ -37,6 +37,10 @@ const GUNS := {
 	"LAUNCHER": {"url": "launcher.glb", "fit": GUN_LENGTH * 1.05, "out": 2.6, "pos": [0.20, -0.15, 0], "rot": [0.05, 0.16, -0.03], "tint": [1, 1, 1],
 		"aim": {"pos": [-0.1034, 0.2552, 0.4515], "rot": [-0.04, -0.17, 0.05], "out": 1.0},
 		"display": {"material": "dyanmic_display_surface_mat"}},
+	# THE IRISH POTATO CANNON (game/potatoes.gd): its little screen cycles
+	# through every colour (godot/shaders/rainbow_screen.gdshader)
+	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.30, -0.02, 0], "rot": [0.10, 3.14159 + 0.55, -0.05], "tint": [1, 1, 1],
+		"rainbow": "dynamicDisplaySurfaceMat", "glass": "Glass"},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
 
@@ -109,6 +113,23 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 					hi = hi.max(Vector2(q.x, q.y))
 				if v.size() > 0:
 					scope.set_panel_box(lo, hi - lo)
+				continue
+			# a GLASS part stays glass: the potatoes show through the hopper
+			if def.has("glass") and nm == def.glass:
+				var gm := StandardMaterial3D.new()
+				gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				gm.albedo_color = Color(0.75, 0.9, 0.85, 0.22)
+				gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+				mi.set_surface_override_material(i, gm)
+				continue
+			if def.has("rainbow") and nm == def.rainbow:
+				var rm := ShaderMaterial.new()
+				rm.shader = preload("res://godot/shaders/rainbow_screen.gdshader")
+				if src is BaseMaterial3D and (src as BaseMaterial3D).albedo_texture != null:
+					rm.set_shader_parameter("map", (src as BaseMaterial3D).albedo_texture)
+					rm.set_shader_parameter("has_map", true)
+				mi.set_surface_override_material(i, rm)
 				continue
 			if scope != null and def.has("optics") and nm == def.optics.material:
 				mi.set_surface_override_material(i, scope.optics_material(def.optics.get("base", [0.34, 0.80, 0.0])))

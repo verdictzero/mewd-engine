@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dyd71qp54kvo4"
+path="res://.godot/imported/potato_cannon_Gemini_Generated_Image_qzba27qzba27qzba-Gemini_Generated_Image_bjbftzbjbftzbjbf.jpg-fc1c25f4d409a470c5b8d350b1b35918.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "2e7a9ec279f146b0ec253e4359e8e543"
+}
+
+[deps]
+
+source_file="res://assets/models/potato_cannon_Gemini_Generated_Image_qzba27qzba27qzba-Gemini_Generated_Image_bjbftzbjbftzbjbf.jpg"
+dest_files=["res://.godot/imported/potato_cannon_Gemini_Generated_Image_qzba27qzba27qzba-Gemini_Generated_Image_bjbftzbjbftzbjbf.jpg-fc1c25f4d409a470c5b8d350b1b35918.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
