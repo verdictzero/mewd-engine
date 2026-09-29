@@ -50,9 +50,20 @@ func _draw() -> void:
 	for p in [Vector2(10.23, 4.2), Vector2(19.8, 13.77), Vector2(13.77, 19.8), Vector2(4.2, 10.23)]:
 		screen.append(xf * (p * k))
 	draw_colored_polygon(screen, Color("#d0201a"))
-	# and the two arrows round it
-	draw_arc(xf * (Vector2(12, 12) * k), 11.0 * k, PI * 1.05, PI * 1.45, 16, Color.BLACK, 1.6 * k)
-	draw_arc(xf * (Vector2(12, 12) * k), 11.0 * k, PI * 0.05, PI * 0.45, 16, Color.BLACK, 1.6 * k)
+	# and the two arrows round it: arcs with a head on the leading end,
+	# pointing the way the phone turns (anticlockwise, on the glass)
+	var mid: Vector2 = c
+	var r := 13.5 * k
+	var spin := 0.0
+	for a0 in [PI * 1.05, PI * 0.05]:
+		draw_arc(mid, r, a0 + spin + 0.12, a0 + spin + PI * 0.40, 16, Color.BLACK, 1.8 * k)
+		var a: float = a0 + spin
+		var at := mid + Vector2(cos(a), sin(a)) * r
+		var tan := Vector2(sin(a), -cos(a))
+		var out := Vector2(cos(a), sin(a))
+		var hl := 3.4 * k
+		draw_colored_polygon(PackedVector2Array([at + tan * hl * 0.55, at - tan * hl * 0.45 + out * hl * 0.6,
+			at - tan * hl * 0.45 - out * hl * 0.6]), Color.BLACK)
 	var fs := int(clampf(size.x * 0.06, 16.0, 26.0))
 	var t := "R O T A T E   D E V I C E"
 	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
