@@ -75,7 +75,8 @@ func _ready() -> void:
 		MewdEditor.open_next = false
 		show_editor()
 		return
-	# the terminal first, as the web build opens on it — unless the
+	# STRAIGHT INTO THE MEWD MAIN MENU, at the user's request (the web
+	# build opens on a terminal; --terminal still does here) — unless the
 	# command line says where to go, as the web build's URL does
 	var join := ""
 	for a in args:
@@ -87,10 +88,10 @@ func _ready() -> void:
 		join_host(join)
 	elif straight:
 		start_game()
-	elif args.has("--title") or _arg("--map=") or _arg("--seed="):
-		show_title()
-	else:
+	elif args.has("--terminal"):
 		show_terminal()
+	else:
+		show_title()
 
 var terminal: Terminal
 var _jesse := false
@@ -126,11 +127,8 @@ func show_editor() -> void:
 	editor.quit_requested.connect(func():
 		layer.queue_free()
 		editor = null
-		if MewdEditor.came_from_title:
-			MewdEditor.came_from_title = false
-			show_title()
-		else:
-			show_terminal())
+		MewdEditor.came_from_title = false
+		show_title())
 
 ## F2, from the game: back to the editor, on the map as it was left
 ## (its autosave), as the web build's ?edit is.
@@ -142,7 +140,7 @@ func back_to_editor() -> void:
 
 ## JOIN A HOST (js/main.js joinHost): say hello, wait for the welcome —
 ## which names the map — and build that world as one player in it. On
-## failure, back to the terminal saying why.
+## failure, back to the title (and why, in the log).
 var _joining := false
 func join_host(where: String) -> void:
 	_joining = true
@@ -169,8 +167,7 @@ func join_host(where: String) -> void:
 		if _arg("--netbot"):
 			get_tree().quit(2)
 			return
-		show_terminal()
-		terminal.after_boot = ["COULD NOT JOIN %s" % where.to_upper(), why.to_upper(), ""]
+		show_title()
 		return
 	print("MEWD: joined %s as %s, player %d: %s seed %d" % [url, nm, c.id, str(c.map.kind), int(c.map.seed)])
 	net_client = c

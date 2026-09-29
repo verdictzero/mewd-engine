@@ -153,7 +153,7 @@ func _build_top() -> void:
 		["Save as file…", "Ctrl+Shift+S", save_as_dialog],
 		"-",
 		["Test map", "F5", ed.play],
-		["Back to the title" if ed.from_title else "Back to the terminal", "", func(): ed.autosave(); ed.quit_requested.emit()],
+		["Back to the title", "", func(): ed.autosave(); ed.quit_requested.emit()],
 	]))
 	top.add_child(_menu("Edit", [
 		["Undo", "Ctrl+Z", ed.undo],

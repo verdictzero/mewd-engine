@@ -24,7 +24,12 @@ signal new_game
 signal open_editor
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["MAP EDITOR", "editor", true], ["OPTIONS", "options", false], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false]]
+	["MAP EDITOR", "editor", true], ["OPTIONS", "options", false], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
+	["DOWNLOAD ZIP", "zip", true]]
+## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
+## the repository's main branch — the Godot project, the web build, every
+## asset — so it is always the latest and costs the site nothing to host
+const ZIP_URL := "https://github.com/verdictzero/sellwrong/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
 const VERSION := "0.2.0"
@@ -127,7 +132,7 @@ func _layout() -> void:
 	var fs := int(clampf(H * 0.021, 11.0, 14.4))
 	for b in buttons:
 		b.add_theme_font_size_override("font_size", fs)
-		b.custom_minimum_size = Vector2(0, 32 if side else 36)
+		b.custom_minimum_size = Vector2(0, 30 if side else 34)
 	var pw := minf(320.0, W * 0.8) if not side else minf(240.0, W * 0.32)
 	panel.custom_minimum_size = Vector2(pw, 0)
 	panel.size = Vector2(pw, 0)
@@ -143,9 +148,11 @@ func _layout() -> void:
 		panel.position = Vector2(logo.position.x + lw + gap, (H - ph) / 2.0)
 	else:
 		lw = minf(minf(W * 0.96, H * 1.12), 1951.0)
-		lh = minf(lw / tex_aspect, H * 0.66)
-		lw = lh * tex_aspect
 		var gap := clampf(H * 0.025, 6.0, 26.0)
+		# the logo takes what the menu leaves, and the menu never falls
+		# off the bottom however many things are on it
+		lh = minf(lw / tex_aspect, minf(H * 0.66, H - ph - gap - H * 0.05))
+		lw = lh * tex_aspect
 		var total := lh + gap + ph
 		logo.position = Vector2((W - lw) / 2.0, (H - total) / 2.0)
 		panel.position = Vector2((W - pw) / 2.0, logo.position.y + lh + gap)
@@ -202,6 +209,8 @@ func take(i: int) -> void:
 		new_game.emit()
 	elif ITEMS[at][1] == "editor":
 		open_editor.emit()
+	elif ITEMS[at][1] == "zip":
+		OS.shell_open(ZIP_URL)
 
 func _process(dt: float) -> void:
 	var was := fmod(_blink, 1.0) < 0.5

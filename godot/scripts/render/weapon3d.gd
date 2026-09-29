@@ -38,9 +38,12 @@ const GUNS := {
 		"aim": {"pos": [-0.1034, 0.2552, 0.4515], "rot": [-0.04, -0.17, 0.05], "out": 1.0},
 		"display": {"material": "dyanmic_display_surface_mat"}},
 	# THE IRISH POTATO CANNON (game/potatoes.gd): its little screen cycles
-	# through every colour (godot/shaders/rainbow_screen.gdshader)
+	# through every colour (godot/shaders/rainbow_screen.gdshader), its
+	# glass is glass, and every other part wears its own material — chrome,
+	# gold, red lacquer, the knotwork's normal maps, the shamrock decal —
+	# lit by a rig of its own ("pbr": _light_rig)
 	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.30, -0.02, 0], "rot": [0.10, 3.14159 + 0.55, -0.05], "tint": [1, 1, 1],
-		"rainbow": "dynamicDisplaySurfaceMat", "glass": "Glass"},
+		"rainbow": "dynamicDisplaySurfaceMat", "glass": "Glass", "pbr": true},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
 
@@ -86,6 +89,8 @@ func _load(name: String) -> Dictionary:
 	var mats := []
 	var spinner: Node3D = null
 	_dress(root, def, mats, scopes.get(name))
+	if def.get("pbr", false):
+		_light_rig()
 	if def.has("spin"):
 		spinner = _find_spinner(root)
 	return {"group": group, "mats": mats, "def": def, "spinner": spinner}
@@ -134,6 +139,11 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			if scope != null and def.has("optics") and nm == def.optics.material:
 				mi.set_surface_override_material(i, scope.optics_material(def.optics.get("base", [0.34, 0.80, 0.0])))
 				continue
+			# A GUN IN ITS OWN MATERIALS ("pbr": metal, paint, normal maps,
+			# decals with alpha, as its file has them), lit by the rig
+			# (_light_rig) instead of the flat gun shader
+			if def.get("pbr", false):
+				continue
 			var m := ShaderMaterial.new()
 			m.shader = preload("res://godot/shaders/gun.gdshader")
 			var t := Vector3(def.tint[0], def.tint[1], def.tint[2])
@@ -144,6 +154,7 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				if bm.albedo_texture:
 					m.set_shader_parameter("map", bm.albedo_texture)
 				m.set_shader_parameter("base", bm.albedo_color)
+
 				if def.has("heat") and bm.resource_name == def.heat:
 					m.set_shader_parameter("heats", true)
 			mi.set_surface_override_material(i, m)
@@ -151,6 +162,41 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children():
 		_dress(c, def, mats, scope)
+
+## THE RIG for a gun in its own materials: a key light over the shoulder,
+## a fill from below the other side, and a sky made up for the metal to
+## reflect (never drawn: the gun's world stays clear over the room).
+## Made once; the lights follow the room's light (update_for).
+var _key: DirectionalLight3D
+var _fill: DirectionalLight3D
+func _light_rig() -> void:
+	if _key != null:
+		return
+	_key = DirectionalLight3D.new()
+	_key.rotation = Vector3(-0.75, 0.55, 0.0)
+	_key.light_energy = 1.2
+	add_child(_key)
+	_fill = DirectionalLight3D.new()
+	_fill.rotation = Vector3(0.35, -2.4, 0.0)
+	_fill.light_energy = 0.35
+	_fill.light_color = Color(0.8, 0.85, 1.0)
+	add_child(_fill)
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.75, 0.8, 0.9)
+	sky_mat.sky_horizon_color = Color(0.95, 0.92, 0.85)
+	sky_mat.ground_horizon_color = Color(0.45, 0.42, 0.38)
+	sky_mat.ground_bottom_color = Color(0.12, 0.11, 0.1)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	var e := Environment.new()
+	e.background_mode = Environment.BG_CLEAR_COLOR
+	e.sky = sky
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	e.ambient_light_energy = 0.55
+	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	var we := WorldEnvironment.new()
+	we.environment = e
+	add_child(we)
 
 func _find_spinner(n: Node) -> Node3D:
 	if n is Node3D and (n.name.to_lower().contains("barrel") or n.name.to_lower().contains("rotat") or n.name.to_lower().contains("spin")):
@@ -233,6 +279,13 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	if G.spinner != null:
 		spin_angle += p.spin * def.spin * TAU * dt
 		G.spinner.rotation.z = spin_angle
+	# the rig, for a gun in its own materials: the room's light on it too
+	if _key != null:
+		var pbr: bool = def.get("pbr", false)
+		_key.visible = pbr
+		_fill.visible = pbr
+		_key.light_energy = (0.45 + 0.9 * light) * (1.0 + kick * 0.6)
+		_fill.light_energy = 0.15 + 0.3 * light
 	for m in G.mats:
 		m.set_shader_parameter("dim", light)
 		m.set_shader_parameter("glow", kick)

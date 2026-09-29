@@ -392,7 +392,11 @@ THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
   (assets/models/potato_cannon.glb — its textures brought down to 512 on
   the long side, 24 MB to 1.6), held turned about so the hopper of
   potatoes (its glass kept glass) rides on top, its little screen
-  cycling every colour (shaders/rainbow_screen.gdshader). A potato
+  cycling every colour (shaders/rainbow_screen.gdshader), and every
+  other part in its OWN material — chrome, gold, red lacquer, the
+  knotwork's normal maps, the shamrock decal — lit by a rig of its own
+  (weapon3d "pbr": a key, a fill, a made-up sky for the metal to
+  reflect) instead of the flat gun shader the other guns wear. A potato
   leaves down the sight, lofted, falls, and BOUNCES off walls, floors
   and ceilings until it touches somebody — or its eight-second fuse
   runs out, or it rolls to a stop; the shooter is safe from it for the
@@ -405,6 +409,12 @@ THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
   (Lofi.set_unsnap), so the rainbow reaches the glass as a rainbow. Six
   in the hopper, one back every two seconds. godot/tests/potato_shot.gd
   takes its pictures; the weapons test fires it.
+
+THE MAIN MENU FIRST (at the user's request): the game opens on the MEWD
+title, not on the web build's terminal (`-- --terminal` still opens
+that), and the editor's "Back" and a failed join come back to it. At
+the bottom of the menu, DOWNLOAD ZIP: GitHub's zip of the main branch,
+the whole thing (Title.ZIP_URL).
 
 THE WEB BUILD (the site)
 

@@ -368,21 +368,17 @@ func run() -> void:
 	ok(main != null and main.editor != null, "F2 comes back to the editor")
 	if main != null and main.editor != null:
 		ok(main.editor.doc.sectors.size() == sectors, "on the same map (%d sectors)" % main.editor.doc.sectors.size())
-	# BACK TO THE TERMINAL, and E D I T again
+	# BACK TO THE TITLE (the MEWD main menu), and MAP EDITOR again
 	if main != null and main.editor != null:
 		main.editor.quit_requested.emit()
 		await frames(3)
-		ok(main.editor == null and main.terminal != null, "File > Back to the terminal goes back to the prompt")
-		var term = main.terminal
+		ok(main.editor == null and main.title != null, "File > Back to the title goes back to the main menu")
+		if main.title != null:
+			main.title.take(Title.ITEMS.map(func(it): return it[1]).find("editor"))
 		var until := Time.get_ticks_msec() + 8000
-		while term.busy and Time.get_ticks_msec() < until:
-			await frames(1)
-		term.entry = "EDIT"
-		term._enter()
-		until = Time.get_ticks_msec() + 8000
 		while main.editor == null and Time.get_ticks_msec() < until:
 			await frames(1)
-		ok(main.editor != null, "and EDIT at the terminal opens the editor")
+		ok(main.editor != null, "and MAP EDITOR on it opens the editor")
 	print("editor ui: %d checks, %s" % [checks, "OK" if fails == 0 else "%d FAIL" % fails])
 	_restore()
 	quit(1 if fails else 0)
