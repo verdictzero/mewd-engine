@@ -164,8 +164,12 @@ WHAT IS NOT PORTED YET
     along the line of sight; the web's smoke on world surfaces; the
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
-  - Breaches and ruins; the charred sectors' geometry; the VTOL
-    gunship (and so its heat through the thermal sight).
-  - The MEWD Editor and the network play (js/net/, tools/server.mjs) — Godot has its own editor
-    and its own networking, and whether these are ported line for line
-    or rebuilt on Godot's is a decision still to make.
+  - THE MEWD EDITOR and NETWORK PLAY — mission critical, being ported
+    now. The editor is an in-game runtime editor (godot/scripts/editor/)
+    reading and writing the web build's own document JSON. Network play
+    keeps the web build's wire protocol, so a Godot client can join the
+    Node server (tools/server.mjs) and a headless Godot server
+    (--server) can host web and Godot clients alike.
+
+NOT TO BE PORTED (the user's decision): the VTOL gunship, breaches and
+ruins, and rebuilding the geometry of charred sectors.
