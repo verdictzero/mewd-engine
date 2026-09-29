@@ -36,7 +36,11 @@ func _init() -> void:
 			o.erase("jambs")
 			return o), "things": d.things, "props": d.props, "scatters": d.scatters, "lines": d.lines, "world": d.world}), "", false, true))
 		f.close()
+	# the web build's walls are thin: its build, to hold the two together
+	DocCompile.thick = false
 	var lv := DocCompile.compile(d)
+	DocCompile.thick = true
+	var web_problems := DocCompile.problems.size()
 	var t2 := Time.get_ticks_msec()
 	var two := 0
 	for l in lv.lines:
@@ -84,6 +88,18 @@ func _init() -> void:
 		f.store_string(JSON.stringify({"things": things, "plants": plants, "props": props, "lines": lines, "sectors": secs,
 			"nsec": lv.sectors.size(), "nlines": lv.lines.size()}, "", false, true))
 		f.close()
+	# and the Godot build's own, its buildings' walls 16 thick
+	var lt := DocCompile.compile(d)
+	var walls := 0
+	var doors := 0
+	for sc in lt.sectors:
+		walls += 1 if sc.name == "wall" else 0
+		doors += 1 if sc.name == "doorway" else 0
+	var thick_problems := DocCompile.problems.size()
+	print("SPRAWL, walls 16 thick: %d sectors (%d of wall, %d doorways), %d lines, %d problems" % [
+		lt.sectors.size(), walls, doors, lt.lines.size(), thick_problems])
+	for p in DocCompile.problems.slice(0, 10):
+		print("  problem: ", p.msg)
 	var g := DocCompile.compile(TheGrid.build())
 	var shoppers := 0
 	for t in g.things:
@@ -104,10 +120,14 @@ func _init() -> void:
 	for c in [["sectors", lv.sectors.size(), 440], ["lines", lv.lines.size(), 2297], ["townsfolk", counts.get("TOWNIE", 0), 142],
 			["shoppers", counts.get("SHOPPER", 0), 137], ["headstones", counts.get("GRAVESTONE", 0), 103],
 			["lamps", counts.get("STREETLAMP", 0), 256], ["plants", lv.plants.size(), 2387], ["props", lv.props.size(), 520],
-			["problems", DocCompile.problems.size(), 0], ["grid shoppers", shoppers, 200]]:
+			["problems", web_problems, 0], ["grid shoppers", shoppers, 200]]:
 		var ok: bool = c[1] == c[2]
 		print("  %s   sprawl %s: %d (the web build's %d)" % ["ok" if ok else "FAIL", c[0], c[1], c[2]])
 		fails += 0 if ok else 1
 	print("  ok   %d roofs, %d floors round holes, %d coloured sectors" % [roofs, holed, tinted])
+	var thick_ok := thick_problems == 0 and walls > 0 and doors > 0
+	print("  %s   the thick walls build with no problems (%d walls, %d doorways, %d problems)" % [
+		"ok" if thick_ok else "FAIL", walls, doors, thick_problems])
+	fails += 0 if thick_ok else 1
 	print("sprawl: " + ("OK" if fails == 0 else "FAIL"))
 	quit(1 if fails else 0)

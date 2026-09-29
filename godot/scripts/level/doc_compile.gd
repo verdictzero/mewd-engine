@@ -50,6 +50,11 @@ const THING_TYPES := ["START", "SHOPPER", "TOWNIE", "TROLLEY", "BOLLARD", "FUELC
 ## the five colours of a Doom 64 sector
 const COLOR_PARTS := ["floor", "ceil", "thing", "top", "bottom"]
 const LINEDEF_THICK := 8.0
+## how thick a building's outside wall is, at the least (thick_walls)
+const WALL_THICK := 16.0
+## thick_walls on (a test comparing a build with the web build's, whose
+## walls are thin, turns it off)
+static var thick := true
 const LINEDEF_H := 128.0
 
 ## What the world around a map is when it does not say (defaultWorld).
@@ -120,7 +125,8 @@ static func _compile_layers(doc: Dictionary, lays: Array) -> Level:
 		d["layer"] = g.k
 		var w: Dictionary = linedef_walls(d, problems, int(doc.get("nextId", 0)) + 100000 * (li + 1)) \
 			if not g.linedefs.is_empty() else d
-		built.append({"k": g.k, "vertices": w.vertices, "sectors": w.sectors, "lines": g.lines})
+		w = thick_walls(w, problems, int(doc.get("nextId", 0)) + 100000 * (li + 1), li > 0)
+		built.append({"k": g.k, "vertices": w.vertices, "sectors": w.sectors, "lines": w.get("lines", g.lines)})
 	var ov := overlay(built)
 	var F := doc.duplicate()
 	F["vertices"] = ov.vertices
@@ -154,6 +160,21 @@ static func _stack_props(stack: Array) -> Array:
 					"msg": "layer %d: sector %s starts at %s, under the floor of sector %s on layer %d (%s) — raise it" % [
 						e.k, str(e.s.get("id")), str(p.floor), str(lo.s.get("id")), lo.k, str(lo.p.floor)]})
 				continue
+			# A BUILDING'S WALL ON AN UPPER LAYER (thick_walls) is solid
+			# from its room's floor up: whatever is under it ends a deck
+			# under that, and a wall under it stays solid
+			if e.s.get("__base") != null:
+				lo.p.ceil = clampf(float(e.s.__base) - Level.DECK, lo.p.floor, lo.p.ceil)
+				if lo.p.ceilTex == "SKY" or lo.p.ceilTex == "NONE":
+					lo.p.ceilTex = p.floorTex
+				out.append({"k": e.k, "s": e.s, "p": p})
+				continue
+			# ON SOMETHING SOLID (a wall under a doorway upstairs) a floor
+			# stands on it as it is
+			if lo.p.ceil <= lo.p.floor and p.floor >= lo.p.floor:
+				lo.p.ceil = lo.p.floor
+				out.append({"k": e.k, "s": e.s, "p": p})
+				continue
 			# THE DECK HAS A THICKNESS (Level.DECK): the room under ends
 			# that far under the floor over it, and must still be there
 			if p.floor - Level.DECK < lo.p.floor:
@@ -176,6 +197,8 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	var layered := not ctx.is_empty()
 	if not layered and not doc.get("linedefs", []).is_empty():
 		doc = linedef_walls(doc, problems)
+	if not layered:
+		doc = thick_walls(doc, problems)
 	var lv := Level.new()
 	lv.name = doc.get("name", "")
 	lv.world = doc.get("world", {})
@@ -1283,6 +1306,405 @@ static func linedef_walls(doc: Dictionary, probs: Array, id_base := -1) -> Dicti
 		id += 1
 		out.sectors.append(ns)
 	return out
+
+# ------------------------------------------------------------------
+# BUILDING WALLS HAVE A THICKNESS (the Godot build's own)
+# ------------------------------------------------------------------
+
+## BUILDING WALLS: a roofed room drawn against the open air gets an
+## outside wall WALL_THICK thick, grown OUT of it into the open air (the
+## room is drawn as its inside): a sector solid from the ground to the
+## roof — floor and ceiling at the room's ceiling, the room's roof over
+## it — in each open-air sector it reaches into, and nowhere a room, a
+## solid sector or another wall already is (so a wall between two rooms,
+## or on the map's edge, stays as it was). A doorway (a line marked an
+## opening) is a PASSAGE through it instead, the room's own floor and
+## roof, its lines openings. A hole the wall leaves in the open air (a
+## courtyard's middle) is that open air again. The side overrides of
+## the room's lines go onto the faces of the wall: the room's own (its
+## middle, the wall it saw, now the wall's bottom), and the open air's
+## onto the outer face. `upper`: a layer over the ground, where the
+## open air beside a room is also the nothing over the layer under
+## (walls there stand on the room's floor: __base, for _stack_props).
+static func thick_walls(doc: Dictionary, probs: Array, id_base := -1, upper := false) -> Dictionary:
+	var S: Array = doc.sectors
+	var V: Array = doc.vertices
+	if not thick:
+		return doc
+	var T := WALL_THICK
+	var rings := []
+	var boxes := []
+	var areas := []
+	for sd in S:
+		var r := _pts(V, PackedInt32Array(sd.verts))
+		rings.append(r)
+		boxes.append(_box_of(r))
+		areas.append(absf(signed_area(r)) if r.size() >= 3 else 0.0)
+	var solid := func(sd: Dictionary) -> bool:
+		var f := float(sd.get("floor", 0.0) if sd.get("floor") != null else 0.0)
+		var c := float(sd.get("ceil", 256.0) if sd.get("ceil") != null else 256.0)
+		return c <= f or str(sd.get("name", "")) == "linedef wall"
+	var rooms := []
+	var outs := []
+	var blockers := []
+	for i in S.size():
+		if rings[i].size() < 3 or areas[i] < 1.0:
+			continue
+		if _roofed(S[i]) or solid.call(S[i]):
+			blockers.append(i)
+			if _roofed(S[i]) and not solid.call(S[i]):
+				rooms.append(i)
+		else:
+			outs.append(i)
+	if rooms.is_empty() or (outs.is_empty() and not upper):
+		return doc
+	outs.sort_custom(func(a, b): return areas[a] < areas[b])
+	rooms.sort_custom(func(a, b): return float(S[a].get("ceil", 0) if S[a].get("ceil") != null else 0) > float(S[b].get("ceil", 0) if S[b].get("ceil") != null else 0))
+	var out := doc.duplicate()
+	out.vertices = V.duplicate()
+	out.sectors = S.duplicate()
+	var lines: Dictionary = doc.get("lines", {}).duplicate(true) if doc.get("lines") is Dictionary else {}
+	out.lines = lines
+	var P: Array = out.vertices
+	var cell := {}
+	for i in P.size():
+		var key := Vector2i(floori(P[i].x), floori(P[i].y))
+		if not cell.has(key):
+			cell[key] = []
+		cell[key].append(i)
+	# (a counter the lambdas share: they capture a plain int by value)
+	var id := [(id_base if id_base >= 0 else maxi(int(doc.get("nextId", 1)), 1) + 100000) + 50000]
+	var taken := []          # what the walls and passages made already cover
+	var touching := {}       # open-air sector -> the pieces on its own edge
+	var note := func(piece: Dictionary) -> void:
+		var oi: int = piece.o
+		if oi < 0:
+			return
+		for p in piece.outer:
+			if _on_ring(rings[oi], p):
+				if not touching.has(oi):
+					touching[oi] = []
+				touching[oi].append(piece.outer)
+				return
+	# a polygon into the open air: [{outer, holes, o}] — each piece in the
+	# smallest open-air sector it lies in (o; -1 the nothing, upstairs),
+	# less every room and solid sector and whatever is taken
+	var claim := func(poly: PackedVector2Array) -> Array:
+		var parts := []
+		var rem := [poly]
+		var bb := _box_of(poly)
+		for oi in outs:
+			if not bb.intersects(boxes[oi]):
+				continue
+			var next := []
+			for r in rem:
+				for q in Geometry2D.intersect_polygons(r, rings[oi]):
+					if not Geometry2D.is_polygon_clockwise(q):
+						parts.append([q, oi])
+				for q in Geometry2D.clip_polygons(r, rings[oi]):
+					if not Geometry2D.is_polygon_clockwise(q):
+						next.append(q)
+			rem = next
+		if upper:
+			for r in rem:
+				parts.append([r, -1])
+		var res := []
+		for pt in parts:
+			var shapes := [[pt[0], []]]
+			var pb := _box_of(pt[0])
+			var cut: Array = []
+			for bi in blockers:
+				if pb.intersects(boxes[bi]):
+					cut.append(rings[bi])
+			for t in taken:
+				if pb.intersects(_box_of(t)):
+					cut.append(t)
+			for c in cut:
+				var nxt := []
+				for sh in shapes:
+					var got := Geometry2D.clip_polygons(sh[0], c)
+					var outer := []
+					var holes: Array = sh[1].duplicate()
+					for q in got:
+						if Geometry2D.is_polygon_clockwise(q):
+							holes.append(q)
+						else:
+							outer.append(q)
+					# each hole to the smallest outline round it
+					var owner := {}
+					for hi in holes.size():
+						var best := -1
+						var ba := INF
+						for oi2 in outer.size():
+							if _inside_pt(outer[oi2], _hole_pt(holes[hi])):
+								var a := absf(signed_area(outer[oi2]))
+								if a < ba:
+									ba = a
+									best = oi2
+						owner[hi] = best
+					for oi2 in outer.size():
+						var hs := []
+						for hi in holes.size():
+							if owner[hi] == oi2:
+								hs.append(holes[hi])
+						nxt.append([outer[oi2], hs])
+				shapes = nxt
+			for sh in shapes:
+				if absf(signed_area(sh[0])) >= 4.0:
+					res.append({"outer": sh[0], "holes": sh[1], "o": pt[1]})
+		return res
+	var add_sector := func(proto: Dictionary, poly: PackedVector2Array, extra: Dictionary) -> Array:
+		var vs := []
+		for p in poly:
+			var k := _weld(P, cell, p.x, p.y)
+			if vs.is_empty() or vs[vs.size() - 1] != k:
+				vs.append(k)
+		if vs.size() > 1 and vs[0] == vs[vs.size() - 1]:
+			vs.pop_back()
+		if vs.size() < 3:
+			return []
+		var ns := proto.duplicate(true)
+		for k in ["storeys", "floorSlope", "ceilSlope", "scatter"]:
+			ns.erase(k)
+		ns.merge(extra, true)
+		ns["id"] = id[0]
+		ns["verts"] = vs
+		id[0] += 1
+		out.sectors.append(ns)
+		return vs
+	# a hole a wall leaves: the open air that was there — unless a room
+	# or something solid is (the rooms it was grown round)
+	var fill_holes := func(piece: Dictionary) -> void:
+		for h in piece.holes:
+			var q := _hole_pt(h)
+			var known := false
+			for bi in blockers:
+				if boxes[bi].has_point(q) and pip(rings[bi], q.x, q.y):
+					known = true
+					break
+			if not known and piece.o >= 0:
+				add_sector.call(S[piece.o], h, {"name": str(S[piece.o].get("name", "")), "__fill": true})
+	for ri in rooms:
+		var R: Dictionary = S[ri]
+		var ring: PackedVector2Array = rings[ri]
+		var f := float(R.get("floor", 0.0) if R.get("floor") != null else 0.0)
+		var c := float(R.get("ceil", 256.0) if R.get("ceil") != null else 256.0)
+		var wt: String = _tex_or(R.get("wallTex"), "GRIDWALL")
+		var ccw := signed_area(ring) > 0.0
+		var rv: Array = R.verts
+		var n := rv.size()
+		# 1. THE DOORWAYS: a passage through the wall, the room's own
+		for i in n:
+			var k := _line_key(int(rv[i]), int(rv[(i + 1) % n]))
+			if not (lines.get(k, {}) is Dictionary and lines.get(k, {}).get("opening", false)):
+				continue
+			var a: Vector2 = V[int(rv[i])]
+			var b: Vector2 = V[int(rv[(i + 1) % n])]
+			var nn := _out_normal(a, b, ccw) * T
+			for piece in claim.call(PackedVector2Array([a, b, b + nn, a + nn])):
+				var vs: Array = add_sector.call(R, piece.outer, {"name": "doorway"})
+				if vs.is_empty():
+					continue
+				taken.append(piece.outer)
+				note.call(piece)
+				for j in vs.size():
+					var dk := _line_key(int(vs[j]), int(vs[(j + 1) % vs.size()]))
+					if not lines.get(dk) is Dictionary:
+						lines[dk] = {}
+					lines[dk]["opening"] = true
+		# 2. THE WALL: a strip the thickness deep out of each edge, and a
+		# corner (mitred) out of each outward corner — simple pieces, so
+		# that none of them ever closes round anything
+		var polys := []
+		for i in n:
+			var a: Vector2 = V[int(rv[i])]
+			var b: Vector2 = V[int(rv[(i + 1) % n])]
+			if a.distance_to(b) < 0.5:
+				continue
+			var k := _line_key(int(rv[i]), int(rv[(i + 1) % n]))
+			var nb := _out_normal(a, b, ccw) * T
+			if not (lines.get(k, {}) is Dictionary and lines.get(k, {}).get("opening", false)):
+				polys.append(PackedVector2Array([a, b, b + nb, a + nb]))
+			# the corner at b, to the next edge
+			var nx: Vector2 = V[int(rv[(i + 2) % n])]
+			if b.distance_to(nx) < 0.5:
+				continue
+			var d1 := (b - a).normalized()
+			var d2 := (nx - b).normalized()
+			var turn := d1.cross(d2) if ccw else -d1.cross(d2)
+			if turn <= 1e-6:
+				continue        # an inward corner: the strips overlap there
+			var n1 := _out_normal(a, b, ccw)
+			var n2 := _out_normal(b, nx, ccw)
+			var mdir := n1 + n2
+			var k2 := 1.0 + n1.dot(n2)
+			if k2 > 0.25:
+				polys.append(PackedVector2Array([b, b + n1 * T, b + mdir / k2 * T, b + n2 * T]))
+			else:
+				polys.append(PackedVector2Array([b, b + n1 * T, b + n2 * T]))
+		var made := 0
+		for poly in polys:
+			if absf(signed_area(poly)) < 1.0:
+				continue
+			for piece in claim.call(poly):
+				var extra := {"name": "wall", "floor": c, "ceil": c, "floorTex": _tex_or(R.get("roofTex"), _tex_or(R.get("ceilTex"), "GRIDWALL")),
+					"wallTex": wt, "lowerTex": wt, "upperTex": wt}
+				if upper:
+					extra["__base"] = f
+				var vs: Array = add_sector.call(R, piece.outer, extra)
+				if vs.is_empty():
+					continue
+				made += 1
+				taken.append(piece.outer)
+				note.call(piece)
+				fill_holes.call(piece)
+				_wall_sides(lines, P, vs, rv, V, ccw, T, str(R.id))
+		if made > 0:
+			# the room's own side of its walls: the middle it saw is now
+			# the wall's bottom
+			for i in n:
+				var k := _line_key(int(rv[i]), int(rv[(i + 1) % n]))
+				var o = lines.get(k)
+				if not o is Dictionary:
+					continue
+				var sd = o.get("sides", {}).get(str(R.id)) if o.get("sides") is Dictionary else null
+				if sd is Dictionary and sd.get("midTex") and not sd.get("lowerTex"):
+					sd["lowerTex"] = sd.midTex
+				if o.get("midTex") and not o.get("lowerTex"):
+					o["lowerTex"] = o.midTex
+	# A PIECE ON THE EDGE OF THE OPEN AIR IT STANDS IN cannot be a hole in
+	# it (a hole is inside): the open air is cut back round it instead
+	for oi in touching:
+		var shapes := [rings[oi]]
+		for pc in touching[oi]:
+			var nxt := []
+			for sh in shapes:
+				for q in Geometry2D.clip_polygons(sh, pc):
+					if not Geometry2D.is_polygon_clockwise(q):
+						nxt.append(q)
+			shapes = nxt
+		shapes = shapes.filter(func(q): return absf(signed_area(q)) >= 1.0)
+		if shapes.is_empty():
+			continue
+		shapes.sort_custom(func(a, b): return absf(signed_area(a)) > absf(signed_area(b)))
+		var at: int = out.sectors.find(S[oi])
+		var first := true
+		for q in shapes:
+			if first:
+				var vs := []
+				for p in q:
+					var k := _weld(P, cell, p.x, p.y)
+					if vs.is_empty() or vs[vs.size() - 1] != k:
+						vs.append(k)
+				if vs.size() > 1 and vs[0] == vs[vs.size() - 1]:
+					vs.pop_back()
+				if vs.size() >= 3 and at >= 0:
+					var ns: Dictionary = S[oi].duplicate()
+					ns["verts"] = vs
+					out.sectors[at] = ns
+				first = false
+			else:
+				add_sector.call(S[oi], q, {})
+	out["nextId"] = maxi(int(doc.get("nextId", 1)), 1)
+	return out
+
+## Whether p lies on one of a ring's edges.
+static func _on_ring(r: PackedVector2Array, p: Vector2) -> bool:
+	for i in r.size():
+		var a := r[i]
+		var b := r[(i + 1) % r.size()]
+		if Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) <= 0.05:
+			return true
+	return false
+
+## The outward normal of a ring's edge a→b (ccw: the ring's winding).
+static func _out_normal(a: Vector2, b: Vector2, ccw: bool) -> Vector2:
+	var d := (b - a).normalized()
+	var n := Vector2(d.y, -d.x)
+	return n if ccw else -n
+
+## A wall's outer face takes the overrides the open air's side of the
+## room's line had: each edge of the wall (vs) parallel to an edge of
+## the room (rv), the thickness out and over it.
+static func _wall_sides(lines: Dictionary, P: Array, vs: Array, rv: Array, V: Array, ccw: bool, T: float, rid: String) -> void:
+	var n := rv.size()
+	for j in vs.size():
+		var u: Vector2 = P[int(vs[j])]
+		var w: Vector2 = P[int(vs[(j + 1) % vs.size()])]
+		var m := (u + w) / 2.0
+		if u.distance_to(w) < 1.0:
+			continue
+		for i in n:
+			var a: Vector2 = V[int(rv[i])]
+			var b: Vector2 = V[int(rv[(i + 1) % n])]
+			var k := _line_key(int(rv[i]), int(rv[(i + 1) % n]))
+			var o = lines.get(k)
+			if not o is Dictionary:
+				continue
+			var d := (b - a).normalized()
+			if absf(d.cross((w - u).normalized())) > 0.01:
+				continue
+			var t := (m - a).dot(d)
+			if t < 0.0 or t > a.distance_to(b):
+				continue
+			if absf((m - a).dot(_out_normal(a, b, ccw)) - T) > 1.0:
+				continue
+			var nk := _line_key(int(vs[j]), int(vs[(j + 1) % vs.size()]))
+			var no: Dictionary = lines.get(nk, {}) if lines.get(nk) is Dictionary else {}
+			for f in ["xoff", "yoff", "xscale", "yscale", "pegLower", "pegUpper"]:
+				if o.has(f):
+					no[f] = o[f]
+			var mid = o.get("midTex")
+			if mid and not o.get("lowerTex"):
+				no["lowerTex"] = mid
+			elif o.get("lowerTex"):
+				no["lowerTex"] = o.lowerTex
+			if o.get("sides") is Dictionary:
+				for sid in o.sides:
+					if str(sid) == rid or not o.sides[sid] is Dictionary:
+						continue
+					var sd: Dictionary = o.sides[sid].duplicate()
+					if sd.get("midTex") and not sd.get("lowerTex"):
+						sd["lowerTex"] = sd.midTex
+					sd.erase("midTex")
+					if not no.get("sides") is Dictionary:
+						no["sides"] = {}
+					no.sides[sid] = sd
+			if not no.is_empty():
+				lines[nk] = no
+			break
+
+static func _box_of(r: PackedVector2Array) -> Rect2:
+	if r.is_empty():
+		return Rect2()
+	var bb := Rect2(r[0], Vector2.ZERO)
+	for p in r:
+		bb = bb.expand(p)
+	return bb.grow(0.5)
+
+## A point just inside a ring: off the middle of its longest edge, on
+## whichever side is in it.
+static func _hole_pt(r: PackedVector2Array) -> Vector2:
+	var bi := 0
+	var bl := -1.0
+	for i in r.size():
+		var l := r[i].distance_squared_to(r[(i + 1) % r.size()])
+		if l > bl:
+			bl = l
+			bi = i
+	var a := r[bi]
+	var b := r[(bi + 1) % r.size()]
+	var m := (a + b) / 2.0
+	var n := (b - a).normalized().orthogonal() * 0.25
+	return m + n if pip(r, m.x + n.x, m.y + n.y) else m - n
+
+static func _inside_pt(r: PackedVector2Array, q: Vector2) -> bool:
+	return pip(r, q.x, q.y)
+
+## The middle of a ring's box (the same for a ring with its edges split).
+static func _centroid(r: PackedVector2Array) -> Vector2:
+	var bb := _box_of(r)
+	return bb.get_center()
 
 # ------------------------------------------------------------------
 # LAYERS, LAID OVER EACH OTHER (overlay in js/editor/doc.js)

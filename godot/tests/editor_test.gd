@@ -76,7 +76,10 @@ func check_point(ed: MewdEditor, name: String, want: Dictionary) -> void:
 	ok(JSON.stringify(ids) == JSON.stringify(wids), "%s: selection %s == %s" % [name, ids, wids])
 	# the build — a map in layers too: every layer laid over the others
 	# and built as columns of rooms, as the web build builds it
+	# (with the web build's thin walls: the Godot build's own are thick)
+	DocCompile.thick = false
 	ed.compile_now()
+	DocCompile.thick = true
 	var lv: Level = ed.compiled.level
 	var b: Dictionary = want.built
 	ok(lv.sectors.size() == b.sectors, "%s: built %d sectors == %d" % [name, lv.sectors.size(), b.sectors])

@@ -730,6 +730,11 @@ func assign_bands(l: Line) -> void:
 	for s in F + B:
 		cuts.append(s.floor)
 		cuts.append(s.ceil)
+	# and every storey's own heights, the solid ones too (a building's
+	# wall, floor at its ceiling): where the wall ends and the sky begins
+	for s in Fall + Ball:
+		cuts.append(s.floor)
+		cuts.append(s.ceil)
 	cuts.sort()
 	l.bands = []
 	l.holes = []

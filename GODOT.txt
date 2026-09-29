@@ -113,7 +113,23 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   over the floor under it is left out and said. The room under has the
   upper floor's texture for its ceiling. A ROOF is as thick, over the
   ceiling of the room it roofs, and its edge is drawn wherever what is
-  beside it is lower (MapGeo._roof_edge) — on every map with roofs. Every other sector is a
+  beside it is lower (MapGeo._roof_edge) — on every map with roofs.
+
+  A BUILDING'S OUTSIDE WALL is DocCompile.WALL_THICK (16) thick, always
+  (DocCompile.thick_walls; the web build's are a face with no depth):
+  a roofed room drawn against the open air is its INSIDE, and the wall
+  grows out of it — a strip out of each edge and a mitred corner out of
+  each outward corner, each cut to the open-air sector it stands in and
+  off every room, solid sector and wall already there. A wall is solid
+  from the ground to the room's ceiling, the room's roof over it; on an
+  upper layer, from the room's floor (__base) over whatever is under.
+  A doorway (a line marked an opening) is a PASSAGE through the wall in
+  the room's own floor and roof. Where a wall meets the edge of the open
+  air it stands in, the open air is cut back round it. Overrides on the
+  room's lines follow: the room's side (its middle becomes the wall's
+  bottom, the face it sees) and the open air's side onto the wall's
+  outer face. The tests that hold a build to the web build's turn it
+  off (DocCompile.thick) for that comparison. Every other sector is a
   column of one — every sector of every map not in layers — and for
   those nothing below is asked or costs anything different (the level's
   `layered` is false and each new question is behind it or behind a
@@ -386,8 +402,8 @@ WHAT IS NOT PORTED YET
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
   - Of MEWD Editor: see THE MAP EDITOR above — the Godot-scene export.
-  - Of room over room: the web build's decks have no thickness and
-    these always do (not a port, a change); the troops' chase is Doom's, on the plan, so they do not find the
+  - Of room over room: the web build's decks and outside walls have no
+    thickness and these always do (not a port, a change); the troops' chase is Doom's, on the plan, so they do not find the
     stairs to somebody upstairs; the crowd's scare and the rain's
     spawning ask the plan; a match's spawn pads are on the ground.
   - Of network play: the Node host's serving of the web build's files

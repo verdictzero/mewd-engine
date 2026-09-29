@@ -89,7 +89,7 @@ func _compile() -> void:
 		if s.above != -1:
 			cols += 1
 			check(lv.sectors[s.above].below == s.index and lv.sectors[s.above].col_base == s.col_base, "a column's storeys know each other")
-	check(cols == 2, "two columns of two storeys: shop and office, yard and terrace (%d)" % cols)
+	check(cols >= 2, "columns of storeys: shop and office, yard and terrace, and the walls round them (%d)" % cols)
 	var office: Level.Sector = _named(lv, "office")[0]
 	var shop: Level.Sector = _named(lv, "shop")[0]
 	var terrace: Level.Sector = _named(lv, "terrace")[0]
@@ -99,19 +99,29 @@ func _compile() -> void:
 		"the yard runs on under the terrace, the underside of its deck its ceiling (%s)" % under.ceil_tex)
 	check(office.roof_tex != "" and shop.roof_tex == "" and terrace.roof_tex == "", "a roof over the office only")
 	check(lv.edge_conflicts == 0, "no edge claimed by three columns")
-	# the walls: the office's stand upstairs only, and each door is on its own storey
-	var west_door := _line_at(lv, Vector2(768, 768))
-	var east_door := _line_at(lv, Vector2(1152, 768))
-	check(west_door != null and west_door.blocking and west_door.mid_z == [Vector2(128, 320)],
-		"the shop's door (layer 0) is a wall upstairs, the office's west side (%s)" % str(west_door.mid_z if west_door else null))
-	check(east_door != null and east_door.blocking and east_door.mid_z == [Vector2(0, 112)],
-		"the office's door (layer 1) is a wall downstairs, the shop's east side (%s)" % str(east_door.mid_z if east_door else null))
-	var north := _line_at(lv, Vector2(960, 512))
-	check(north != null and north.blocking and north.mid_z.is_empty() and north.holes.size() == 2,
-		"the building's north face is a wall on both storeys")
-	var edge := north.bands.filter(func(bd): return bd.deck) if north else []
-	check(edge.size() == 1 and edge[0].z0 == 112.0 and edge[0].z1 == 128.0 and edge[0].tex == north.middle,
-		"and across the deck between them, in the same outside wall (%s)" % str(edge.map(func(bd): return [bd.z0, bd.z1, bd.tex])))
+	# THE BUILDING'S WALLS ARE 16 THICK, grown out of its rooms: solid
+	# from the ground to the office's ceiling, and the doors passages
+	# through them, each on its own storey
+	var doors := _named(lv, "doorway")
+	var west_door = null
+	var east_door = null
+	for dw in doors:
+		if dw.floor == 0.0:
+			west_door = dw
+		elif dw.floor == 128.0:
+			east_door = dw
+	check(doors.size() == 2 and west_door != null and west_door.bbox == Rect2(752, 704, 16, 128) and west_door.ceil == 112.0
+		and west_door.above != -1 and lv.sectors[west_door.above].name == "wall",
+		"the shop's door is a passage 16 through its wall, the wall solid over it upstairs")
+	check(east_door != null and east_door.bbox == Rect2(1152, 704, 16, 128) and east_door.ceil == 320.0
+		and east_door.below != -1 and lv.sectors[east_door.below].name == "wall" and lv.sectors[east_door.below].ceil == 128.0,
+		"and the office's a passage on the solid wall of the shop under it")
+	var north := _line_at(lv, Vector2(960, 496))
+	var faces := north.bands.filter(func(bd): return bd.tex != "NONE").map(func(bd): return [bd.z0, bd.z1, bd.tex]) if north else []
+	check(faces == [[0.0, 128.0, "CITYMET1"], [128.0, 320.0, "CITYMET2"]],
+		"the building's north face, 16 out: the shop's wall and the office's over it, to the office's ceiling (%s)" % str(faces))
+	var inner := _line_at(lv, Vector2(960, 512))
+	check(inner != null and inner.holes.is_empty() and inner.bands.size() >= 2, "and inside, the rooms' own side of it")
 	var terr_edge := _line_at(lv, Vector2(1344, 512))
 	check(terr_edge != null and not terr_edge.blocking and terr_edge.holes.size() == 2, "and the terrace's edge is open, over open yard")
 	var slab := terr_edge.bands.filter(func(bd): return absf(bd.z0 - 112.0) < 0.01 and absf(bd.z1 - 128.0) < 0.01) if terr_edge else []
@@ -188,7 +198,7 @@ func _walk(lv: Level) -> void:
 	# 2. ROUND THE TERRACE, into the office's wall
 	_put(p, 1344, 930, 128, PI)
 	var w := _drive(1.0, 90)
-	check(p.x > 1152.0 + 15.0 and p.x < 1175.0 and w.lo == 128.0, "upstairs, the office's wall stops you (x %.1f, z %.0f)" % [p.x, w.lo])
+	check(p.x > 1168.0 + 15.0 and p.x < 1191.0 and w.lo == 128.0, "upstairs, the office's wall, 16 thick, stops you (x %.1f, z %.0f)" % [p.x, w.lo])
 	# 3. THROUGH ITS DOOR, and across it to the far wall — over the shop's
 	# door downstairs, which is no door up here
 	_put(p, 1344, 768, 128, PI)
@@ -217,7 +227,7 @@ func _under(lv: Level) -> void:
 	# 6. COLLISION DOWNSTAIRS: the shop's east wall, under the office's door
 	_put(p, 1344, 768, 0, PI)
 	w = _drive(1.0, 90)
-	check(p.x > 1152.0 + 15.0 and p.x < 1175.0 and w.hi == 0.0, "downstairs, the shop's wall under the office's door stops you (x %.1f)" % p.x)
+	check(p.x > 1168.0 + 15.0 and p.x < 1191.0 and w.hi == 0.0, "downstairs, the shop's wall under the office's door stops you (x %.1f)" % p.x)
 	# 7. and in at the shop's own door, from the west, to its east wall
 	_put(p, 600, 768, 0, 0.0)
 	w = _drive(1.0, 200)
