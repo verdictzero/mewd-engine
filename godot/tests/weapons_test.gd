@@ -30,6 +30,7 @@ func _init() -> void:
 	_extinguisher(p, run)
 	_bore(p, run)
 	_launcher(p, run)
+	_arc(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
 
@@ -127,3 +128,17 @@ func _launcher(p, run: Vector2) -> void:
 	check(game.missiles.fired >= 1 and game.missiles.blasts >= 1, "LAUNCHER: %d fired, %d blasts" % [game.missiles.fired, game.missiles.blasts])
 	check((v.dead or v.removed) and (w.dead or w.removed), "LAUNCHER: both people down the run are dead")
 	check(game.giblets.eviscerations >= 1, "LAUNCHER: and came apart (%d eviscerations)" % game.giblets.eviscerations)
+
+func _arc(p, run: Vector2) -> void:
+	_settle(60)
+	var people := []
+	for k in 5:
+		people.append(_victim(p, run, 250.0 + k * 90.0))
+	p.pitch = 0.0
+	p.ammo.volts = 6
+	_hold("ARC", ArcSystem.ARC.chargeTics + 5)
+	_settle(30)
+	var down := people.filter(func(a): return a.dead or a.removed).size()
+	check(game.arc.fired == 1, "ARC: a full charge let go fired one bolt")
+	check(game.arc.last_chain.size() >= 4, "ARC: the chain struck %d" % game.arc.last_chain.size())
+	check(down >= 4, "ARC: %d of 5 down" % down)

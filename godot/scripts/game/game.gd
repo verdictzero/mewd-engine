@@ -33,6 +33,7 @@ var frost: FrostStream
 var bore: BoreSystem
 ## the quad launcher's seeker and its missiles
 var missiles: MissileSystem
+var arc: ArcSystem
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
@@ -113,6 +114,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(bore)
 	missiles = MissileSystem.new(self)
 	add_child(missiles)
+	arc = ArcSystem.new(self)
+	add_child(arc)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -225,6 +228,7 @@ func _process(dt: float) -> void:
 	frost.particles.draw()
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
+	arc.draw(camera)
 	fx.draw()
 	giblets.draw()
 	if weapon3d != null:
@@ -259,6 +263,7 @@ func tic() -> void:
 	frost.tic()
 	bore.tic()
 	missiles.tic()
+	arc.tic()
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
@@ -424,6 +429,8 @@ func weapon_system(kind: String):
 	match kind:
 		"seeker":
 			return missiles
+		"arc":
+			return arc
 	return null
 
 ## Being shot at wakes the place up, and so does setting fire to it.

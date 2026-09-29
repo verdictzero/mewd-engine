@@ -60,6 +60,9 @@ var shots_fired := 0
 ## one refusal that is heard, once per press
 var seeking := false
 var clicked := false
+## the arc maw: winding, and how far (0..1)
+var arc_charging := false
+var arc_charge := 0.0
 
 ## where the body was at the start of this tic, for the frame to draw
 ## between the two
