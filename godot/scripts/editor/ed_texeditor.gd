@@ -31,7 +31,8 @@ func _init(editor: MewdEditor, frame: EdUI, name = null, src := "GRIDWALL") -> v
 	ed = editor
 	ui = frame
 	from = src
-	title = "Texture editor — layers of the game's textures and your own images, drawn into a texture of this map"
+	title = "Texture editor"
+	borderless = true
 	exclusive = true
 	transient = true
 	wrap_controls = false
@@ -93,6 +94,22 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_theme_constant_override("separation", 0)
 	add_child(root)
+	var head := HBoxContainer.new()
+	head.custom_minimum_size.y = 40
+	var hm := MarginContainer.new()
+	hm.add_theme_constant_override("margin_left", 14)
+	hm.add_child(head)
+	root.add_child(hm)
+	var ht := EdStyle.label("Texture editor", Color.WHITE, 12, EdStyle.bold())
+	ht.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(ht)
+	var hn := EdStyle.label("— layers of the game's textures and your own images, drawn into a texture of this map", EdStyle.DIM, 12)
+	hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(hn)
+	var line := ColorRect.new()
+	line.color = EdStyle.LINE
+	line.custom_minimum_size.y = 1
+	root.add_child(line)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 0)
@@ -141,8 +158,11 @@ func _ready() -> void:
 	err = EdStyle.label("", EdStyle.DANGER, 12)
 	err.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(err)
-	foot.add_child(EdStyle.button("Cancel", _ask_close))
-	foot.add_child(EdStyle.play_button("Save texture", save))
+	var cancel := EdStyle.button("Cancel", _ask_close)
+	var ok := EdStyle.play_button("Save texture", save)
+	for b in [cancel, ok]:
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		foot.add_child(b)
 	render_side()
 
 func _process(_dt: float) -> void:
@@ -291,6 +311,7 @@ func render_side() -> void:
 		def.layers.append(EdTex.new_layer(v))
 		sel = def.layers.size() - 1
 		render_side())
+	add_sel.custom_minimum_size.x = 170
 	side.add_child(EdStyle.flow([add_sel, EdStyle.small_button("+ Image…", _import, "A picture from a file, as a layer")]))
 	if sel < 0 or sel >= def.layers.size():
 		_dirty_draw = true

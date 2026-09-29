@@ -37,6 +37,19 @@ static func sans() -> Font:
 		_sans = f
 	return _sans
 
+static var _bold := {}
+
+## The face at a weight (the web build's 600 headings).
+static func bold(is_mono := false) -> Font:
+	var k := "m" if is_mono else "s"
+	if not _bold.has(k):
+		var f := SystemFont.new()
+		f.font_names = (mono() if is_mono else sans()).font_names
+		f.font_weight = 700 if is_mono else 600
+		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+		_bold[k] = f
+	return _bold[k]
+
 static func box(bg: Color, border := Color(0, 0, 0, 0), radius := 4, bw := 1, pad := Vector4(6, 2, 6, 2)) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
@@ -97,6 +110,10 @@ static func theme() -> Theme:
 	t.set_constant("h_separation", "GridContainer", 6)
 	t.set_constant("v_separation", "GridContainer", 6)
 	t.set_color("font_color", "CheckBox", TEXT)
+	t.set_icon("unchecked", "CheckBox", _check_icon(false))
+	t.set_icon("checked", "CheckBox", _check_icon(true))
+	t.set_icon("unchecked_disabled", "CheckBox", _check_icon(false))
+	t.set_icon("checked_disabled", "CheckBox", _check_icon(true))
 	t.set_stylebox("normal", "CheckBox", StyleBoxEmpty.new())
 	t.set_stylebox("hover", "CheckBox", StyleBoxEmpty.new())
 	t.set_stylebox("pressed", "CheckBox", StyleBoxEmpty.new())
@@ -114,6 +131,27 @@ static func theme() -> Theme:
 	t.set_color("title_color", "Window", Color.WHITE)
 	_theme = t
 	return t
+
+## A checkbox as the web build's accent-coloured one: a dark square
+## with a grey edge, or filled green with a tick.
+static func _check_icon(on: bool) -> ImageTexture:
+	var n := 14
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in n:
+		for x in n:
+			var edge := x == 0 or y == 0 or x == n - 1 or y == n - 1
+			var corner := (x == 0 or x == n - 1) and (y == 0 or y == n - 1)
+			if corner:
+				continue
+			if on:
+				img.set_pixel(x, y, ACCENT)
+			else:
+				img.set_pixel(x, y, Color("#7d8a93") if edge else FIELD)
+	if on:
+		for p in [[3, 7], [4, 8], [5, 9], [6, 8], [7, 7], [8, 6], [9, 5], [10, 4], [4, 7], [5, 8], [6, 7], [7, 6], [8, 5], [9, 4], [10, 3]]:
+			img.set_pixel(p[0], p[1], Color("#0b1a10"))
+	return ImageTexture.create_from_image(img)
 
 # ---------------------------------------------------------------------
 # builders
@@ -139,7 +177,7 @@ static func note(text: String) -> Label:
 
 ## A heading: .ed-insp h4 — small capitals in the mono face.
 static func h4(text: String) -> Label:
-	var l := label(text.to_upper(), DIM, 10, mono())
+	var l := label(text.to_upper(), DIM, 10, bold(true))
 	l.add_theme_constant_override("line_spacing", 0)
 	var m := l
 	m.custom_minimum_size.y = 22
@@ -149,7 +187,7 @@ static func h4(text: String) -> Label:
 ## .ed-insp h3: white, and what is selected on the right.
 static func h3(text: String, small := "") -> Control:
 	var hb := HBoxContainer.new()
-	var a := label(text, Color.WHITE, 12)
+	var a := label(text, Color.WHITE, 12, bold())
 	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	a.custom_minimum_size.x = 60
@@ -161,7 +199,30 @@ static func h3(text: String, small := "") -> Control:
 ## .ed-btn, with its key in a <kbd>.
 static func button(text: String, cb: Callable = Callable(), kbd := "", tip := "") -> Button:
 	var b := Button.new()
-	b.text = text + (("  " + kbd) if kbd != "" else "")
+	b.text = text
+	if kbd != "":
+		# the key in a <kbd>: dim, small, mono, after the name
+		b.text = ""
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 5)
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		hb.alignment = BoxContainer.ALIGNMENT_CENTER
+		var t := label(text, TEXT, 12)
+		t.name = "Text"
+		var k := label(kbd, DIM, 10, mono())
+		k.name = "Kbd"
+		k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		t.size_flags_vertical = Control.SIZE_FILL
+		k.size_flags_vertical = Control.SIZE_FILL
+		hb.add_child(t)
+		hb.add_child(k)
+		b.add_child(hb)
+		var fit := func() -> void: b.custom_minimum_size = Vector2(hb.get_combined_minimum_size().x + 18, 26)
+		hb.minimum_size_changed.connect(fit)
+		b.ready.connect(fit)
+		b.set_meta("text_label", t)
 	b.focus_mode = Control.FOCUS_NONE
 	b.tooltip_text = tip
 	b.add_theme_font_size_override("font_size", 12)
@@ -178,16 +239,34 @@ static func small_button(text: String, cb: Callable = Callable(), tip := "") -> 
 
 ## A toggled look for a button (.on).
 static func set_on(b: Button, on: bool) -> void:
+	var t = (b.get_meta("text_label") if b.has_meta("text_label") else null)
 	if on:
 		b.add_theme_stylebox_override("normal", box(Color("#17301f"), ACCENT, 4, 1, Vector4(9, 3, 9, 3)))
 		b.add_theme_color_override("font_color", Color.WHITE)
+		if t != null:
+			t.add_theme_color_override("font_color", Color.WHITE)
 	else:
 		b.remove_theme_stylebox_override("normal")
 		b.remove_theme_color_override("font_color")
+		if t != null:
+			t.add_theme_color_override("font_color", TEXT)
+
+## A button's words, whichever way it was made.
+static func set_text(b: Button, text: String) -> void:
+	var t = (b.get_meta("text_label") if b.has_meta("text_label") else null)
+	if t != null:
+		t.text = text
+		var hb: Control = t.get_parent()
+		b.custom_minimum_size.x = hb.get_combined_minimum_size().x + 18
+	else:
+		b.text = text
 
 ## .ed-btn.play
-static func play_button(text: String, cb: Callable) -> Button:
-	var b := button(text, cb)
+static func play_button(text: String, cb: Callable, kbd := "") -> Button:
+	var b := button(text, cb, kbd)
+	var t = (b.get_meta("text_label") if b.has_meta("text_label") else null)
+	if t != null:
+		t.add_theme_color_override("font_color", Color("#bff5d2"))
 	b.add_theme_stylebox_override("normal", box(Color("#163322"), Color("#2f7d4d"), 4, 1, Vector4(9, 3, 9, 3)))
 	b.add_theme_stylebox_override("hover", box(Color("#1c4029"), Color("#2f7d4d"), 4, 1, Vector4(9, 3, 9, 3)))
 	b.add_theme_color_override("font_color", Color("#bff5d2"))
@@ -199,7 +278,9 @@ static func row(text: String, fields: Array) -> Control:
 	hb.add_theme_constant_override("separation", 6)
 	var l := label(text, DIM, 12)
 	l.custom_minimum_size.x = 92
-	l.clip_text = true
+	l.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hb.add_child(l)
 	for f in fields:
 		if f is Control:
@@ -222,7 +303,8 @@ static func num(value, onset: Callable, step := 1.0, tip := "") -> SpinBox:
 	s.update_on_text_changed = false
 	if value == null or (value is String and value == ""):
 		s.set_value_no_signal(0)
-		s.get_line_edit().text = ""
+		# blank, as an empty input is: "work it out"
+		s.ready.connect(func(): s.get_line_edit().text = "")
 	else:
 		s.set_value_no_signal(float(value))
 	s.custom_minimum_size = Vector2(40, 24)

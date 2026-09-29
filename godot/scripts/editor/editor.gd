@@ -130,6 +130,8 @@ var _other_key = null
 var _other_cache: Array = []
 ## headless tests build the editor without views and compile at once
 var headless := false
+## a drag is under way: the 3D view waits for it to end to rebuild
+var dragging := false
 
 func _init(start_doc = null, is_headless := false) -> void:
 	headless = is_headless
@@ -167,11 +169,30 @@ func _ready() -> void:
 	compile_now()
 	frame_req.emit()
 	say(status)
+	# --edit-ops=FILE: a script of edits (EdScript), for pictures and tests
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--edit-ops="):
+			var ops = JSON.parse_string(FileAccess.get_file_as_string(a.substr(11)))
+			if ops is Array:
+				for i in 3:
+					await get_tree().process_frame
+				EdScript.run(self, ops)
 
 func _exit_tree() -> void:
 	if _thread != null:
-		_thread.wait_to_finish()
+		var res = _thread.wait_to_finish()
 		_thread = null
+		if res is Dictionary and res.get("geo") != null:
+			res.geo.free()
+	# work in hand is kept, however the editor is left (the web build's
+	# beforeunload)
+	if _save_at >= 0:
+		autosave()
+		_save_at = -1
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not headless and history != null:
+		autosave()
 
 # ---------------------------------------------------------------------
 # the one way the document changes
@@ -206,8 +227,10 @@ func edit_end(tidy := true) -> void:
 	changed()
 
 ## The document moved: tell everybody, and recompile a moment later.
-func changed(now := false) -> void:
-	_lines_cache = null
+func changed(now := false, topology := true) -> void:
+	# a drag moves corners and changes no line: the list of them stands
+	if topology:
+		_lines_cache = null
 	if layer() != _last_layer:
 		_last_layer = layer()
 		_other_key = null
@@ -254,6 +277,12 @@ func _texture_key(d: Dictionary) -> String:
 
 ## Draw the map's own textures and say which names there are now.
 func _refresh_textures(emit := true) -> void:
+	# a compile in flight reads the bank's textures: it finishes first
+	if _thread != null:
+		var res = _thread.wait_to_finish()
+		_thread = null
+		if res is Dictionary:
+			_apply_compile(res)
 	var drawn := EdTex.register_all(doc)
 	map_texture_names = []
 	for t in doc.get("textures", []):
@@ -275,8 +304,10 @@ func tex_size(name: String) -> Vector2:
 ## mouse; the result lands in `compiled` and compiled_ready fires.
 func compile_now() -> void:
 	if _thread != null:
-		_thread.wait_to_finish()
+		var res = _thread.wait_to_finish()
 		_thread = null
+		if res is Dictionary and res.get("geo") != null:
+			res.geo.free()
 	_apply_compile(_compile(EdDoc.clone(doc)))
 
 func _start_compile() -> void:
@@ -284,7 +315,18 @@ func _start_compile() -> void:
 		_compile_again = true
 		return
 	_thread = Thread.new()
-	_thread.start(_compile.bind(EdDoc.clone(doc)))
+	# the 3D view's meshes are built in the thread too, when it is showing
+	var geo: bool = view3d != null and view3d.active
+	_thread.start(_compile_geo.bind(EdDoc.clone(doc), bank if geo else null))
+
+## The compile, and the level's meshes (MapGeo) for the 3D view, off the
+## main thread: the servers take calls from any thread.
+static func _compile_geo(d: Dictionary, b) -> Dictionary:
+	var c := _compile(d)
+	if b != null and c.level != null:
+		c["geo"] = MapGeo.new(b).build(c.level)
+		c["sprites"] = EdView3D.sprite_batches(d.things + c.scattered, c.level, 0, d)
+	return c
 
 static func _compile(d: Dictionary) -> Dictionary:
 	var cd := EdDoc.for_compile(d)
@@ -307,6 +349,9 @@ static func _compile(d: Dictionary) -> Dictionary:
 	return {"level": lv, "problems": probs, "scattered": DocCompile.last_scattered.duplicate(), "grown": DocCompile.last_grown.duplicate()}
 
 func _apply_compile(c: Dictionary) -> void:
+	var old = compiled.get("geo")
+	if old != null and is_instance_valid(old) and not old.is_inside_tree():
+		old.free()
 	compiled = c
 	compiled_ready.emit()
 
@@ -316,6 +361,10 @@ func _process(_dt: float) -> void:
 		var res = _thread.wait_to_finish()
 		_thread = null
 		if res is Dictionary:
+			if _compile_again and res.get("geo") != null:
+				# already out of date: its meshes go, its level is shown
+				res.geo.free()
+				res.erase("geo")
 			_apply_compile(res)
 		if _compile_again:
 			_compile_again = false
@@ -1504,9 +1553,11 @@ func drag_move(dr: Dictionary, at: Vector2, r := 0.0) -> void:
 		dr.pushed = true
 	EdOps.move_things(doc, sel_kind, sel_ids, dd.x, dd.y)
 	dr.done = Vector2(tx, ty)
-	changed()
+	dragging = true
+	changed(false, false)
 
 func end_move(dr) -> void:
+	dragging = false
 	if dr == null or not dr.pushed:
 		return
 	for i in moving_verts():
@@ -1645,6 +1696,27 @@ func select_all_in_mode() -> void:
 # mouse is over gets first refusal; nothing fires while a field has the
 # keyboard (a LineEdit takes the key before it gets here).
 # ---------------------------------------------------------------------
+
+## IN A FIELD: Escape gives the keys back to the map; Enter commits
+## (the fields do that themselves); and Ctrl+Z in a number field is the
+## map's undo, as it always is in Doom Builder — the field commits first.
+func _input(event: InputEvent) -> void:
+	if headless or not visible or not event is InputEventKey or not event.pressed:
+		return
+	var f := get_viewport().gui_get_focus_owner()
+	if not f is LineEdit:
+		return
+	var e: InputEventKey = event
+	if e.keycode == KEY_ESCAPE:
+		f.release_focus()
+		get_viewport().set_input_as_handled()
+	elif (e.ctrl_pressed or e.meta_pressed) and (e.keycode == KEY_Z or e.keycode == KEY_Y) and f.get_parent() is SpinBox:
+		f.release_focus()
+		get_viewport().set_input_as_handled()
+		if e.keycode == KEY_Y or e.shift_pressed:
+			redo()
+		else:
+			undo()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible or headless:

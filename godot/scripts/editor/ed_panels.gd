@@ -822,13 +822,39 @@ func _insp_scatter(p: VBoxContainer, c: Dictionary, n: int) -> void:
 # THE TEXTURE BROWSER
 # ---------------------------------------------------------------------
 
-## Which shelf: animated if in a run, else square or not by its size on
-## a wall.
+## THE RUNS THAT ANIMATE (ANIMS in js/texpack.js), first frame to last.
+static var _runs := {}
+
+static func _run_table() -> Dictionary:
+	if not _runs.is_empty():
+		return _runs
+	var add := func(stem: String, frames: Array) -> void:
+		for i in frames.size():
+			_runs[frames[i]] = {"stem": stem, "run": frames, "i": i}
+	var letters := func(stem: String, s: String) -> Array:
+		var out := []
+		for c in s:
+			out.append(stem + c)
+		return out
+	var run := func(stem: String, n: int, from: int, pad: int) -> Array:
+		var out := []
+		for i in n:
+			out.append(stem + str(i + from).pad_zeros(pad))
+		return out
+	add.call("DEVPAN1", letters.call("DEVPAN1", "ABCDEFGHIJKL"))
+	add.call("DEVPAN2", letters.call("DEVPAN2", "ABCDEFGH"))
+	add.call("DR1", run.call("DR1_", 12, 1, 2))
+	add.call("EYEDOOR", run.call("EYEDOOR", 9, 0, 1))
+	add.call("EYEDORC", run.call("EYEDORC", 5, 0, 1))
+	add.call("REACTB", run.call("REACTB", 5, 0, 2))
+	add.call("WFALLA", run.call("WFALLA", 4, 1, 1))
+	add.call("WAT2", run.call("WAT2", 24, 1, 2))
+	add.call("TESTPA", run.call("TESTPA", 75, 0, 2))
+	return _runs
+
+## The run a texture is in ({stem, run, i}), or null.
 static func anim_of(name: String):
-	for stem in ["DEVPAN1", "DEVPAN2", "DR1_", "EYEDOOR", "EYEDORC", "REACTB", "WFALLA", "WAT2", "TESTPA"]:
-		if name.begins_with(stem) and name.length() > stem.length():
-			return stem
-	return null
+	return _run_table().get(name)
 
 func shape_of(name: String) -> String:
 	if anim_of(name) != null:
@@ -850,9 +876,12 @@ func _cell(name: String, mine: bool) -> Control:
 	var sw := swatch(name, 64)
 	sw.custom_minimum_size = Vector2(64, 64)
 	vb.add_child(sw)
-	var l := EdStyle.label(name, EdStyle.DIM, 9, EdStyle.mono())
+	var an = anim_of(name)
+	var l := EdStyle.label("%s ▶%d" % [name, an.run.size()] if an != null and an.i == 0 else name, EdStyle.DIM, 9, EdStyle.mono())
 	l.clip_text = true
 	vb.add_child(l)
+	if an != null:
+		p.tooltip_text = "%s, animated: %d frames — double-click to make a texture from it" % [name, an.run.size()]
 	p.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			if e.double_click:
@@ -863,11 +892,12 @@ func _cell(name: String, mine: bool) -> Control:
 			else:
 				pick_texture(name))
 	p.set_meta("mine", mine)
+	p.set_meta("anim", an != null)
 	return p
 
 func _cell_style(p: PanelContainer, on: bool) -> void:
 	var mine: bool = p.get_meta("mine", false)
-	var border := EdStyle.ACCENT2 if on else (Color("#5a3f7a") if mine else EdStyle.LINE)
+	var border := EdStyle.ACCENT2 if on else (Color("#5a3f7a") if mine else (Color("#3a4450") if p.get_meta("anim", false) else EdStyle.LINE))
 	p.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.FIELD, border, 4, 1, Vector4(3, 3, 3, 3)))
 
 func _build_tex() -> void:
@@ -892,7 +922,9 @@ func _build_tex() -> void:
 		_tex_cells[n] = c
 		_mine_grid.add_child(c)
 	if ed.map_texture_names.is_empty():
-		_mine_grid.add_child(EdStyle.note("None yet. + New starts one; double-click any game texture to start from it."))
+		var nn := EdStyle.note("None yet. + New starts one; double-click any game texture to start from it.")
+		_tex_box.add_child(nn)
+		_tex_box.move_child(nn, _mine_grid.get_index())
 	_pack_box = VBoxContainer.new()
 	_tex_box.add_child(_pack_box)
 	for shape in ["Animated", "Square", "Non-square"]:
@@ -921,11 +953,8 @@ func _build_tex() -> void:
 	_tex_built = true
 
 func _first_frame(name: String) -> bool:
-	var st = anim_of(name)
-	if st == null:
-		return true
-	var rest: String = name.substr(str(st).length())
-	return rest in ["A", "01", "1", "00", "0"]
+	var a = anim_of(name)
+	return a == null or a.i == 0
 
 func pick_texture(name: String) -> void:
 	if picking != null:
@@ -1010,7 +1039,7 @@ func render_things() -> void:
 			if ed.sel_ids.has(t.id):
 				fn.call(t)
 		ed.edit_end(false)
-	p.add_child(EdStyle.h4("Place"))
+	p.add_child(_h4plain("Place"))
 	p.add_child(EdStyle.note("Pick a type, then in Things mode (T) double-click the floor or press Insert — on the plan or in 3D."))
 	var g := GridContainer.new()
 	g.columns = 2
@@ -1022,7 +1051,7 @@ func render_things() -> void:
 			func(): ed.thing_type = kk; ed.set_mode("things"); render_things())
 		g.add_child(b)
 	p.add_child(g)
-	p.add_child(EdStyle.h4("Plants — sprite decorations"))
+	p.add_child(_h4plain("Plants — sprite decorations"))
 	for set in EdScatter.plant_sets():
 		p.add_child(EdStyle.note(set.name))
 		var pg := GridContainer.new()
@@ -1035,7 +1064,7 @@ func render_things() -> void:
 		var types := [["", "…"]]
 		for k in EdDoc.THING_TYPES:
 			types.append([k, EdDoc.THING_TYPES[k].name])
-		_put(p, [EdStyle.h4("The selection (%d)" % sel_things.size()),
+		_put(p, [_h4plain("The selection (%d)" % sel_things.size()),
 			EdStyle.row("Face", [facing_buttons(func(a2): each_sel.call("face", func(t): t["angle"] = a2))]),
 			EdStyle.row("Change to", [EdStyle.option(types, "", func(v):
 				if v != "":
@@ -1056,7 +1085,7 @@ func render_things() -> void:
 							ids.append(t.id)
 					ed.select("thing", ids)),
 				EdStyle.small_button("Delete", ed.delete_sel)])])
-	p.add_child(EdStyle.h4("In this map (%d)" % d.things.size()))
+	p.add_child(_h4plain("In this map (%d)" % d.things.size()))
 	var chips := EdStyle.flow([])
 	chips.add_child(_chip("all %d" % d.things.size(), null, thing_filter == null, func(): thing_filter = null; render_things()))
 	var order: Array = count.keys()
@@ -1098,6 +1127,13 @@ func render_things() -> void:
 	find.text_changed.connect(func(t): thing_search = t.to_upper(); fill.call())
 	fill.call()
 	p.add_child(EdStyle.note("Things grown by scatters are not listed: bake a scatter to list them."))
+
+## a heading in a pane that is not an inspector: the browser's own h4
+func _h4plain(text: String) -> Label:
+	var l := EdStyle.label(text, Color.WHITE, 12, EdStyle.bold())
+	l.custom_minimum_size.y = 24
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	return l
 
 func _swatch_button(c: Color, text: String, on: bool, f: Callable) -> Button:
 	var b := Button.new()

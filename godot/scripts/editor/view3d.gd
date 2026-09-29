@@ -306,7 +306,13 @@ func rebuild() -> void:
 		level_node.queue_free()
 		level_node = null
 	var t0 := Time.get_ticks_msec()
-	level_node = MapGeo.new(ed.bank).build(lv)
+	# built with the compile, in its thread, when the view was showing
+	var geo = ed.compiled.get("geo")
+	if geo != null and is_instance_valid(geo) and not geo.is_inside_tree():
+		level_node = geo
+	else:
+		level_node = MapGeo.new(ed.bank).build(lv)
+	ed.compiled.erase("geo")
 	root3d.add_child(level_node)
 	var w: Dictionary = ed.doc.get("world", {})
 	var key := JSON.stringify([w.get("sky"), w.get("skybox")])
@@ -418,43 +424,23 @@ func build_markers() -> void:
 	set_lines(al, arrows)
 
 ## THE SPRITES: every plant and every person, placed or grown, as a
-## billboard on the floor — one instanced draw per picture.
+## billboard on the floor — one instanced draw per picture. The batches
+## (a MultiMesh buffer each: where, how big, how lit) are worked out
+## with the compile, in its thread (sprite_batches); here they are only
+## handed to the server.
 func build_sprites() -> void:
 	for c in sprites.get_children():
 		c.queue_free()
-	var by := {}
-	var all: Array = ed.doc.things + ed.compiled.get("scattered", [])
-	for t in all:
-		var key := ""
-		if t.type == "PLANT" and EdScatter.plant_kind(str(t.get("kind", ""))) != null:
-			key = "plant:" + str(t.kind)
-		elif t.type in PEOPLE:
-			key = "person:" + str(t.type)
-		if key == "":
-			continue
-		if not by.has(key):
-			by[key] = []
-		by[key].append(t)
-	var L = ed.compiled.get("level")
-	for key in by:
+	var batches = ed.compiled.get("sprites")
+	if batches == null or ed.layer() != 0:
+		var all: Array = ed.doc.things + ed.compiled.get("scattered", [])
+		batches = sprite_batches(all, ed.compiled.get("level"), ed.layer(), ed.doc)
+	for key in batches:
+		var b: Dictionary = batches[key]
 		var parts: PackedStringArray = key.split(":")
-		var tex: Texture2D
-		var w := 0.0
-		var h := 0.0
-		var tint := Color.WHITE
-		if parts[0] == "plant":
-			var k = EdScatter.plant_kind(parts[1])
-			tex = _plant_texture(parts[1])
-			h = k.h
-			w = k.h * k.aspect
-		else:
-			tex = _person_tex
-			h = PERSON_H
-			w = PERSON_H * 0.45
-			tint = EdDoc.col(EdDoc.THING_TYPES.get(parts[1], {}).get("color", "#fff"))
+		var tex: Texture2D = _plant_texture(parts[1]) if parts[0] == "plant" else _person_tex
 		if tex == null:
 			continue
-		var list: Array = by[key]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = true
@@ -462,18 +448,8 @@ func build_sprites() -> void:
 		q.size = Vector2(1, 1)
 		q.center_offset = Vector3(0, 0.5, 0)
 		mm.mesh = q
-		mm.instance_count = list.size()
-		for i in list.size():
-			var t: Dictionary = list[i]
-			var s := EdDoc.num(t.get("scale"), 1)
-			var fz := floor_z(t.x, t.y)
-			mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(w * s, h * s, 1)), gv(t.x, t.y, fz)))
-			var light := 1.0
-			if L != null:
-				var sec = L.sector_at(t.x, t.y)
-				if sec != null:
-					light = clampf(sec.light, 0.15, 1.0)
-			mm.set_instance_color(i, Color(tint.r * light, tint.g * light, tint.b * light))
+		mm.instance_count = b.count
+		mm.buffer = b.buf
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		var mat := ShaderMaterial.new()
@@ -482,6 +458,54 @@ func build_sprites() -> void:
 		mi.material_override = mat
 		mi.extra_cull_margin = 16384
 		sprites.add_child(mi)
+
+## The billboards' batches by picture: {"plant:fir_tall_1": {buf, count}}
+## — 16 floats an instance, a MultiMesh's own layout (its transform, a
+## scale on the floor under it, and its colour: the type's, times the
+## light of the sector it stands in).
+static func sprite_batches(things: Array, L, layer_k: int, d: Dictionary) -> Dictionary:
+	var by := {}
+	for t in things:
+		var key := ""
+		var k = null
+		if t.type == "PLANT":
+			k = EdScatter.plant_kind(str(t.get("kind", "")))
+			if k == null:
+				continue
+			key = "plant:" + str(t.kind)
+		elif t.type in PEOPLE:
+			key = "person:" + str(t.type)
+		else:
+			continue
+		if not by.has(key):
+			var w := 0.0
+			var h := 0.0
+			var tint := Color.WHITE
+			if k != null:
+				h = k.h
+				w = k.h * k.aspect
+			else:
+				h = PERSON_H
+				w = PERSON_H * 0.45
+				tint = EdDoc.col(EdDoc.THING_TYPES.get(str(t.type), {}).get("color", "#fff"))
+			by[key] = {"buf": PackedFloat32Array(), "count": 0, "w": w, "h": h, "tint": tint}
+		var b: Dictionary = by[key]
+		var s := EdDoc.num(t.get("scale"), 1)
+		var x := float(t.x)
+		var y := float(t.y)
+		var fz := 0.0
+		var light := 1.0
+		if layer_k != 0:
+			fz = EdDoc.num(EdDoc.layer_floor_at(d, layer_k, x, y), 0)
+		elif L != null:
+			var sec = L.sector_at(x, y)
+			if sec != null:
+				fz = sec.floor
+				light = clampf(sec.light, 0.15, 1.0)
+		var c: Color = b.tint
+		b.buf.append_array([b.w * s, 0, 0, x, 0, b.h * s, 0, fz, 0, 0, 1, -y, c.r * light, c.g * light, c.b * light, 1.0])
+		b.count += 1
+	return by
 
 func _plant_texture(name: String) -> Texture2D:
 	if not _plant_tex.has(name):
@@ -666,10 +690,11 @@ static func _slab(R: Dictionary, lo: Vector3, hi: Vector3):
 ## line, band, id, x, y, z}.
 func pick(R: Dictionary):
 	var d := ed.doc
-	var best = null
+	# a holder: a lambda sees its outer locals by value
+	var best := [null]
 	var take := func(h: Dictionary) -> void:
-		if h.t > 0.5 and (best == null or h.t < best.t):
-			best = h
+		if h.t > 0.5 and (best[0] == null or h.t < best[0].t):
+			best[0] = h
 	# floors and ceilings: every sector's two planes
 	for si in d.sectors.size():
 		var s: Dictionary = d.sectors[si]
@@ -761,7 +786,7 @@ func pick(R: Dictionary):
 		var t = _slab(R, Vector3(th.x - rad, th.y - rad, z), Vector3(th.x + rad, th.y + rad, z + thing_height(th)))
 		if t != null:
 			take.call({"t": t, "kind": "thing", "id": th.id})
-	return best
+	return best[0]
 
 # ---------------------------------------------------------------------
 # THE MOUSE — every mode, as on the plan
@@ -1325,7 +1350,8 @@ func draw_overlay() -> void:
 	set_lines(area_lines, area)
 	# the vertex handles
 	var im := ImmediateMesh.new()
-	if (ed.mode == "vertices" or ed.mode == "draw") and not d.vertices.is_empty():
+	var any: bool = (ed.mode == "vertices" or ed.mode == "draw") and not d.vertices.is_empty()
+	if any:
 		im.surface_begin(Mesh.PRIMITIVE_POINTS)
 		for i in d.vertices.size():
 			var v: Vector2 = d.vertices[i]
@@ -1333,7 +1359,7 @@ func draw_overlay() -> void:
 			im.surface_add_vertex(gv(v.x, v.y, floor_z(v.x, v.y) + 1))
 		im.surface_end()
 	handles.mesh = im
-	handles.visible = im.get_surface_count() > 0
+	handles.visible = any
 
 # ---------------------------------------------------------------------
 # THE GRID AND THE AXES, Blender's way
@@ -1445,7 +1471,7 @@ func _draw_gizmo() -> void:
 func _process(dt: float) -> void:
 	if not is_visible_in_tree() or not active:
 		return
-	if _need_rebuild:
+	if _need_rebuild and not ed.dragging:
 		rebuild()
 	if cam == null:
 		return

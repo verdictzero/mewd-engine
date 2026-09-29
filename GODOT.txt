@@ -39,6 +39,10 @@ RUNNING IT
     --touch              the phone's controls, without a touch screen
     --zoom=N             the scope of the gun in hand starts at step N
                          (the lance's screen, the launcher's thermal)
+    --edit               straight into MEWD Editor, the map editor (the
+                         web build's ?edit); at the terminal, E or EDIT
+    --edit-ops=FILE      with --edit, run a script of edits (the format
+                         of godot/tests/editor_ops.json) — for pictures
 
   Controls are the web build's: WASD or the arrows (Q/E strafe too),
   mouse to look (click to capture it), Shift to run, Space to jump, F
@@ -46,6 +50,8 @@ RUNNING IT
   the lance's scope or the launcher's thermal sight up and step its zoom
   (AIM and ZOOM on the phone), 1-7 or the wheel for the guns,
   Esc or P to pause. On the title, up/down and Enter, or the mouse.
+  F2 in the game opens the map editor on the map last edited (a test
+  run from the editor has an "◀ EDITOR F2" button too).
 
 
 HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
@@ -193,6 +199,52 @@ NETWORK PLAY (js/net/ -> godot/scripts/net/)
   host --spawns=x,y;x,y… (a deathmatch's pads) and --score-file=PATH.
 
 
+THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
+
+  MEWD Editor, in the game: the terminal's E or EDIT, `-- --edit`, or
+  F2 from the game. It is the web build's editor ported feature for
+  feature, on Godot Controls in the web build's look (css/editor.css):
+  the plan (view2d.gd), the 3D view drawn by the game's own MapGeo
+  (view3d.gd), the combined workspace (3D big and the plan inset, Tab
+  swaps them; Split, 2D, 3D), the top bar, the tabs down the left
+  (textures, things, scatter, the map and its problems), the inspector
+  down the right, the status line and info bar; every mode (vertices,
+  lines, sectors, things, props, draw, shape, scatter) in both views;
+  Q for visual mode; the step generator, the scatters, the texture
+  editor (layers of textures and imported images), copy and paste,
+  layers, undo and redo, the keyboard — see the Help menu, and the
+  header of each file. PLAY (F5) hands the document to the game (the
+  map's own textures drawn for it by ed_texcompose.gd into TexBank),
+  and F2 comes back to it.
+
+    ed_doc.gd       the document: the web build's JSON (Vector2 vertices
+                    in memory, [x, y] on disk), undo, the tidy after an
+                    edit, problems, layers, texture alignment (doc.js)
+    ed_ops.gd       the edits on it (editor.js's document helpers)
+    editor.gd       the state, the edits a person makes, files, keyboard
+    ed_ui.gd, ed_panels.gd, ed_style.gd   the bars, panels and look (ui.js)
+    view2d.gd, view3d.gd                  the two views
+    ed_steps.gd, ed_scatter.gd            steps.js, scatter.js
+    ed_texcompose.gd, ed_texeditor.gd     texcompose.js, texeditor.js
+    ed_script.gd    a script of edits, for the tests and --edit-ops
+
+  FILES are the web build's own: File > Open… and Save as file… (any
+  path on the desktop; the file dialog), Ctrl+S into user://mewd-editor/
+  maps/, and an autosave (user://mewd-editor/autosave.gssmap.json) the
+  editor opens on; its grid, snap and left panel are remembered in
+  user://mewd-editor/prefs.json. A map saved by either editor opens in
+  the other. File > Open demo: a new MAZE, THE SPRAWL, a new JESSE,
+  THE GRID. The compile runs in a thread, on a copy, so a big map never
+  holds the mouse.
+
+  NOT PORTED: the web's "Export Godot scene…" (this is Godot); a pen's
+  eraser end; the texture pack's animation in the 3D view (the port's
+  game does not animate them either). A map in LAYERS is edited in full
+  (each layer's plan, the others ghosted, rooms standing on the layer
+  under) and saved in full, but built from its ground layer only: the
+  engine has no room-over-room yet (the problem list says so).
+
+
 TESTS
 
     tools/godot-test.sh
@@ -205,7 +257,19 @@ TESTS
   js/net/ticcmd.js's — node godot/tests/net_js.mjs prints them — a match
   over loopback pipes with prediction, a kill through the rewind and a
   respawn, and a headless --server with two headless --join clients
-  fragging each other on a real socket).
+  fragging each other on a real socket), and MEWD Editor: its edits
+  and its files against the web build's editor (godot/tests/
+  editor_test.gd runs the script godot/tests/editor_ops.json — shapes,
+  splits, linedefs closing into sectors, stairs, rings, merges,
+  alignment, drags, scatters, paste, undo, layers — and holds every
+  checkpoint's document, problems, selection and build to the one
+  js/editor/editor.js made from the same script, godot/tests/
+  editor_ref.json, written by `node godot/tests/editor_js.mjs`; then
+  the web build's files open and save back the same, textures,
+  bake and layers), and the editor driven by input events
+  (godot/tests/editor_ui_test.gd: drags, clicks, keys, the inspector's
+  fields, the 3D view's picking, visual mode, PLAY into the game and F2
+  back).
   A shell with xvfb can also render pictures with --shot.
 
   CROSS-PLAY, by hand (needs node, and Playwright for the second):
@@ -229,9 +293,8 @@ WHAT IS NOT PORTED YET
     along the line of sight; the web's smoke on world surfaces; the
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
-  - THE MEWD EDITOR — mission critical, being ported now: an in-game
-    runtime editor (godot/scripts/editor/) reading and writing the web
-    build's own document JSON.
+  - Of MEWD Editor: see THE MAP EDITOR above — building a map's upper
+    LAYERS (the compiler's), and the Godot-scene export.
   - Of network play: the Node host's serving of the web build's files
     on its own port (the Godot host is a socket and nothing else; serve
     the page from anywhere), the `use` key in the command (the Godot

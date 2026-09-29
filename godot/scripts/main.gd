@@ -242,10 +242,10 @@ func start_game() -> void:
 			sb.content_margin_top = 6
 			sb.content_margin_bottom = 6
 			b.add_theme_stylebox_override(st, sb)
-		b.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		b.position = Vector2(640 - 55, 8)
 		b.pressed.connect(back_to_editor)
 		hud_layer.add_child(b)
+		b.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 8)
+		b.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"):
 		touch_layer = CanvasLayer.new()
 		touch_layer.layer = 2
@@ -382,8 +382,8 @@ func quit_to_title() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if game != null and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
-		back_to_editor()
 		get_viewport().set_input_as_handled()
+		back_to_editor()
 		return
 	if game != null and event.is_action_pressed("pause"):
 		toggle_pause()

@@ -21,4 +21,9 @@ run sprawl  --script res://godot/tests/sprawl_dump.gd
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd
+# MEWD Editor: its edits and its files against the web build's editor
+# (godot/tests/editor_ref.json, from godot/tests/editor_js.mjs), and the
+# editor driven by input events, to the game and back
+run editor  --script res://godot/tests/editor_test.gd
+run editorui --script res://godot/tests/editor_ui_test.gd -- --edit
 exit $fail

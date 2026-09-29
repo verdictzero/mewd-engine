@@ -135,7 +135,7 @@ func _build_top() -> void:
 	top.add_theme_constant_override("h_separation", 6)
 	top.add_theme_constant_override("v_separation", 4)
 	bar.add_child(top)
-	var brand := EdStyle.label("MEWD Editor", EdStyle.ACCENT, 12, EdStyle.mono())
+	var brand := EdStyle.label("MEWD Editor", EdStyle.ACCENT, 12, EdStyle.bold(true))
 	brand.custom_minimum_size.y = 26
 	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	top.add_child(brand)
@@ -224,7 +224,7 @@ func _build_top() -> void:
 	var layers := HBoxContainer.new()
 	layers.add_theme_constant_override("separation", 2)
 	layers.add_child(EdStyle.button("▼", func(): ed.set_layer(ed.layer() - 1), "", "Layer down (Alt+PgDn)"))
-	layer_lbl = EdStyle.label("Layer 0", Color("#cfd6e0"), 12, EdStyle.mono())
+	layer_lbl = EdStyle.label("Layer 0", Color("#cfd6e0"), 12, EdStyle.bold(true))
 	layer_lbl.custom_minimum_size.x = 64
 	layer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -251,7 +251,7 @@ func _build_top() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(spacer)
-	top.add_child(EdStyle.play_button("▶ PLAY  F5", ed.play))
+	top.add_child(EdStyle.play_button("▶ PLAY", ed.play, "F5"))
 
 func _grid_picked(i: int) -> void:
 	var v = grid_sel.get_item_metadata(i)
@@ -291,7 +291,7 @@ func refresh_bar() -> void:
 	if ed.shape_sides != null:
 		sides_in.set_value_no_signal(float(ed.shape_sides))
 	EdStyle.set_on(snap_btn, ed.snap)
-	snap_btn.text = ("Snap on" if ed.snap else "Snap off") + "  G"
+	EdStyle.set_text(snap_btn, "Snap on" if ed.snap else "Snap off")
 	EdStyle.set_on(tabs_btn, not ed.tabs_hidden)
 	if side != null:
 		side.visible = not ed.tabs_hidden
@@ -356,10 +356,20 @@ func _build_main() -> void:
 	plan_sel = EdStyle.option([["normal", "Plan: normal"], ["light", "Plan: brightness"], ["floor", "Plan: floor heights"], ["ceil", "Plan: ceilings"]],
 		ed.plan_view, on_plan, "What the plan shades sectors by (Doom Builder's brightness view)")
 	plan_sel.position = Vector2(62, 3)
-	plan_sel.custom_minimum_size = Vector2(130, 20)
-	plan_sel.size = Vector2(130, 20)
 	plan_sel.add_theme_font_size_override("font_size", 10)
-	plan_sel.add_theme_stylebox_override("normal", EdStyle.box(Color(0.08, 0.1, 0.12, 0.8), EdStyle.LINE, 4, 1, Vector4(6, 1, 6, 1)))
+	plan_sel.custom_minimum_size = Vector2(112, 18)
+	plan_sel.add_theme_constant_override("arrow_margin", 3)
+	for st_name in ["normal", "hover", "pressed", "hover_pressed"]:
+		plan_sel.add_theme_stylebox_override(st_name, EdStyle.box(Color(0.08, 0.1, 0.12, 0.8), EdStyle.ACCENT if st_name != "normal" else EdStyle.LINE, 4, 1, Vector4(6, 0, 4, 0)))
+	var arrow := Image.create(7, 4, false, Image.FORMAT_RGBA8)
+	arrow.fill(Color(0, 0, 0, 0))
+	for yy in 4:
+		for xx in range(yy, 7 - yy):
+			arrow.set_pixel(xx, yy, EdStyle.DIM)
+	plan_sel.add_theme_icon_override("arrow", ImageTexture.create_from_image(arrow))
+	plan_sel.add_theme_color_override("font_color", EdStyle.DIM)
+	plan_sel.size = Vector2(112, 18)
+	plan_sel.reset_size.call_deferred()
 	wrap2d.add_child(plan_sel)
 	views.add_child(wrap3d)
 	views.add_child(wrap2d)
@@ -721,7 +731,16 @@ func _prompt(q: String, value: String, cb: Callable) -> void:
 	e.select_all()
 
 func open_texture_editor(name = null, from := "GRIDWALL") -> void:
+	# a dialog over the workspace, the workspace dimmed under it
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.66)
+	dim.top_level = true
+	dim.position = Vector2.ZERO
+	dim.size = get_viewport_rect().size
+	add_child(dim)
 	var t := EdTexEditor.new(ed, self, name, from)
 	add_child(t)
+	t.tree_exiting.connect(func(): dim.queue_free())
 	_dialog = t
-	t.popup_centered(Vector2i(980, 640))
+	var vs := get_viewport_rect().size
+	t.popup_centered(Vector2i(mini(980, int(vs.x * 0.96)), mini(640, int(vs.y * 0.92))))

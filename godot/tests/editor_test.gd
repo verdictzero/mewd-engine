@@ -58,94 +58,6 @@ func diff(a, b, path := "", out := []) -> Array:
 		out.append("%s: %s != %s" % [path, a, b])
 	return out
 
-func run_ops(ed: MewdEditor, ops: Array, ref: Dictionary) -> void:
-	var zero := func(_n): return Vector2.ZERO
-	for op in ops:
-		var k: String = op[0]
-		var a: Array = op.slice(1)
-		match k:
-			"rect": ed.add_rect(Vector2(a[0][0], a[0][1]), Vector2(a[1][0], a[1][1]))
-			"shape": ed.set_shape(a[0], a[1] if a[1] == null else int(a[1]))
-			"select": ed.select(a[0], a[1].map(func(x): return int(x)))
-			"selectSectorAt":
-				var s = ed.sector_at(a[0], a[1])
-				ed.select("sector", [s.id] if s != null else [])
-			"selectLineAt":
-				var best = null
-				var bd := 16.0
-				for l in ed.lines():
-					var d := EdDoc.seg_dist(ed.doc.vertices[l.a], ed.doc.vertices[l.b], Vector2(a[0], a[1])).x
-					if d < bd:
-						bd = d
-						best = l.key
-				ed.select("line", [best] if best != null else [])
-			"selectLinesIn":
-				var V: Array = ed.doc.vertices
-				var inb := func(p: Vector2) -> bool: return p.x >= a[0] and p.x <= a[2] and p.y >= a[1] and p.y <= a[3]
-				var keys := []
-				for l in ed.lines():
-					if inb.call(V[l.a]) and inb.call(V[l.b]):
-						keys.append(l.key)
-				ed.select("line", keys)
-			"selectVertexAt":
-				var idx := -1
-				for i in ed.doc.vertices.size():
-					if ed.doc.vertices[i].distance_to(Vector2(a[0], a[1])) < 0.5:
-						idx = i
-						break
-				ed.select("vertex", [idx] if idx >= 0 else [])
-			"selectThingType":
-				var ids := []
-				for t in ed.doc.things:
-					if t.type == a[0]:
-						ids.append(t.id)
-				ed.select("thing", ids)
-			"inside": ed.set_inside(a[0])
-			"path":
-				ed.path = a[0].map(func(p): return Vector2(p[0], p[1]))
-				ed.close_path(a[1])
-			"linedefs": ed.add_linedefs(PackedVector2Array(a[0].map(func(p): return Vector2(p[0], p[1]))))
-			"sector": ed.add_sector(PackedVector2Array(a[0].map(func(p): return Vector2(p[0], p[1]))))
-			"thingType": ed.thing_type = a[0]
-			"thing": ed.add_thing(a[0], a[1])
-			"prop": ed.add_prop(a[0], a[1], a[2], a[3])
-			"height": ed.nudge_height(a[0], a[1])
-			"light": ed.nudge_light(int(a[0]))
-			"stairs": ed.make_steps("stairs", a[0])
-			"rings": ed.make_steps("rings", a[0])
-			"mode": ed.set_mode(a[0])
-			"delete": ed.delete_sel()
-			"align":
-				# the web build's bank is not there headless: every texture 64
-				var d := ed.edit_begin("align")
-				EdDoc.align_textures(d, ed.sel_ids.keys(), a[0], zero)
-				ed.edit_end(false)
-			"move":
-				var at := Vector2(a[0][0], a[0][1])
-				var dr := ed.begin_move(ed.grab_point(at), at)
-				ed.drag_move(dr, Vector2(a[1][0], a[1][1]), float(a[2]))
-				ed.end_move(dr)
-			"cursor": ed.set_cursor(Vector2(a[0], a[1]))
-			"insertVertex": ed.insert_at_cursor()
-			"scatter":
-				var d := ed.edit_begin("scatter")
-				var area: Dictionary = a[1].duplicate(true)
-				if area.get("ids") is Array:
-					area.ids = area.ids.map(func(x): return int(x))
-				var made := EdScatter.scatter_from(a[0], area, EdDoc.take_id(d), int(a[2]))
-				d.scatters.append(made)
-				ed.edit_end(false)
-				ed.select("scatter", [made.id])
-			"copy": ed.copy_sel()
-			"paste": ed.paste(a[0])
-			"nudge": ed.move_sel(a[0], a[1], "nudge")
-			"texture": ed.apply_texture(a[0], a[1])
-			"undo": ed.undo()
-			"redo": ed.redo()
-			"layer": ed.set_layer(int(a[0]))
-			"checkpoint": check_point(ed, a[0], ref.checkpoints[a[0]])
-			_: ok(false, "unknown op %s" % k)
-
 func check_point(ed: MewdEditor, name: String, want: Dictionary) -> void:
 	# the document, as the file the web build writes
 	var mine = JSON.parse_string(EdDoc.to_json(ed.doc))
@@ -190,11 +102,12 @@ func check_point(ed: MewdEditor, name: String, want: Dictionary) -> void:
 func _init() -> void:
 	var ops = JSON.parse_string(FileAccess.get_file_as_string("res://godot/tests/editor_ops.json"))
 	var ref = JSON.parse_string(FileAccess.get_file_as_string("res://godot/tests/editor_ref.json"))
+	EdScript.zero_sizes = true
 	var ed := MewdEditor.new(EdDoc.new_doc("EDITOR TEST", 4096), true)
 	ed.grid = 64
 	ed.snap = true
 	var t0 := Time.get_ticks_msec()
-	run_ops(ed, ops, ref)
+	EdScript.run(ed, ops, func(name): check_point(ed, name, ref.checkpoints[name]))
 	print("editor: %d edits in %d ms" % [ops.size(), Time.get_ticks_msec() - t0])
 
 	# FILES: the web build's document opens here and is written back the same
@@ -234,5 +147,70 @@ func _init() -> void:
 		ok(not r.has("error") and r.doc.sectors.size() == ed.doc.sectors.size(), "%s saves and opens again" % which)
 		print("   %s: %d sectors, %d problems, %d ms" % [which, ed.doc.sectors.size(), ed.compiled.problems.size(), Time.get_ticks_msec() - t])
 
+	# THE MAP'S OWN TEXTURES (texcompose): an imported picture, tiled; a
+	# game texture tinted; the bank has them by name
+	var red := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	red.fill(Color(1, 0, 0, 1))
+	var url := EdTex.image_to_url(red)
+	ok(url.begins_with("data:image/png;base64,"), "an imported picture is kept as a PNG data URL, as the web build keeps it")
+	var L1 := EdTex.new_layer(null)
+	L1.image = url
+	var def := {"name": "REDTILE", "w": 8, "h": 8, "worldW": 64, "worldH": 32, "layers": [L1]}
+	var img := EdTex.compose(def)
+	ok(img.get_width() == 8 and img.get_pixel(5, 6).is_equal_approx(Color(1, 0, 0, 1)), "the picture tiles across the texture")
+	var L2 := EdTex.new_layer("GRIDWALL")
+	L2.tint = "#ff0000"
+	var tinted := EdTex.compose({"name": "T2", "w": 16, "h": 16, "layers": [L2]})
+	var any_green := false
+	for y in 16:
+		for x in 16:
+			if tinted.get_pixel(x, y).g > 0.01:
+				any_green = true
+	ok(not any_green, "a red tint leaves no green")
+	var L3 := EdTex.new_layer(null)
+	L3.image = url
+	L3.blend = "multiply"
+	var L4 := EdTex.new_layer("GRIDWALL")
+	var mult := EdTex.compose({"name": "T3", "w": 4, "h": 4, "layers": [L4, L3]})
+	ok(mult.get_pixel(1, 1).g < 0.01, "multiply by red keeps only red")
+	ok(EdTex.check({"name": "GRIDWALL", "w": 8, "h": 8, "layers": []}, EdTex.built_in()) != "", "a texture may not take a game texture's name")
+	ed.replace(EdDoc.new_doc("TEX TEST", 2048), "tex test")
+	ed.edit("texture", func(d): d.textures.append(def), false)
+	ok(TexBank.map_own.has("REDTILE") and TexBank.new().size_of("REDTILE") == Vector2(64, 32), "the map's texture is in the bank, at its world size")
+	ok(ed.map_texture_names.has("REDTILE") and ed.texture_names.has("REDTILE"), "and in the browser")
+	ed.select("sector", [1])
+	ed.apply_texture("REDTILE", "floorTex")
+	var back = EdDoc.parse(EdDoc.to_json(ed.doc))
+	ok(back.doc.textures[0].layers[0].image == url and back.doc.sectors[0].floorTex == "REDTILE", "it saves in the map, and a floor wears it")
+
+	# BAKE: a scatter's things as ordinary things, the rule gone
+	var d2 := ed.edit_begin("scatter")
+	var sc := EdScatter.scatter_from("crowd", {"kind": "circle", "x": 1024, "y": 1024, "r": 600}, EdDoc.take_id(d2), 4242)
+	d2.scatters.append(sc)
+	ed.edit_end(false)
+	ed.compile_now()
+	var grown: int = ed.compiled.grown[sc.id].grown
+	var nt: int = ed.doc.things.size()
+	ed.select("scatter", [sc.id])
+	ed.bake()
+	ok(grown > 0 and ed.doc.things.size() == nt + grown and ed.doc.scatters.is_empty(), "bake turns %d grown into things and drops the rule" % grown)
+
+	# LAYERS: a room on the layer above stands on the room under it
+	ed.replace(EdDoc.new_doc("LAYERS", 2048), "layers")
+	ed.add_rect(Vector2(256, 256), Vector2(768, 768))
+	ed.select("sector", [2])
+	ed.set_inside(true)
+	var under = ed.sector_by_id(2)
+	ed.set_layer(1)
+	ok(ed.layer() == 1 and ed.doc.sectors.is_empty(), "layer 1 is a plan of its own")
+	ed.add_rect(Vector2(256, 256), Vector2(768, 768))
+	var up = ed.doc.sectors[0] if not ed.doc.sectors.is_empty() else {}
+	ok(EdDoc.num(up.get("floor"), -1) == EdDoc.num(under.ceil), "a room drawn on it stands on the room under (floor %s = ceiling %s)" % [up.get("floor"), under.ceil])
+	ed.set_layer(0)
+	ok(ed.doc.sectors.size() == 2 and EdDoc.is_layered(ed.doc), "and the ground comes back, the storey kept")
+	ed.compile_now()
+	ok(ed.compiled.level != null and ed.compiled.level.sectors.size() >= 2, "a layered map builds (its ground)")
+
 	print("editor: %d checks, %s" % [checks, "OK" if fails == 0 else "%d FAIL" % fails])
+	ed.free()
 	quit(1 if fails else 0)
