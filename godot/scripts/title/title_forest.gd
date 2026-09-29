@@ -23,9 +23,10 @@ const EYE_Y := 2.6
 const GROUND_TILE := 4.0
 const FOV := 50.0
 const MAX_ASPECT := 2.6
-## the logo's own blue — the bright circuit lines in its letters, about
-## #3e5ebe, scaled so its strongest channel is 1
-const BLUE := Color(0.326, 0.495, 1.0)
+## the logo's own green-blue — the glass in its letters, about #20584d
+## — muted and dark, at the user's request: white grass comes out a
+## deep slate teal, the pines darker still
+const BLUE := Color(0.17, 0.36, 0.42)
 
 const GRASS := ["meadow_grass_var_a", "meadow_grass_var_b", "new_meadow_grass_1", "new_meadow_grass_2",
 	"new_meadow_grass_tall_1", "grass", "savanna_grass_short_1", "savanna_grass_short_2",

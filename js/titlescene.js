@@ -47,10 +47,10 @@ const FOV = 50;
 
    The blue is over the dither, not under it, because the palette has
    no blue that saturated: under it, the wash came out slate. BLUE is
-   the logo's own — the bright circuit lines in its letters, about
-   #3e5ebe, scaled so its strongest channel is 1 — so white grass is
-   the blue of the word. */
-export const BLUE = [0.326, 0.495, 1.0];
+   the logo's own green-blue — the glass in its letters, about #20584d
+   — muted and dark, at the user's request: white grass comes out a
+   deep slate teal, the pines darker still. */
+export const BLUE = [0.17, 0.36, 0.42];
 const LUMA = 'vec3(0.299, 0.587, 0.114)';
 /* THE WIND, at the user's request: the clock every plant's vertex
    shader bends to (see mono) */
