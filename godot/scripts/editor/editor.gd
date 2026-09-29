@@ -61,15 +61,20 @@ const MODES := {
 	"draw": {"key": "D", "name": "Draw lines and sectors", "short": "Draw"},
 	"rect": {"key": "R", "name": "Draw a shape", "short": "Shape"},
 	"scatter": {"key": "X", "name": "Scatter", "short": "Scatter"},
+	"doors": {"key": "O", "name": "Doors", "short": "Doors"},
 }
 ## what each mode selects
-const MODE_KIND := {"vertices": "vertex", "lines": "line", "sectors": "sector", "things": "thing", "props": "prop", "scatter": "scatter"}
+const MODE_KIND := {"vertices": "vertex", "lines": "line", "sectors": "sector", "things": "thing", "props": "prop", "scatter": "scatter",
+	"doors": "line"}
 
 ## THE HAND-OVER between the editor and the game, kept across the scene
 ## reload that swaps one for the other (godot/scripts/main.gd).
 static var play_doc = null
 static var came_from_editor := false
 static var open_next := false
+## opened from the title's MAP EDITOR: "Back" goes to the title
+var from_title := false
+static var came_from_title := false
 
 var history: EdDoc.History
 var doc: Dictionary:
@@ -327,7 +332,13 @@ func _start_compile() -> void:
 static func _compile_geo(d: Dictionary, b) -> Dictionary:
 	var c := _compile(d)
 	if b != null and c.level != null:
-		c["geo"] = MapGeo.new(b).build(c.level)
+		var mg := MapGeo.new(b)
+		c["geo"] = mg.build(c.level)
+		# the doors, shut (the game's Doors swings them)
+		for dr in c.level.doors:
+			for nd in mg.door_nodes(c.level, dr):
+				if nd != null:
+					c.geo.add_child(nd)
 		c["sprites"] = EdView3D.sprite_batches(d.things + c.scattered, c.level, 0, d)
 	return c
 
@@ -587,6 +598,74 @@ func select_surface(s) -> void:
 		sel_kind = ""
 		sel_ids = {}
 	sel_changed.emit()
+
+# --- DOORS (the Godot build's own; Level.Door, game/doors.gd) ------------
+
+## THE DOOR TOOL's door: what a click in Doors mode (O) puts in a wall —
+## `w` wide, the rest the line override's `door` (DocCompile.DOOR_DEFAULT)
+var door_preset := {"w": 64, "h": 96, "tex": "DOOR0001", "style": "swing", "auto": true}
+
+## A DOOR IN A WALL at `at` along line `key`: the line cut to a piece the
+## preset's width round the click (its edges on the grid, with snap on,
+## and never nearer a corner than 8), that piece an opening with a door
+## in it — a building's outside wall gets a passage through it too. One
+## undo step. A line no longer than the door is the door. Returns the
+## door's line, "" if it cannot go there.
+func place_door(key: String, at: Vector2) -> String:
+	var info = line_info(key)
+	if info == null or info.get("free", false) or info.sectors.is_empty():
+		say("a door goes in a line of a sector — not a linedef on its own")
+		return ""
+	var o0 = doc.lines.get(key)
+	if o0 is Dictionary and o0.get("door") is Dictionary:
+		select("line", [key])
+		say("a door already — its settings are in the inspector")
+		return key
+	var A: Vector2 = doc.vertices[info.a]
+	var B: Vector2 = doc.vertices[info.b]
+	var L := A.distance_to(B)
+	var w := maxf(16.0, float(door_preset.get("w", 64)))
+	var d := edit_begin("door")
+	var k2 := key
+	if L > w + 16.0:
+		var u := (B - A) / L
+		var t := clampf((at - A).dot(u), w / 2.0 + 8.0, L - w / 2.0 - 8.0)
+		if snap and grid > 0:
+			t = clampf(snappedf(t - w / 2.0, float(grid)) + w / 2.0, w / 2.0 + 8.0, L - w / 2.0 - 8.0)
+		var p1 := A + u * (t - w / 2.0)
+		var p2 := A + u * (t + w / 2.0)
+		var i1 := EdOps.vertex_for(d, p1.x, p1.y)
+		EdOps.split_lines_at(d, i1)
+		var i2 := EdOps.vertex_for(d, p2.x, p2.y)
+		EdOps.split_lines_at(d, i2)
+		k2 = EdDoc.line_key(i1, i2)
+	var o: Dictionary = d.lines.get(k2, {}).duplicate(true) if d.lines.get(k2) is Dictionary else {}
+	o["opening"] = true
+	var dp := door_preset.duplicate()
+	dp.erase("w")
+	o["door"] = dp
+	o["__new"] = true
+	d.lines[k2] = o
+	edit_end(true)
+	# (the tidy may number the corners afresh: find it again)
+	for k in doc.lines:
+		if doc.lines[k] is Dictionary and doc.lines[k].has("__new"):
+			doc.lines[k].erase("__new")
+			k2 = k
+			break
+	select("line", [k2])
+	say("a door, %d wide — click another wall for another; Ctrl+Z takes it back" % roundi(minf(w, L)))
+	return k2
+
+## The door out of line `key` (it stays an opening).
+func remove_door(key: String) -> void:
+	var o = doc.lines.get(key)
+	if not (o is Dictionary and o.get("door") is Dictionary):
+		return
+	var d := edit_begin("no door")
+	d.lines[key].erase("door")
+	edit_end(false)
+	say("no door on line %s — still a way through" % key)
 
 ## LOOP SELECT: every wall of a sector — each line of its outline, and of
 ## the rooms drawn inside it — its side facing that sector. What is

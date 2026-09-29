@@ -122,6 +122,25 @@ func build(lv: Level) -> Node3D:
 		_box(p)
 	var root := Node3D.new()
 	root.name = "LevelGeometry"
+	_emit(root)
+	if tinted:
+		bank.set_map_light(lv.map_light)
+		# the map's light colour is on everything, sprites and plants too
+		if lv.map_light.has("lightColor"):
+			RenderingServer.global_shader_parameter_set("light_color", lv.map_light.lightColor)
+	# and its ambient light and default fog, on the things that are not
+	# the level's own surfaces (world_lit and world_fog in
+	# world_light.gdshaderinc) — nothing, for a level without them
+	var ml: Dictionary = lv.map_light if tinted else {}
+	var amb: Color = ml.get("ambient", Color.BLACK)
+	var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
+	RenderingServer.global_shader_parameter_set("ambient_light", Color(amb.r, amb.g, amb.b, 1.0))
+	RenderingServer.global_shader_parameter_set("map_fog", Vector4(fog.r, fog.g, fog.b, fog.a))
+	RenderingServer.global_shader_parameter_set("map_fog_ambient", float(ml.get("fogAmbient", 1.0)))
+	return root
+
+## The batches so far, as MeshInstance3Ds under root (and emptied).
+func _emit(root: Node3D) -> void:
 	var flags := 0
 	if tinted:
 		flags = (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
@@ -146,21 +165,74 @@ func build(lv: Level) -> Node3D:
 		mi.mesh = mesh
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(mi)
-	if tinted:
-		bank.set_map_light(lv.map_light)
-		# the map's light colour is on everything, sprites and plants too
-		if lv.map_light.has("lightColor"):
-			RenderingServer.global_shader_parameter_set("light_color", lv.map_light.lightColor)
-	# and its ambient light and default fog, on the things that are not
-	# the level's own surfaces (world_lit and world_fog in
-	# world_light.gdshaderinc) — nothing, for a level without them
-	var ml: Dictionary = lv.map_light if tinted else {}
-	var amb: Color = ml.get("ambient", Color.BLACK)
-	var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
-	RenderingServer.global_shader_parameter_set("ambient_light", Color(amb.r, amb.g, amb.b, 1.0))
-	RenderingServer.global_shader_parameter_set("map_fog", Vector4(fog.r, fog.g, fog.b, fog.a))
-	RenderingServer.global_shader_parameter_set("map_fog_ambient", float(ml.get("fogAmbient", 1.0)))
-	return root
+	batches = {}
+
+## A DOOR (Level.Door): [the slab, under a Node3D at its hinge (a) for
+## Doors to swing or slide, and its lintel (or null)] — the slab's
+## picture stretched once over each face, the lintel's tiled like a wall.
+func door_nodes(lv: Level, d: Level.Door) -> Array:
+	tinted = lv.tinted
+	batches = {}
+	var u := (d.b - d.a).normalized()
+	var n := d.inside
+	var w := d.a.distance_to(d.b)
+	var m := (d.a + d.b) / 2.0 + n * 4.0
+	var s = lv.sector_at(m.x, m.y)
+	if s != null and lv.layered:
+		s = lv.span_in(s, d.z0 + 1.0)
+	var color := _light(s.light if s != null else 0.8, s.sky if s != null else 0.0)
+	_paint = _paint_wall(s) if s != null else null
+	_fog = _fog_of(s) if s != null else NO_FOG
+	var v0 := -d.depth / 2.0
+	var v1 := d.depth / 2.0
+	if d.style == "slide" and d.wall > 0.0:
+		v0 = -d.wall / 2.0 - d.depth / 2.0
+		v1 = -d.wall / 2.0 + d.depth / 2.0
+	_obox(Vector2.ZERO, u, n, 0.0, w, v0, v1, d.z0, d.top, d.tex, color, true)
+	var slab := Node3D.new()
+	slab.name = "Door%d" % d.index
+	_emit(slab)
+	slab.position = U.v3(d.a.x, d.a.y, 0.0)
+	var lintel: Node3D = null
+	if d.lintel_top > d.top + 0.5:
+		var lv0 := -d.wall if d.wall > 0.0 else -4.0
+		var lv1 := 0.0 if d.wall > 0.0 else 4.0
+		_obox(d.a, u, n, 0.0, w, lv0, lv1, d.top, d.lintel_top, d.lintel_tex, color, false)
+		lintel = Node3D.new()
+		lintel.name = "Lintel%d" % d.index
+		_emit(lintel)
+	_paint = null
+	_fog = NO_FOG
+	return [slab, lintel]
+
+## A box on the plan's axes u (along) and n (across) from o: every face
+## drawn from both sides (it is small, and it moves). `fit`: the picture
+## once over each long face; else tiled as a wall is.
+func _obox(o: Vector2, u: Vector2, n: Vector2, u0: float, u1: float, v0: float, v1: float, z0: float, z1: float,
+		tex: String, color: Color, fit: bool) -> void:
+	if _none(tex):
+		return
+	var b := _batch(tex)
+	var ts := bank.size_of(tex)
+	var P := func(tu: float, tv: float, z: float) -> Vector3:
+		var q: Vector2 = o + u * tu + n * tv
+		return U.v3(q.x, q.y, z)
+	var uv := func(a: float, c: float, za: float, zb: float) -> Array:
+		if fit:
+			return [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]
+		return [Vector2(a / ts.x, (z1 - za) / ts.y), Vector2(c / ts.x, (z1 - za) / ts.y),
+			Vector2(c / ts.x, (z1 - zb) / ts.y), Vector2(a / ts.x, (z1 - zb) / ts.y)]
+	var faces := [
+		[P.call(u0, v0, z1), P.call(u1, v0, z1), P.call(u1, v0, z0), P.call(u0, v0, z0), uv.call(u0, u1, z1, z0)],
+		[P.call(u1, v1, z1), P.call(u0, v1, z1), P.call(u0, v1, z0), P.call(u1, v1, z0), uv.call(u0, u1, z1, z0)],
+		[P.call(u0, v1, z1), P.call(u0, v0, z1), P.call(u0, v0, z0), P.call(u0, v1, z0), uv.call(0.0, v1 - v0, z1, z0)],
+		[P.call(u1, v0, z1), P.call(u1, v1, z1), P.call(u1, v1, z0), P.call(u1, v0, z0), uv.call(0.0, v1 - v0, z1, z0)],
+		[P.call(u0, v0, z0), P.call(u1, v0, z0), P.call(u1, v1, z0), P.call(u0, v1, z0), uv.call(u0, u1, z1, z1 - (v1 - v0))],
+		[P.call(u0, v1, z1), P.call(u1, v1, z1), P.call(u1, v0, z1), P.call(u0, v0, z1), uv.call(u0, u1, z1, z1 - (v1 - v0))]]
+	for f in faces:
+		var q: Array = [f[0], f[1], f[2], f[3]]
+		b.quad(q, f[4], color)
+		b.quad([q[3], q[2], q[1], q[0]], [f[4][3], f[4][2], f[4][1], f[4][0]], color)
 
 static func _light(l: float, sky: float) -> Color:
 	return Color(clampf(l, 0.02, 1.4), sky, 0.0, 1.0)

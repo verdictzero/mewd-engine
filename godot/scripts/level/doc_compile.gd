@@ -541,6 +541,8 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 		lv.props.append(box)
 	# the plants, placed and spread, one tree to a forest cell
 	lv.plants = Forest.plants_from_things(lv.things, lv.bounds)
+	# 7. THE DOORS: each line override `door`, on the level lines along it
+	_build_doors(lv, ctx.layers if layered else [{"vertices": V, "sectors": S, "lines": doc.get("lines", {})}])
 	return lv
 
 # ------------------------------------------------------------------
@@ -1306,6 +1308,111 @@ static func linedef_walls(doc: Dictionary, probs: Array, id_base := -1) -> Dicti
 		id += 1
 		out.sectors.append(ns)
 	return out
+
+# ------------------------------------------------------------------
+# DOORS (the Godot build's own)
+# ------------------------------------------------------------------
+
+## What a door is when its override says nothing (and what the editor's
+## door tool puts in a new one): 64 wide, 96 high, the shutter, swinging
+## open as somebody comes to it.
+const DOOR_DEFAULT := {"w": 64, "h": 96, "tex": "DOOR0001", "style": "swing", "auto": true}
+
+## A LINE WITH A DOOR (its override's `door`: {h, tex, style, auto,
+## locked, lintelTex}): a Level.Door across it, on the level lines along
+## it — standing on the higher floor of the rooms either side, as high as
+## it says (never higher than the lower ceiling), a lintel over it to
+## that ceiling (none under the open sky), swinging into the roofed room
+## (a building's door opens inwards) or the first one.
+static func _build_doors(lv: Level, lays: Array) -> void:
+	for g in lays:
+		var L = g.get("lines", {})
+		if not L is Dictionary:
+			continue
+		var V: Array = g.vertices
+		var S: Array = g.sectors
+		for k in L:
+			var o = L[k]
+			if not (o is Dictionary and o.get("door") is Dictionary):
+				continue
+			var ab := str(k).split(",")
+			if ab.size() != 2:
+				continue
+			var ia := int(ab[0])
+			var ib := int(ab[1])
+			if ia < 0 or ib < 0 or ia >= V.size() or ib >= V.size():
+				continue
+			var a: Vector2 = V[ia]
+			var b: Vector2 = V[ib]
+			var ls := _level_lines_on(lv, a, b)
+			if ls.is_empty() or a.distance_to(b) < 8.0:
+				problems.append({"kind": "line", "id": k, "msg": "the door on line %s is on no wall of the map" % k})
+				continue
+			# the rooms either side: each sector with a and b next to each other
+			var sides := []
+			for sd in S:
+				if str(sd.get("name", "")) in ["wall", "doorway"]:
+					continue
+				var vs: Array = sd.get("verts", [])
+				for j in vs.size():
+					var p := int(vs[j])
+					var q := int(vs[(j + 1) % vs.size()])
+					if (p == ia and q == ib) or (p == ib and q == ia):
+						sides.append(sd)
+						break
+			var dd: Dictionary = DOOR_DEFAULT.duplicate()
+			dd.merge(o.door, true)
+			var dr := Level.Door.new()
+			dr.index = lv.doors.size()
+			dr.a = a
+			dr.b = b
+			var n := (b - a).normalized().orthogonal()
+			var z0 := -INF
+			var lt := INF
+			var into = null
+			for sd in sides:
+				var f := float(sd.get("floor", 0.0) if sd.get("floor") != null else 0.0)
+				z0 = maxf(z0, f)
+				if _roofed(sd):
+					lt = minf(lt, float(sd.get("ceil", 256.0) if sd.get("ceil") != null else 256.0))
+					if into == null:
+						into = sd
+			if sides.is_empty():
+				z0 = 0.0
+			if into == null and not sides.is_empty():
+				into = sides[0]
+			# which way the room it swings into lies
+			if into != null:
+				var r := _pts(V, PackedInt32Array(into.verts))
+				var m := (a + b) / 2.0
+				dr.inside = n if pip(r, m.x + n.x * 2.0, m.y + n.y * 2.0) else -n
+			else:
+				dr.inside = n
+			dr.z0 = z0
+			# the ceiling as built (a room under a deck is lower than drawn)
+			if lt != INF:
+				var mm: Vector2 = (a + b) / 2.0 + dr.inside * 4.0
+				var ls2 = lv.sector_at(mm.x, mm.y)
+				if ls2 != null:
+					ls2 = lv.span_in(ls2, z0 + 1.0) if lv.layered else ls2
+					lt = minf(lt, ls2.ceil)
+			var h := maxf(24.0, float(dd.get("h", 96)))
+			dr.top = z0 + h if lt == INF else minf(lt, z0 + h)
+			dr.lintel_top = dr.top if lt == INF else lt
+			dr.tex = str(dd.get("tex", "DOOR0001"))
+			dr.lintel_tex = str(dd.get("lintelTex", into.get("wallTex", "GRIDWALL") if into != null and into.get("wallTex") else "GRIDWALL"))
+			dr.style = "slide" if str(dd.get("style", "swing")) == "slide" else "swing"
+			dr.auto = bool(dd.get("auto", true))
+			dr.locked = bool(dd.get("locked", false))
+			# in a building's thick wall: the passage through it
+			for sd in S:
+				if str(sd.get("name", "")) == "doorway" and sd.verts.has(ia) and sd.verts.has(ib):
+					dr.wall = WALL_THICK
+					break
+			dr.lines = ls
+			for l in ls:
+				l.door = dr
+			lv.doors.append(dr)
 
 # ------------------------------------------------------------------
 # BUILDING WALLS HAVE A THICKNESS (the Godot build's own)

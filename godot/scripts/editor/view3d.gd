@@ -311,7 +311,13 @@ func rebuild() -> void:
 	if geo != null and is_instance_valid(geo) and not geo.is_inside_tree():
 		level_node = geo
 	else:
-		level_node = MapGeo.new(ed.bank).build(lv)
+		var mg := MapGeo.new(ed.bank)
+		level_node = mg.build(lv)
+		# the doors, shut (the game's Doors swings them)
+		for dr in lv.doors:
+			for nd in mg.door_nodes(lv, dr):
+				if nd != null:
+					level_node.add_child(nd)
 	ed.compiled.erase("geo")
 	root3d.add_child(level_node)
 	var w: Dictionary = ed.doc.get("world", {})
@@ -959,6 +965,12 @@ func _down(e: InputEventMouseButton) -> void:
 	if hit.kind == "prop":
 		ed.set_mode("props")
 		ed.select("prop", [hit.id])
+		return
+	if hit.part == "wall" and mode == "doors":
+		if e.shift_pressed:
+			ed.remove_door(hit.line)
+		else:
+			ed.place_door(hit.line, Vector2(hit.x, hit.y))
 		return
 	if hit.part == "wall":
 		# ALT-CLICK A WALL: every wall of the room it faces

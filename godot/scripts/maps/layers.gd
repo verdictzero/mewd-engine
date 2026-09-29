@@ -47,7 +47,7 @@ static func build() -> Dictionary:
 	var doc := {
 		"format": EdDoc.DOC_FORMAT, "version": EdDoc.DOC_VERSION, "name": "THE ANNEXE",
 		"vertices": V0, "sectors": [yard, shop, stairs],
-		"lines": {"8,9": {"opening": true}},
+		"lines": {"8,9": {"opening": true, "door": {"h": 96}}},
 		"linedefs": [], "textures": [], "props": [], "scatters": [],
 		"things": [
 			{"id": 20, "type": "START", "x": 320.0, "y": 768.0, "angle": 0.0},
@@ -71,5 +71,5 @@ static func build() -> Dictionary:
 		"wallTex": "CITYMET2", "outdoor": false, "sky": 0, "name": "office", "light": 0.75})
 	var terrace := _sector(11, [1, 6, 7, 4, 3, 2], {"floor": DECK, "ceil": 512, "floorTex": "CONC_3", "ceilTex": "SKY",
 		"wallTex": "CITYCON1", "outdoor": true, "name": "terrace", "light": 0.9})
-	doc["layers"] = {"1": {"vertices": V1, "sectors": [office, terrace], "lines": {"2,3": {"opening": true}}, "linedefs": []}}
+	doc["layers"] = {"1": {"vertices": V1, "sectors": [office, terrace], "lines": {"2,3": {"opening": true, "door": {"h": 96, "style": "slide"}}}, "linedefs": []}}
 	return doc

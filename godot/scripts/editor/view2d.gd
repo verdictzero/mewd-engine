@@ -360,6 +360,14 @@ func _down(e: InputEventMouseButton) -> void:
 			return
 		drag = {"type": "box", "a": m, "b": m, "add": e.shift_pressed}
 		return
+	# DOORS MODE: a click on a wall puts a door in it (Shift+click on a
+	# door takes it out)
+	if mode == "doors":
+		if e.shift_pressed:
+			ed.remove_door(hit.id)
+		else:
+			ed.place_door(hit.id, m)
+		return
 	# ALT-CLICK A LINE: every wall of the room on that side of it
 	if kind == "line" and e.alt_pressed:
 		ed.loop_select(ed.side_of(hit.id, m), e.shift_pressed)
@@ -668,15 +676,17 @@ func _line_style(d: Dictionary, l: Dictionary, is_sel: bool) -> Array:
 	var free: bool = l.get("free", false)
 	var ext := EdView3D.exterior_wall(d, l)
 	var door: bool = not ext and o != null and o.get("opening", false)
+	var has_door: bool = o != null and o.get("door") is Dictionary
 	var c: Color
 	if is_sel: c = Color("#ff9d3d")
+	elif has_door: c = Color("#ff5fd2")
 	elif free: c = Color("#ffd23d")
 	elif o != null and o.get("blocking", false): c = Color("#ff6b6b")
 	elif ext: c = Color("#f0dcb4")
 	elif door: c = Color("#c9a46a")
 	elif l.sectors.size() > 1: c = Color("#6d7a86")
 	else: c = Color("#e6edf0")
-	var w := 2.5 if is_sel else (3.0 if free else (2.0 if ext else (1.0 if l.sectors.size() > 1 else 1.6)))
+	var w := 2.5 if is_sel else (3.0 if free or has_door else (2.0 if ext else (1.0 if l.sectors.size() > 1 else 1.6)))
 	return [c, w, door]
 
 ## THE MODEL: every sector's fill as triangles, the lines grouped by how

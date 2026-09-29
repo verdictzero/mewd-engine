@@ -418,7 +418,12 @@ func render_insp() -> void:
 	var kind := ed.sel_kind
 	var ids := ed.sel_ids
 	var d := ed.doc
+	# DOORS MODE: the door the tool puts in, always on top
+	if ed.mode == "doors":
+		_put(p, _door_preset_items())
 	if kind == "" or ids.is_empty():
+		if ed.mode == "doors":
+			return
 		var types := []
 		for k in EdDoc.THING_TYPES:
 			types.append([k, EdDoc.THING_TYPES[k].name])
@@ -611,6 +616,40 @@ func _flag(x: Dictionary, k: String, on: bool) -> void:
 	else:
 		x.erase(k)
 
+## THE DOOR TOOL (Doors mode, O): the door a click puts in a wall.
+func _door_preset_items() -> Array:
+	var dp: Dictionary = ed.door_preset
+	var styles := [["swing", "Swings open (a hinge)"], ["slide", "Slides into the wall"]]
+	return [EdStyle.h3("Doors"),
+		EdStyle.note("Click a wall — in the plan or in 3D — and a door goes in there, as wide as this, its middle where you clicked. Click another for another. Shift+click a door takes it out."),
+		EdStyle.row("Width", [EdStyle.num(dp.w, func(v): dp["w"] = clampf(v, 16, 512), 8, "How wide a new door is")]),
+		EdStyle.row("Height", [EdStyle.num(dp.h, func(v): dp["h"] = clampf(v, 24, 1024), 8, "How high: never higher than the room's ceiling; over it, a lintel")]),
+		EdStyle.row("Opens", [EdStyle.option(styles, dp.style, func(v): dp["style"] = v)]),
+		EdStyle.row("By itself", [EdStyle.check(dp.auto, func(v): dp["auto"] = v, "as anybody comes to it — else only the use key (F)")]),
+		tex_field(dp.tex, "@doorTex", "Door texture")]
+
+## A LINE'S DOOR (its override's `door`), in the line inspector.
+func _door_items(o: Dictionary) -> Array:
+	var dr = o.get("door")
+	if not dr is Dictionary:
+		return [EdStyle.flow([EdStyle.small_button("🚪 Door here", func(): each("door", func(x):
+			x["opening"] = true
+			var dp: Dictionary = ed.door_preset.duplicate()
+			dp.erase("w")
+			x["door"] = dp), "A door across this whole line, as the Doors tool (O) makes them")])]
+	var styles := [["swing", "Swings open (a hinge)"], ["slide", "Slides into the wall"]]
+	var set_d := func(k: String, v) -> void:
+		each("door " + k, func(x):
+			if x.get("door") is Dictionary:
+				x.door[k] = v)
+	return [EdStyle.h4("Door"),
+		EdStyle.row("Height", [EdStyle.num(dr.get("h", 96), func(v): set_d.call("h", clampf(v, 24, 1024)), 8)]),
+		EdStyle.row("Opens", [EdStyle.option(styles, dr.get("style", "swing"), func(v): set_d.call("style", v))]),
+		EdStyle.row("By itself", [EdStyle.check(dr.get("auto", true), func(v): set_d.call("auto", v), "as anybody comes to it")]),
+		EdStyle.row("Locked", [EdStyle.check(dr.get("locked", false), func(v): set_d.call("locked", v), "shut, for good")]),
+		tex_field(dr.get("tex", "DOOR0001"), "door.tex", "Door texture"),
+		EdStyle.flow([EdStyle.small_button("✕ No door", func(): each("no door", func(x): x.erase("door")), "Still a way through, with no door in it")])]
+
 ## A LOOP (MewdEditor.loop_select): the walls of one sector, textured on
 ## its side all at once.
 func _insp_loop(p: VBoxContainer, d: Dictionary, ids: Dictionary) -> void:
@@ -657,6 +696,8 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 		EdStyle.note("%d units · %s" % [roundi(len), ("two-sided" if two else "one-sided") if info != null else "not on a sector"]),
 		EdStyle.row("Blocks walking", [EdStyle.check(o.get("blocking", false), func(v): each("line blocking", func(x): _flag(x, "blocking", v)))]),
 		EdStyle.row("Blocks sight", [EdStyle.check(o.get("blockSight", false), func(v): each("line sight", func(x): _flag(x, "blockSight", v)))])]
+	if n == 1 and info != null:
+		items += _door_items(o)
 	if n == 1 and info != null:
 		for si in info.sectors:
 			var sec: Dictionary = d.sectors[si]
@@ -985,6 +1026,8 @@ func pick_texture(name: String) -> void:
 		var field: String = picking.field
 		if field == "@propTex":
 			ed.prop_tex = name
+		elif field == "@doorTex":
+			ed.door_preset["tex"] = name
 		elif field.begins_with("@loop."):
 			ed.loop_texture(field.substr(6), name)
 		elif ed.sel_kind != "":

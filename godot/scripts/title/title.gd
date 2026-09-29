@@ -9,7 +9,8 @@
 ## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words and a
 ## marker by the one you are on that blinks the way the skull did. The
 ## one you are on is filled in red, the logo's brick, at the user's
-## request. Only NEW GAME goes anywhere yet; the others shake their heads.
+## request. NEW GAME and MAP EDITOR go somewhere; the others shake their
+## heads.
 ##
 ## THE LAYERS, at the user's request, top to bottom: this menu; MEWD, in
 ## front of the dither; the blue, over the finished frame; the dither;
@@ -19,9 +20,10 @@ class_name Title
 extends Control
 
 signal new_game
+signal open_editor
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["OPTIONS", "options", false], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false]]
+	["MAP EDITOR", "editor", true], ["OPTIONS", "options", false], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false]]
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
 const VERSION := "0.2.0"
@@ -199,6 +201,8 @@ func take(i: int) -> void:
 		return
 	if ITEMS[at][1] == "new":
 		new_game.emit()
+	elif ITEMS[at][1] == "editor":
+		open_editor.emit()
 
 func _process(dt: float) -> void:
 	var was := fmod(_blink, 1.0) < 0.5

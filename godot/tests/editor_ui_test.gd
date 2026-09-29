@@ -169,6 +169,35 @@ func run() -> void:
 	click(v, P.call(642, 768))
 	ok(ed.sel_ids.size() == 1 and ed.sel_face == null, "a plain click picks one line again")
 	ed.clear_sel()
+
+	# THE DOOR TOOL (O): a click on a wall, a door in it
+	ok(key(ed, KEY_O) and ed.mode == "doors", "O is Doors")
+	var doors_in := func() -> Array:
+		var out := []
+		for k in ed.doc.lines:
+			var o = ed.doc.lines[k]
+			if o is Dictionary and o.get("door") is Dictionary:
+				out.append(k)
+		return out
+	click(v, P.call(900, 514))
+	var dk: Array = doors_in.call()
+	var dlen := 0.0
+	if dk.size() == 1:
+		var ab := EdDoc.key_verts(dk[0])
+		dlen = ed.doc.vertices[ab.x].distance_to(ed.doc.vertices[ab.y])
+	ok(dk.size() == 1 and dlen == 64.0 and ed.doc.lines[dk[0]].get("opening", false), "a click on the room's wall: a door, 64 wide (%s, %.0f)" % [dk, dlen])
+	ok(ed.sel_kind == "line" and dk.size() == 1 and ed.sel_ids.has(dk[0]), "and it is selected, for the inspector")
+	click(v, P.call(1150, 700))
+	ok(doors_in.call().size() == 2, "another click, another door (%d)" % doors_in.call().size())
+	ed.compile_now()
+	ok(ed.compiled.level.doors.size() == 2, "and the build has both (%d)" % ed.compiled.level.doors.size())
+	click(v, P.call(900, 514), {"shift": true})
+	ok(doors_in.call().size() == 1, "Shift+click takes one out (%d)" % doors_in.call().size())
+	ed.undo()
+	ed.undo()
+	ed.undo()
+	ok(doors_in.call().is_empty(), "three undos, and no doors")
+	ed.clear_sel()
 	key(ed, KEY_S)
 	# DRAW MODE: three clicks and the first again
 	ok(key(ed, KEY_D), "D is Draw")

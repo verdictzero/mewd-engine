@@ -64,6 +64,7 @@ func _init() -> void:
 	_under(lv)
 	_shots(lv)
 	_sight(lv)
+	_doors(lv)
 	_crowd(lv)
 	_fire()
 	await _net()
@@ -167,6 +168,8 @@ func _drive(fwd: float, tics: int, stop := Callable()) -> Dictionary:
 	var head := -INF
 	for i in tics:
 		p.tic(pilot.cmd(game))
+		if game.doors != null:
+			game.doors.tic()
 		lo = minf(lo, p.z)
 		hi = maxf(hi, p.z)
 		head = maxf(head, p.z + p.height)
@@ -281,6 +284,74 @@ func _shots(lv: Level) -> void:
 	pitch = atan2(down.z + 30.0 - p.eye_z(), 120.0)
 	tr = game.trace(p, p.angle, pitch, 2000.0)
 	check(tr.actor == null and absf(tr.z - 128.0) < 0.01, "from the terrace, down at the one under it: the terrace's floor")
+
+# ---- doors ------------------------------------------------------------------
+
+func _doors(lv: Level) -> void:
+	print("layers: doors")
+	var p = game.player
+	var dd: Array = game.level.doors
+	var west: Level.Door = null
+	var east: Level.Door = null
+	for d in dd:
+		if d.z0 == 0.0:
+			west = d
+		elif d.z0 == 128.0:
+			east = d
+	check(dd.size() == 2 and west != null and east != null, "two doors: the shop's and the office's (%d)" % dd.size())
+	if west == null or east == null:
+		return
+	check(west.style == "swing" and west.top == 96.0 and west.lintel_top == 112.0 and west.wall == 16.0 and west.inside.x > 0.5,
+		"the shop's swings into it, 96 high, a lintel to its ceiling (%s..%s, into %s)" % [west.top, west.lintel_top, west.inside])
+	check(east.style == "slide" and east.top == 224.0 and east.lintel_top == 320.0 and east.inside.x < -0.5,
+		"the office's slides, 96 over its floor, a lintel to its ceiling (%s..%s)" % [east.top, east.lintel_top])
+	var doors: Doors = game.doors
+	var settle := func(n: int) -> void:
+		for i in n:
+			doors.tic()
+	# far off, it shuts
+	_put(p, 300, 768, 0, 0.0)
+	settle.call(200)
+	check(west.open == 0.0 and east.open == 0.0, "nobody near: both shut")
+	var hit: Dictionary = game.level.ray_hit_wall(700, 768, 40, 900, 768, 40)
+	check(not hit.is_empty() and hit.line.door == west, "a round at the shut door stops in it")
+	check(game.level.sight_blocked(700, 768, 40, 900, 768, 40), "and nobody sees through it")
+	# LOCKED: it stays shut, and stops you
+	west.locked = true
+	_put(p, 690, 768, 0, 0.0)
+	_drive(1.0, 60)
+	check(west.open == 0.0 and p.x < 768.0 - 15.0 and p.x > 740.0, "locked, it stays shut and stops you (x %.1f)" % p.x)
+	# unlocked, up to it and it opens, through into the shop
+	west.locked = false
+	_drive(1.0, 60)
+	check(west.open > 0.9 and p.x > 800.0 and p.sector.name == "shop", "unlocked, it opens as you come, and you are in (x %.1f)" % p.x)
+	hit = game.level.ray_hit_wall(700, 768, 40, 900, 768, 40)
+	check(hit.is_empty(), "open, a round goes through")
+	hit = game.level.ray_hit_wall(700, 768, 104, 900, 768, 104)
+	check(not hit.is_empty() and hit.line.door == west, "but not through its lintel")
+	# THE USE KEY: a door that does not open by itself
+	west.auto = false
+	_put(p, 300, 768, 0, 0.0)
+	settle.call(200)
+	check(west.open == 0.0, "not by itself: it shuts behind you")
+	_put(p, 730, 768, 0, 0.0)
+	settle.call(20)
+	check(west.open == 0.0, "and stays shut with you at it")
+	check(doors.use(p), "the use key finds it")
+	settle.call(20)
+	check(west.open == 1.0, "and opens it")
+	doors.use(p)
+	settle.call(20)
+	check(west.open == 0.0, "and again shuts it")
+	west.auto = true
+	# ON THE STOREY OVER: the office's door opens for you up there, not
+	# for somebody in the yard under it
+	_put(p, 1200, 768, 0, 0.0)
+	settle.call(40)
+	check(east.open == 0.0, "the office's door does not open for you down in the yard")
+	_put(p, 1230, 768, 128, PI)
+	settle.call(40)
+	check(east.open == 1.0, "and does from the terrace")
 
 func _sight(lv: Level) -> void:
 	print("layers: sight")

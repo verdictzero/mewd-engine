@@ -286,7 +286,8 @@ NETWORK PLAY (js/net/ -> godot/scripts/net/)
 
 THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
 
-  MEWD Editor, in the game: the terminal's E or EDIT, `-- --edit`, or
+  MEWD Editor, in the game: MAP EDITOR on the title (whose "Back to
+  the title" comes back to it), the terminal's E or EDIT, `-- --edit`, or
   F2 from the game. It is the web build's editor ported feature for
   feature, on Godot Controls in the web build's look (css/editor.css):
   the plan (view2d.gd), the 3D view drawn by the game's own MapGeo
@@ -327,6 +328,29 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   in full — every storey in the 3D view and in the game, room over room
   (see THE LEVEL); each layer's problems are listed with its number.
   The 3D view's picking is of the layer being edited.
+
+  DOORS (the Godot build's own; not in the web build). Doors mode (O):
+  click a wall, in the plan or in 3D, and a door goes in there — the
+  line cut to a piece the tool's width round the click (its edges on
+  the grid with snap on), that piece an opening with a door in it (a
+  building's outside wall gets its passage through the thick wall too)
+  — and the next click puts in another, as the panel on top of the
+  inspector sets it: width, height, swinging or sliding, opening by
+  itself or only on the use key, its texture. Shift+click takes a door
+  out. A line's inspector has its Door (height, how it opens, by
+  itself, locked, texture, No door) or "Door here". A door is a line
+  override `door` {h, tex, style, auto, locked, lintelTex} next to
+  `opening`; DocCompile builds a Level.Door on the level lines along it
+  (standing on the higher floor either side, never higher than the
+  lower ceiling, a lintel over it to that ceiling, swinging into the
+  roofed room); Level stops movers, rays and eyes at it while it is
+  shut, and at its lintel always; game/doors.gd opens it as anybody
+  walking comes near (auto) or on the use key (F, touch USE) from a
+  player facing it, keeps it open while anybody is in its way, shuts it
+  three seconds after, and swings it a quarter turn on its hinge or
+  slides it into the wall. It all runs in the tic, the same on every
+  machine of a match. The editor's 3D view draws the doors shut. THE
+  ANNEXE has one of each.
 
   LOOP SELECT (the Godot editor's own; not in the web build): in Lines
   mode double-click or Alt+click a line, or Alt+click a wall in 3D, or

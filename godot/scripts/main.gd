@@ -115,6 +115,7 @@ func show_editor() -> void:
 	layer.layer = 10
 	add_child(layer)
 	editor = MewdEditor.new()
+	editor.from_title = MewdEditor.came_from_title
 	layer.add_child(editor)
 	editor.play_requested.connect(func(doc: Dictionary):
 		layer.queue_free()
@@ -122,7 +123,14 @@ func show_editor() -> void:
 		# the map's own textures, drawn for the game (texcompose.js)
 		EdTex.register_all(doc)
 		start_game())
-	editor.quit_requested.connect(func(): layer.queue_free(); editor = null; show_terminal())
+	editor.quit_requested.connect(func():
+		layer.queue_free()
+		editor = null
+		if MewdEditor.came_from_title:
+			MewdEditor.came_from_title = false
+			show_title()
+		else:
+			show_terminal())
 
 ## F2, from the game: back to the editor, on the map as it was left
 ## (its autosave), as the web build's ?edit is.
@@ -184,7 +192,22 @@ func show_title() -> void:
 	title_layer.add_child(title)
 	title.attach_shade(shade)
 	title.new_game.connect(start_game)
+	title.open_editor.connect(_title_to_editor)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+## MAP EDITOR, from the title: the title and its forest put away, and
+## the editor's "Back" comes back to the title rather than the terminal
+## (MewdEditor.came_from_title, which outlives a play-test and F2).
+func _title_to_editor() -> void:
+	if forest != null:
+		forest.queue_free()
+		shade.queue_free()
+		title_layer.queue_free()
+		forest = null
+		title = null
+	lofi.set_tint(Color.WHITE)
+	MewdEditor.came_from_title = true
+	show_editor()
 
 func start_game() -> void:
 	if game != null:

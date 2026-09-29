@@ -122,6 +122,43 @@ class Line:
 	var bands: Array = []
 	var holes: Array = []
 	var mid_z: Array = []
+	var door: Door = null                 # a door in it (Doors, DocCompile)
+
+## A DOOR (the Godot build's own; a line override `door` in an edited
+## map): a slab across the line from a to b, z0..top, that swings (on a
+## hinge at a) or slides (along the line, into the wall past b) open,
+## and over it a LINTEL up to lintel_top. Shut, it stops movers, rays
+## and eyes on its lines; open, only the lintel does. `open` 0..1 is
+## run by Doors (game/doors.gd): it opens as someone comes to it (auto)
+## or on the use key, and shuts again when nobody is in it.
+class Door:
+	var index := 0
+	var a := Vector2()
+	var b := Vector2()
+	var inside := Vector2()     # the normal it swings towards
+	var depth := 6.0            # how thick the slab is
+	var wall := 0.0             # how thick the wall it is in is, out of the room (0: a line)
+	var z0 := 0.0
+	var top := 96.0
+	var lintel_top := 96.0
+	var tex := "DOOR3"
+	var lintel_tex := "GRIDWALL"
+	var style := "swing"        # or "slide"
+	var auto := true
+	var locked := false
+	var open := 0.0
+	var target := 0.0
+	var wait := 0
+	var lines: Array = []
+	## shut to something at z..z+h (anything short of wide open is shut)
+	func shut_to(z: float, h: float) -> bool:
+		return open < 0.95 and z < top - 0.5 and z + h > z0 + 0.5
+	## the lintel over it, in the way of something z..z+h
+	func lintel_to(z: float, h: float) -> bool:
+		return lintel_top > top + 0.5 and z + h > top + 0.5 and z < lintel_top - 0.5
+	## a point at height z on it stops a ray or an eye
+	func stops(z: float) -> bool:
+		return (open < 0.5 and z >= z0 and z <= top) or (lintel_top > top + 0.5 and z > top and z <= lintel_top)
 
 var name := ""
 var verts := PackedVector2Array()
@@ -137,6 +174,8 @@ var bounds := Rect2()
 var props: Array = []
 ## the placed and scattered plants, {kind, x, y, scale}, for the forest
 var plants: Array = []
+## the DOORS (Door), each on its lines
+var doors: Array = []
 ## the map's own light (mapLightOf in js/editor/doc.js): lightColor,
 ## ambient (Color, times its amount), fogAmbient, fog (Color, a = density)
 var map_light := {}
@@ -521,6 +560,11 @@ func _in_sector(s: Sector, x: float, y: float) -> bool:
 func line_blocks(l: Line, from_z: float, height: float, monster: bool) -> String:
 	if l.back == -1 or l.front == -1:
 		return "solid"
+	if l.door != null:
+		if l.door.shut_to(from_z, height):
+			return "door"
+		if l.door.lintel_to(from_z, height):
+			return "toolow"
 	if l.blocking:
 		if l.mid_z.is_empty():
 			return "blocking"
@@ -609,6 +653,8 @@ func sight_blocked(ax: float, ay: float, az: float, bx: float, by: float, bz: fl
 			return true
 		if l.block_sight and (l.mid_z.is_empty() or _in_mid_z(l, z)):
 			return true
+		if l.door != null and l.door.stops(z):
+			return true
 		var f := sectors[l.front]
 		var b := sectors[l.back]
 		if l.multi:
@@ -636,6 +682,8 @@ func ray_hit_wall(ax: float, ay: float, az: float, bx: float, by: float, bz: flo
 		if solid and l.blocking and not l.mid_z.is_empty() and l.back != -1:
 			# walled in some openings only: a round over the terrace flies on
 			solid = _in_mid_z(l, az + (bz - az) * t)
+		if not solid and l.door != null:
+			solid = l.door.stops(az + (bz - az) * t)
 		if not solid:
 			var z := az + (bz - az) * t
 			var f := sectors[l.front]

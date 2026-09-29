@@ -10,6 +10,7 @@ const BASE_FOV := 72.0
 const MOUSE_SENS := 0.0022
 const MAX_TICS := 6
 
+var doors: Doors = null
 var level: Level
 var bank: TexBank
 var player: Player
@@ -187,6 +188,10 @@ func start_map(doc: Dictionary) -> void:
 	bank = TexBank.new()
 	var geo := MapGeo.new(bank).build(level)
 	add_child(geo)
+	# the doors (game/doors.gd), none on a map without
+	doors = Doors.new(self) if not level.doors.is_empty() else null
+	if doors != null:
+		add_child(doors)
 	_make_sky(str(level.world.get("skybox", "")))
 	var start = null
 	for t in level.things:
@@ -532,8 +537,12 @@ func tic() -> void:
 		var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
 		var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
 		p.tic(cmd)
+		if doors != null:
+			doors.command(p, cmd)
 		if back.is_valid():
 			back.call()
+	if doors != null:
+		doors.tic()
 	weather.tic()
 	for a in actors:
 		a.tic()
