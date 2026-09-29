@@ -10,6 +10,9 @@
 shader_type canvas_item;
 
 uniform sampler2D lut : filter_nearest;
+// the gun, over the room and under the filter (js/lofi.js: the overlays
+// are drawn into the buffer before the post pass)
+uniform sampler2D gun_tex : filter_linear;
 uniform vec2 grid_size = vec2(480.0, 320.0);
 uniform vec2 taps = vec2(2.0, 3.0);
 uniform float dither = 1.0;
@@ -43,7 +46,9 @@ void fragment() {
 		for (int i = 0; i < 4; i++) {
 			vec2 t = vec2(float(i), float(j));
 			if (t.x < taps.x && t.y < taps.y) {
-				sum += texture(TEXTURE, uv0 + (t + 0.5) / taps * span).rgb;
+				vec2 at = uv0 + (t + 0.5) / taps * span;
+				vec4 g = texture(gun_tex, at);
+				sum += mix(texture(TEXTURE, at).rgb, g.rgb, g.a);
 				n += 1.0;
 			}
 		}

@@ -27,6 +27,7 @@ var bore = null
 var tracers: Tracers
 var decals: Decals
 var hud: Hud
+var weapon3d: Weapon3D
 ## where the last round stopped, for the tracer
 var last_hit := Vector3()
 var _slot := 0
@@ -181,6 +182,8 @@ func _process(dt: float) -> void:
 	_place_camera(_acc / U.SEC)
 	standees.draw(actors, camera.position, tics)
 	tracers.draw_for(camera, _acc / U.SEC)
+	if weapon3d != null:
+		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 	_frames += 1
 	if _shot != "" and _frames == _shot_frames:
 		await RenderingServer.frame_post_draw

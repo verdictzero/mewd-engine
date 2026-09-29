@@ -593,6 +593,10 @@ func heat_at(x: float, y: float) -> float:
 func burn_fraction() -> float:
 	return burnt_fuel / total_fuel if total_fuel > 0.0 else 0.0
 
+## js/game.js burnPercent, which the HUD reads
+func burn_percent() -> float:
+	return burn_fraction() * 100.0
+
 ## What the status bar shows: cells actually alight, not the ember tail.
 func burning_cells() -> int:
 	return hot_cells

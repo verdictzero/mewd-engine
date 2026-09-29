@@ -15,6 +15,9 @@ func _ready() -> void:
 	add_child(lofi)
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
+	var w3d := Weapon3D.new()
+	lofi.gun.add_child(w3d)
+	game.weapon3d = w3d
 	lofi.world.add_child(game)
 	hud_layer = CanvasLayer.new()
 	hud_layer.layer = 1

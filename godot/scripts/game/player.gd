@@ -91,9 +91,14 @@ func tic(cmd: Dictionary) -> void:
 	weapon_tic(cmd)
 	fuel_tic()
 
+var look_rate := 0.0
+var pitch_rate := 0.0
+
 func turn(look: Vector2) -> void:
 	angle = U.angle_norm(angle - look.x)
 	pitch = clampf(pitch - look.y, -MAX_PITCH, MAX_PITCH)
+	look_rate += (look.x - look_rate) * 0.3
+	pitch_rate += (look.y - pitch_rate) * 0.3
 
 func move(cmd: Dictionary) -> void:
 	var run: bool = cmd.run

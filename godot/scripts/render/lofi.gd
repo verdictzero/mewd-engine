@@ -17,6 +17,8 @@ const PIXELS := 320
 const PIXEL_ASPECT := 2.0 / 3.0
 
 var world: SubViewport
+## the gun: a world of its own, drawn over the room and under the filter
+var gun: SubViewport
 var rect: TextureRect
 var mat: ShaderMaterial
 var render_rows := RENDER
@@ -31,6 +33,12 @@ func _init() -> void:
 	world.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	world.msaa_3d = Viewport.MSAA_DISABLED
 	add_child(world)
+	gun = SubViewport.new()
+	gun.name = "Gun"
+	gun.own_world_3d = true
+	gun.transparent_bg = true
+	gun.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(gun)
 	rect = TextureRect.new()
 	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -46,6 +54,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	rect.texture = world.get_texture()
+	mat.set_shader_parameter("gun_tex", gun.get_texture())
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 
@@ -57,6 +66,7 @@ func _resize() -> void:
 	var buf_rows := minf(float(render_rows), win.y) if render_rows > 0 else win.y
 	var buf := Vector2i(roundi(buf_rows * win.x / win.y), roundi(buf_rows))
 	world.size = buf
+	gun.size = buf
 	var rows := float(pixel_rows) if pixel_rows > 0 else buf_rows
 	var cols := rows * (win.x / win.y) / pixel_aspect
 	mat.set_shader_parameter("grid_size", Vector2(cols, rows))
