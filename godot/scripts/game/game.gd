@@ -79,6 +79,8 @@ var beam: BeamSystem
 var scope: Scope
 ## and the quad launcher's thermal sight (render/thermal.gd), the same kind of thing
 var thermal: ThermalScope
+## the potato cannon's thermal sight, in night-vision green
+var green_thermal: ThermalScope
 var _zoom := false
 var hud: Hud
 var weapon3d: Weapon3D
@@ -249,6 +251,11 @@ func start_map(doc: Dictionary) -> void:
 	add_child(thermal)
 	if weapon3d != null:
 		weapon3d.scopes["LAUNCHER"] = thermal
+	# and the potato cannon's, in green (render/thermal.gd `green`)
+	green_thermal = ThermalScope.new(self, true)
+	add_child(green_thermal)
+	if weapon3d != null:
+		weapon3d.scopes["POTATO"] = green_thermal
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -430,7 +437,8 @@ func _process(dt: float) -> void:
 	# hand takes the zoom; the other is put down and zeroed
 	var lance: bool = player.weapon == "LANCE" and not player.dead
 	var launcher: bool = player.weapon == "LAUNCHER" and not player.dead
-	var sighted: Scope = scope if lance else (thermal if launcher else null)
+	var potato: bool = player.weapon == "POTATO" and not player.dead
+	var sighted: Scope = scope if lance else (thermal if launcher else (green_thermal if potato else null))
 	var slow: float = sighted.view_scale() if sighted != null else 1.0
 	if net != null:
 		if not paused:
@@ -453,6 +461,7 @@ func _process(dt: float) -> void:
 	beam.draw((tics + _acc / U.SEC) * U.SEC, dt)
 	scope.held = lance
 	thermal.held = launcher
+	green_thermal.held = potato
 	if touch != null:
 		touch.scope_on = sighted != null
 		touch.scope_up = sighted != null and sighted.zoom_index > 0
@@ -464,7 +473,7 @@ func _process(dt: float) -> void:
 			touch.zoom_pulse = false
 			if sighted != null:
 				sighted.step_aimed()
-	for sc in [scope, thermal]:
+	for sc in [scope, thermal, green_thermal]:
 		if sc != sighted and sc.zoom_index > 0:
 			sc.set_zoom(0)
 	if sighted != null and _zoom:
@@ -477,8 +486,10 @@ func _process(dt: float) -> void:
 	camera.fov = BASE_FOV * (sighted.view_scale() if sighted != null else 1.0)
 	scope.render(camera)
 	thermal.render(camera)
+	green_thermal.render(camera)
 	scope.update(player, tics)
 	thermal.update(player, tics)
+	green_thermal.update(player, tics)
 	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
 	if skybox_mat != null:
 		_skybox_fog()

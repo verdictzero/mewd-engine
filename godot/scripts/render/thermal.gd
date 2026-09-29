@@ -64,15 +64,27 @@ const T_TAKE := Color(1.0, 1.0, 1.0, 0.96)
 ## the Game, for its heat sources and its seeker; with none the feed is
 ## still thermal and the glass is only the circle and the pips
 var game = null
+## GREEN: the potato cannon's sight (game/potatoes.gd) — the same heat,
+## run up a night-vision green instead of ironbow, and a plain reticle
+## with a range readout instead of the seeker's circle, brackets and tubes
+var green := false
+## the one sight whose heat the world is drawing (two may exist; one is
+## held at a time), and what the world was last told
+static var _holder: ThermalScope = null
+static var _told := Vector2(-1, -1)
 var _view_set := Vector2(-1, -1)
 var _warmth := {}
 ## what the glass was last asked to show
 var tst := {"marks": [], "loaded": 0, "locks": 0, "take": 0.0, "salvo": 0}
 
-func _init(g = null) -> void:
+func _init(g = null, is_green := false) -> void:
 	super({"size": ROWS, "aspect": ASPECT, "zooms": THERMAL_ZOOMS,
 		"view_zooms": THERMAL_VIEW_ZOOM, "aim_at": THERMAL_AIM_AT})
-	name = "ThermalScope"
+	name = "GreenThermalScope" if is_green else "ThermalScope"
+	green = is_green
+	# the cannon's sight is raised to the eye whole at every step
+	if green:
+		aim_at = [0.0, 1.0, 1.0]
 	game = g
 	feed.name = "ThermalFeed"
 	# the brackets the world draws over the locks are not seen by the sensor
@@ -87,6 +99,9 @@ func _init(g = null) -> void:
 func _exit_tree() -> void:
 	RenderingServer.global_shader_parameter_set("thermal_view", Vector2.ZERO)
 	_view_set = Vector2.ZERO
+	_told = Vector2.ZERO
+	if _holder == self:
+		_holder = null
 
 ## WHETHER A SUBVIEWPORT HOLDS WHAT THE SHADER WROTE: the Compatibility
 ## renderer (no RenderingDevice) does, Forward+ sRGB-encodes on the way in
@@ -105,6 +120,7 @@ func screen_material() -> ShaderMaterial:
 		screen.set_shader_parameter("feed", feed.get_texture())
 		screen.set_shader_parameter("panel", panel.get_texture())
 		screen.set_shader_parameter("raw", raw_targets())
+		screen.set_shader_parameter("green", green)
 	return screen
 
 # ------------------------------------------------------------------
@@ -115,9 +131,15 @@ func screen_material() -> ShaderMaterial:
 ## viewport is the thermal one; on the frames a feed is drawn, the engines
 ## and the fire nearest the player are handed to the shaders for it.
 func render(world_camera: Camera3D) -> bool:
-	var want := feed_size() if held else Vector2.ZERO
-	if want != _view_set:
-		_view_set = want
+	# the world draws heat for the feed of whichever sight is held; one
+	# put down gives it up only if it was the one holding it
+	if held:
+		_holder = self
+	elif _holder == self:
+		_holder = null
+	var want := feed_size() if _holder != null else Vector2.ZERO
+	if want != _told:
+		_told = want
 		RenderingServer.global_shader_parameter_set("thermal_view", want)
 		RenderingServer.global_shader_parameter_set("thermal_raw", 1.0 if raw_targets() else 0.0)
 	var drew := super.render(world_camera)
@@ -159,13 +181,18 @@ func update(p, t: int) -> bool:
 		screen.set_shader_parameter("tics", float(t))
 		screen.set_shader_parameter("on", 1.0 if held else 0.0)
 		# THE MOTOR BLINDS IT while a missile leaves the tube
-		var launching: bool = p != null and p.weapon == "LAUNCHER" and p.firing()
+		var launching: bool = p != null and p.weapon == ("POTATO" if green else "LAUNCHER") and p.firing()
 		screen.set_shader_parameter("noise", 0.8 if launching else 0.0)
-	var M = game.get("missiles") if game != null else null
+	var M = game.get("missiles") if game != null and not green else null
 	var marks := _marks(M)
 	var loaded := 0
 	if p != null:
-		loaded = clampi(int(p.ammo.get("rockets", 0)), 0, 4)
+		loaded = clampi(int(p.ammo.get("potatoes" if green else "rockets", 0)), 0, 6 if green else 4)
+	# the green sight's range: to whatever is down the middle of it
+	var rng := 0
+	if green and p != null and held and game != null:
+		var tr: Dictionary = game.trace(p, p.angle, p.pitch, 8000.0)
+		rng = roundi(Vector2(tr.x - p.x, tr.y - p.y).length() / 32.0)
 	var locks: int = M.locks.size() if M != null else 0
 	var take: float = M.acquire_fraction() if M != null and M.acquiring != null else 0.0
 	var salvo: int = M.salvo_left() if M != null else 0
@@ -174,13 +201,13 @@ func update(p, t: int) -> bool:
 		mk.append("%d,%d,%d,%d" % [int(m.x) >> 1, int(m.y) >> 1, m.n, int(m.r) >> 1])
 	# (the camera's field of view too: the circle is drawn off it, and it
 	# lags the zoom by up to a feed frame)
-	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%s" % [1 if held else 0, zoom_index, roundi(camera.fov * 10.0), loaded, locks,
-		roundi(take * 12.0), (t >> 1) & 1 if take > 0.0 else 0, salvo, ";".join(mk)]
+	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d" % [1 if held else 0, zoom_index, roundi(camera.fov * 10.0), loaded, locks,
+		roundi(take * 12.0), (t >> 1) & 1 if take > 0.0 else 0, salvo, ";".join(mk), rng]
 	if key == _key:
 		return false
 	_key = key
 	draws += 1
-	tst = {"marks": marks, "loaded": loaded, "locks": locks, "take": take, "salvo": salvo}
+	tst = {"marks": marks, "loaded": loaded, "locks": locks, "take": take, "salvo": salvo, "range": rng}
 	gauges.queue_redraw()
 	panel.render_target_update_mode = SubViewport.UPDATE_ONCE
 	return true
@@ -225,6 +252,9 @@ func _marks(M) -> Array:
 
 func _draw_panel(c: Control) -> void:
 	if not held:
+		return
+	if green:
+		_draw_green(c)
 		return
 	var W := c.size.x
 	var H := c.size.y
@@ -285,3 +315,38 @@ func _draw_panel(c: Control) -> void:
 	else:
 		c.draw_circle(Vector2(cx, ly), H * 0.012, T_INK_DIM)
 	_label(c, "%sx" % str(magnification()), W * 0.86, H * 0.88, H * 0.075, T_INK if zoom_index > 0 else T_INK_DIM)
+
+## THE POTATO CANNON'S GLASS: a plain cross with a gap in the middle and
+## ticks down the lower arm for the lob, the range in metres (32 units),
+## the hopper's potatoes as six pips, and the zoom
+const G_INK := Color(0.72, 1.0, 0.62, 0.95)
+const G_DIM := Color(0.72, 1.0, 0.62, 0.40)
+
+func _draw_green(c: Control) -> void:
+	var W := c.size.x
+	var H := c.size.y
+	var cx := W / 2.0
+	var cy := H / 2.0
+	var gap := H * 0.035
+	var arm := H * 0.30
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, -1)]:
+		c.draw_line(Vector2(cx, cy) + d * gap, Vector2(cx, cy) + d * arm, G_INK, 2.0)
+	c.draw_line(Vector2(cx, cy + gap), Vector2(cx, cy + arm), G_INK, 2.0)
+	# the lob: a tick every so far down, longer every other
+	for k in range(1, 6):
+		var y := cy + gap + k * (arm - gap) / 6.0
+		var w := H * (0.045 if k % 2 == 0 else 0.025)
+		c.draw_line(Vector2(cx - w, y), Vector2(cx + w, y), G_INK, 1.6)
+	c.draw_circle(Vector2(cx, cy), H * 0.008, G_INK)
+	_label(c, "%dm" % int(tst.get("range", 0)), cx, H * 0.12, H * 0.085, G_INK)
+	var loaded: int = tst.loaded
+	for i in 6:
+		var x := cx + (i - 2.5) * H * 0.075
+		var y := H * 0.88
+		var s := H * 0.022
+		if i < loaded:
+			c.draw_circle(Vector2(x, y), s, G_INK)
+		else:
+			c.draw_arc(Vector2(x, y), s, 0.0, TAU, 12, G_DIM, 1.6)
+	_label(c, "%sx" % str(magnification()), W * 0.86, H * 0.88, H * 0.075, G_INK if zoom_index > 0 else G_DIM)
+

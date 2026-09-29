@@ -155,7 +155,7 @@ func _thermal(p, run: Vector2) -> void:
 	p.pending_weapon = ""
 	game._process(0.0)
 	check(th.held and not game.scope.held and tc.scope_on and not tc.scope_up, "THERMAL: the launcher in hand holds it, and the phone gets AIM")
-	check(th._view_set == Vector2(172, 176), "THERMAL: and the world is told which viewport is thermal")
+	check(ThermalScope._told == Vector2(172, 176), "THERMAL: and the world is told which viewport is thermal")
 	game._zoom = true
 	game._process(0.0)
 	check(th.zoom_index == 1 and th.magnification() == 2.5 and absf(game.camera.fov - game.BASE_FOV * 0.9) < 0.01,
@@ -194,7 +194,7 @@ func _thermal(p, run: Vector2) -> void:
 	# the lance takes the zoom back and the sight goes down
 	p.weapon = "LANCE"
 	game._process(0.0)
-	check(not th.held and th.zoom_index == 0 and game.scope.held and th._view_set == Vector2.ZERO,
+	check(not th.held and th.zoom_index == 0 and game.scope.held and ThermalScope._told == Vector2.ZERO,
 		"THERMAL: the lance in hand puts the sight down and zeroes it")
 	game.touch = null
 	tc.free()
@@ -318,6 +318,16 @@ func _potato(p, run: Vector2) -> void:
 	check(bounced, "down the clear run, it bounces off what it meets (%d bounces)" % (pc.bounces - b0))
 	check(went and game.tics - t0 <= PotatoCannon.SHOT.fuse + 2, "and goes off by itself in the end (%d tics)" % (game.tics - t0))
 	check(p.health > 0, "and the one who fired it lives (their own nuke is a share)")
+	# THE GREEN THERMAL SIGHT: the cannon in hand holds it, Z steps it
+	var gt: ThermalScope = game.green_thermal
+	p.weapon = "POTATO"
+	game._process(0.0)
+	check(gt != null and gt.green and gt.held and not game.thermal.held and game.weapon3d == null or gt.held,
+		"the cannon holds its own thermal sight, in green")
+	gt.set_zoom(1)
+	game._process(0.0)
+	check(gt.zoom_index == 1 and ThermalScope._told == gt.feed_size(), "and zoomed, the world draws heat for it (%sx)" % str(gt.magnification()))
+	gt.set_zoom(0)
 	# THE HOPPER fills again, a potato every two seconds
 	var dbg: bool = p.debug
 	p.debug = false

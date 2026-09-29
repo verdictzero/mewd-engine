@@ -37,13 +37,18 @@ const GUNS := {
 	"LAUNCHER": {"url": "launcher.glb", "fit": GUN_LENGTH * 1.05, "out": 2.6, "pos": [0.20, -0.15, 0], "rot": [0.05, 0.16, -0.03], "tint": [1, 1, 1],
 		"aim": {"pos": [-0.1034, 0.2552, 0.4515], "rot": [-0.04, -0.17, 0.05], "out": 1.0},
 		"display": {"material": "dyanmic_display_surface_mat"}},
-	# THE IRISH POTATO CANNON (game/potatoes.gd): its little screen cycles
-	# through every colour (godot/shaders/rainbow_screen.gdshader), its
+	# THE IRISH POTATO CANNON (game/potatoes.gd): its little screen is a
+	# THERMAL SIGHT in night-vision green (ThermalScope `green`), raised to
+	# the eye on the zoom as the launcher's is; its
 	# glass is glass, and every other part wears its own material — chrome,
 	# gold, red lacquer, the knotwork's normal maps, the shamrock decal —
 	# lit by a rig of its own ("pbr": _light_rig)
-	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.30, -0.02, 0], "rot": [0.10, 3.14159 + 0.55, -0.05], "tint": [1, 1, 1],
-		"rainbow": "dynamicDisplaySurfaceMat", "glass": "Glass", "pbr": true},
+	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.2, "pos": [0.05, -0.05, 0], "rot": [0.08, 0.30, -0.05], "tint": [1, 1, 1],
+		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true,
+		# the gun faces the way the file draws it (the sight at the back,
+		# by the eye, the hopper out front); raised, the screen is straight
+		# ahead a hand's breadth off
+		"aim": {"solve": {"dist": 0.16, "yaw": 0.0, "pitch": 0.0}}},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
 
@@ -80,6 +85,11 @@ func _load(name: String) -> Dictionary:
 	var inner := Node3D.new()
 	root.scale = Vector3.ONE * scale
 	root.position = -box.get_center() * scale
+	# a model made the other way about (its screen and grip on the far
+	# side): mirrored left to right
+	if def.get("mirror", false):
+		root.scale.x = -root.scale.x
+		root.position.x = -root.position.x
 	inner.add_child(root)
 	inner.rotation.y = PI
 	var group := Node3D.new()
@@ -93,7 +103,46 @@ func _load(name: String) -> Dictionary:
 		_light_rig()
 	if def.has("spin"):
 		spinner = _find_spinner(root)
-	return {"group": group, "mats": mats, "def": def, "spinner": spinner}
+	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner}
+	# A SOLVED AIM: the screen straight ahead of the eye, `dist` off, the
+	# gun turned `yaw` (and `pitch`) — worked out from where the screen
+	# really is in the model, not nudged by hand
+	var h: Dictionary = def.get("aim", {})
+	if h.has("solve") and def.has("display"):
+		var c = _display_centre(group, def.display.material)
+		if c != null:
+			var sv: Dictionary = h.solve
+			var rabs := Vector3(float(sv.get("pitch", 0.0)), float(sv.get("yaw", PI)), 0.0)
+			var b := Basis.from_euler(rabs)
+			var pabs: Vector3 = Vector3(0, 0, -float(sv.dist)) - b * (c as Vector3)
+			out["aim"] = {"pos": [pabs.x - VIEW.pos[0], pabs.y - VIEW.pos[1], pabs.z - VIEW.pos[2]],
+				"rot": [rabs.x - VIEW.pitch, rabs.y - VIEW.yaw, rabs.z - VIEW.roll], "out": 1.0}
+	return out
+
+## The middle of a gun's screen (the surface wearing `mat`), in its
+## group's space.
+func _display_centre(group: Node3D, mat: String):
+	var found = [null]
+	var walk := func(n: Node, xf: Transform3D, self_ref: Callable) -> void:
+		var t := xf
+		if n is Node3D and n != group:
+			t = xf * (n as Node3D).transform
+		if n is MeshInstance3D:
+			var mi: MeshInstance3D = n
+			for i in mi.mesh.get_surface_count():
+				var src := mi.mesh.surface_get_material(i)
+				if src != null and src.resource_name == mat:
+					var v: PackedVector3Array = mi.mesh.surface_get_arrays(i)[Mesh.ARRAY_VERTEX]
+					var lo := Vector3(INF, INF, INF)
+					var hi := -lo
+					for q in v:
+						lo = lo.min(q)
+						hi = hi.max(q)
+					found[0] = t * ((lo + hi) / 2.0)
+		for ch in n.get_children():
+			self_ref.call(ch, t, self_ref)
+	walk.call(group, Transform3D(), walk)
+	return found[0]
 
 ## every surface into the gun shader, keeping its own picture — except a
 ## gun's SCREEN and LENS, which its scope dresses: the file paints them
@@ -107,6 +156,8 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			var nm: String = src.resource_name if src != null else ""
 			if scope != null and def.has("display") and nm == def.display.material:
 				mi.set_surface_override_material(i, scope.screen_material())
+				if def.get("mirror", false):
+					scope.screen_material().set_shader_parameter("flip_x", true)
 				# THE PICTURE IS LAID ACROSS THE PANEL'S OWN BOX, measured off
 				# the geometry the file shipped: the mesh is planar, so x and
 				# y across it ARE the screen's two axes
@@ -261,7 +312,7 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	var want: float = sc.aim() if def.has("aim") and sc != null else 0.0
 	aim += (want - aim) * (1.0 - pow(0.0015, dt))
 	var a := aim if def.has("aim") else 0.0
-	var hold: Dictionary = def.get("aim", {})
+	var hold: Dictionary = G.get("aim", def.get("aim", {}))
 	var off: Array = def.get("pos", [0, 0, 0])
 	var aoff: Array = hold.get("pos", off)
 	var rot: Array = def.get("rot", [0, 0, 0])

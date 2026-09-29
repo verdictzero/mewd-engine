@@ -390,9 +390,15 @@ THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
   when they hit something the explosion will be a spectacular color
   cycling nuke equivalent". The model is the user's
   (assets/models/potato_cannon.glb — its textures brought down to 512 on
-  the long side, 24 MB to 1.6), held turned about so the hopper of
-  potatoes (its glass kept glass) rides on top, its little screen
-  cycling every colour (shaders/rainbow_screen.gdshader), and every
+  the long side, 24 MB to 1.6, and the barrel's knotwork UVs, which the
+  file had collapsed to streaks, laid round it again), held the way the
+  file draws it — the sight at the back by the eye, the hopper of
+  potatoes (its glass kept glass) out front — its little screen
+  a THERMAL SIGHT in night-vision green (ThermalScope with `green`: the
+  launcher's heat picture run up a green ramp, a plain cross with lob
+  ticks, the range in metres, six potato pips, the zoom; Z raises the
+  gun so the screen is straight ahead, the hold solved from where the
+  screen is in the model), and every
   other part in its OWN material — chrome, gold, red lacquer, the
   knotwork's normal maps, the shamrock decal — lit by a rig of its own
   (weapon3d "pbr": a key, a fill, a made-up sky for the metal to
