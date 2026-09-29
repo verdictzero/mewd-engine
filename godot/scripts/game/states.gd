@@ -65,6 +65,7 @@ static func build() -> void:
 
 	# ---- things that are not monsters
 	_s("BLUD_REST", "BLUD", "A", -1, null, null)
+	_s("GRAV_STAND", "GRV0", "A", -1, null, null)
 	_s("ASH_REST", "ASH0", "A", -1, null, null)
 	var letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	for i in BLASTS:
@@ -111,6 +112,9 @@ static func build() -> void:
 	# geometry and the flare are Lamps' (js/states.js STREETLAMP)
 	ACTORS["STREETLAMP"] = {"name": "Street lamp", "radius": 8, "height": 256, "solid": true}
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
+	# A HEADSTONE: granite, thirty-two tall — it stops you and you can see
+	# over it — one of eight photographs by its variant (js/states.js)
+	ACTORS["GRAVESTONE"] = {"name": "Headstone", "spawn": "GRAV_STAND", "radius": 10, "height": 32, "solid": true, "variants": 8}
 	ACTORS["BLAST"] = {"name": "Blast", "spawn": "BLAST1", "radius": 8, "height": 96, "fullbright": true}
 	ACTORS["PUFF"] = {"name": "Puff", "spawn": "PUFF1", "radius": 4, "height": 8}
 	# A PARKED VEHICLE's cylinders (added for the vehicles port): no spawn,

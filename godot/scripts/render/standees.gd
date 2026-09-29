@@ -36,6 +36,7 @@ func _ready() -> void:
 	_strip("ARMY", "res://assets/people/army.png", Vector2(64, 64))
 	_strip("BLST", "res://assets/people/blast.png", Vector2(48, 96))
 	_strip("BLUD", "res://assets/people/splat.png", Vector2(56, 20))
+	_strip("GRV", "res://godot/data/stones.png", Vector2(32, 48))
 
 func _strip(key: String, path: String, cell: Vector2) -> void:
 	var tex: Texture2D = load(path)
@@ -76,6 +77,8 @@ func _cell_of(a: Actor, cam: Vector2) -> Array:
 		return ["BLST", LETTERS.find(frame), false]
 	if sprite == "BLUD":
 		return ["BLUD", a.variant % 3, false]
+	if sprite.begins_with("GRV"):
+		return ["GRV", a.variant % 8, false]
 	if States.TROOPS.has(sprite):
 		var t: Dictionary = States.TROOPS[sprite]
 		var turn: String = t.turn

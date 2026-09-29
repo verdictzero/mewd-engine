@@ -649,24 +649,37 @@ static func bridge(outer: PackedVector2Array, holes: Array) -> PackedVector2Arra
 			if h[i].x > h[hi].x:
 				hi = i
 		var hp: Vector2 = h[hi]
-		var best := -1
-		var bd := INF
+		# the nearest ring point it can see, nothing of the ring or of any
+		# hole in the way: tried nearest first (ties to the first), which
+		# is the answer the web build's loop over every point comes to
+		var dist := PackedFloat64Array()
 		for i in ring.size():
-			var rp: Vector2 = ring[i]
-			var d := hp.distance_squared_to(rp)
-			if d >= bd:
-				continue
+			var dx: float = ring[i].x - hp.x
+			var dy: float = ring[i].y - hp.y
+			dist.append(dx * dx + dy * dy)
+		var cands := range(ring.size())
+		cands.sort_custom(func(x, y): return dist[x] < dist[y] or (dist[x] == dist[y] and x < y))
+		var best := -1
+		for c in cands:
+			var rp: Vector2 = ring[c]
+			var lo := hp.min(rp)
+			var hi2 := hp.max(rp)
 			var blocked := false
 			for w in [ring] + sorted:
-				for j in w.size():
-					if seg_cross(hp, rp, w[j], w[(j + 1) % w.size()]):
+				var m: int = w.size()
+				for j in m:
+					var a: Vector2 = w[j]
+					var bq: Vector2 = w[(j + 1) % m]
+					if maxf(a.x, bq.x) < lo.x or minf(a.x, bq.x) > hi2.x or maxf(a.y, bq.y) < lo.y or minf(a.y, bq.y) > hi2.y:
+						continue
+					if seg_cross(hp, rp, a, bq):
 						blocked = true
 						break
 				if blocked:
 					break
 			if not blocked:
-				bd = d
-				best = i
+				best = c
+				break
 		if best < 0:
 			best = 0
 		var round := []

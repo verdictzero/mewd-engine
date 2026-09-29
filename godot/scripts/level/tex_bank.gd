@@ -9,10 +9,22 @@ extends RefCounted
 
 const DIR := "res://assets/textures/"
 
+## THE GAME'S OWN PICTURES, which are not the pack's: the cemetery iron
+## (a photograph, js/textures.js RAILING) and the grid's floor and wall
+## (gridPix there), written by tools/godot-data.mjs — [path, world w,
+## world h, masked, smooth]
+const OWN := {
+	"RAILING": ["res://godot/data/cemfence.png", 64, 96, true, false],
+	"GRID": ["res://godot/data/grid.png", 64, 64, false, true],
+	"GRIDWALL": ["res://godot/data/gridwall.png", 64, 64, false, true],
+}
+
 var info := {}
 var _tex := {}
 var _mat := {}
+var _tmat := {}
 var shader: Shader = preload("res://godot/shaders/world.gdshader")
+var tint_shader: Shader = preload("res://godot/shaders/world_tint.gdshader")
 
 func _init() -> void:
 	var f := FileAccess.open("res://godot/data/texpack.json", FileAccess.READ)
@@ -20,18 +32,22 @@ func _init() -> void:
 
 ## World size of one repeat of `name`, in units.
 func size_of(name: String) -> Vector2:
+	if OWN.has(name):
+		return Vector2(OWN[name][1], OWN[name][2])
 	var e = info.get(name)
 	if e == null:
 		return Vector2(64, 64)
 	return Vector2(e[0] * e[2], e[1] * e[2])
 
 func masked(name: String) -> bool:
+	if OWN.has(name):
+		return OWN[name][3]
 	var e = info.get(name)
 	return e != null and int(e[3]) != 0
 
 func texture(name: String) -> Texture2D:
 	if not _tex.has(name):
-		var path := DIR + name + ".png"
+		var path: String = OWN[name][0] if OWN.has(name) else DIR + name + ".png"
 		_tex[name] = load(path) if ResourceLoader.exists(path) else load(DIR + "64TEST.png")
 	return _tex[name]
 
@@ -46,5 +62,35 @@ func material(name: String) -> ShaderMaterial:
 		_mat[name] = m
 	return _mat[name]
 
+
+## The same, under the TINTED world shader (godot/shaders/world_tint.
+## gdshader): a sector's Doom 64 colours and its fog, per vertex, the
+## map's ambient light and default fog, faces culled — what an edited
+## map's surfaces wear (MapGeo, when the level asks). The smooth pictures
+## (the grid) are filtered, as the web build filters them.
+func material_tinted(name: String) -> ShaderMaterial:
+	if not _tmat.has(name):
+		var m := ShaderMaterial.new()
+		m.shader = tint_shader
+		m.set_shader_parameter("tex", texture(name))
+		m.set_shader_parameter("masked", masked(name))
+		var smooth: bool = OWN.has(name) and OWN[name][4]
+		m.set_shader_parameter("use_smooth", smooth)
+		if smooth:
+			m.set_shader_parameter("tex_smooth", texture(name))
+		_tmat[name] = m
+	return _tmat[name]
+
+## The map's own light on every tinted material (applyMapLight in
+## js/material.js): its ambient light, its default fog and how much of
+## the ambient is in the fog.
+func set_map_light(ml: Dictionary) -> void:
+	for m in _tmat.values():
+		var a: Color = ml.get("ambient", Color.BLACK)
+		var f: Color = ml.get("fog", Color(0, 0, 0, 0))
+		m.set_shader_parameter("ambient", Vector3(a.r, a.g, a.b))
+		m.set_shader_parameter("fog_default", Vector4(f.r, f.g, f.b, f.a))
+		m.set_shader_parameter("fog_ambient", float(ml.get("fogAmbient", 1.0)))
+
 func all_materials() -> Array:
-	return _mat.values()
+	return _mat.values() + _tmat.values()

@@ -55,7 +55,7 @@ var last_hit := Vector3()
 var _slot := 0
 ## held still by the pause menu, and the menu's look settings
 var paused := false
-## which map: "maze" (the demo's), or "jesse"
+## which map: "maze" (the demo's), "jesse", "sprawl" or "grid"
 var map_name := "maze"
 var look_sens := 1.0
 var invert := false
@@ -98,7 +98,22 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--map="):
 			which = a.substr(6)
-	start_map(JesseMap.build(seed) if which == "jesse" else MazeMap.build(seed))
+	# THE MAP (--map=maze|jesse|sprawl|grid): every map the web build plays
+	var doc: Dictionary
+	match which:
+		"jesse": doc = JesseMap.build(seed)
+		"sprawl": doc = SprawlMap.build()
+		"grid": doc = TheGrid.build()
+		_: doc = MazeMap.build(seed)
+	# a test hook: --at=x,y,degrees stands the START somewhere else (as a
+	# map from the editor with its start moved would; for pictures)
+	for a in args:
+		if a.begins_with("--at="):
+			var at := a.substr(5).split(",")
+			for t in doc.things:
+				if t.type == "START" and at.size() >= 3:
+					t.x = float(at[0]); t.y = float(at[1]); t.angle = deg_to_rad(float(at[2]))
+	start_map(doc)
 
 func start_map(doc: Dictionary) -> void:
 	var t0 := Time.get_ticks_msec()
@@ -415,7 +430,8 @@ func _place_camera(f: float) -> void:
 		camera.position += U.v3(k * 5.5 * sin(t * 53.1 + 0.3), k * 5.5 * cos(t * 44.9 + 1.9), k * 4.0 * sin(t * 61.7 + 2.6))
 
 ## The map's things that are actors, into the world.
-const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY", "STREETLAMP": "STREETLAMP"}
+const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY", "STREETLAMP": "STREETLAMP",
+	"GRAVESTONE": "GRAVESTONE"}   # the sprawl's headstones
 
 func _spawn_things() -> void:
 	for t in level.things:

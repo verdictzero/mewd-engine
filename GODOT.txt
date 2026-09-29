@@ -25,6 +25,9 @@ RUNNING IT
     --seed=N             the maze for seed N (the same maze the web
                          build makes for ?seed=N — the generator is a
                          straight port, random-number call for call)
+    --map=NAME           maze (the default), jesse, sprawl (THE SPRAWL,
+                         the web build's ?sprawl) or grid (?grid)
+    --at=X,Y,DEG         stand the start somewhere else (for pictures)
     --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
                          MINIGUN, LANCE, LAUNCHER or ARC
     --autofire           hold the trigger (for pictures and tests)
@@ -68,13 +71,29 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   a Level of sectors and lines with a 128-unit blockmap; the collision,
   sight and hitscan are the web build's 2.5D ones — slide along the
   lines, step 24, never a physics engine — so it moves like the web
-  build and like Doom. MapGeo builds the floors, ceilings and walls with
-  Doom's pegging into one mesh per texture.
+  build and like Doom. The compiler (doc_compile.gd) is compileCore:
+  edges split at T-junctions, sectors inside sectors bridged in as
+  holes (rooms sharing a wall one hole), free-standing linedefs stood
+  up as walls, the line overrides (blocking, blind, textures, offsets,
+  scale, pegging, a face per side), the outside wall where a roofed
+  room meets the open air, no sky walls and a roof over every roofed
+  room, Doom 64's sector colours and each sector's fog, the free boxes
+  (props — drawn, and solid to nothing, as on the web), the plants, and
+  the scatters (scatter.gd, dart for dart the web build's). MapGeo
+  builds the floors (earcut.gd round holes), ceilings, roofs, walls
+  with Doom's pegging, the middles standing in openings and the boxes,
+  one mesh per texture; a level with colours, fog or two-faced walls is
+  drawn with godot/shaders/world_tint.gdshader (the colour and fog per
+  vertex, faces culled).
 
-  THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE and JESSE are
-  ported and produce the SAME document as the JS for the same seed —
-  JESSE was diffed against js/maps/jesse.js for 48 seeds (godot/tests/
-  jesse_dump.gd).
+  THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE, JESSE, THE
+  SPRAWL (sprawl.gd) and THE GRID (grid.gd) are ported and produce the
+  SAME document as the JS — JESSE was diffed against js/maps/jesse.js
+  for 48 seeds (godot/tests/jesse_dump.gd); THE SPRAWL's document and
+  its compiled level (every sector, line, band, side, thing, plant and
+  box) against compileDoc(sprawlDoc()) (godot/tests/sprawl_dump.gd,
+  which the suite runs to hold the counts), and the grid's crowd
+  against buildGrid.
 
   THE SIMULATION runs at 35 tics a second, at most six a frame, and
   the picture is drawn between the last two (godot/scripts/game/
@@ -123,15 +142,18 @@ TESTS
   runs the headless suites: the weapons against real people in the
   maze (godot/tests/weapons_test.gd — minigun, flamer, extinguisher,
   bore, launcher, arc), the fire grid, the forest, and the JESSE
-  generator. A shell with xvfb can also render pictures with --shot.
+  generator, and THE SPRAWL and the grid against the web build's counts.
+  A shell with xvfb can also render pictures with --shot.
 
 
 WHAT IS NOT PORTED YET
 
-  - The rest of the map compiler: layers, free-standing linedefs,
-    sectors inside sectors (holes), props, per-line overrides, scatters,
-    storeys and slopes, sector colours and fog — and so THE SPRAWL and
-    the grid, which need them.
+  - Of the map compiler: LAYERS (a map in storeys) and the storeys and
+    slopes of a sector (off in the web build too, FEATURES in
+    js/editor/doc.js); fog FOLLOWED along the line of sight from sector
+    to sector (a surface here is fogged by its own sector's over the
+    whole distance), and a sector's thing colour and fog on sprites and
+    plants.
   - The sky baker (js/skyart.js) for maps without a skybox; rain;
     breaches and ruins; the thermal sight; the VTOL gunship.
   - The MEWD Editor and the
