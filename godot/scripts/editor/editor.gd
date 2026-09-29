@@ -95,6 +95,9 @@ var prop_tex := "GRIDWALL"
 ## the rest by id — as an ordered set
 var sel_kind := ""
 var sel_ids := {}
+## a LOOP of lines (loop_select): the id of the sector whose walls they
+## are, whose side of each a texture goes on — null for any other pick
+var sel_face = null
 ## what is under the mouse, from whichever view: {kind, id}
 var hovered = null
 var _hover_key := ""
@@ -542,6 +545,7 @@ func play() -> void:
 # ---------------------------------------------------------------------
 
 func select(kind: String, ids: Array, add := false) -> void:
+	sel_face = null
 	if not add or sel_kind != kind:
 		sel_kind = kind
 		sel_ids = {}
@@ -557,6 +561,7 @@ func select(kind: String, ids: Array, add := false) -> void:
 	sel_changed.emit()
 
 func clear_sel() -> void:
+	sel_face = null
 	sel_kind = ""
 	sel_ids = {}
 	surf = null
@@ -567,6 +572,7 @@ func is_sel(kind: String, id) -> bool:
 
 ## The 3D view's selection: a floor or a ceiling, or a wall.
 func select_surface(s) -> void:
+	sel_face = null
 	surf = s
 	if s != null:
 		if s.part == "wall":
@@ -581,6 +587,131 @@ func select_surface(s) -> void:
 		sel_kind = ""
 		sel_ids = {}
 	sel_changed.emit()
+
+## LOOP SELECT: every wall of a sector — each line of its outline, and of
+## the rooms drawn inside it — its side facing that sector. What is
+## painted on the selection then goes on that side of each of them
+## (loop_texture). `add` adds the loop to the lines already picked (and
+## the walls face no one sector unless it is the same one).
+func loop_select(si: int, add := false) -> int:
+	if si < 0 or si >= doc.sectors.size():
+		return 0
+	var face = doc.sectors[si].id
+	var keys := []
+	for l in lines():
+		if l.sectors.has(si):
+			keys.append(l.key)
+	var was = sel_face if add and sel_kind == "line" else face
+	var ids := sel_ids.duplicate() if add and sel_kind == "line" else {}
+	for k in keys:
+		ids[k] = true
+	surf = null
+	sel_kind = "line" if not ids.is_empty() else ""
+	sel_ids = ids
+	sel_face = face if was == face else null
+	if mode != "lines" and MODES.has("lines") and mode != "draw":
+		set_mode("lines")
+	sel_changed.emit()
+	var nm := str(doc.sectors[si].get("name", ""))
+	say("%d walls of sector %s%s — pick a texture to put it on all of them" % [keys.size(), str(face), (" (%s)" % nm) if nm != "" else ""])
+	return keys.size()
+
+## The sector (its index) whose side of line `key` the point p is on —
+## the one side of a one-sided line; -1 off any sector.
+func side_of(key: String, p: Vector2) -> int:
+	var info = line_info(key)
+	if info == null or info.sectors.is_empty():
+		return -1
+	if info.sectors.size() == 1:
+		return info.sectors[0]
+	var a: Vector2 = doc.vertices[info.a]
+	var b: Vector2 = doc.vertices[info.b]
+	var n := (b - a).orthogonal().normalized()
+	var mid := a.lerp(b, clampf((p - a).dot(b - a) / maxf(1e-6, (b - a).length_squared()), 0.02, 0.98))
+	var sgn := signf((p - a).dot(n))
+	if sgn == 0.0:
+		sgn = 1.0
+	for step in [2.0, 8.0, 32.0]:
+		var q: Vector2 = mid + n * sgn * step
+		for si in info.sectors:
+			if U.point_in_poly(PackedVector2Array(doc.sectors[si].verts.map(func(v): return doc.vertices[int(v)])), q.x, q.y) \
+					and not _in_hole_of(si, q):
+				return si
+	return info.sectors[0]
+
+func _in_hole_of(si: int, q: Vector2) -> bool:
+	var s = sector_at(q.x, q.y)
+	return s != null and s.id != doc.sectors[si].id
+
+## A texture onto one part of every wall of a loop, on the side facing
+## sel_face (null clears it): "walls" (one-sided lines), "upper",
+## "lower", "mid" (two-sided lines: a see-through middle in the
+## opening), or "all" — the walls, the tops and the bottoms.
+func loop_texture(part: String, name) -> void:
+	if sel_kind != "line" or sel_face == null:
+		return
+	var face := str(sel_face)
+	var info := {}
+	for l in lines():
+		if sel_ids.has(l.key):
+			info[l.key] = l
+	var d := edit_begin("walls %s %s" % [part, name if name != null else "cleared"])
+	for k in sel_ids:
+		var two: bool = info.has(k) and info[k].sectors.size() > 1
+		var fields := []
+		match part:
+			"walls": fields = [] if two else ["midTex"]
+			"upper": fields = ["upperTex"] if two else []
+			"lower": fields = ["lowerTex"] if two else []
+			"mid": fields = ["midTex"] if two else []
+			_: fields = ["upperTex", "lowerTex"] if two else ["midTex"]
+		if fields.is_empty():
+			continue
+		if not d.lines.has(k):
+			d.lines[k] = {}
+		var o: Dictionary = d.lines[k]
+		if not o.get("sides") is Dictionary:
+			o["sides"] = {}
+		if not o.sides.get(face) is Dictionary:
+			o.sides[face] = {}
+		for f in fields:
+			if name != null:
+				o.sides[face][f] = name
+			else:
+				o.sides[face].erase(f)
+		if o.sides[face].is_empty():
+			o.sides.erase(face)
+		if o.sides.is_empty():
+			o.erase("sides")
+		if o.is_empty():
+			d.lines.erase(k)
+	edit_end(false)
+
+## What the loop's walls wear for a part, if they all wear the same
+## (null: none set on any), else "(mixed)".
+func loop_tex_of(part: String):
+	var face := str(sel_face)
+	var seen := {}
+	for l in lines():
+		if not sel_ids.has(l.key):
+			continue
+		var two: bool = l.sectors.size() > 1
+		var f := ""
+		match part:
+			"walls": f = "" if two else "midTex"
+			"upper": f = "upperTex" if two else ""
+			"lower": f = "lowerTex" if two else ""
+			"mid": f = "midTex" if two else ""
+		if f == "":
+			continue
+		var o: Dictionary = doc.lines.get(l.key, {})
+		var sd = o.get("sides", {}).get(face) if o.get("sides") is Dictionary else null
+		var v = sd.get(f) if sd is Dictionary and sd.get(f) != null else o.get(f if two else "wallTex", o.get(f))
+		seen[str(v) if v != null else ""] = true
+	if seen.size() > 1:
+		return "(mixed)"
+	var only = seen.keys()[0] if seen.size() == 1 else ""
+	return only if only != "" else null
 
 func set_mode(m: String) -> void:
 	if not MODES.has(m):
@@ -1458,6 +1589,8 @@ func apply_texture(name: String, field := "") -> void:
 			if ids.has(p.id):
 				p[field if field != "" else "tex"] = name
 		edit_end(false)
+	elif kind == "line" and sel_face != null:
+		loop_texture("all", name)
 	elif kind == "line":
 		var d := edit_begin("line texture %s" % name)
 		for k in ids:

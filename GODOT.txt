@@ -312,6 +312,15 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   (see THE LEVEL); each layer's problems are listed with its number.
   The 3D view's picking is of the layer being edited.
 
+  LOOP SELECT (the Godot editor's own; not in the web build): in Lines
+  mode double-click or Alt+click a line, or Alt+click a wall in 3D, or
+  a sector's "Select its walls" — every wall of the room on that side
+  (its outline and the rooms drawn inside it), on the side facing it.
+  A texture clicked in the browser then goes on all of them (the
+  walls, and the tops and bottoms of its openings), and the inspector
+  sets each part alone: walls, tops, bottoms, middles. Shift adds
+  another room's loop.
+
   NOT PORTED: the web's "Export Godot scene…" (this is Godot); a pen's
   eraser end; the texture pack's animation in the 3D view (the port's
   game does not animate them either).

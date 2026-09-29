@@ -868,6 +868,9 @@ func _dbl() -> void:
 			if g != null:
 				ed.add_thing(g.x, g.y)
 			return
+	# A DOUBLE-CLICK ON A WALL: every wall of the room it faces
+	if ed.surf != null and ed.surf.part == "wall":
+		ed.loop_select(int(ed.surf.sector))
 	if ed.sel_kind != "" and ed.ui != null:
 		ed.ui.panels.show_tab("insp")
 
@@ -958,6 +961,10 @@ func _down(e: InputEventMouseButton) -> void:
 		ed.select("prop", [hit.id])
 		return
 	if hit.part == "wall":
+		# ALT-CLICK A WALL: every wall of the room it faces
+		if e.alt_pressed:
+			ed.loop_select(hit.sector, e.shift_pressed)
+			return
 		if e.shift_pressed and ed.sel_kind == "line":
 			ed.select("line", [hit.line], true)
 			return

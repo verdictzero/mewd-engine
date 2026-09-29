@@ -140,6 +140,36 @@ func run() -> void:
 	room = ed.sector_by_id(room.id)
 	ok(EdDoc.bbox(EdDoc.ring_of(ed.doc, room)).position == before, "and one undo puts it back")
 	ed.redo()
+
+	# LOOP SELECT (the room is at 640..1152 x 512..1024 now): Alt+click a
+	# line, every wall of the room on that side
+	ok(key(ed, KEY_L) and ed.mode == "lines", "L is Lines")
+	click(v, P.call(642, 768), {"alt": true})
+	ok(ed.sel_kind == "line" and ed.sel_ids.size() == 4 and ed.sel_face == room.id,
+		"Alt+click inside the room's wall: its four walls, facing it (%d, face %s)" % [ed.sel_ids.size(), str(ed.sel_face)])
+	var ground = ed.sector_at(100, 100)
+	click(v, P.call(636, 768), {"alt": true})
+	ok(ed.sel_ids.size() == 8 and ed.sel_face == ground.id,
+		"and outside it: the ground's four, and the room's four facing the ground (%d)" % ed.sel_ids.size())
+	click(v, P.call(896, 514), {"double": true})
+	ok(ed.sel_ids.size() == 4 and ed.sel_face == room.id, "a double-click on a line does the same")
+	ed.ui.panels.pick_texture("CONC_1")
+	var painted := 0
+	for k in ed.sel_ids:
+		var sd = ed.doc.lines.get(k, {}).get("sides", {}).get(str(room.id), {})
+		if sd.get("upperTex") == "CONC_1" and sd.get("lowerTex") == "CONC_1" and sd.get("midTex") == null:
+			painted += 1
+	ok(painted == 4 and ed.loop_tex_of("upper") == "CONC_1", "a texture clicked goes on all four, on the room's side (%d)" % painted)
+	ed.ui.panels.picking = {"field": "@loop.lower", "label": "Bottoms", "allow_none": true}
+	ed.ui.panels.pick_texture("CONC_2")
+	ok(ed.loop_tex_of("lower") == "CONC_2" and ed.loop_tex_of("upper") == "CONC_1", "and a field of the loop's sets that part alone")
+	ed.undo()
+	ed.undo()
+	ok(ed.doc.lines.is_empty(), "two undos, and no line has an override (%d)" % ed.doc.lines.size())
+	click(v, P.call(642, 768))
+	ok(ed.sel_ids.size() == 1 and ed.sel_face == null, "a plain click picks one line again")
+	ed.clear_sel()
+	key(ed, KEY_S)
 	# DRAW MODE: three clicks and the first again
 	ok(key(ed, KEY_D), "D is Draw")
 	ok(ed.mode == "draw", "the mode is draw")

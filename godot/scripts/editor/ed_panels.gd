@@ -558,6 +558,8 @@ func _insp_sector(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: Strin
 		EdStyle.h4("Textures"),
 		tex_field(s.get("floorTex"), "floorTex", "Floor"),
 		null if EdDoc.tex(s, "ceilTex") == "SKY" else tex_field(s.get("ceilTex"), "ceilTex", "Ceiling"),
+		EdStyle.flow([EdStyle.small_button("▢ Select its walls", func(): ed.loop_select(ed.sector_index(s.id)),
+			"Every wall of this sector, to texture them all at once (in Lines mode: double-click or Alt+click a line)")]),
 		tex_field(s.get("wallTex"), "wallTex", "Walls"),
 		tex_field(s.get("upperTex"), "upperTex", "Upper", true),
 		tex_field(s.get("lowerTex"), "lowerTex", "Lower", true),
@@ -609,7 +611,29 @@ func _flag(x: Dictionary, k: String, on: bool) -> void:
 	else:
 		x.erase(k)
 
+## A LOOP (MewdEditor.loop_select): the walls of one sector, textured on
+## its side all at once.
+func _insp_loop(p: VBoxContainer, d: Dictionary, ids: Dictionary) -> void:
+	var si := ed.sector_index(ed.sel_face)
+	var sec: Dictionary = d.sectors[si] if si >= 0 else {}
+	var one := 0
+	for l in ed.lines():
+		if ids.has(l.key) and l.sectors.size() < 2:
+			one += 1
+	var two := ids.size() - one
+	_put(p, [EdStyle.h3("Walls of sector %s%s" % [str(ed.sel_face), (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else ""], "%d lines" % ids.size()),
+		EdStyle.note("%d walls, %d lines into the next room · the side facing this sector. A texture clicked in the browser goes on all of them: the walls, and the tops and bottoms of the openings." % [one, two]),
+		EdStyle.h4("Textures — this side"),
+		tex_field(ed.loop_tex_of("walls"), "@loop.walls", "Walls", true) if one > 0 else null,
+		tex_field(ed.loop_tex_of("upper"), "@loop.upper", "Tops (upper)", true) if two > 0 else null,
+		tex_field(ed.loop_tex_of("lower"), "@loop.lower", "Bottoms (lower)", true) if two > 0 else null,
+		tex_field(ed.loop_tex_of("mid"), "@loop.mid", "Middles (in openings)", true) if two > 0 else null,
+		EdStyle.note("A middle fills the opening — a fence, a window, a door. Click one line to pick it alone; Shift+Alt+click another sector's line to add its walls.")])
+
 func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String, n: int) -> void:
+	if ed.sel_face != null and ed.sector_index(ed.sel_face) >= 0:
+		_insp_loop(p, d, ids)
+		return
 	var key: String = ids.keys()[0]
 	var o: Dictionary = d.lines.get(key, {})
 	var info = ed.line_info(key)
@@ -961,6 +985,8 @@ func pick_texture(name: String) -> void:
 		var field: String = picking.field
 		if field == "@propTex":
 			ed.prop_tex = name
+		elif field.begins_with("@loop."):
+			ed.loop_texture(field.substr(6), name)
 		elif ed.sel_kind != "":
 			each("%s %s" % [field.split(".")[-1], name], func(x): set_path(x, field, name))
 		picking = null
@@ -983,7 +1009,9 @@ func render_tex() -> void:
 			hb.add_child(EdStyle.small_button("Use none", func():
 				var f: String = picking.field
 				picking = null
-				if ed.sel_kind != "":
+				if f.begins_with("@loop."):
+					ed.loop_texture(f.substr(6), null)
+				elif ed.sel_kind != "":
 					each("clear %s" % f.split(".")[-1], func(x): del_path(x, f))
 				render_insp()
 				render_tex()))

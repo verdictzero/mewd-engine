@@ -360,6 +360,10 @@ func _down(e: InputEventMouseButton) -> void:
 			return
 		drag = {"type": "box", "a": m, "b": m, "add": e.shift_pressed}
 		return
+	# ALT-CLICK A LINE: every wall of the room on that side of it
+	if kind == "line" and e.alt_pressed:
+		ed.loop_select(ed.side_of(hit.id, m), e.shift_pressed)
+		return
 	if e.shift_pressed or e.ctrl_pressed:
 		ed.select(kind, [hit.id], true)
 		return
@@ -471,6 +475,12 @@ func _dbl(e: InputEventMouseButton) -> void:
 		if pick(m.x, m.y, "thing") == null:
 			ed.add_thing(m.x, m.y)
 			return
+	# A DOUBLE-CLICK ON A LINE: the loop, every wall of the room that side
+	if ed.mode == "lines":
+		var m := to_map(e.position)
+		var hit = pick(m.x, m.y, "line")
+		if hit != null:
+			ed.loop_select(ed.side_of(hit.id, m), e.shift_pressed)
 	if ed.sel_kind != "" and ed.ui != null:
 		ed.ui.panels.show_tab("insp")
 
