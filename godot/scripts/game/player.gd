@@ -53,6 +53,9 @@ func _init(g, sx: float, sy: float, a: float) -> void:
 	view_z = z + U.PLAYER_EYE
 	prev = Vector4(x, y, view_z, 0)
 
+func eye_z() -> float:
+	return view_z
+
 ## One tic of a command: {fwd, side (-1..1), run, jump, look (Vector2, radians)}
 func tic(cmd: Dictionary) -> void:
 	prev = Vector4(x, y, view_z, 0)

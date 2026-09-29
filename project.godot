@@ -22,3 +22,38 @@ window/stretch/aspect="expand"
 
 textures/canvas_textures/default_texture_filter=0
 anti_aliasing/quality/msaa_3d=0
+
+[shader_globals]
+
+sky_light={
+"type": "float",
+"value": 0.85
+}
+global_light={
+"type": "float",
+"value": 1.0
+}
+light_falloff={
+"type": "float",
+"value": 1400.0
+}
+min_light={
+"type": "float",
+"value": 0.12
+}
+air_near={
+"type": "float",
+"value": 1200.0
+}
+air_far={
+"type": "float",
+"value": 14000.0
+}
+air_color={
+"type": "color",
+"value": Color(0.55, 0.62, 0.72, 1)
+}
+light_color={
+"type": "color",
+"value": Color(1, 1, 1, 1)
+}

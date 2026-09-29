@@ -76,3 +76,19 @@ static func point_in_poly(poly: PackedVector2Array, x: float, y: float) -> bool:
 			inside = not inside
 		j = i
 	return inside
+
+## GAMEPLAY RANDOMNESS, 0..255, the way Doom's P_Random works — an
+## xorshift32 here, as in js/util.js. Nobody needs it reproducible
+## except the tests, which reseed it.
+static var _pr := 0x1f2e3d4c
+
+static func p_seed(v: int = 0x1f2e3d4c) -> void:
+	_pr = v if v != 0 else 0x1f2e3d4c
+
+static func p_random() -> int:
+	var s := _pr & 0xFFFFFFFF
+	s ^= (s << 13) & 0xFFFFFFFF
+	s ^= s >> 17
+	s ^= (s << 5) & 0xFFFFFFFF
+	_pr = s
+	return s & 255
