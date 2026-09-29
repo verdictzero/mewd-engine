@@ -29,7 +29,8 @@ var weather := Weather.new()
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
 var frost: FrostStream
-var bore = null
+## the bore's sight and lock, which the player's trigger asks (Player.armed)
+var bore: BoreSystem
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
@@ -106,6 +107,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(flame.particles)
 	frost = FrostStream.new(self)
 	add_child(frost.particles)
+	bore = BoreSystem.new(self)
+	add_child(bore)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -216,6 +219,7 @@ func _process(dt: float) -> void:
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
 	frost.particles.draw()
+	bore.draw(camera, tics + _acc / U.SEC)
 	fx.draw()
 	giblets.draw()
 	if weapon3d != null:
@@ -248,6 +252,7 @@ func tic() -> void:
 	forest.tic()
 	flame.tic()
 	frost.tic()
+	bore.tic()
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
@@ -319,6 +324,47 @@ func burn_percent() -> float:
 
 func on_monster_killed(_a, _source) -> void:
 	kills += 1
+
+## What the eye is looking at, out to `range` (Game.trace): the first
+## wall, floor, ceiling or body along the view, pitch and all.
+func trace(from, ang: float, pitch: float, range: float) -> Dictionary:
+	var c := cos(pitch)
+	var ax: float = from.x
+	var ay: float = from.y
+	var az: float = from.eye_z()
+	var tx := ax + cos(ang) * c * range
+	var ty := ay + sin(ang) * c * range
+	var tz := az + sin(pitch) * range
+	var wall := level.ray_hit_wall(ax, ay, az, tx, ty, tz)
+	var best_t: float = wall.t if not wall.is_empty() else 1.0
+	var best = null
+	var sec: Level.Sector = from.sector if from.sector != null else level.sector_at(ax, ay)
+	if sec:
+		if tz < sec.floor:
+			best_t = minf(best_t, (az - sec.floor) / (az - tz))
+		if tz > sec.ceil:
+			best_t = minf(best_t, (sec.ceil - az) / (tz - az))
+	var dx := tx - ax
+	var dy := ty - ay
+	var len2 := dx * dx + dy * dy
+	if len2 == 0.0:
+		len2 = 1.0
+	for a in actors:
+		if a == from or a.removed or a.dead or not a.shootable:
+			continue
+		var t: float = ((a.x - ax) * dx + (a.y - ay) * dy) / len2
+		if t <= 0.0 or t >= best_t:
+			continue
+		var px: float = ax + dx * t
+		var py: float = ay + dy * t
+		if U.dist2(px, py, a.x, a.y) > a.radius * a.radius:
+			continue
+		var pz: float = az + (tz - az) * t
+		if pz < a.z or pz > a.z + a.height:
+			continue
+		best_t = t
+		best = a
+	return {"x": ax + dx * best_t, "y": ay + dy * best_t, "z": az + (tz - az) * best_t, "actor": best, "t": best_t}
 
 ## Where the gun's muzzle is, in map space (x, y, z): ahead of the eye,
 ## a little right and down.
