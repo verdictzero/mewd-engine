@@ -226,6 +226,22 @@ func _build_bounds() -> void:
 	origin_y = floorf(mn.y / BLOCK) * BLOCK - BLOCK
 	cols = ceili((mx.x - origin_x) / BLOCK) + 2
 	rows = ceili((mx.y - origin_y) / BLOCK) + 2
+	_build_fire_bounds()
+
+## Where the STORE is, for the systems that only care about the store
+## (js/level.js fireBounds): the fuel grid is laid over this and not over
+## nine thousand units of wood on every side, which has its own fire.
+var fire_bounds := Rect2()
+
+func _build_fire_bounds() -> void:
+	var fb := Rect2()
+	var any := false
+	for s in sectors:
+		if s.props.get("forest", false) or s.props.get("outside", false):
+			continue
+		fb = s.bbox if not any else fb.merge(s.bbox)
+		any = true
+	fire_bounds = fb if any else bounds
 
 func _build_blockmap() -> void:
 	var n := cols * rows

@@ -21,6 +21,16 @@ var standees: Standees
 var fire = null
 var tics := 0
 var kills := 0
+## the systems the guns hand their work to, when they are ported
+var flame = null
+var bore = null
+var tracers: Tracers
+var decals: Decals
+var hud: Hud
+## where the last round stopped, for the tracer
+var last_hit := Vector3()
+var _slot := 0
+var _cycle := 0
 var seed := 0
 var _acc := 0.0
 var _look := Vector2()
@@ -30,6 +40,9 @@ var _jump := false
 var _shot := ""
 var _shot_frames := 20
 var _frames := 0
+## test hooks: hold the trigger, start with a given gun
+var _autofire := false
+var _start_weapon := ""
 
 func _ready() -> void:
 	_bind_keys()
@@ -42,6 +55,10 @@ func _ready() -> void:
 			_shot = a.substr(7)
 		elif a.begins_with("--shot-frames="):
 			_shot_frames = int(a.substr(14))
+		elif a.begins_with("--autofire"):
+			_autofire = true
+		elif a.begins_with("--weapon="):
+			_start_weapon = a.substr(9)
 	start_map(MazeMap.build(seed))
 
 func start_map(doc: Dictionary) -> void:
@@ -59,9 +76,15 @@ func start_map(doc: Dictionary) -> void:
 	if start == null:
 		start = {"x": level.bounds.get_center().x, "y": level.bounds.get_center().y, "angle": 0.0}
 	player = Player.new(self, float(start.x), float(start.y), float(start.angle))
+	if _start_weapon != "":
+		player.weapon = _start_weapon
 	_spawn_things()
 	standees = Standees.new()
 	add_child(standees)
+	tracers = Tracers.new()
+	add_child(tracers)
+	decals = Decals.new()
+	add_child(decals)
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -129,6 +152,15 @@ func handle_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if event.is_action_pressed("jump"):
 		_jump = true
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k: int = event.physical_keycode
+		if k >= KEY_1 and k <= KEY_7:
+			_slot = k - KEY_0
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_cycle = -1
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_cycle = 1
 
 func _process(dt: float) -> void:
 	if player == null:
@@ -148,6 +180,7 @@ func _process(dt: float) -> void:
 		_acc = 0.0
 	_place_camera(_acc / U.SEC)
 	standees.draw(actors, camera.position, tics)
+	tracers.draw_for(camera, _acc / U.SEC)
 	_frames += 1
 	if _shot != "" and _frames == _shot_frames:
 		await RenderingServer.frame_post_draw
@@ -161,12 +194,18 @@ func tic() -> void:
 		"run": Input.is_action_pressed("run"),
 		"jump": _jump or Input.is_action_pressed("jump"),
 		"look": Vector2(),
+		"attack": Input.is_action_pressed("attack") or _autofire,
+		"slot": _slot,
+		"cycle": _cycle,
 	}
 	_jump = false
+	_slot = 0
+	_cycle = 0
 	player.tic(cmd)
 	tics += 1
 	for a in actors:
 		a.tic()
+	tracers.tic()
 	if tics % 35 == 0:
 		actors = actors.filter(func(a): return not a.removed)
 
@@ -229,10 +268,111 @@ func gib(a: Actor) -> void:
 	scare(a.x, a.y, 900.0)
 	a.remove()
 
+## how much of the place has gone, for the readout's first bar
+func burn_percent() -> float:
+	return fire.burn_percent() if fire != null and fire.has_method("burn_percent") else 0.0
+
 func on_monster_killed(_a, _source) -> void:
 	kills += 1
 
-## A round down the eye line of `who` at `angle`: the first actor or wall
-## it meets. Returns what it hit.
-func hitscan(who, ang: float, range: float, dmg: float, opts := {}) -> Dictionary:
-	return {}
+## Where the gun's muzzle is, in map space (x, y, z): ahead of the eye,
+## a little right and down.
+func nozzle(p) -> Vector3:
+	var c := cos(p.angle)
+	var s := sin(p.angle)
+	return Vector3(p.x + c * 18.0 + s * 9.0, p.y + s * 18.0 - c * 9.0, p.view_z - 9.0)
+
+func weapon_system(_kind: String):
+	return null
+
+## Being shot at wakes the place up, and so does setting fire to it.
+func noise(_who, _r: float) -> void:
+	pass
+
+func on_player_died(_p, _source) -> void:
+	pass
+
+## Everybody a shot from `from` can hit: the player (unless it is theirs)
+## and every actor.
+func targets_for(from) -> Array:
+	var out := []
+	if player != from:
+		out.append(player)
+	out.append_array(actors)
+	return out
+
+## A round down the eye line (Game.hitscan in js/game.js): the nearest
+## wall, floor or ceiling it meets, and the nearest shootable thing
+## before that, projected onto the ray. What it leaves is a hole — a hot
+## one for the minigun — or blood behind whoever it went through.
+## opts: pitch, from (Vector3 map-space muzzle), shot, hot. Returns the
+## thing hit, or null; last_hit is where it stopped.
+func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
+	var pitch: float = opts.get("pitch", 0.0)
+	var cp := cos(pitch)
+	var o: Vector3 = opts.get("from", Vector3(from.x, from.y, from.eye_z()))
+	var ox := o.x
+	var oy := o.y
+	var z := o.z
+	var tx := ox + cos(ang) * cp * range
+	var ty := oy + sin(ang) * cp * range
+	var tz := z + sin(pitch) * range
+	var wall := level.ray_hit_wall(ox, oy, z, tx, ty, tz)
+	var max_t: float = wall.t if not wall.is_empty() else 1.0
+	var floor_hit = null
+	if pitch != 0.0:
+		var sec: Level.Sector = from.sector if from.sector != null else level.sector_at(ox, oy)
+		if sec:
+			if tz < sec.floor and z > sec.floor:
+				var t := (z - sec.floor) / (z - tz)
+				if t < max_t:
+					max_t = t
+					floor_hit = sec.floor
+			if tz > sec.ceil and z < sec.ceil and sec.ceil_tex != "SKY":
+				var t := (sec.ceil - z) / (tz - z)
+				if t < max_t:
+					max_t = t
+					floor_hit = sec.ceil
+	var best = null
+	var best_t := max_t
+	var bp := Vector3()
+	var dx := tx - ox
+	var dy := ty - oy
+	var len2 := dx * dx + dy * dy
+	if len2 == 0.0:
+		len2 = 1.0
+	for a in targets_for(from):
+		if a == null or a == from or a.removed or a.dead or not a.shootable:
+			continue
+		var t: float = ((a.x - ox) * dx + (a.y - oy) * dy) / len2
+		if t <= 0.0 or t >= best_t:
+			continue
+		var px: float = ox + dx * t
+		var py: float = oy + dy * t
+		if U.dist2(px, py, a.x, a.y) > a.radius * a.radius:
+			continue
+		var pz: float = z + (tz - z) * t
+		if pz < a.z - 8.0 or pz > a.z + a.height + 8.0:
+			continue
+		best_t = t
+		best = a
+		bp = Vector3(px, py, pz)
+	if best != null:
+		best.damage(dmg, from, opts)
+		if opts.get("shot", false):
+			decals.bleed(best, bp, Vector3(dx, dy, tz - z))
+		last_hit = bp
+		return best
+	if not wall.is_empty() and (pitch == 0.0 or wall.t <= max_t + 1e-9):
+		if opts.get("shot", false):
+			decals.hole(Vector3(wall.x, wall.y, wall.z), Decals.wall_normal(wall.line, ox, oy), opts.get("hot", false))
+		last_hit = Vector3(wall.x, wall.y, wall.z)
+	elif floor_hit != null:
+		var hx := ox + dx * max_t
+		var hy := oy + dy * max_t
+		if opts.get("shot", false):
+			decals.hole(Vector3(hx, hy, floor_hit), Vector3(0, 0, 1) if tz < z else Vector3(0, 0, -1), opts.get("hot", false))
+		last_hit = Vector3(hx, hy, floor_hit)
+	else:
+		last_hit = Vector3(tx, ty, tz)
+	return null

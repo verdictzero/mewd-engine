@@ -8,6 +8,7 @@ extends Node
 
 var lofi: Lofi
 var game: Node3D
+var hud_layer: CanvasLayer
 
 func _ready() -> void:
 	lofi = Lofi.new()
@@ -15,6 +16,13 @@ func _ready() -> void:
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
 	lofi.world.add_child(game)
+	hud_layer = CanvasLayer.new()
+	hud_layer.layer = 1
+	add_child(hud_layer)
+	var hud := Hud.new()
+	hud.game = game
+	hud_layer.add_child(hud)
+	game.hud = hud
 
 func _unhandled_input(event: InputEvent) -> void:
 	game.handle_input(event)
