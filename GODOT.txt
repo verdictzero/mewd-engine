@@ -1,0 +1,137 @@
+MEWD — THE GODOT PORT
+=====================
+
+At the user's request: the whole game rewritten in Godot 4 (4.3), in
+GDScript, on the branch claude/godot-rewrite. The web build in js/ stays
+where it is and keeps working; it is the reference every file here was
+ported from, and the ported files say which JS file they came from in
+their first lines.
+
+
+RUNNING IT
+
+  The project is the repository's root: open the folder in Godot 4.3
+  and press F5, or from a shell:
+
+    godot                      # the editor
+    godot --path . -- --play   # straight into the game, past the title
+
+  The web build's folders (js/, vendor/, tools/, css/, art/) carry a
+  .gdignore, so Godot sees assets/ and godot/ and nothing else. The
+  game's own assets are res://assets/ exactly as the web build has them.
+
+  Arguments after `--`:
+    --play               skip the title
+    --seed=N             the maze for seed N (the same maze the web
+                         build makes for ?seed=N — the generator is a
+                         straight port, random-number call for call)
+    --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
+                         MINIGUN, LANCE, LAUNCHER or ARC
+    --autofire           hold the trigger (for pictures and tests)
+    --shot=out.png       render --shot-frames=N frames (default 20),
+                         save the picture, quit — how every picture of
+                         the port was checked
+    --title              with --shot, stay on the title
+    --pause              open the pause menu
+
+  Controls are the web build's: WASD or the arrows (Q/E strafe too),
+  mouse to look (click to capture it), Shift to run, Space to jump, F
+  to use, left mouse or Ctrl to fire, 1-7 or the wheel for the guns,
+  Esc or P to pause. On the title, up/down and Enter, or the mouse.
+
+
+HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
+
+  THE PICTURE (js/lofi.js -> godot/scripts/render/lofi.gd,
+  godot/shaders/lofi.gdshader). The world is drawn into a SubViewport
+  at RENDER rows (960), and one full-screen pass averages it onto the
+  chunky PIXELS grid (320 rows of 2:3 pixels), Bayer-dithers it one step
+  and snaps it to the earth palette through the same 32x32x32 atlas the
+  web build builds (godot/data/palette_lut.png). The gun is a second
+  SubViewport in a world of its own, composited over the room and under
+  the filter, exactly as the web build's overlay pass. The HUD, the
+  title's menu and the pause menu are CanvasLayers above all of that and
+  are never filtered.
+
+  THE LIGHT (js/material.js -> godot/shaders/world_light.gdshaderinc).
+  One set of GLOBAL shader uniforms — sky_light, light_falloff,
+  min_light, global_light, air_near, air_far, air_color — declared in
+  project.godot and written by the weather (godot/scripts/game/
+  weather.gd), read by every surface: walls and floors, sprites, decals,
+  particles. worldBand is ported line for line: depth diminishing, the
+  sky's lift, Doom's 32 light steps, then the air.
+
+  THE LEVEL (js/level.js, js/mapgeo.js, js/editor/doc.js compileDoc ->
+  godot/scripts/level/). A document (the maps write one) is compiled to
+  a Level of sectors and lines with a 128-unit blockmap; the collision,
+  sight and hitscan are the web build's 2.5D ones — slide along the
+  lines, step 24, never a physics engine — so it moves like the web
+  build and like Doom. MapGeo builds the floors, ceilings and walls with
+  Doom's pegging into one mesh per texture.
+
+  THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE and JESSE are
+  ported and produce the SAME document as the JS for the same seed —
+  JESSE was diffed against js/maps/jesse.js for 48 seeds (godot/tests/
+  jesse_dump.gd).
+
+  THE SIMULATION runs at 35 tics a second, at most six a frame, and
+  the picture is drawn between the last two (godot/scripts/game/
+  game.gd). The actors are the web build's state tables and actions
+  (states.gd, actor.gd): Doom's chase for the troops; the crowd's watch,
+  flee and contagious panic; burning, freezing, thawing, shattering,
+  burning away, the bore's hold. The fire grid (fire.gd) is identical to
+  js/fire.js tic for tic on the three scenarios in godot/tests/fire_*.
+
+  THE DATA the port reads from the web build's own tables is written by
+  `node tools/godot-data.mjs`: the texture list (godot/data/
+  texpack.json), the palette and its LUT, and the lamp art. Everything
+  else — the fire art, the effect atlases, the ash — is baked in
+  GDScript at start-up, from the same generators.
+
+  THE REST, file for file:
+    js/player.js, weapon tables   game/player.gd, game/weapons.gd
+    js/flame.js / frost.js        game/flame.gd / game/frost.gd
+    js/bore.js                    game/bore.gd
+    js/missiles.js                game/missiles.gd
+    js/arc.js                     game/arc.gd
+    js/beam.js, js/scope.js       game/beam.gd (+ weapon3d aim/screen)
+    js/weapon3d.js                render/weapon3d.gd, shaders/gun.gdshader
+    js/people.js (gore), effects  game/giblets.gd, game/effects.gd
+    js/decals.js                  render/decals.gd, render/gore_decals.gd
+    js/tracers.js                 render/tracers.gd
+    js/particles.js               render/particles.gd
+    js/standees.js                render/standees.gd
+    js/forest.js                  game/forest.gd, render/forest_view.gd
+    js/lamplight.js, lamp posts   render/lamps.gd
+    js/fireart.js                 render/fire_art.gd, render/fire_sprites.gd
+    js/responders.js, vehicles.js game/vehicles.gd, vehicle*.gd, swat_van.gd,
+      car.js, brigade.js, water.js  army_apc.gd, fire_truck.gd, water.gd
+    js/weather.js                 game/weather.gd
+    js/hud.js                     render/hud.gd
+    js/audio.js, js/music.js      audio/sound.gd, audio/music.gd
+    js/titlescene.js, the title   title/title_forest.gd, title/title.gd
+    the pause menu                ui/pause.gd
+
+
+TESTS
+
+    tools/godot-test.sh
+
+  runs the headless suites: the weapons against real people in the
+  maze (godot/tests/weapons_test.gd — minigun, flamer, extinguisher,
+  bore, launcher, arc), the fire grid, the forest, and the JESSE
+  generator. A shell with xvfb can also render pictures with --shot.
+
+
+WHAT IS NOT PORTED YET
+
+  - The rest of the map compiler: layers, free-standing linedefs,
+    sectors inside sectors (holes), props, per-line overrides, scatters,
+    storeys and slopes, sector colours and fog — and so THE SPRAWL and
+    the grid, which need them.
+  - The sky baker (js/skyart.js) for maps without a skybox; rain;
+    breaches and ruins; the thermal sight; the VTOL gunship.
+  - Touch controls, the terminal front door, the MEWD Editor, and the
+    network play (js/net/, tools/server.mjs) — Godot has its own editor
+    and its own networking, and whether these are ported line for line
+    or rebuilt on Godot's is a decision still to make.
