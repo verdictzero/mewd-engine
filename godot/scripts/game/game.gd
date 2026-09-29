@@ -45,6 +45,11 @@ var sound: Sound
 ## where the last round stopped, for the tracer
 var last_hit := Vector3()
 var _slot := 0
+## held still by the pause menu, and the menu's look settings
+var paused := false
+var look_sens := 1.0
+var invert := false
+var _set_hour := 2.0
 var _cycle := 0
 var seed := 0
 var _acc := 0.0
@@ -184,11 +189,9 @@ func _bind_keys() -> void:
 ## sent none of its own
 func handle_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		_look += event.relative * MOUSE_SENS
+		_look += event.relative * MOUSE_SENS * look_sens * Vector2(1.0, -1.0 if invert else 1.0)
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif event.is_action_pressed("pause"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if event.is_action_pressed("jump"):
 		_jump = true
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -202,7 +205,7 @@ func handle_input(event: InputEvent) -> void:
 			_cycle = 1
 
 func _process(dt: float) -> void:
-	if player == null:
+	if player == null or paused:
 		return
 	dt = minf(dt, 0.25)
 	# the look, every frame

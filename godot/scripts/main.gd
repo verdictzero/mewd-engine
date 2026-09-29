@@ -21,6 +21,9 @@ var forest: TitleForest
 var shade: Control
 var sound: Sound
 var music: Music
+var pause_layer: CanvasLayer
+var pause: PauseMenu
+var fps_label: Label
 
 func _ready() -> void:
 	lofi = Lofi.new()
@@ -32,6 +35,18 @@ func _ready() -> void:
 	hud_layer = CanvasLayer.new()
 	hud_layer.layer = 1
 	add_child(hud_layer)
+	pause_layer = CanvasLayer.new()
+	pause_layer.layer = 3
+	add_child(pause_layer)
+	pause = PauseMenu.new()
+	pause.visible = false
+	pause_layer.add_child(pause)
+	pause.resumed.connect(resume)
+	pause.quit_to_title.connect(quit_to_title)
+	fps_label = Label.new()
+	fps_label.position = Vector2(12, 680)
+	fps_label.visible = false
+	hud_layer.add_child(fps_label)
 	var args := OS.get_cmdline_user_args()
 	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title"))
 	if straight:
@@ -80,6 +95,9 @@ func start_game() -> void:
 	hud_layer.add_child(hud)
 	game.hud = hud
 	music.start(0)
+	apply_prefs(pause.prefs)
+	if OS.get_cmdline_user_args().has("--pause"):
+		toggle_pause.call_deferred()
 	if not _shooting():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -95,6 +113,8 @@ var _frames := 0
 
 func _process(_dt: float) -> void:
 	_frames += 1
+	if fps_label.visible:
+		fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	var shot := ""
 	var at := 20
 	for a in OS.get_cmdline_user_args():
@@ -107,6 +127,53 @@ func _process(_dt: float) -> void:
 		get_tree().root.get_texture().get_image().save_png(shot)
 		get_tree().quit()
 
-func _unhandled_input(event: InputEvent) -> void:
+## Every setting, from the pause menu's prefs, into the systems it steers.
+func apply_prefs(p: Dictionary) -> void:
+	lofi.render_rows = int(p.detail)
+	lofi.pixel_rows = int(p.pixels)
+	lofi.pixel_aspect = float(p.pixar)
+	lofi._resize()
+	lofi.set_picture(float(p.bright), float(p.contrast), float(p.gamma))
+	lofi.mat.set_shader_parameter("snap", 1.0 if p.snap else 0.0)
+	lofi.mat.set_shader_parameter("dither", 1.0 if p.snap else 0.0)
+	music.set_volume(float(p.music))
+	fps_label.visible = bool(p.fps)
 	if game != null:
+		game.look_sens = float(p.sens)
+		game.invert = bool(p.invert)
+		game.player.debug = bool(p.debug)
+		game.player.invincible = bool(p.godmode)
+		game.weather.fire_haze = bool(p.haze)
+		if game.weather.kind != str(p.weather):
+			game.weather.kind = str(p.weather)
+		if absf(float(p.hour) - game._set_hour) > 1e-3:
+			game._set_hour = float(p.hour)
+			game.weather.hour = float(p.hour)
+
+func toggle_pause() -> void:
+	if game == null:
+		return
+	if pause.visible:
+		resume()
+	else:
+		pause.visible = true
+		game.paused = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func resume() -> void:
+	pause.visible = false
+	if game != null:
+		game.paused = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func quit_to_title() -> void:
+	pause.visible = false
+	get_tree().reload_current_scene()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if game != null and event.is_action_pressed("pause"):
+		toggle_pause()
+		get_viewport().set_input_as_handled()
+		return
+	if game != null and not game.paused:
 		game.handle_input(event)

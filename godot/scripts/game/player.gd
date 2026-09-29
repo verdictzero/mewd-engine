@@ -39,6 +39,11 @@ var health := Weapons.HEALTH
 var armour1 := Weapons.ARMOUR1
 var armour2 := Weapons.ARMOUR2
 var dead := false
+## BOTH DEBUG SWITCHES ON BY DEFAULT, at the user's request (js/main.js
+## DEFAULT_PREFS): infinite ammo and invincibility, until the pause menu
+## says otherwise
+var debug := true
+var invincible := true
 var removed := false
 var shootable := true
 var info := {}
@@ -311,6 +316,12 @@ func volley_tic(d: Dictionary) -> void:
 			game.tracers.spawn(from, game.last_hit)
 
 func fuel_tic() -> void:
+	if debug:
+		for k in Weapons.TANKS:
+			ammo[k] = Weapons.TANKS[k][0]
+			dry[k] = false
+			ammo_tick[k] = 0
+		return
 	for k in Weapons.TANKS:
 		var t: Array = Weapons.TANKS[k]
 		var cap: int = t[0]
@@ -333,7 +344,7 @@ func fuel_tic() -> void:
 ## The plates go first — the outer, then the inner — and then you. The
 ## player is FIREPROOF: only a round or a blow gets through.
 func damage(amount: float, source, opts := {}) -> void:
-	if dead:
+	if dead or invincible:
 		return
 	if not opts.get("shot", false) and not opts.get("impact", false):
 		return
