@@ -48,11 +48,27 @@ func _ready() -> void:
 	fps_label.visible = false
 	hud_layer.add_child(fps_label)
 	var args := OS.get_cmdline_user_args()
-	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title"))
+	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title") and not args.has("--terminal"))
+	# the terminal first, as the web build opens on it — unless the
+	# command line says where to go, as the web build's URL does
 	if straight:
 		start_game()
-	else:
+	elif args.has("--title") or _arg("--map=") or _arg("--seed="):
 		show_title()
+	else:
+		show_terminal()
+
+var terminal: Terminal
+var _jesse := false
+
+func show_terminal() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+	terminal = Terminal.new()
+	layer.add_child(terminal)
+	terminal.open_game.connect(func(): layer.queue_free(); show_title())
+	terminal.open_jesse.connect(func(): layer.queue_free(); _jesse = true; start_game())
 
 func show_title() -> void:
 	forest = TitleForest.new()
@@ -86,6 +102,8 @@ func start_game() -> void:
 	lofi.gun.add_child(w3d)
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
+	if _jesse:
+		game.map_name = "jesse"
 	game.weapon3d = w3d
 	game.sound = sound
 	lofi.world.add_child(game)

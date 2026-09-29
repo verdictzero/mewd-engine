@@ -1,0 +1,69 @@
+## MEWD — who the night brings, and what they come in (the parts of
+## js/game.js and js/main.js that hold js/responders.js, js/brigade.js,
+## js/water.js and js/vehicles.js together).
+##
+## ONE NODE FOR THE GAME TO OWN: the fleet (every vehicle, drawn as its
+## children), the SWAT and the army (Responders), the fire brigade
+## (FireBrigade), and the water out of the brigade's cannon (WaterStream,
+## its particles a child here too). Add it to the Game, tic it once a tic
+## after the fire, draw it once a frame.
+##
+## THE MODELS are the user's GLBs, loaded the first time a force asks
+## for one (see model()): the police van for the SWAT, the hover APC for
+## the army, the fire truck for the brigade, and the panel van for the
+## car park. A force whose model is not there simply does not come — the
+## same bargain every other asset in this game makes.
+class_name Escalation
+extends Node3D
+
+## which file each force's vehicle is, and how long it is — js/main.js
+const MODELS := {
+	"police": {"url": "res://assets/models/police_assault.glb", "length": VehicleModel.POLICE_LENGTH, "id": "police", "name": "Assault van", "use": "police"},
+	"apc": {"url": "res://assets/models/apc.glb", "length": VehicleModel.APC_LENGTH, "id": "apc", "name": "Hover APC", "use": "army"},
+	"firetruck": {"url": "res://assets/models/firetruck.glb", "length": VehicleModel.FIRE_LENGTH, "id": "firetruck", "name": "Fire truck", "use": "fire", "lamp": "fire"},
+	"van": {"url": "res://assets/models/van.glb", "length": VehicleModel.VAN_LENGTH, "id": "van", "name": "Van", "use": "civil"},
+}
+
+var game
+var vehicles: Vehicles
+var responders: Responders
+var brigade: FireBrigade
+var water: WaterStream
+var _models := {}
+
+func _init(g) -> void:
+	game = g
+	name = "Escalation"
+	vehicles = Vehicles.new(g)
+	add_child(vehicles)
+	water = WaterStream.new(g)
+	water.vehicles = vehicles
+	vehicles.water = water
+	add_child(water.particles)
+	responders = Responders.new(g, vehicles, model)
+	brigade = FireBrigade.new(g, responders, vehicles, model)
+	# the car park, where the map has one (level carSlots)
+	var slots = responders.map_value("carSlots")
+	if slots is Array and not slots.is_empty():
+		vehicles.place(slots, model("van"))
+
+## The model one force arrives in, loaded on first asking; null if the
+## file is not there.
+func model(key: String) -> VehicleModel:
+	if not _models.has(key):
+		var m: Dictionary = MODELS.get(key, {})
+		_models[key] = VehicleModel.load_glb(m.url, m) if not m.is_empty() else null
+	return _models[key]
+
+## One tic: the vehicles (after the fire, as js/game.js has it, so a car
+## lit this tic burns this tic), the water, and then who is coming.
+func tic() -> void:
+	vehicles.tic()
+	water.tic()
+	responders.tic()
+	brigade.tic()
+
+## Once a frame: the water's particles. (The vehicles are nodes and draw
+## themselves; the light bars flash on the shader's own clock.)
+func draw() -> void:
+	water.draw()

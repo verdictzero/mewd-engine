@@ -75,6 +75,10 @@ var state_tics := 0
 var shots := 0
 ## the actor blockmap's cell, see ActorGrid
 var bm_key := -1
+## THREE CYLINDERS ARE ONE VAN (js/actor.js): a CARBODY carries a pointer
+## back to the Vehicle it is a third of, and its damage and its catching
+## are the vehicle's — added for the vehicles port (godot/scripts/game/vehicle.gd)
+var vehicle = null
 
 func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> void:
 	info = States.actor(type_name)
@@ -302,6 +306,11 @@ func check_missile_range() -> bool:
 func damage(amount: float, source, opts := {}) -> void:
 	if dead or removed or not shootable:
 		return
+	# THREE CYLINDERS ARE ONE VAN: a shot into any third of it is a shot
+	# into the vehicle — the health lives there, not here (vehicles port)
+	if vehicle != null:
+		vehicle.damage(amount, source, opts)
+		return
 	# A BLOCK OF ICE COMES APART ENTIRELY under anything that is not
 	# fire; fire is spent melting it (a fireproof trooper thaws, anybody
 	# else is eaten where they stand — burn_away)
@@ -375,6 +384,10 @@ func ignite(tics := 350) -> void:
 	if game.level.world.get("noBurn", false) and not info.has("burn"):
 		return
 	if not flammable or removed or dead:
+		return
+	# and a van catches as a van (vehicles port)
+	if vehicle != null:
+		vehicle.ignite(tics)
 		return
 	var was_alight := burning > 0
 	if not was_alight:

@@ -34,6 +34,8 @@ var frost: FrostStream
 var bore: BoreSystem
 ## the quad launcher's seeker and its missiles
 var missiles: MissileSystem
+## the police, the army and the fire brigade, and every vehicle (js/responders.js, vehicles.js, brigade.js)
+var escalation: Escalation
 var arc: ArcSystem
 var tracers: Tracers
 var decals: Decals
@@ -48,6 +50,8 @@ var last_hit := Vector3()
 var _slot := 0
 ## held still by the pause menu, and the menu's look settings
 var paused := false
+## which map: "maze" (the demo's), or "jesse"
+var map_name := "maze"
 var look_sens := 1.0
 var invert := false
 var _set_hour := 2.0
@@ -85,7 +89,7 @@ func _ready() -> void:
 			_set_hour = weather.hour
 		elif a.begins_with("--weapon="):
 			_start_weapon = a.substr(9)
-	var which := "maze"
+	var which := map_name
 	for a in args:
 		if a.begins_with("--map="):
 			which = a.substr(6)
@@ -117,6 +121,8 @@ func start_map(doc: Dictionary) -> void:
 	if _start_weapon != "":
 		player.weapon = _start_weapon
 	_spawn_things()
+	escalation = Escalation.new(self)
+	add_child(escalation)
 	standees = Standees.new()
 	add_child(standees)
 	tracers = Tracers.new()
@@ -253,6 +259,7 @@ func _process(dt: float) -> void:
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
 	arc.draw(camera)
+	escalation.draw()
 	fx.draw()
 	giblets.draw()
 	if weapon3d != null:
@@ -290,6 +297,7 @@ func tic() -> void:
 	bore.tic()
 	missiles.tic()
 	arc.tic()
+	escalation.tic()
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
@@ -387,7 +395,7 @@ func explode(a, opts := {}) -> void:
 	if structure > 0.0:
 		fire.damage_structure(a.x, a.y, structure_radius, structure)
 	for o in actors_in_cone_around(a, radius):
-		if o == a:
+		if typeof(a) == TYPE_OBJECT and o == a:
 			continue
 		var d := sqrt(U.dist2(a.x, a.y, o.x, o.y))
 		o.damage(roundf(dmg * (1.0 - d / radius)), null, {"fire": true})
@@ -533,7 +541,8 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		bp = Vector3(px, py, pz)
 	if best != null:
 		best.damage(dmg, from, opts)
-		if opts.get("shot", false):
+		# a round into a van is a hole in the van, not blood
+		if opts.get("shot", false) and not ("vehicle" in best and best.vehicle != null):
 			gore_decals.bleed(best, bp, Vector3(dx, dy, tz - z))
 		last_hit = bp
 		return best

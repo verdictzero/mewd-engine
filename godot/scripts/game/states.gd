@@ -113,6 +113,12 @@ static func build() -> void:
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
 	ACTORS["BLAST"] = {"name": "Blast", "spawn": "BLAST1", "radius": 8, "height": 96, "fullbright": true}
 	ACTORS["PUFF"] = {"name": "Puff", "spawn": "PUFF1", "radius": 4, "height": 8}
+	# A PARKED VEHICLE's cylinders (added for the vehicles port): no spawn,
+	# so no state and no sprite — the vehicle draws itself — and three of
+	# these in a row are the part of a van you cannot walk through. Each
+	# carries `vehicle`, and its damage and its catching are the van's.
+	ACTORS["CARBODY"] = {"name": "Vehicle", "radius": 38, "height": 86, "solid": true,
+		"shootable": true, "flammable": true, "health": 100000}
 
 ## One troop's whole table, under its own prefix, on its own sprite.
 static func _troop(key: String, sprite: String, attack: String) -> void:

@@ -415,7 +415,9 @@ func boom(radius: float, dmg: float, blasts: int, scale := 1, sound := "explode"
 	var g = game()
 	# A CAR AGAINST A SHOPFRONT TAKES THE SHOPFRONT, and not much more: a
 	# third of a region's integrity a bang, scaled with the bang
-	g.explode({"x": x, "y": y, "z": ground}, {"radius": radius, "damage": dmg,
+	# the vehicle itself is what goes off: it has an x and a y and stands
+	# on the floor, which is where js/vehicles.js puts the bang
+	g.explode(self, {"radius": radius, "damage": dmg,
 		"heat": minf(255.0, 260.0 * scale), "heatRadius": 96.0 * sqrt(scale),
 		"ignite": 340, "sound": sound, "structure": 0.34 * scale, "structureRadius": radius * 1.25})
 	var L: float = def.length
