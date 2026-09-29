@@ -10,14 +10,26 @@
 ## when it lets you in, and a mains hum under all of it.
 ##
 ## The words: G or GAME opens the game (the title), JESSE goes straight
-## to the PvP maze, QUIT or EXIT leaves. E / EDIT and JOIN are the web
-## build's editor and network play, which this build does not have yet,
-## and it says so. Anything else is refused.
+## to the PvP maze, JOIN [host[:port]] joins a match on the LAN, QUIT or
+## EXIT leaves, E or EDIT opens MEWD Editor, the map editor
+## (godot/scripts/editor/). Anything else is refused.
 class_name Terminal
 extends Control
 
 signal open_game
 signal open_jesse
+## JOIN, or JOIN host[:port] — a match on the LAN (godot/scripts/net/):
+## a Node host (tools/server.mjs) or a Godot one (--server), the same wire
+signal open_join(where: String)
+## E or EDIT: the map editor
+signal open_editor
+
+## the words to say once the prompt is up, before anything is typed (Main
+## sets it: why a JOIN came back)
+var after_boot: Array = []
+## AND A GAME ON THE LAN (js/terminal.js JOIN_RE): `join` for this
+## machine's own host, `join 192.168.1.20:7777` for another
+const JOIN_RE := "^JOIN(?:\\s+((?:WSS?://)?[\\w.\\-]+(?::\\d+)?(?:/[\\w.\\-/]*)?))?$"
 
 const PROMPT := "INTERFACE 2037 > "
 const CHAR_S := 0.014
@@ -166,6 +178,9 @@ func prompt() -> void:
 
 func _boot() -> void:
 	await get_tree().create_timer(0.5).timeout
+	if not after_boot.is_empty():
+		_sfx("error")
+		await tell(after_boot)
 	await prompt()
 
 func _enter() -> void:
@@ -194,10 +209,21 @@ func _enter() -> void:
 		await tell(["GOODBYE"])
 		get_tree().quit()
 		return
-	if e in ["E", "EDIT"] or e == "JOIN" or e.begins_with("JOIN "):
-		_sfx("error")
-		await tell(["NOT IN THIS BUILD", ""])
-		await prompt()
+	var jr := RegEx.create_from_string(JOIN_RE)
+	var jm := jr.search(e)
+	if jm != null:
+		var where := raw.split(" ", false)[1] if raw.split(" ", false).size() > 1 else "127.0.0.1:%d" % NetProtocol.DEFAULT_PORT
+		_sfx("grant")
+		await tell(["JOINING", where.to_upper()])
+		await _close()
+		open_join.emit(where)
+		return
+	if e in ["E", "EDIT"]:
+		# MEWD Editor (godot/scripts/editor/editor.gd)
+		_sfx("grant")
+		await tell(["MEWD EDITOR", "LOADING WORKSPACE"])
+		await _close()
+		open_editor.emit()
 		return
 	_sfx("error")
 	await tell(["UNDEFINED COMMAND / SYNTAX ERROR", "ENTRY \"%s\" REFUSED" % e.substr(0, 48), ""])

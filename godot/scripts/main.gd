@@ -28,7 +28,19 @@ var touch_layer: CanvasLayer
 var touch: TouchControls
 var rotate_notice: RotateNotice
 
+## A MATCH (godot/scripts/net/): the dedicated server this process is, or
+## the line to the host this game is one player of
+var host: NetHost
+var net_client: NetClient
+
 func _ready() -> void:
+	# THE DEDICATED SERVER (--server[=PORT]): no picture, no sound, no title
+	# — the simulation behind a socket (godot/scripts/net/host.gd)
+	if _arg("--server"):
+		host = NetHost.new()
+		host.name = "Host"
+		add_child(host)
+		return
 	lofi = Lofi.new()
 	add_child(lofi)
 	sound = Sound.new()
@@ -58,9 +70,22 @@ func _ready() -> void:
 	rot_layer.add_child(rotate_notice)
 	var args := OS.get_cmdline_user_args()
 	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title") and not args.has("--terminal"))
+	# MEWD EDITOR (godot/scripts/editor/): --edit, or F2 back from the game
+	if args.has("--edit") or MewdEditor.open_next:
+		MewdEditor.open_next = false
+		show_editor()
+		return
 	# the terminal first, as the web build opens on it — unless the
 	# command line says where to go, as the web build's URL does
-	if straight:
+	var join := ""
+	for a in args:
+		if a.begins_with("--join="):
+			join = a.substr(7)
+		elif a == "--join":
+			join = "127.0.0.1:%d" % NetProtocol.DEFAULT_PORT
+	if join != "":
+		join_host(join)
+	elif straight:
 		start_game()
 	elif args.has("--title") or _arg("--map=") or _arg("--seed="):
 		show_title()
@@ -78,6 +103,70 @@ func show_terminal() -> void:
 	layer.add_child(terminal)
 	terminal.open_game.connect(func(): layer.queue_free(); show_title())
 	terminal.open_jesse.connect(func(): layer.queue_free(); _jesse = true; start_game())
+	terminal.open_join.connect(func(where: String): layer.queue_free(); join_host(where))
+	terminal.open_editor.connect(func(): layer.queue_free(); show_editor())
+
+## MEWD EDITOR, over everything: its Play (F5) hands the map to the game,
+## F2 in the game comes back to it (back_to_editor), and its File menu's
+## "Back to the terminal" goes back to the prompt.
+var editor: MewdEditor
+func show_editor() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+	editor = MewdEditor.new()
+	layer.add_child(editor)
+	editor.play_requested.connect(func(doc: Dictionary):
+		layer.queue_free()
+		editor = null
+		# the map's own textures, drawn for the game (texcompose.js)
+		EdTex.register_all(doc)
+		start_game())
+	editor.quit_requested.connect(func(): layer.queue_free(); editor = null; show_terminal())
+
+## F2, from the game: back to the editor, on the map as it was left
+## (its autosave), as the web build's ?edit is.
+func back_to_editor() -> void:
+	MewdEditor.open_next = true
+	if game != null and game.net != null:
+		game.net.close()
+	get_tree().reload_current_scene()
+
+## JOIN A HOST (js/main.js joinHost): say hello, wait for the welcome —
+## which names the map — and build that world as one player in it. On
+## failure, back to the terminal saying why.
+var _joining := false
+func join_host(where: String) -> void:
+	_joining = true
+	var url := NetProtocol.url_for(where)
+	var nm := "PLAYER %d" % (100 + randi() % 900)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--name="):
+			nm = a.substr(7)
+	nm = nm.to_upper().substr(0, 16)
+	print("MEWD: joining %s as %s" % [url, nm])
+	var t := NetTransport.Ws.new(null, url)
+	var c := NetClient.new(t, nm)
+	var until := Time.get_ticks_msec() + 8000
+	while c.welcome == null and not c.closed and Time.get_ticks_msec() < until:
+		c.poll()
+		await get_tree().process_frame
+	_joining = false
+	if c.welcome == null:
+		var why: String = str(c.refused) if c.refused != null else (str(c.bye) if c.bye != null else
+			("nobody answered" if c.closed or not t.open else "no answer in eight seconds"))
+		push_warning("could not join %s: %s" % [url, why])
+		print("MEWD: could not join %s: %s" % [url, why])
+		t.close()
+		if _arg("--netbot"):
+			get_tree().quit(2)
+			return
+		show_terminal()
+		terminal.after_boot = ["COULD NOT JOIN %s" % where.to_upper(), why.to_upper(), ""]
+		return
+	print("MEWD: joined %s as %s, player %d: %s seed %d" % [url, nm, c.id, str(c.map.kind), int(c.map.seed)])
+	net_client = c
+	start_game()
 
 func show_title() -> void:
 	forest = TitleForest.new()
@@ -113,14 +202,50 @@ func start_game() -> void:
 	game.name = "Game"
 	if _jesse:
 		game.map_name = "jesse"
+	# a test run of a map from the editor
+	var from_editor: bool = MewdEditor.play_doc != null
+	if from_editor:
+		game.play_doc = MewdEditor.play_doc
+		MewdEditor.play_doc = null
+	# a host's world, if this is a match: the map is its seed
+	if net_client != null:
+		game.net_map = net_client.map
 	game.weapon3d = w3d
 	game.sound = sound
 	lofi.world.add_child(game)
+	# and from here on this game is one player in the host's world
+	if net_client != null:
+		var ng := NetGame.new(game, net_client)
+		ng.bot = _arg("--netbot")
+		ng.bot_fire = not OS.get_cmdline_user_args().has("--netbot=look")
 	sound.listener = game.player
 	var hud := Hud.new()
 	hud.game = game
 	hud_layer.add_child(hud)
 	game.hud = hud
+	# ON A TEST RUN FROM THE EDITOR, a way back that is always on screen
+	if from_editor:
+		var b := Button.new()
+		b.text = "◀ EDITOR  F2"
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 12)
+		b.add_theme_color_override("font_color", Color("#14161d"))
+		b.add_theme_color_override("font_hover_color", Color("#14161d"))
+		for st in ["normal", "hover", "pressed"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color("#ffd257") if st == "hover" else Color(232 / 255.0, 195 / 255.0, 74 / 255.0, 0.88)
+			sb.border_color = Color("#e8c34a")
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(4)
+			sb.content_margin_left = 10
+			sb.content_margin_right = 10
+			sb.content_margin_top = 6
+			sb.content_margin_bottom = 6
+			b.add_theme_stylebox_override(st, sb)
+		b.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		b.position = Vector2(640 - 55, 8)
+		b.pressed.connect(back_to_editor)
+		hud_layer.add_child(b)
 	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"):
 		touch_layer = CanvasLayer.new()
 		touch_layer.layer = 2
@@ -152,7 +277,13 @@ static func _shooting() -> bool:
 var _frames := 0
 
 func _process(_dt: float) -> void:
-	_frames += 1
+	if host != null:
+		return
+	# (a --shot of a match counts its frames from the world being up, not
+	# from the handshake)
+	if not _joining:
+		_frames += 1
+	_quit_after()
 	if touch != null:
 		touch.visible = game != null and not pause.visible
 		if touch.pause_pulse:
@@ -188,14 +319,42 @@ func apply_prefs(p: Dictionary) -> void:
 		game.invert = bool(p.invert)
 		if touch != null:
 			touch.lefty = bool(p.get("lefty", false))
-		game.player.debug = bool(p.debug)
-		game.player.invincible = bool(p.godmode)
+		# (a match's rules, not the menu's, on a network)
+		if game.net == null:
+			game.player.debug = bool(p.debug)
+			game.player.invincible = bool(p.godmode)
 		game.weather.fire_haze = bool(p.haze)
 		if game.weather.kind != str(p.weather) and not _arg("--weather="):
 			game.weather.kind = str(p.weather)
 		if absf(float(p.hour) - game._set_hour) > 1e-3 and not _arg("--hour="):
 			game._set_hour = float(p.hour)
 			game.weather.hour = float(p.hour)
+
+## --quit-after=S: leave after S seconds (the network test's clients),
+## printing what this client saw of the match on the way
+var _quit_ms := -2
+func _quit_after() -> void:
+	if _quit_ms == -2:
+		_quit_ms = -1
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--quit-after="):
+				_quit_ms = Time.get_ticks_msec() + int(float(a.substr(13)) * 1000.0)
+	if _quit_ms < 0 or Time.get_ticks_msec() < _quit_ms:
+		return
+	_quit_ms = -1
+	if game != null and game.net != null:
+		var n: NetGame = game.net
+		var rep := {"id": n.client.id, "snaps": n.client.snaps, "puppets": n.most_puppets, "sent": n.client.transport.sent,
+			"corrections": n.corrections, "biggest": snappedf(n.biggest, 0.01), "frags": game.player.frags,
+			"rtt": roundi(n.client.rtt), "lost": n.lost}
+		print("MEWD client: " + JSON.stringify(rep))
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--report="):
+				var f := FileAccess.open(a.substr(9), FileAccess.WRITE)
+				if f:
+					f.store_string(JSON.stringify(rep))
+		n.close()
+	get_tree().quit(0)
 
 func toggle_pause() -> void:
 	if game == null:
@@ -216,9 +375,16 @@ func resume() -> void:
 
 func quit_to_title() -> void:
 	pause.visible = false
+	# leaving a match says goodbye to the host
+	if game != null and game.net != null:
+		game.net.close()
 	get_tree().reload_current_scene()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if game != null and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
+		back_to_editor()
+		get_viewport().set_input_as_handled()
+		return
 	if game != null and event.is_action_pressed("pause"):
 		toggle_pause()
 		get_viewport().set_input_as_handled()

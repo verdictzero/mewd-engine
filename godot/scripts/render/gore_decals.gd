@@ -133,7 +133,14 @@ func pool(x: float, y: float, z: float, size := 0.0) -> int:
 func bleeds(a) -> bool:
 	if a == null or a.get("vehicle") or a.get("frozen"):
 		return false
-	return a == game.player or bool(a.get("monster"))
+	# (any player, not only this screen's — js/decals.js isPlayer; and a
+	# puppet of one, whose info is a trooper's)
+	if a == game.player or a is Player:
+		return true
+	if a.get("monster") == true:
+		return true
+	var inf = a.get("info")
+	return inf is Dictionary and bool(inf.get("monster", false))
 
 ## SOMEBODY HAS BEEN HIT at `h` by something going along `d`: a spatter
 ## on the floor at their feet, thrown the way the round went, and — on

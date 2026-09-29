@@ -13,6 +13,34 @@ const MAX_TICS := 6
 var level: Level
 var bank: TexBank
 var player: Player
+## EVERYBODY WITH A PAIR OF HANDS IN THIS WORLD (js/game.js). One in a
+## game on its own — `player`, the one this screen looks out of — and one
+## a client on a host (godot/scripts/net/match.gd), each with its own
+## session. A player with no session of its own is driven by the game's.
+var players: Array = []
+## where the player's command each tic comes from: this machine, until a
+## network client (NetGame) says otherwise — see godot/scripts/net/session.gd
+var session = NetSession.Local.new()
+## AND THE RULES THAT HOLD BETWEEN THEM, when there is more than one: a
+## match (NetMatch) on a host, NetGame.ClientRules on a client; none alone
+var rules = null
+## set by a host to wind the others back to what a shooter saw before its
+## tic, and forward again after — see SimServer.rewind
+var rewind := Callable()
+## a network client's own side of the game (NetGame), or null
+var net = null
+## the map a host named ({kind, seed, opts}), built instead of the command line's
+var net_map := {}
+## ON A NETWORK CLIENT THE LOOK GOES DOWN THE WIRE: taken every frame as
+## ever, but held here until the tic, which rounds it into the command
+## (NetGame.Session) — the eye is drawn ahead of the body by what is held
+var net_look := Vector2()
+## the gun's own notices, and the big card (js/game.js toast, setBigMessage)
+var toasts: Array = []
+var big_message = null
+var big_message_tics := 0
+const TOAST_LIFE := 6 * 35
+const TOAST_MAX := 4
 var camera: Camera3D
 var actors: Array = []
 var blockmap := ActorGrid.new()
@@ -61,6 +89,8 @@ var _slot := 0
 var paused := false
 ## which map: "maze" (the demo's), "jesse", "sprawl" or "grid"
 var map_name := "maze"
+## or a map from MEWD Editor's Play: the document itself (main.gd sets it)
+var play_doc = null
 var look_sens := 1.0
 var invert := false
 var _set_hour := 2.0
@@ -106,13 +136,25 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--map="):
 			which = a.substr(6)
+	# A HOST'S MAP, on a network: its kind and its seed, which every client
+	# builds for itself (the web build's netMap)
+	var opts := {}
+	if not net_map.is_empty():
+		which = str(net_map.get("kind", "maze"))
+		seed = int(net_map.get("seed", 1))
+		if net_map.get("opts") is Dictionary:
+			opts = net_map.opts
 	# THE MAP (--map=maze|jesse|sprawl|grid): every map the web build plays
 	var doc: Dictionary
 	match which:
-		"jesse": doc = JesseMap.build(seed)
+		"jesse": doc = JesseMap.build(seed, opts)
 		"sprawl": doc = SprawlMap.build()
 		"grid": doc = TheGrid.build()
-		_: doc = MazeMap.build(seed)
+		_: doc = MazeMap.build(seed, int(opts.get("cells", MazeMap.CELLS)), int(opts.get("people", MazeMap.PEOPLE)))
+	# A MAP FROM THE EDITOR, on a test run (js/main.js's PLAY_KEY): the
+	# document it handed over, compiled by the same compiler
+	if play_doc != null:
+		doc = play_doc
 	# a test hook: --at=x,y,degrees stands the START somewhere else (as a
 	# map from the editor with its start moved would; for pictures)
 	for a in args:
@@ -146,6 +188,7 @@ func start_map(doc: Dictionary) -> void:
 	if start == null:
 		start = {"x": level.bounds.get_center().x, "y": level.bounds.get_center().y, "angle": 0.0}
 	player = Player.new(self, float(start.x), float(start.y), float(start.angle))
+	players = [player]
 	if _start_weapon != "":
 		player.weapon = _start_weapon
 	_spawn_things()
@@ -344,8 +387,12 @@ func handle_input(event: InputEvent) -> void:
 			_cycle = 1
 
 func _process(dt: float) -> void:
-	if player == null or paused:
+	# A MATCH DOES NOT PAUSE: the host's world goes on whether this machine
+	# is looking or not, so the tics go on too — with the hands off
+	if player == null or (paused and net == null):
 		return
+	if net != null:
+		net.poll()
 	dt = minf(dt, 0.25)
 	# the look, every frame
 	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.6 * dt
@@ -364,7 +411,11 @@ func _process(dt: float) -> void:
 	var launcher: bool = player.weapon == "LAUNCHER" and not player.dead
 	var sighted: Scope = scope if lance else (thermal if launcher else null)
 	var slow: float = sighted.view_scale() if sighted != null else 1.0
-	player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
+	if net != null:
+		if not paused:
+			net_look += (Vector2(_look.x + keyturn, _look.y) + pad_look) * slow
+	else:
+		player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
 	_look = Vector2()
 	_acc += dt
 	var n := 0
@@ -374,6 +425,9 @@ func _process(dt: float) -> void:
 		tic()
 	if n == MAX_TICS:
 		_acc = 0.0
+	# the others, slid to where they were a moment ago
+	if net != null:
+		net.frame()
 	_place_camera(_acc / U.SEC)
 	beam.draw((tics + _acc / U.SEC) * U.SEC, dt)
 	scope.held = lance
@@ -424,7 +478,10 @@ func _process(dt: float) -> void:
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 
-func tic() -> void:
+## This machine's hands this tic, as a command (Player.tic's Dictionary;
+## TicCmd's fields): the keys, the pad and the glass. The look is not in
+## it — it is taken every frame (or, on a network, by NetGame.Session).
+func local_cmd() -> Dictionary:
 	var cmd := {
 		"fwd": Input.get_axis("back", "fwd"),
 		"side": Input.get_axis("left", "right"),
@@ -452,8 +509,21 @@ func tic() -> void:
 	_jump = false
 	_slot = 0
 	_cycle = 0
-	player.tic(cmd)
+	return cmd
+
+func tic() -> void:
 	tics += 1
+	# THE PLAYERS ARE DRIVEN BY COMMANDS, NOT BY THE KEYBOARD: each one's
+	# from its session — this machine's own input, rounded as the wire
+	# rounds it, or a client's off the wire — so the simulation cannot tell
+	# a player here from a player on another machine (js/game.js)
+	for i in players.size():
+		var p: Player = players[i]
+		var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
+		var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
+		p.tic(cmd)
+		if back.is_valid():
+			back.call()
 	weather.tic()
 	for a in actors:
 		a.tic()
@@ -474,8 +544,20 @@ func tic() -> void:
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
+	if big_message_tics > 0:
+		big_message_tics -= 1
+		if big_message_tics == 0:
+			big_message = null
+	for i in range(toasts.size() - 1, -1, -1):
+		toasts[i].tics -= 1
+		if toasts[i].tics <= 0:
+			toasts.remove_at(i)
 	if tics % 35 == 0:
 		actors = actors.filter(func(a): return not a.removed)
+	# a network client's own tic: the puppets, and what the command just
+	# run left the player looking at (NetGame)
+	if net != null:
+		net.tic()
 
 func _place_camera(f: float) -> void:
 	var p := player
@@ -484,7 +566,10 @@ func _place_camera(f: float) -> void:
 	var vz := lerpf(p.prev.z, p.view_z, f)
 	camera.position = U.v3(x, y, vz)
 	# map angle a faces (cos a, sin a); Godot's -Z faces rotation.y = a - PI/2
-	camera.rotation = Vector3(p.pitch, p.angle - PI / 2.0, 0.0)
+	# (and on a network, the look still held for the next tic on top)
+	var yaw := U.angle_norm(p.angle - net_look.x)
+	var pt := clampf(p.pitch - net_look.y, -Player.MAX_PITCH, Player.MAX_PITCH)
+	camera.rotation = Vector3(pt, yaw - PI / 2.0, 0.0)
 	# THE SHAKE, on the eye and not the player, so the aim stays put:
 	# four sines at rates that do not divide into each other
 	var sh: float = beam.shake if beam != null else 0.0
@@ -526,6 +611,22 @@ func thing_in_way(who, nx: float, ny: float):
 			if was < rr * rr and d2 >= was:
 				continue
 			return a
+	# AND EACH OTHER, when there are others: a player is as solid as a
+	# trooper, on the same terms — you can always step out of one
+	if players.size() > 1:
+		for a in players:
+			if a == who or a.dead:
+				continue
+			var rr: float = who.radius + a.radius
+			var d2 := U.dist2(nx, ny, a.x, a.y)
+			if d2 >= rr * rr:
+				continue
+			if absf(a.z - who.z) >= who.height:
+				continue
+			var was := U.dist2(who.x, who.y, a.x, a.y)
+			if was < rr * rr and d2 >= was:
+				continue
+			return a
 	return null
 
 func play_sound(name, at) -> void:
@@ -553,8 +654,9 @@ func actors_in_cone_around(at, radius: float) -> Array:
 	for a in actors:
 		if not a.removed and not a.dead and a.shootable and U.dist2(at.x, at.y, a.x, a.y) < r2:
 			out.append(a)
-	if player != null and not player.dead and U.dist2(at.x, at.y, player.x, player.y) < r2:
-		out.append(player)
+	for p in players:
+		if not p.dead and U.dist2(at.x, at.y, p.x, p.y) < r2:
+			out.append(p)
 	return out
 
 ## A fuel can or a car going up (Game.explode in js/game.js). `a` only has
@@ -656,15 +758,29 @@ func weapon_system(kind: String):
 func noise(_who, _r: float) -> void:
 	pass
 
-func on_player_died(_p, _source) -> void:
-	pass
+## A MATCH HAS ITS OWN IDEA OF WHAT A DEATH IS — a frag, and a respawn —
+## and nobody's death ends the world for the others
+func on_player_died(p, source) -> void:
+	if rules != null:
+		rules.died(p, source)
 
-## Everybody a shot from `from` can hit: the player (unless it is theirs)
-## and every actor.
+## The gun's own notices: a line in the corner that fades, four at most.
+func toast(text: String) -> void:
+	toasts.append({"text": text, "tics": TOAST_LIFE})
+	while toasts.size() > TOAST_MAX:
+		toasts.pop_front()
+
+func set_big_message(t, n: int) -> void:
+	big_message = t
+	big_message_tics = n
+
+## What a shot from `from` can hit: every player and every actor, less
+## `from` itself and whoever the match says is on its side.
 func targets_for(from) -> Array:
 	var out := []
-	if player != from:
-		out.append(player)
+	for p in players:
+		if p != from and not (rules != null and rules.friendly(from, p)):
+			out.append(p)
 	out.append_array(actors)
 	return out
 
@@ -725,7 +841,7 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		best = a
 		bp = Vector3(px, py, pz)
 	if best != null:
-		best.damage(dmg, from, opts)
+		best.damage(rules.scale(from, best, dmg) if rules != null else dmg, from, opts)
 		# a round into a van is a hole in the van, not blood
 		if opts.get("shot", false) and not ("vehicle" in best and best.vehicle != null):
 			gore_decals.bleed(best, bp, Vector3(dx, dy, tz - z))

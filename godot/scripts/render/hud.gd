@@ -102,3 +102,62 @@ func _draw() -> void:
 	# the red wash when something hits you
 	if p.damage_flash > 0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.02, minf(0.35, p.damage_flash * 0.025)))
+	_draw_toasts(s)
+	_draw_big(s)
+	if game.get("net") != null:
+		_draw_board(s)
+
+## THE BOTTOM LEFT: the gun's own notices, stacked, newest at the bottom
+## in amber and the rest in the ordinary ink, each fading in its last
+## second and a quarter (js/hud.js _drawToasts, toastFade)
+func _draw_toasts(s: float) -> void:
+	var list: Array = game.get("toasts") if game.get("toasts") != null else []
+	if list.is_empty():
+		return
+	var M := roundf(20.0 * s)
+	var fs := int(roundf(minf(13.0 * s, size.x / 34.0)))
+	var lead := roundf(fs * 1.7)
+	for i in list.size():
+		var up := list.size() - 1 - i
+		var y := size.y - M - up * lead
+		if y < lead:
+			continue
+		var a := clampf(float(list[i].tics) / (1.25 * 35.0), 0.0, 1.0)
+		var col: Color = UI.low if up == 0 else UI.ink
+		var t := " ".join(str(list[i].text).split(""))
+		draw_string(font, Vector2(M + 1, y + 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6 * a))
+		draw_string(font, Vector2(M, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col, col.a * a))
+
+## the big card across the middle (Game.set_big_message)
+func _draw_big(s: float) -> void:
+	var t = game.get("big_message")
+	if t == null or str(t) == "":
+		return
+	var fs := int(roundf(26.0 * s))
+	var w := font.get_string_size(str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var y := size.y * 0.36
+	draw_string(font, Vector2(size.x * 0.5 - w * 0.5 + 2, y + 2), str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7))
+	draw_string(font, Vector2(size.x * 0.5 - w * 0.5, y), str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.low)
+
+## A MATCH'S SCORE (js/net/remote.js NetBoard): a line at the top of the
+## screen, and the whole table under it while TAB is held or the round
+## is over
+func _draw_board(s: float) -> void:
+	var lines: Array = game.net.board_lines(Input.is_physical_key_pressed(KEY_TAB))
+	var fs := int(roundf(12.0 * s))
+	var lh := roundf(fs * 1.35)
+	var y := roundf(8.0 * s) + fs
+	var head: String = lines[0]
+	var w := font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	draw_string(font, Vector2(size.x * 0.5 - w * 0.5 + 1, y + 1), head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.8))
+	draw_string(font, Vector2(size.x * 0.5 - w * 0.5, y), head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)
+	if lines.size() <= 1:
+		return
+	var tw := 0.0
+	for i in range(1, lines.size()):
+		tw = maxf(tw, font.get_string_size(str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+	var pad := roundf(10.0 * s)
+	var top := y + lh * 0.5
+	draw_rect(Rect2(size.x * 0.5 - tw * 0.5 - pad, top, tw + pad * 2.0, (lines.size() - 1) * lh + pad), Color(0, 0, 0, 0.72))
+	for i in range(1, lines.size()):
+		draw_string(font, Vector2(size.x * 0.5 - tw * 0.5, top + i * lh - lh * 0.2), str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)

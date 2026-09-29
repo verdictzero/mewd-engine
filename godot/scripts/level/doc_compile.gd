@@ -47,9 +47,15 @@ static func default_world() -> Dictionary:
 
 ## The last build's problems ({kind, msg}), for a test to read.
 static var problems: Array = []
+## and what the scatters grew (each thing with its `scatter` id), and
+## how much of what each wanted: {id: {grown, wanted}} — for the editor
+static var last_scattered: Array = []
+static var last_grown: Dictionary = {}
 
 static func compile(doc: Dictionary) -> Level:
 	problems = []
+	last_scattered = []
+	last_grown = {}
 	if not doc.get("linedefs", []).is_empty():
 		doc = linedef_walls(doc, problems)
 	var lv := Level.new()
@@ -138,6 +144,7 @@ static func compile(doc: Dictionary) -> Level:
 	var scattered := []
 	if not doc.get("scatters", []).is_empty():
 		scattered = _grow_scatters(doc, plain, areas, boxes)
+		last_scattered = scattered
 	var things := []
 	var started := false
 	for t in doc.get("things", []) + scattered:
@@ -848,6 +855,7 @@ static func _grow_scatters(doc: Dictionary, plain: Array, areas: PackedFloat64Ar
 	for sc in doc.scatters:
 		var g := Scatter.grow(sc, {"rings": rings, "standable": standable, "blocked": blocked, "taken": taken})
 		out.append_array(g.items)
+		last_grown[sc.get("id")] = {"grown": g.grown, "wanted": g.wanted}
 		if g.grown < g.wanted * 0.9:
 			problems.append({"kind": "scatter", "id": sc.get("id"),
 				"msg": "scatter \"%s\" wanted %d and found room for %d" % [sc.get("name", sc.get("id")), g.wanted, g.grown]})

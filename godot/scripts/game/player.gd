@@ -20,6 +20,27 @@ const MAX_PITCH := 0.72
 
 
 var game
+## WHO THIS IS, when there is more than one of you — see
+## godot/scripts/net/match.gd. A game on its own leaves all of these alone.
+var id := 0
+var name := "PLAYER"
+var team := -1
+var frags := 0
+var deaths := 0
+## where this player's commands come from: null for the game's own
+## (Game.session), a NetSession.Host on a host
+var session = null
+var ping := 0
+## lives had, and the match's clocks: when a dead one comes back, and
+## until when a fresh one is untouchable (host); how long until the host
+## brings you back (a client, off the snapshot)
+var spawns := 0
+var respawn_at := 0
+var guard_until := 0
+var respawn_in := 0
+## the guns this player may pick up — every one alone; the match's
+## loadout on a network (js/player.js `owned`)
+var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true}
 var x := 0.0
 var y := 0.0
 var z := 0.0
@@ -251,14 +272,20 @@ func armed(w: String) -> bool:
 
 func select_slot(n: int) -> void:
 	for k in Weapons.ORDER:
-		if Weapons.WEAPONS[k].slot == n:
+		if Weapons.WEAPONS[k].slot == n and owned.get(k, false):
 			if k != weapon:
 				pending_weapon = k
 			return
 
 func cycle_weapon(dir: int) -> void:
-	var i := Weapons.ORDER.find(weapon)
-	pending_weapon = Weapons.ORDER[(i + dir + Weapons.ORDER.size()) % Weapons.ORDER.size()]
+	var list := []
+	for k in Weapons.ORDER:
+		if owned.get(k, false):
+			list.append(k)
+	if list.is_empty():
+		return
+	var i := list.find(weapon)
+	pending_weapon = list[((i + dir) % list.size() + list.size()) % list.size()]
 
 func weapon_tic(cmd: Dictionary) -> void:
 	if cmd.get("slot", 0) > 0:
@@ -605,6 +632,15 @@ func die(source = null) -> void:
 	health = 0
 	armour1 = 0
 	armour2 = 0
+	if charge_loop != null:
+		charge_loop.stop()
+		charge_loop = null
+	_charge_voice = ""
+	charge = 0
+	beam_tics = 0
+	seeking = false
+	if self == game.player and game.get("beam") != null:
+		game.beam.stop()
 	game.play_sound("playerDie", self)
 	game.on_player_died(self, source)
 

@@ -138,6 +138,59 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/titlescene.js, the title   title/title_forest.gd, title/title.gd
     the pause menu                ui/pause.gd
     js/touch.js, portrait notice  ui/touch.gd, ui/rotate.gd
+    js/net/*.js, tools/server.mjs net/*.gd (see NETWORK PLAY)
+
+
+NETWORK PLAY (js/net/ -> godot/scripts/net/)
+
+  The web build's LAN play, ported file for file, and ON THE SAME WIRE:
+  the same seventeen-byte TicCmd in a binary WebSocket frame, the same
+  JSON handshake, snapshots, pings and goodbyes in text frames, at
+  ws://host:port/net. So a Godot client can join the Node host, a web
+  page can join the Godot host, and either kind of client can play the
+  other on either host.
+
+    godot --headless --path . -- --server[=PORT]      host (default 7777)
+          [--map=jesse|maze] [--seed=N] [--max=16] [--frags=N]
+    godot --path . -- --join=HOST[:PORT]               join a host
+          [--name=NAME]
+    node tools/server.mjs --map maze --port 7777       the web build's host
+    http://…/?join=HOST:PORT                           a web page joining
+
+  or JOIN / JOIN host:port at the terminal (a failed join comes back to
+  it saying why). JESSE is team deathmatch (A in SWAT black, B in army
+  green), THE MAZE deathmatch with its crowd left at home; the network
+  loadout is the minigun, and the match's rules (frag limit, respawns,
+  spawn guard, the pvp scale, infinite ammo) are js/net/match.js's.
+  TAB shows the table; the score line is at the top of the screen.
+
+    net/ticcmd.gd     js/net/ticcmd.js — the command; rounded with
+                      JavaScript's Math.round, so the bytes are the JS's
+    net/protocol.gd   js/net/protocol.js
+    net/transport.gd  js/net/transport.js + tools/server.mjs's socket:
+                      a loopback pipe, WebSocketPeer, and a TCPServer
+                      listener handing each upgraded line to the host
+    net/session.gd    js/net/session.js (Local, Host)
+    net/match.gd      js/net/match.js (NetMatch: DM/TDM, spawns, frags)
+    net/server.gd     js/net/server.js (SimServer: handshake, the
+                      rewind, snapshots)
+    net/client.gd     js/net/client.js (NetClient)
+    net/remote.gd     js/net/remote.js (NetGame: prediction and
+                      reconciliation, the puppets drawn in the past,
+                      toasts, the score board — drawn by render/hud.gd)
+    net/host.gd       tools/server.mjs (the dedicated server's loop)
+
+  The Game is many-player the way js/game.js is: game.players, each
+  with a session (the game's own LocalSession for the one on this
+  machine), game.rules (a NetMatch on a host), game.rewind, targets and
+  collision among players, a match's own idea of a death. On a client
+  the look taken each frame is held (game.net_look) and rounded into the
+  tic's command, so the host turns you exactly as your screen did.
+
+  Test hooks: --netbot (turn toward the nearest of the others through
+  the command, walk at them, fire when in sight; --netbot=look holds
+  fire), --quit-after=S, --report=PATH (a client's numbers), and on the
+  host --spawns=x,y;x,y… (a deathmatch's pads) and --score-file=PATH.
 
 
 TESTS
@@ -147,8 +200,20 @@ TESTS
   runs the headless suites: the weapons against real people in the
   maze (godot/tests/weapons_test.gd — minigun, flamer, extinguisher,
   bore, launcher, arc), the fire grid, the forest, and the JESSE
-  generator, and THE SPRAWL and the grid against the web build's counts.
+  generator, and THE SPRAWL and the grid against the web build's counts,
+  and network play (godot/tests/net_test.gd: the TicCmd bytes against
+  js/net/ticcmd.js's — node godot/tests/net_js.mjs prints them — a match
+  over loopback pipes with prediction, a kill through the rewind and a
+  respawn, and a headless --server with two headless --join clients
+  fragging each other on a real socket).
   A shell with xvfb can also render pictures with --shot.
+
+  CROSS-PLAY, by hand (needs node, and Playwright for the second):
+
+    node godot/tests/net_cross.mjs node-host    Godot clients on the Node host
+    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+    PLAYWRIGHT_MODULE=$(npm root -g)/playwright/index.mjs \
+    node godot/tests/net_cross.mjs godot-host   a web page on the Godot host
 
 
 WHAT IS NOT PORTED YET
@@ -164,12 +229,14 @@ WHAT IS NOT PORTED YET
     along the line of sight; the web's smoke on world surfaces; the
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
-  - THE MEWD EDITOR and NETWORK PLAY — mission critical, being ported
-    now. The editor is an in-game runtime editor (godot/scripts/editor/)
-    reading and writing the web build's own document JSON. Network play
-    keeps the web build's wire protocol, so a Godot client can join the
-    Node server (tools/server.mjs) and a headless Godot server
-    (--server) can host web and Godot clients alike.
+  - THE MEWD EDITOR — mission critical, being ported now: an in-game
+    runtime editor (godot/scripts/editor/) reading and writing the web
+    build's own document JSON.
+  - Of network play: the Node host's serving of the web build's files
+    on its own port (the Godot host is a socket and nothing else; serve
+    the page from anywhere), the `use` key in the command (the Godot
+    player has no use yet), and the web page's saved player name (a
+    Godot client is --name=NAME or a random PLAYER nnn).
 
 NOT TO BE PORTED (the user's decision): the VTOL gunship, breaches and
 ruins, and rebuilding the geometry of charred sectors.

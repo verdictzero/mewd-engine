@@ -79,6 +79,12 @@ var bm_key := -1
 ## back to the Vehicle it is a third of, and its damage and its catching
 ## are the vehicle's — added for the vehicles port (godot/scripts/game/vehicle.gd)
 var vehicle = null
+## SOMEBODY ON ANOTHER MACHINE, drawn here (godot/scripts/net/remote.gd):
+## NetGame walks, turns, fires and drops it, and nothing in this file may;
+## which player it is and which side they are on
+var puppet := false
+var net_id := 0
+var net_team := -1
 
 func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> void:
 	info = States.actor(type_name)
@@ -145,6 +151,8 @@ func set_state(name, force := false) -> bool:
 
 func tic() -> void:
 	if removed or state.is_empty():
+		return
+	if puppet:
 		return
 	if burning > 0:
 		burn_tic()
@@ -305,6 +313,10 @@ func check_missile_range() -> bool:
 ## shot (a bullet), gib (a rocket beside them).
 func damage(amount: float, source, opts := {}) -> void:
 	if dead or removed or not shootable:
+		return
+	# a round from this machine marks a puppet without hurting it: the host
+	# decides what a hit did
+	if puppet:
 		return
 	# THREE CYLINDERS ARE ONE VAN: a shot into any third of it is a shot
 	# into the vehicle — the health lives there, not here (vehicles port)

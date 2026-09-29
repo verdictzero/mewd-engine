@@ -127,7 +127,7 @@ func draw(actors: Array, cam: Vector3, tics: int) -> void:
 		var flags := (1.0 if c[2] else 0.0) + (2.0 if (a.state.fullbright or a.info.get("fullbright", false)) else 0.0)
 		# and what only the launcher's thermal sight reads (standee.gdshader):
 		# a BODY is warm, a frozen one cold, a burning one white
-		if a.monster:
+		if a.monster or a.puppet:
 			flags += 8.0 if a.frozen else (4.0 if a.ash <= 0.0 else 0.0)
 		if a.burning > 0:
 			flags += 16.0

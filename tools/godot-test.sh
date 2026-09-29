@@ -18,4 +18,7 @@ run fire    --script res://godot/tests/fire_test.gd
 run forest  --script res://godot/tests/forest_test.gd -- 7
 run jesse   --script res://godot/tests/jesse_dump.gd -- /tmp/mewd-jesse.json 1 7
 run sprawl  --script res://godot/tests/sprawl_dump.gd
+# network play: the wire against the JS, a match over loopback, and a
+# headless --server with two headless --join clients on a real socket
+run net     --script res://godot/tests/net_test.gd
 exit $fail

@@ -52,14 +52,18 @@ func draw_for(cam: Camera3D, f: float) -> void:
 	im.clear_surfaces()
 	if list.is_empty():
 		return
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var eye := cam.global_position
+	var begun := false
 	for t in list:
 		var trav: float = t.trav + SPEED * f
 		var head := minf(trav, t.len)
 		var tail := maxf(0.0, trav - LENGTH)
-		if head <= tail:
+		if head <= tail or t.len <= 0.0:
 			continue
+		# (begun on the first streak that draws: an empty surface is an error)
+		if not begun:
+			im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+			begun = true
 		var dir: Vector3 = (t.b - t.a) / t.len
 		var h: Vector3 = t.a + dir * head
 		var tl: Vector3 = t.a + dir * tail
@@ -72,4 +76,5 @@ func draw_for(cam: Camera3D, f: float) -> void:
 		im.surface_set_color(cold); im.surface_add_vertex(tl - side)
 		im.surface_set_color(hot); im.surface_add_vertex(h + side)
 		im.surface_set_color(cold); im.surface_add_vertex(tl + side)
-	im.surface_end()
+	if begun:
+		im.surface_end()

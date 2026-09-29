@@ -19,6 +19,15 @@ const OWN := {
 	"GRIDWALL": ["res://godot/data/gridwall.png", 64, 64, false, true],
 }
 
+## THE MAP'S OWN TEXTURES, made in the editor's texture editor
+## (js/editor/texcompose.js, godot/scripts/editor/ed_texcompose.gd) and
+## registered here by name while that map is open or being played:
+## name -> [Texture2D, world w, world h, masked]
+static var map_own := {}
+
+static func register_map_texture(name: String, tex: Texture2D, world_w: float, world_h: float, masked: bool) -> void:
+	map_own[name] = [tex, world_w, world_h, masked]
+
 var info := {}
 var _tex := {}
 var _mat := {}
@@ -32,6 +41,8 @@ func _init() -> void:
 
 ## World size of one repeat of `name`, in units.
 func size_of(name: String) -> Vector2:
+	if map_own.has(name):
+		return Vector2(map_own[name][1], map_own[name][2])
 	if OWN.has(name):
 		return Vector2(OWN[name][1], OWN[name][2])
 	var e = info.get(name)
@@ -40,12 +51,16 @@ func size_of(name: String) -> Vector2:
 	return Vector2(e[0] * e[2], e[1] * e[2])
 
 func masked(name: String) -> bool:
+	if map_own.has(name):
+		return map_own[name][3]
 	if OWN.has(name):
 		return OWN[name][3]
 	var e = info.get(name)
 	return e != null and int(e[3]) != 0
 
 func texture(name: String) -> Texture2D:
+	if not _tex.has(name) and map_own.has(name):
+		_tex[name] = TexBank.decoded(map_own[name][0])
 	if not _tex.has(name):
 		var path: String = OWN[name][0] if OWN.has(name) else DIR + name + ".png"
 		var t: Texture2D = load(path) if ResourceLoader.exists(path) else load(DIR + "64TEST.png")
