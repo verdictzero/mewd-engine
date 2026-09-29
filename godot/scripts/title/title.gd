@@ -119,7 +119,7 @@ func _layout() -> void:
 	var H := size.y
 	if W <= 0 or H <= 0:
 		return
-	var tex_aspect := 1951.0 / 938.0
+	var tex_aspect := 1951.0 / 954.0
 	var side := H <= 520.0 and W > H
 	var lw: float
 	var lh: float
