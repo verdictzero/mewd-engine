@@ -118,13 +118,28 @@ func move(cmd: Dictionary) -> void:
 	var lv: Level = game.level
 	if momx != 0.0 or momy != 0.0:
 		var r := lv.slide_move(x, y, momx, momy, radius, z, height, false)
-		var blocked = game.thing_in_way(self, r.x, r.y)
+		var nx := r.x
+		var ny := r.y
+		# trees stop you too, and you slide round them the way you slide
+		# along a wall: the whole move, then each axis alone
+		var F = game.forest
+		if F != null and F.blocks(nx, ny, radius):
+			if not F.blocks(nx, y, radius):
+				ny = y
+			elif not F.blocks(x, ny, radius):
+				nx = x
+			else:
+				nx = x
+				ny = y
+		var blocked = game.thing_in_way(self, nx, ny)
 		if blocked == null:
-			x = r.x
-			y = r.y
+			x = nx
+			y = ny
 		else:
 			momx *= 0.2
 			momy *= 0.2
+		if F != null:
+			F.clamp_inside(self)
 
 	var sec := lv.sector_at(x, y, sector)
 	if sec:

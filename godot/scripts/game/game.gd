@@ -20,12 +20,15 @@ var standees: Standees
 ## the fire grid (js/fire.js) — asked by the crowd, fed by the flame
 var fire: FireSystem = null
 var fire_sprites: FireSprites
+var forest: Forest
+var forest_view: ForestView
+var lamps: Lamps
 var tics := 0
 var kills := 0
 var weather := Weather.new()
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
-var frost = null
+var frost: FrostStream
 var bore = null
 var tracers: Tracers
 var decals: Decals
@@ -75,6 +78,11 @@ func start_map(doc: Dictionary) -> void:
 	fire = FireSystem.new(self)
 	fire_sprites = FireSprites.new()
 	add_child(fire_sprites)
+	forest = Forest.new(level)
+	forest_view = ForestView.new(forest)
+	add_child(forest_view)
+	lamps = Lamps.new(level)
+	add_child(lamps)
 	bank = TexBank.new()
 	var geo := MapGeo.new(bank).build(level)
 	add_child(geo)
@@ -96,6 +104,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(tracers)
 	flame = FlameStream.new(self)
 	add_child(flame.particles)
+	frost = FrostStream.new(self)
+	add_child(frost.particles)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -198,11 +208,14 @@ func _process(dt: float) -> void:
 	if n == MAX_TICS:
 		_acc = 0.0
 	_place_camera(_acc / U.SEC)
-	weather.apply(dt, burn_percent() / 100.0)
+	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
+	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
+	lamps.draw(camera.position, Vector2(cos(player.angle), sin(player.angle)), weather.frame.get("skyLight", 0.85))
 	standees.draw(actors, camera.position, tics)
 	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
+	frost.particles.draw()
 	fx.draw()
 	giblets.draw()
 	if weapon3d != null:
@@ -230,7 +243,11 @@ func tic() -> void:
 	tracers.tic()
 	fire.wind = weather.wind()
 	fire.tic()
+	forest.wind = fire.wind
+	forest.rain = fire.rain
+	forest.tic()
 	flame.tic()
+	frost.tic()
 	fx.tic()
 	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
@@ -247,7 +264,7 @@ func _place_camera(f: float) -> void:
 	camera.rotation = Vector3(p.pitch, p.angle - PI / 2.0, 0.0)
 
 ## The map's things that are actors, into the world.
-const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY"}
+const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY", "STREETLAMP": "STREETLAMP"}
 
 func _spawn_things() -> void:
 	for t in level.things:

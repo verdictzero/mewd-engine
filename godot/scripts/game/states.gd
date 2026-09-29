@@ -107,6 +107,9 @@ static func build() -> void:
 		"seeSound": "armysee", "painSound": "armypain", "deathSound": "armydie", "attackSound": "rifle",
 		"freezable": true, "frozen": "ARMY_FROZE", "freezeReturn": "ARMY_RUN1", "bored": "ARMY_BORE", "lit": 1.1,
 	}
+	# a street lamp is a post you walk into, and nothing you can see: the
+	# geometry and the flare are Lamps' (js/states.js STREETLAMP)
+	ACTORS["STREETLAMP"] = {"name": "Street lamp", "radius": 8, "height": 256, "solid": true}
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
 	ACTORS["BLAST"] = {"name": "Blast", "spawn": "BLAST1", "radius": 8, "height": 96, "fullbright": true}
 	ACTORS["PUFF"] = {"name": "Puff", "spawn": "PUFF1", "radius": 4, "height": 8}

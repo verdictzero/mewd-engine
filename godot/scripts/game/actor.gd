@@ -14,7 +14,10 @@ enum DI { EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST, 
 const DIR_ANGLE := [0.0, PI / 4, PI / 2, 3 * PI / 4, PI, -3 * PI / 4, -PI / 2, -PI / 4]
 const OPPOSITE := [DI.WEST, DI.SOUTHWEST, DI.SOUTH, DI.SOUTHEAST, DI.EAST, DI.NORTHEAST, DI.NORTH, DI.NORTHWEST, DI.NODIR]
 const DIAGONALS := [DI.NORTHWEST, DI.NORTHEAST, DI.SOUTHWEST, DI.SOUTHEAST]
-const FREEZE_AT := 100.0
+const FREEZE_AT := 100.0     # frost units before they go solid
+const THAW_EVERY := 6        # tics per unit bled back off
+const FIRE_THAW := 14.0      # and per tic of fire, which is 84x faster
+const BORE_TICS := 78        # a shade over two seconds — js/bore.js's number
 
 static var _next_id := 1
 
@@ -60,6 +63,11 @@ var frozen := false
 var ash := 0.0
 var lit := 0.0
 var bored := 0
+var bored_by = null
+var thaw_tick := 0
+var thaw_state = null
+var ash_tics := 0
+var ash_by = null
 var variant := 0
 var sector: Level.Sector = null
 var state := {}
@@ -136,6 +144,10 @@ func tic() -> void:
 		return
 	if burning > 0:
 		burn_tic()
+	if frost > 0.0:
+		frost_tic()
+	if bored > 0:
+		bore_tic()
 	if removed:
 		return
 	if state_tics == -1:
@@ -187,6 +199,8 @@ func try_walk(dir: int = -1) -> bool:
 func can_stand_at(nx: float, ny: float) -> bool:
 	var r: Vector3 = game.level.slide_move(x, y, nx - x, ny - y, radius, z, height, true)
 	if r.z > 0.0 or absf(r.x - nx) > 0.01 or absf(r.y - ny) > 0.01:
+		return false
+	if game.forest != null and game.forest.blocks(nx, ny, radius):
 		return false
 	for o in game.blockmap.near(nx, ny):
 		if o == self or o.removed or not o.solid or o.dead:
@@ -288,7 +302,26 @@ func check_missile_range() -> bool:
 func damage(amount: float, source, opts := {}) -> void:
 	if dead or removed or not shootable:
 		return
+	# A BLOCK OF ICE COMES APART ENTIRELY under anything that is not
+	# fire; fire is spent melting it (a fireproof trooper thaws, anybody
+	# else is eaten where they stand — burn_away)
+	if frozen:
+		if not opts.get("fire", false):
+			shatter(source, opts)
+			return
+		if fireproof:
+			frost = maxf(0.0, frost - amount * 2.0)
+			if frost <= 0.0:
+				thaw()
+			return
+		burn_away(source)
+		return
 	if opts.get("fire", false) and fireproof:
+		return
+	# somebody being eaten: fire does nothing more, a blow finishes them
+	if ash > 0.0:
+		if not opts.get("fire", false):
+			collapse(source)
 		return
 	if opts.get("fire", false) and torch > 0:
 		return
@@ -309,6 +342,12 @@ func damage(amount: float, source, opts := {}) -> void:
 
 func die(source, _overkill := 0.0, opts := {}) -> void:
 	if dead:
+		return
+	if frozen:
+		shatter(source)
+		return
+	if ash > 0.0:
+		collapse(source)
 		return
 	bored = 0
 	dead = true
@@ -451,8 +490,18 @@ func A_Torch() -> void:
 	health = 0
 	die(game.player, 0, {"fire": true})
 
+## BEING EATEN: one number goes up and the shader eats the drawing with
+## it, by the length of the frame and not a fixed step
 func A_BurnAway() -> void:
-	pass
+	ash = minf(1.0, ash + float(state.tics) / maxf(1.0, ash_tics))
+	if frost > 0.0:
+		frost = maxf(0.0, frost - FIRE_THAW * 2.0)
+	if game.fx != null:
+		game.fx.body_fire(self, 0.5)
+		if (U.p_random() & 1) == 0:
+			game.fx.ember(x, y, z + height * ash, 1, 0.7)
+	if ash >= 1.0:
+		collapse(ash_by)
 
 ## Standing still and smelling the air: nine samples of the fire grid,
 ## and anybody running past near enough to see their face.
@@ -591,3 +640,191 @@ func A_Fall() -> void:
 	solid = false
 	height = 8.0
 	game.play_sound("bodyfall", self)
+
+# ------------------------------------------------------------------
+# THE COLD (js/actor.js chill, soak, freeze, frostTic, thaw) — and what
+# fire does to somebody in the ice (burnAway, collapse), and a blow
+# (shatter)
+# ------------------------------------------------------------------
+
+## Frost in; true if that froze them.
+func chill(amount: float) -> bool:
+	if removed or dead or not info.get("freezable", false):
+		return false
+	if ash > 0.0:
+		return false
+	if burning > 0:
+		burning = maxi(0, burning - int(amount * 4))
+		torch = maxi(0, torch - int(amount * 4))
+		if burning <= 0:
+			lit = 0.0
+	if frozen:
+		frost = FREEZE_AT
+		return false
+	frost = minf(FREEZE_AT, frost + amount)
+	if frost >= FREEZE_AT:
+		freeze()
+		return true
+	return false
+
+## water on somebody alight: true if it put them out
+func soak(amount: float) -> bool:
+	if removed or dead or ash > 0.0 or burning <= 0:
+		return false
+	burning = maxi(0, burning - int(amount * 4))
+	torch = maxi(0, torch - int(amount * 4))
+	if burning > 0:
+		return false
+	lit = 0.0
+	return true
+
+func freeze() -> void:
+	if frozen or removed or dead:
+		return
+	frozen = true
+	frost = FREEZE_AT
+	burning = 0
+	torch = 0
+	lit = 0.0
+	thaw_state = info.get("freezeReturn", info.get("see", info.get("spawn")))
+	solid = true
+	panic = 0
+	if info.has("frozen"):
+		set_state(info.frozen, true)
+	state_tics = -1
+	game.play_sound("freeze", self)
+
+func frost_tic() -> void:
+	if removed:
+		return
+	var hot: float = game.fire.heat_at(x, y) if game.fire != null else 0.0
+	if frozen and hot > 0.2 and not fireproof:
+		burn_away()
+		return
+	if hot > 0.2 or burning > 0:
+		frost = maxf(0.0, frost - FIRE_THAW * (1.0 if burning > 0 else hot))
+	else:
+		thaw_tick += 1
+		if thaw_tick >= THAW_EVERY:
+			thaw_tick = 0
+			frost -= 1.0
+	if frost < 0.0:
+		frost = 0.0
+	if frozen and frost <= 0.0:
+		thaw()
+
+func thaw() -> void:
+	if not frozen:
+		return
+	frozen = false
+	if dead or removed:
+		frost = 0.0
+		return
+	solid = bool(info.get("solid", monster))
+	panic = int(info.get("panicTics", 280))
+	if game.fx != null:
+		game.fx.frost_puff(x, y, z + height * 0.5, 18, 34)
+	game.play_sound("thaw", self)
+	if thaw_state != null:
+		set_state(thaw_state)
+
+## what fire does to somebody still in the ice: eaten where they stand
+func burn_away(source = null) -> void:
+	if removed or dead or ash > 0.0:
+		return
+	if not info.has("burnAway"):
+		if frozen:
+			thaw()
+		return
+	frozen = false
+	burning = 0
+	torch = 0
+	lit = 0.0
+	ash_by = source if source != null else game.player
+	var r: Array = info.get("ashTics", [105, 158])
+	ash_tics = roundi(r[0] + (U.p_random() / 255.0) * (r[1] - r[0]))
+	ash = 0.001
+	panic = 0
+	solid = bool(info.get("solid", monster))
+	set_state(info.burnAway, true)
+	game.play_sound("ignite", self)
+	if game.fire != null and float(info.get("fuel", 0)) > 0.0:
+		game.fire.ignite(x, y, float(info.fuel))
+
+## a heap of ash on the floor
+func collapse(source = null) -> void:
+	if removed:
+		return
+	dead = true
+	solid = false
+	shootable = false
+	game.play_sound("bodyfall", self)
+	if game.fx != null:
+		game.fx.puff(x, y, z + 10, 26, 130)
+		game.fx.ember(x, y, z + 6, 8, 0.5)
+	if game.giblets != null:
+		game.giblets.ash_pile(self)
+	if monster:
+		game.on_monster_killed(self, source if source != null else ash_by)
+	remove()
+
+## a block of ice, struck
+func shatter(source, opts := {}) -> void:
+	if removed:
+		return
+	dead = true
+	solid = false
+	shootable = false
+	if game.giblets != null:
+		game.giblets.shatter(self, opts)
+	if monster:
+		game.on_monster_killed(self, source)
+	remove()
+
+# ------------------------------------------------------------------
+# THE BORE, in a head (js/actor.js bore, boreTic, boreBurst)
+# ------------------------------------------------------------------
+
+func bore(by = null) -> String:
+	if removed or dead:
+		return ""
+	if frozen:
+		shatter(by, {"impact": true, "force": 1.4})
+		return "shatter"
+	if ash > 0.0:
+		collapse(by)
+		return "collapse"
+	if bored > 0:
+		return ""
+	bored = BORE_TICS
+	bored_by = by if by != null else game.player
+	panic = 0
+	if info.has("bored"):
+		set_state(info.bored, true)
+	state_tics = -1
+	game.play_sound(info.get("painSound"), self)
+	return "drill"
+
+func bore_tic() -> void:
+	bored -= 1
+	if bored > 0:
+		var top := z + height * 0.9
+		if (bored & 1) == 0 and game.giblets != null:
+			game.giblets.spurt(self)
+		if bored % 4 == 0 and game.fx != null:
+			game.fx.blood_puff(x, y, top)
+		if bored % 14 == 0:
+			game.play_sound(info.get("painSound"), self)
+		return
+	bore_burst()
+
+## AND THEN THEY EXPLODE: the same coming-apart the flamethrower gets
+func bore_burst() -> void:
+	var by = bored_by
+	bored = 0
+	if removed or dead:
+		return
+	if game.giblets != null:
+		game.giblets.spurt(self, 10)
+	health = mini(0, int(info.get("gibHealth", 0)) - 1)
+	die(by, 100)

@@ -105,6 +105,9 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 			continue
 		_burn_actor(a, nx, ny, nz)
 		return true
+	if game.forest != null and game.forest.hits_tree(nx, ny, nz):
+		_land(nx, ny, nz, Vector3())
+		return true
 	return false
 
 func _land(x: float, y: float, z: float, _surface: Vector3) -> void:

@@ -63,9 +63,10 @@ func _init() -> void:
 			forest.tic()
 	elif mode == "wood":
 		var c := lv.bounds.get_center()
-		ex = c.x + 60.0
-		ey = c.y + 60.0
-		ez = 70.0
+		# from above the middle of the level, looking down over the wood
+		ex = c.x + 200.0
+		ey = c.y + 200.0
+		ez = 1100.0
 		tx = c.x - 600.0
 		ty = c.y - 600.0
 		forest.ignite(tx, ty, 60.0)
@@ -83,7 +84,7 @@ func _init() -> void:
 	cam.position = U.v3(ex, ey, ez)
 	var ang := atan2(ty - ey, tx - ex)
 	look = Vector2(cos(ang), sin(ang))
-	cam.rotation = Vector3(0.22 if mode != "wood" else 0.05, ang - PI / 2.0, 0.0)
+	cam.rotation = Vector3(0.22 if mode != "wood" else -0.62, ang - PI / 2.0, 0.0)
 	cam.make_current()
 
 func _process(_dt: float) -> bool:
