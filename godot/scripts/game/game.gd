@@ -110,7 +110,9 @@ func _bind_keys() -> void:
 	mb.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("attack", mb)
 
-func _unhandled_input(event: InputEvent) -> void:
+## input, handed down by Main: a SubViewport outside a container is
+## sent none of its own
+func handle_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_look += event.relative * MOUSE_SENS
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -140,7 +142,7 @@ func _process(dt: float) -> void:
 	_frames += 1
 	if _shot != "" and _frames == _shot_frames:
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(_shot)
+		get_tree().root.get_texture().get_image().save_png(_shot)
 		get_tree().quit()
 
 func tic() -> void:
