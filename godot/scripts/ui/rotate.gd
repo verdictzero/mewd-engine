@@ -1,78 +1,34 @@
 ## MEWD — a phone held upright (index.html #rotate).
 ##
-## At the user's request: a full-screen red error, a black rotate-to-
-## landscape icon (Material Icons' screen_rotation, drawn from its path)
-## nudging a quarter turn and back, and ROTATE DEVICE. Only on a touch
-## screen held in portrait.
+## At the user's request: a full-screen red error, the rotate icon the
+## user supplied (cut out of its background: godot/data/rotate_icon.png,
+## black, still), and ROTATE DEVICE. Only on a touch screen held in
+## portrait.
 class_name RotateNotice
 extends Control
 
-## Material Icons "screen_rotation", 24x24 path, as polygons
-var icon: Array[PackedVector2Array] = []
-var _t := 0.0
+var icon: Texture2D = preload("res://godot/data/rotate_icon.png")
 var font: Font
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	font = load("res://assets/fonts/Michroma-Regular.ttf")
-	# the phone, on its side, and the two arcs of the arrow
-	icon.append(PackedVector2Array([Vector2(10.23, 1.75), Vector2(22.25, 13.77), Vector2(13.77, 22.25), Vector2(1.75, 10.23)]))
+	resized.connect(queue_redraw)
 
-func _process(dt: float) -> void:
-	_t += dt
+func _process(_dt: float) -> void:
 	var portrait := size.y > size.x
-	visible = portrait and (DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"))
-	if visible:
+	var want := portrait and (DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"))
+	if want != visible:
+		visible = want
 		queue_redraw()
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#d0201a"))
-	var s := minf(size.x, size.y) * 0.32
+	var s := minf(size.x, size.y) * 0.36
 	var c := size * Vector2(0.5, 0.42)
-	# nudge: a quarter turn and back, every three seconds
-	var ph := fmod(_t, 3.0) / 3.0
-	var ang := 0.0
-	if ph > 0.35 and ph < 0.55:
-		ang = -PI / 2.0 * (ph - 0.35) / 0.2
-	elif ph >= 0.55 and ph < 0.9:
-		ang = -PI / 2.0
-	elif ph >= 0.9:
-		ang = -PI / 2.0 * (1.0 - (ph - 0.9) / 0.1)
-	var xf := Transform2D(ang, c) * Transform2D(0.0, Vector2(-s / 2.0, -s / 2.0))
-	var k := s / 24.0
-	# the phone: an outlined slab with a screen inside
-	var body := PackedVector2Array()
-	for p in [Vector2(10.23, 1.75), Vector2(22.25, 13.77), Vector2(13.77, 22.25), Vector2(1.75, 10.23)]:
-		body.append(xf * (_small(p) * k))
-	draw_colored_polygon(body, Color.BLACK)
-	var screen := PackedVector2Array()
-	for p in [Vector2(10.23, 4.2), Vector2(19.8, 13.77), Vector2(13.77, 19.8), Vector2(4.2, 10.23)]:
-		screen.append(xf * (_small(p, SCREEN) * k))
-	draw_colored_polygon(screen, Color("#d0201a"))
-	# and the two arrows round it: arcs with a head on the leading end,
-	# pointing the way the phone turns (anticlockwise, on the glass)
-	var mid: Vector2 = c
-	var r := 13.5 * k
-	var spin := 0.0
-	for a0 in [PI * 1.05, PI * 0.05]:
-		draw_arc(mid, r, a0 + spin + 0.12, a0 + spin + PI * 0.40, 16, Color.BLACK, 1.8 * k)
-		var a: float = a0 + spin
-		var at := mid + Vector2(cos(a), sin(a)) * r
-		var tan := Vector2(sin(a), -cos(a))
-		var out := Vector2(cos(a), sin(a))
-		var hl := 3.4 * k
-		draw_colored_polygon(PackedVector2Array([at + tan * hl * 0.55, at - tan * hl * 0.45 + out * hl * 0.6,
-			at - tan * hl * 0.45 - out * hl * 0.6]), Color.BLACK)
+	draw_texture_rect(icon, Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color.BLACK)
 	var fs := int(clampf(size.x * 0.06, 16.0, 26.0))
 	var t := "R O T A T E   D E V I C E"
 	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(font, Vector2((size.x - w) / 2.0, c.y + s * 0.95), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
-
-## the phone, a size smaller than the arrows round it (about its middle)
-## (and its screen by less, so the outline stays as thick as it was)
-const PHONE := 0.68
-const SCREEN := 0.58
-static func _small(p: Vector2, by := PHONE) -> Vector2:
-	return Vector2(12, 12) + (p - Vector2(12, 12)) * by
-
+	draw_string(font, Vector2((size.x - w) / 2.0, c.y + s * 0.85), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
