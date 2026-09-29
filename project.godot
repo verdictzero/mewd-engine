@@ -1,0 +1,24 @@
+; MEWD, the Godot 4 port. The project is the repository's root so the
+; game's own assets/ are res://assets/ without a copy; the web build's
+; folders (js/, vendor/, tools/, css/, art/) carry a .gdignore.
+
+config_version=5
+
+[application]
+
+config/name="MEWD"
+run/main_scene="res://godot/scenes/main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+config/icon="res://icon.png"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_3d=0
