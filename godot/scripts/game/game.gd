@@ -79,7 +79,11 @@ func _ready() -> void:
 			_autofire = true
 		elif a.begins_with("--weapon="):
 			_start_weapon = a.substr(9)
-	start_map(MazeMap.build(seed))
+	var which := "maze"
+	for a in args:
+		if a.begins_with("--map="):
+			which = a.substr(6)
+	start_map(JesseMap.build(seed) if which == "jesse" else MazeMap.build(seed))
 
 func start_map(doc: Dictionary) -> void:
 	var t0 := Time.get_ticks_msec()
@@ -95,7 +99,7 @@ func start_map(doc: Dictionary) -> void:
 	bank = TexBank.new()
 	var geo := MapGeo.new(bank).build(level)
 	add_child(geo)
-	_make_sky(str(level.world.get("skybox", "BSKY2")))
+	_make_sky(str(level.world.get("skybox", "")))
 	var start = null
 	for t in level.things:
 		if t.type == "START":
@@ -138,29 +142,37 @@ func start_map(doc: Dictionary) -> void:
 	print("MEWD: %s seed %d — %d sectors, %d lines, %d things, built in %d ms" % [
 		level.name, seed, level.sectors.size(), level.lines.size(), level.things.size(), Time.get_ticks_msec() - t0])
 
+## The sky: the map's skybox photograph if it names one (the air fading to
+## its horizon), else the sky for the hour and the weather, worked out
+## per pixel (godot/shaders/sky.gdshader, js/skyart.js) with the map's
+## own colours over it (world.sky — the grid's green).
 func _make_sky(name: String) -> void:
 	var env := Environment.new()
-	var tex: Texture2D = load("res://assets/skies/%s.png" % name)
-	if tex:
+	var sky := Sky.new()
+	var path := "res://assets/skies/%s.png" % name
+	if name != "" and name != "<null>" and ResourceLoader.exists(path):
+		var tex: Texture2D = load(path)
 		var sm := PanoramaSkyMaterial.new()
 		sm.panorama = tex
 		sm.filter = false
-		var sky := Sky.new()
 		sky.sky_material = sm
-		env.background_mode = Environment.BG_SKY
-		env.sky = sky
-		# the air fades to the colour of the sky at the horizon
 		var img := tex.get_image()
 		if img:
 			var c := Color()
 			var h := img.get_height() / 2
 			for i in 16:
 				c += img.get_pixel(i * img.get_width() / 16, h)
-			c /= 16.0
-			RenderingServer.global_shader_parameter_set("air_color", c)
+			RenderingServer.global_shader_parameter_set("air_color", c / 16.0)
 	else:
-		env.background_mode = Environment.BG_COLOR
-		env.background_color = Color(0.1, 0.1, 0.12)
+		var sm := ShaderMaterial.new()
+		sm.shader = preload("res://godot/shaders/sky.gdshader")
+		sky.sky_material = sm
+		weather.sky_mat = sm
+		var skin = level.world.get("sky")
+		if skin is Dictionary:
+			weather.sky_skin = skin
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var we := WorldEnvironment.new()
 	we.environment = env
