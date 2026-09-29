@@ -23,7 +23,7 @@ render_mode unshaded, cull_back, depth_draw_opaque;
 #include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform sampler2D tex : source_color, filter_nearest_mipmap, repeat_enable;
-uniform sampler2D tex_smooth : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D tex_smooth : source_color, filter_nearest_mipmap, repeat_enable;
 uniform bool use_smooth = false;
 uniform bool masked = false;
 uniform vec3 ambient = vec3(0.0);

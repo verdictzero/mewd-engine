@@ -8,9 +8,9 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_back, depth_draw_never, shadows_disabled;
 
-uniform sampler2D behind : hint_screen_texture, filter_linear;
-uniform float strength = 0.035;
-uniform float rough = 0.012;
+uniform sampler2D behind : hint_screen_texture, filter_nearest;
+uniform float strength = 0.012;
+uniform float rough = 0.004;
 uniform vec3 body = vec3(0.78, 0.9, 0.86);
 
 float hash(vec2 p) {

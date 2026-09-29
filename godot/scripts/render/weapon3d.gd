@@ -39,15 +39,17 @@ const GUNS := {
 		"display": {"material": "dyanmic_display_surface_mat"}},
 	# THE IRISH POTATO CANNON (game/potatoes.gd): its little screen is a
 	# THERMAL SIGHT in night-vision green (ThermalScope `green`), raised to
-	# the eye on the zoom as the launcher's is; its
-	# glass is glass, and every other part wears its own material — chrome,
-	# gold, red lacquer, the knotwork's normal maps, the shamrock decal —
-	# lit by a rig of its own ("pbr": _light_rig)
-	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.30, -0.02, 0], "rot": [0.10, 3.14159 + 0.55, -0.05], "tint": [1, 1, 1],
+	# the eye on the zoom as the launcher's is; its glass is glass, and
+	# every other part keeps its own colours and textures ("pbr") — through
+	# the same unlit gun shader as every gun, its metal given a made-up
+	# sheen
+	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.26, -0.12, 0], "rot": [0.04, 0.05, -0.04], "tint": [1, 1, 1],
 		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true, "mirror": true,
-		# mirrored left to right (the file has it the other way about) and
-		# turned about; raised, the screen is straight ahead a hand's
-		# breadth off
+		# mirrored left to right (the file has the sight on the other side),
+		# and pointed as every other gun is: muzzle at the file's +Z, the
+		# sight's screen facing -Z, back at the eye (its normals say so) —
+		# straight down the view; raised, the screen is straight ahead a
+		# hand's breadth off
 		"aim": {"solve": {"dist": 0.16, "yaw": 6.28318, "pitch": 0.0}}},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
@@ -99,11 +101,9 @@ func _load(name: String) -> Dictionary:
 	var mats := []
 	var spinner: Node3D = null
 	_dress(root, def, mats, scopes.get(name))
-	if def.get("pbr", false):
-		_light_rig()
 	if def.has("spin"):
 		spinner = _find_spinner(root)
-	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner}
+	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner, "tip": _tip(group, spinner)}
 	# A SOLVED AIM: the screen straight ahead of the eye, `dist` off, the
 	# gun turned `yaw` (and `pitch`) — worked out from where the screen
 	# really is in the model, not nudged by hand
@@ -118,6 +118,38 @@ func _load(name: String) -> Dictionary:
 			out["aim"] = {"pos": [pabs.x - VIEW.pos[0], pabs.y - VIEW.pos[1], pabs.z - VIEW.pos[2]],
 				"rot": [rabs.x - VIEW.pitch, rabs.y - VIEW.yaw, rabs.z - VIEW.roll], "out": 1.0}
 	return out
+
+## THE MUZZLE, in the group's space: the far end of the barrels (the
+## spinning set, where a gun has one) or of the whole gun, at the middle
+## of its cross-section — where a round is seen to leave (muzzle_uv)
+func _tip(group: Node3D, spinner: Node3D) -> Vector3:
+	var box := AABB()
+	if spinner != null:
+		var xf := Transform3D()
+		var n: Node = spinner.get_parent()
+		while n != null and n != group:
+			if n is Node3D:
+				xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		box = _aabb(spinner, xf)
+	if box.size == Vector3.ZERO:
+		box = _aabb(group.get_child(0), Transform3D())
+	var c := box.get_center()
+	return Vector3(c.x, c.y, box.position.z)
+
+## Where the muzzle of the gun in hand is on the picture, 0..1 each way
+## (or (-1, -1) with none in hand): the world casts its rounds' streaks
+## back out through the same spot (Game.muzzle_view)
+func muzzle_uv() -> Vector2:
+	if not guns.has(current) or camera == null:
+		return Vector2(-1, -1)
+	var G: Dictionary = guns[current]
+	var g: Node3D = G.group
+	var at: Vector3 = global_transform * (g.transform * (G.tip as Vector3))
+	if camera.is_position_behind(at):
+		return Vector2(-1, -1)
+	var vs := Vector2(get_viewport().get_visible_rect().size)
+	return camera.unproject_position(at) / vs
 
 ## The middle of a gun's screen (the surface wearing `mat`), in its
 ## group's space.
@@ -189,11 +221,6 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			if scope != null and def.has("optics") and nm == def.optics.material:
 				mi.set_surface_override_material(i, scope.optics_material(def.optics.get("base", [0.34, 0.80, 0.0])))
 				continue
-			# A GUN IN ITS OWN MATERIALS ("pbr": metal, paint, normal maps,
-			# decals with alpha, as its file has them), lit by the rig
-			# (_light_rig) instead of the flat gun shader
-			if def.get("pbr", false):
-				continue
 			var m := ShaderMaterial.new()
 			m.shader = preload("res://godot/shaders/gun.gdshader")
 			var t := Vector3(def.tint[0], def.tint[1], def.tint[2])
@@ -207,46 +234,17 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 
 				if def.has("heat") and bm.resource_name == def.heat:
 					m.set_shader_parameter("heats", true)
+				# A GUN IN ITS OWN COLOURS ("pbr": chrome, gold, red lacquer,
+				# the shamrock decal) is still unlit, like everything: its
+				# metal gets a made-up sky to shine in (gun.gdshader `metal`),
+				# not a light
+				if def.get("pbr", false):
+					m.set_shader_parameter("metal", bm.metallic)
 			mi.set_surface_override_material(i, m)
 			mats.append(m)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children():
 		_dress(c, def, mats, scope)
-
-## THE RIG for a gun in its own materials: a key light over the shoulder,
-## a fill from below the other side, and a sky made up for the metal to
-## reflect (never drawn: the gun's world stays clear over the room).
-## Made once; the lights follow the room's light (update_for).
-var _key: DirectionalLight3D
-var _fill: DirectionalLight3D
-func _light_rig() -> void:
-	if _key != null:
-		return
-	_key = DirectionalLight3D.new()
-	_key.rotation = Vector3(-0.75, 0.55, 0.0)
-	_key.light_energy = 1.2
-	add_child(_key)
-	_fill = DirectionalLight3D.new()
-	_fill.rotation = Vector3(0.35, -2.4, 0.0)
-	_fill.light_energy = 0.35
-	_fill.light_color = Color(0.8, 0.85, 1.0)
-	add_child(_fill)
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.75, 0.8, 0.9)
-	sky_mat.sky_horizon_color = Color(0.95, 0.92, 0.85)
-	sky_mat.ground_horizon_color = Color(0.45, 0.42, 0.38)
-	sky_mat.ground_bottom_color = Color(0.12, 0.11, 0.1)
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	var e := Environment.new()
-	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.sky = sky
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_energy = 0.55
-	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	var we := WorldEnvironment.new()
-	we.environment = e
-	add_child(we)
 
 func _find_spinner(n: Node) -> Node3D:
 	if n is Node3D and (n.name.to_lower().contains("barrel") or n.name.to_lower().contains("rotat") or n.name.to_lower().contains("spin")):
@@ -329,13 +327,6 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	if G.spinner != null:
 		spin_angle += p.spin * def.spin * TAU * dt
 		G.spinner.rotation.z = spin_angle
-	# the rig, for a gun in its own materials: the room's light on it too
-	if _key != null:
-		var pbr: bool = def.get("pbr", false)
-		_key.visible = pbr
-		_fill.visible = pbr
-		_key.light_energy = (0.45 + 0.9 * light) * (1.0 + kick * 0.6)
-		_fill.light_energy = 0.15 + 0.3 * light
 	for m in G.mats:
 		m.set_shader_parameter("dim", light)
 		m.set_shader_parameter("glow", kick)

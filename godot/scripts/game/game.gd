@@ -448,10 +448,12 @@ func _process(dt: float) -> void:
 	_look = Vector2()
 	_acc += dt
 	var n := 0
+	var t0 := Time.get_ticks_usec()
 	while _acc >= U.SEC and n < MAX_TICS:
 		_acc -= U.SEC
 		n += 1
 		tic()
+	_prof_add("tics", t0)
 	if n == MAX_TICS:
 		_acc = 0.0
 	# the others, slid to where they were a moment ago
@@ -484,6 +486,7 @@ func _process(dt: float) -> void:
 	_zoom = false
 	# (off the step it is at now, not the one it was at when the look was taken)
 	camera.fov = BASE_FOV * (sighted.view_scale() if sighted != null else 1.0)
+	t0 = Time.get_ticks_usec()
 	scope.render(camera)
 	thermal.render(camera)
 	green_thermal.render(camera)
@@ -493,9 +496,17 @@ func _process(dt: float) -> void:
 	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
 	if skybox_mat != null:
 		_skybox_fog()
+	_prof_add("scopes+weather", t0)
+	t0 = Time.get_ticks_usec()
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
+	_prof_add("forest_view", t0)
+	t0 = Time.get_ticks_usec()
 	lamps.draw(camera.position, Vector2(cos(player.angle), sin(player.angle)), weather.frame.get("skyLight", 0.85))
-	standees.draw(actors, camera.position, tics)
+	_prof_add("lamps", t0)
+	t0 = Time.get_ticks_usec()
+	standees.draw(actors, camera.position, tics, Vector2(cos(player.angle), sin(player.angle)) if weapon3d != null else Vector2())
+	_prof_add("standees", t0)
+	t0 = Time.get_ticks_usec()
 	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
@@ -507,8 +518,35 @@ func _process(dt: float) -> void:
 	escalation.draw()
 	fx.draw()
 	giblets.draw()
+	_prof_add("fx draw", t0)
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
+	_prof_frame()
+
+## --prof: where a frame's time goes, averaged and printed every 2 s
+var _prof := {}
+var _prof_on := OS.get_cmdline_user_args().has("--prof")
+var _prof_n := 0
+func _prof_add(k: String, t0: int) -> void:
+	if _prof_on:
+		_prof[k] = _prof.get(k, 0) + Time.get_ticks_usec() - t0
+
+func _prof_frame() -> void:
+	if not _prof_on:
+		return
+	_prof_n += 1
+	if _prof_n < 120:
+		return
+	var line := "PROF fps %d  process %.1fms  draws %d  objs %d  prims %dk |" % [Engine.get_frames_per_second(),
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+		Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000]
+	for k in _prof:
+		line += " %s %.2fms" % [k, _prof[k] / 1000.0 / _prof_n]
+	print(line)
+	_prof.clear()
+	_prof_n = 0
 
 ## This machine's hands this tic, as a command (Player.tic's Dictionary;
 ## TicCmd's fields): the keys, the pad and the glass. The look is not in
@@ -803,6 +841,24 @@ func nozzle(p) -> Vector3:
 	var c := cos(p.angle)
 	var s := sin(p.angle)
 	return Vector3(p.x + c * 18.0 + s * 9.0, p.y + s * 18.0 - c * 9.0, p.view_z - 9.0)
+
+## WHERE A ROUND IS SEEN TO LEAVE, for the player whose eyes these are:
+## the gun in hand's muzzle as it is drawn (Weapon3D.muzzle_uv), cast
+## back out through the world's camera — so a streak comes out of the
+## barrels on the screen and not out of a point beside the eye. The
+## round itself still flies from `fallback` (nozzle: the same for every
+## machine in a match); this is only where its streak starts.
+func muzzle_view(p, fallback: Vector3) -> Vector3:
+	if weapon3d == null or p != player or camera == null:
+		return fallback
+	var uv: Vector2 = weapon3d.muzzle_uv()
+	if uv.x < 0.0:
+		return fallback
+	var vs := Vector2(camera.get_viewport().get_visible_rect().size)
+	var o := camera.project_ray_origin(uv * vs)
+	var d := camera.project_ray_normal(uv * vs)
+	var at := o + d * 30.0
+	return Vector3(at.x, -at.z, at.y)
 
 ## the weapons that do not run on frames tic themselves: kind is one of
 ## "charge" (the lance), "seeker" (the launcher), "arc" (the maw)

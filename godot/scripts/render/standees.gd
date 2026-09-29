@@ -24,6 +24,7 @@ class Strip:
 	var mm: MultiMesh
 	var mi: MultiMeshInstance3D
 	var buf := PackedFloat32Array()
+	var rows := []
 	var n := 0
 	var cells := 1
 	var cell := Vector2.ONE
@@ -70,8 +71,9 @@ func _strip(key: String, path: String, cell: Vector2) -> void:
 
 ## Which strip and cell an actor's state draws from, and mirrored or not.
 func _cell_of(a: Actor, cam: Vector2) -> Array:
-	var sprite: String = a.state.sprite
-	var frame: String = a.state.frame
+	var st: Dictionary = a.state
+	var sprite: String = st.sprite
+	var frame: String = st.frame
 	if sprite == "SHOP":
 		return ["SHOP", a.variant % States.SHOPPERS, false]
 	if sprite == "BLST":
@@ -94,58 +96,76 @@ func _cell_of(a: Actor, cam: Vector2) -> Array:
 		return [sprite, turn.length() * int(t.views) + flat.find(frame), false]
 	return ["", 0, false]
 
-func draw(actors: Array, cam: Vector3, tics: int) -> void:
+## `look`, the way the eye faces in map space: anyone well outside the
+## widest view there is (a quarter turn and a bit off it) is not written
+## at all — half the crowd, most frames, for nothing
+func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 	for k in strips:
 		strips[k].n = 0
+		strips[k].rows.clear()
 	var cx := cam.x
 	var cy := -cam.z
 	var cam2 := Vector2(cx, cy)
-	for a in actors:
+	var cull := look != Vector2()
+	var far2 := CULL_FAR * CULL_FAR
+	var s_rate: float = SWAY.rate
+	var s_run_rate: float = SWAY.runRate
+	var s_lean: float = SWAY.lean
+	var s_run_lean: float = SWAY.runLean
+	var s_bob: float = SWAY.bob
+	var s_run_bob: float = SWAY.runBob
+	for a: Actor in actors:
 		if a.removed or a.state.is_empty():
 			continue
 		var dx: float = a.x - cx
 		var dy: float = a.y - cy
-		if dx * dx + dy * dy > CULL_FAR * CULL_FAR:
+		var d2: float = dx * dx + dy * dy
+		if d2 > far2:
+			continue
+		if cull and d2 > 160.0 * 160.0 and dx * look.x + dy * look.y < 0.3 * sqrt(d2):
 			continue
 		var c := _cell_of(a, cam2)
-		if c[0] == "":
+		var key: String = c[0]
+		if key == "":
 			continue
-		var s: Strip = strips[c[0]]
+		var s: Strip = strips[key]
 		var px: float = a.x
 		var py: float = a.y
 		var pz: float = a.z
-		if a.info.get("sway", false) and not a.held():
+		var info: Dictionary = a.info
+		if info.get("sway", false) and not a.held():
 			var run: bool = a.panic > 0
-			var t: float = (tics + a.id * 37) * SWAY.rate * (SWAY.runRate if run else 1.0)
-			var lean: float = sin(t) * SWAY.lean * (SWAY.runLean if run else 1.0)
+			var t: float = (tics + a.id * 37) * s_rate * (s_run_rate if run else 1.0)
+			var lean: float = sin(t) * s_lean * (s_run_lean if run else 1.0)
 			px += cos(a.id) * lean
 			py += sin(a.id) * lean
-			pz += absf(sin(t * 2.0 + a.id)) * SWAY.bob * (SWAY.runBob if run else 1.0) - (SWAY.bob if run else 0.0)
+			pz += absf(sin(t * 2.0 + a.id)) * s_bob * (s_run_bob if run else 1.0) - (s_bob if run else 0.0)
 		var sec: Level.Sector = a.sector
-		var light: float = (sec.light if sec else 0.7) * float(a.info.get("lit", 1.0))
+		var light: float = (sec.light if sec else 0.7) * float(info.get("lit", 1.0))
 		var sky: float = sec.sky if sec else 0.0
-		var flags := (1.0 if c[2] else 0.0) + (2.0 if (a.state.fullbright or a.info.get("fullbright", false)) else 0.0)
+		var flags := (1.0 if c[2] else 0.0) + (2.0 if (a.state.fullbright or info.get("fullbright", false)) else 0.0)
 		# and what only the launcher's thermal sight reads (standee.gdshader):
 		# a BODY is warm, a frozen one cold, a burning one white
 		if a.monster or a.puppet:
 			flags += 8.0 if a.frozen else (4.0 if a.ash <= 0.0 else 0.0)
 		if a.burning > 0:
 			flags += 16.0
-		var i := s.n * 16
-		if s.buf.size() < i + 16:
-			s.buf.resize(maxi(64 * 16, s.buf.size() * 2))
-		s.buf[i] = 1.0; s.buf[i + 1] = 0.0; s.buf[i + 2] = 0.0; s.buf[i + 3] = px
-		s.buf[i + 4] = 0.0; s.buf[i + 5] = 1.0; s.buf[i + 6] = 0.0; s.buf[i + 7] = pz
-		s.buf[i + 8] = 0.0; s.buf[i + 9] = 0.0; s.buf[i + 10] = 1.0; s.buf[i + 11] = -py
-		s.buf[i + 12] = float(c[1]); s.buf[i + 13] = light; s.buf[i + 14] = sky; s.buf[i + 15] = flags
+		# (into a plain Array, which is shared, not copied: a write through
+		# `s.buf[i]`, a packed array on another object, copies all of it)
+		s.rows.append_array([1.0, 0.0, 0.0, px, 0.0, 1.0, 0.0, pz, 0.0, 0.0, 1.0, -py, float(c[1]), light, sky, flags])
 		s.n += 1
 	for k in strips:
 		var s: Strip = strips[k]
-		if s.mm.instance_count != s.buf.size() / 16:
-			s.mm.instance_count = s.buf.size() / 16
-		if s.buf.size() > 0:
-			# past the live ones, nothing: an instance scaled to zero
-			for j in range(s.n * 16, s.buf.size(), 16):
-				s.buf[j] = 0.0; s.buf[j + 5] = 0.0; s.buf[j + 10] = 0.0
-			s.mm.buffer = s.buf
-			s.mm.visible_instance_count = s.n
+		if s.n == 0 and s.mm.visible_instance_count == 0:
+			continue
+		# room for the crowd in doubling steps, so the MultiMesh is not
+		# remade every frame; past the live ones nothing is drawn
+		var cap := maxi(s.mm.instance_count, 64)
+		while cap < s.n:
+			cap *= 2
+		if s.mm.instance_count != cap:
+			s.mm.instance_count = cap
+		s.rows.resize(cap * 16)
+		s.buf = PackedFloat32Array(s.rows)
+		s.mm.buffer = s.buf
+		s.mm.visible_instance_count = s.n

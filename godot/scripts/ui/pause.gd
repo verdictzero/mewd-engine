@@ -5,7 +5,7 @@
 ## is, what it is set to, and — as a bar — where that sits among what it
 ## could be. CLICKING ONE CYCLES IT; right-click goes back a step. The
 ## choices are kept (user://prefs.cfg), and the defaults are the web
-## build's: 960-row render, 320 rows of 2:3 pixels, brightness 1.35, the
+## build's (but the world drawn at the chunky grid's own size, for speed): 320 rows of 2:3 pixels, brightness 1.35, the
 ## clock at two, clear, and BOTH DEBUG SWITCHES ON — infinite ammo and
 ## invincibility — at the user's request.
 class_name PauseMenu
@@ -15,14 +15,14 @@ signal resumed
 signal quit_to_title
 
 const PREFS := "user://prefs.cfg"
-const PREF_VERSION := 11
+const PREF_VERSION := 12
 
 ## [key, name, page, ladder of [value, label]]
 const DIALS := [
 	["sens", "LOOK SPEED", 1, [[0.5, "0.5X"], [0.75, "0.75X"], [1.0, "1.0X"], [1.25, "1.25X"], [1.5, "1.5X"], [2.0, "2.0X"], [3.0, "3.0X"]]],
 	["invert", "INVERT LOOK", 1, [[false, "OFF"], [true, "ON"]]],
 	["music", "MUSIC", 1, [[0.0, "0%"], [0.25, "25%"], [0.5, "50%"], [0.75, "75%"], [1.0, "100%"]]],
-	["detail", "RENDER", 2, [[120, "120P"], [150, "150P"], [200, "200P"], [240, "240P"], [300, "300P"], [400, "400P"], [480, "480P"], [600, "600P"], [720, "720P"], [960, "960P"], [0, "NATIVE"]]],
+	["detail", "RENDER", 2, [[-1, "PIXEL"], [240, "240P"], [480, "480P"], [720, "720P"], [960, "960P"], [0, "NATIVE"]]],
 	["pixels", "PIXELS", 2, [[120, "120P"], [150, "150P"], [200, "200P"], [240, "240P"], [320, "320P"], [400, "400P"], [480, "480P"], [600, "600P"], [0, "OFF"]]],
 	["pixar", "PIXEL ASPECT", 2, [[1.0, "SQUARE"], [0.83333, "TALL 5:6"], [0.66667, "TALL 2:3"], [1.16667, "WIDE 7:6"]]],
 	["snap", "PALETTE", 2, [[true, "RAMPS"], [false, "FULL COLOUR"]]],
@@ -36,7 +36,7 @@ const DIALS := [
 	["haze", "DEBUG: FIRE HAZE", 5, [[false, "OFF"], [true, "ON"]]],
 	["fps", "FRAME RATE", 5, [[false, "OFF"], [true, "ON"]]],
 ]
-const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 320, "pixar": 0.66667,
+const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": -1, "pixels": 320, "pixar": 0.66667,
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
 	"debug": true, "godmode": true, "haze": true, "fps": false}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]

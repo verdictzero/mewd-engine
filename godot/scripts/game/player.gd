@@ -383,12 +383,14 @@ func volley_tic(d: Dictionary) -> void:
 		return
 	ammo[d.ammo] -= rounds
 	var from: Vector3 = game.nozzle(self)
+	# (the streak from the barrels as they are drawn, on this machine)
+	var seen: Vector3 = game.muzzle_view(self, from) if game.has_method("muzzle_view") else from
 	for i in rounds:
 		var a: float = angle + (U.p_random() / 255.0 - 0.5) * 2.0 * d.spread
 		var pt: float = pitch + (U.p_random() / 255.0 - 0.5) * 2.0 * d.spread * 0.7
 		game.hitscan(self, a, 2400.0, Weapons.minigun_damage(), {"shot": true, "hot": true, "pitch": pt, "from": from})
 		if (i & 1) == 0 and game.tracers != null:
-			game.tracers.spawn(from, game.last_hit)
+			game.tracers.spawn(seen, game.last_hit)
 
 func fuel_tic() -> void:
 	if debug:

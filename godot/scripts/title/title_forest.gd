@@ -176,6 +176,7 @@ func _build() -> void:
 	band.mesh = bq
 	var bm := StandardMaterial3D.new()
 	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	bm.albedo_color = Color(0.11, 0.11, 0.11)
 	band.material_override = bm
 	band.position = Vector3(0, 15 - 0.5, -240)

@@ -1,8 +1,11 @@
 // MEWD — the finished frame, filtered (js/lofi.js FILTER_FRAG + BLIT_FRAG).
 //
-// The world is drawn into its own SubViewport at RENDER rows — TEXTURE
-// here, filtered linearly — and this averages it down onto the chunky
-// PIXELS grid, 320 rows of 2:3 pixels by default; then the Bayer wobble, one step of a 16x16x16
+// The world is drawn into its own SubViewport (world_tex) and this puts
+// it onto the chunky PIXELS grid, 320 rows of 2:3 pixels by default —
+// run ONCE PER CHUNKY PIXEL, into a grid-sized buffer that is blown up
+// nearest-neighbour (render/lofi.gd). Every fetch is nearest; where the
+// buffer is finer than the grid the taps average the texels a cell
+// covers; then the Bayer wobble, one step of a 16x16x16
 // grid, and the SNAP to the nearest of the palette's 256 colours by a
 // 32x32x32 atlas (godot/data/palette_lut.png: blue picks the slice, red
 // is x within it, green is y). Nearest, so the snap is a snap and never
@@ -12,7 +15,8 @@ shader_type canvas_item;
 uniform sampler2D lut : filter_nearest;
 // the gun, over the room and under the filter (js/lofi.js: the overlays
 // are drawn into the buffer before the post pass)
-uniform sampler2D gun_tex : filter_linear;
+uniform sampler2D world_tex : filter_nearest;
+uniform sampler2D gun_tex : filter_nearest;
 uniform vec2 grid_size = vec2(480.0, 320.0);
 uniform vec2 taps = vec2(2.0, 3.0);
 uniform float dither = 1.0;
@@ -48,7 +52,7 @@ void fragment() {
 			if (t.x < taps.x && t.y < taps.y) {
 				vec2 at = uv0 + (t + 0.5) / taps * span;
 				vec4 g = texture(gun_tex, at);
-				sum += mix(texture(TEXTURE, at).rgb, g.rgb, g.a);
+				sum += mix(texture(world_tex, at).rgb, g.rgb, g.a);
 				n += 1.0;
 			}
 		}

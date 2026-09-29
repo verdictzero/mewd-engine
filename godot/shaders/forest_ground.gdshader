@@ -14,7 +14,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 uniform sampler2D ground_map : source_color, filter_nearest_mipmap, repeat_enable;
 uniform sampler2D burnt_map : source_color, filter_nearest_mipmap, repeat_enable;
-uniform sampler2D mask : filter_linear, repeat_disable;
+uniform sampler2D mask : filter_nearest, repeat_disable;
 // origin x, origin y, 1/width, 1/height (map space)
 uniform vec4 mask_rect;
 uniform float light = 0.56;

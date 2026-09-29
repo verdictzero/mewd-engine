@@ -52,7 +52,7 @@ func _ready() -> void:
 	logo.texture = load("res://assets/logo/mewd-1440.webp")
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	logo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(logo)
 	panel = PanelContainer.new()
@@ -108,7 +108,7 @@ func attach_shade(into: Control) -> void:
 		r.texture = tex
 		r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		r.stretch_mode = TextureRect.STRETCH_SCALE
-		r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://godot/shaders/logo_shadow.gdshader")
 		m.set_shader_parameter("blur", p[3])

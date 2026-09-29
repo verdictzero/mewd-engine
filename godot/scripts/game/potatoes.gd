@@ -68,6 +68,7 @@ func _ready() -> void:
 	sm.rings = 6
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	m.albedo_color = Color(0.55, 0.40, 0.22)
 	sm.material = m
 	spud_mm.mesh = sm

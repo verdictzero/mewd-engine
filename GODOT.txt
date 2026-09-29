@@ -45,6 +45,8 @@ RUNNING IT
     --touch              the phone's controls, without a touch screen
     --zoom=N             the scope of the gun in hand starts at step N
                          (the lance's screen, the launcher's thermal)
+    --prof               print where a frame's time goes, every 2 s
+                         (fps, draw calls, and the game's own sections)
     --edit               straight into MEWD Editor, the map editor (the
                          web build's ?edit); at the terminal, E or EDIT
     --edit-ops=FILE      with --edit, run a script of edits (the format
@@ -64,10 +66,15 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
 
   THE PICTURE (js/lofi.js -> godot/scripts/render/lofi.gd,
   godot/shaders/lofi.gdshader). The world is drawn into a SubViewport
-  at RENDER rows (960), and one full-screen pass averages it onto the
-  chunky PIXELS grid (320 rows of 2:3 pixels), Bayer-dithers it one step
-  and snaps it to the earth palette through the same 32x32x32 atlas the
-  web build builds (godot/data/palette_lut.png). The gun is a second
+  as many pixels across as the chunky PIXELS grid has columns (320 rows
+  of 2:3 pixels; RENDER in the pause menu can ask for more), and the
+  filter runs ONCE PER CHUNKY PIXEL into a grid-sized buffer — it
+  Bayer-dithers one step and snaps to the earth palette through the
+  same 32x32x32 atlas the web build builds (godot/data/palette_lut.png)
+  — which is blown up to the window nearest-neighbour: a 4K window costs
+  what a small one does. Every texture is sampled nearest, every
+  surface is unlit (its light is worked out in its own shader), and the
+  renderer is Compatibility on every platform. The gun is a second
   SubViewport in a world of its own, composited over the room and under
   the filter, exactly as the web build's overlay pass. The HUD, the
   title's menu and the pause menu are CanvasLayers above all of that and

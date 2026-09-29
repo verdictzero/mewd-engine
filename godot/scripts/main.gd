@@ -206,9 +206,27 @@ func _title_to_editor() -> void:
 	MewdEditor.came_from_title = true
 	show_editor()
 
+var _loading := false
 func start_game() -> void:
-	if game != null:
+	if game != null or _loading:
 		return
+	# THE LOADING SCREEN (ui/loading.gd), drawn before the build blocks —
+	# a frame for it to be seen, then the build, then a few frames of the
+	# world under it while the shaders compile, then it fades (not for a
+	# test's --shot, whose frames are counted from here)
+	var loading: LoadingScreen = null
+	if not _shooting():
+		_loading = true
+		var ll := CanvasLayer.new()
+		ll.layer = 15
+		add_child(ll)
+		loading = LoadingScreen.new()
+		ll.add_child(loading)
+		loading.tree_exited.connect(ll.queue_free)
+		loading.at("BUILDING THE MAP", 0.15)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_loading = false
 	if forest != null:
 		forest.queue_free()
 		shade.queue_free()
@@ -280,6 +298,13 @@ func start_game() -> void:
 		toggle_pause.call_deferred()
 	if not _shooting() and touch == null:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if loading != null:
+		# the first frames of the world, under the screen: every shader it
+		# draws with compiles now rather than on the first look round
+		for i in 4:
+			loading.at("WARMING UP THE SHADERS", 0.6 + 0.1 * i)
+			await RenderingServer.frame_post_draw
+		loading.finish()
 
 static func _arg(prefix: String) -> bool:
 	for a in OS.get_cmdline_user_args():

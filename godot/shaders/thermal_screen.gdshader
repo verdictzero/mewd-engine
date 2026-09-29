@@ -13,8 +13,8 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, fog_disabled, shadows_disabled;
 
-uniform sampler2D feed : filter_linear;
-uniform sampler2D panel : filter_linear;
+uniform sampler2D feed : filter_nearest;
+uniform sampler2D panel : filter_nearest;
 uniform vec4 box = vec4(0.0, 0.0, 1.0, 1.0);   // minX, minY, 1/width, 1/height, in the mesh's units
 uniform float on = 1.0;
 uniform float noise = 0.0;

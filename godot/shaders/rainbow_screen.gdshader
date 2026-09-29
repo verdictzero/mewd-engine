@@ -4,7 +4,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 
-uniform sampler2D map : source_color, filter_linear_mipmap;
+uniform sampler2D map : source_color, filter_nearest_mipmap;
 uniform bool has_map = false;
 uniform float charge = 1.0;
 
