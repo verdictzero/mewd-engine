@@ -102,10 +102,7 @@ class Line:
 	# the line overrides of an edited map (applyLine in js/editor/doc.js)
 	var xscale := 1.0
 	var yscale := 1.0
-	var peg_upper := ""                   # "top": upper unpegged
-	var peg_lower := ""                   # "ceiling": lower unpegged
-	var peg_middle := ""                  # "bottom": a one-sided middle on the floor
-	var sides := {}                       # str(doc sector id) -> {midTex, upperTex, lowerTex, xoff, ...}
+	var sides := {}                       # str(doc sector id) -> {tex, midTex, xoff, yoff, xscale, yscale}
 	var mid_once := false                 # a two-sided middle drawn once, its own height
 	var mid_height = null
 	var exterior := false                 # a building's outside wall (roofed against open air)

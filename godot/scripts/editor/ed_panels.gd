@@ -332,7 +332,9 @@ func tex_field(value, field: String, label: String, allow_none := false) -> Cont
 	p.add_child(hb)
 	hb.add_child(swatch(value))
 	var v := "" if value == null else str(value)
-	var l := EdStyle.label(v if v != "" else ("— same as wall —" if allow_none else "—"), EdStyle.TEXT, 11, EdStyle.mono())
+	# (empty: a fill in an opening is nothing there; a skin is the room's walls)
+	var empty := "— nothing —" if field.ends_with("midTex") or field == "@loop.mid" else "— same as wall —"
+	var l := EdStyle.label(v if v != "" else (empty if allow_none else "—"), EdStyle.TEXT, 11, EdStyle.mono())
 	l.clip_text = true
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(l)
@@ -566,8 +568,7 @@ func _insp_sector(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: Strin
 		EdStyle.flow([EdStyle.small_button("▢ Select its walls", func(): ed.loop_select(ed.sector_index(s.id)),
 			"Every wall of this sector, to texture them all at once (in Lines mode: double-click or Alt+click a line)")]),
 		tex_field(s.get("wallTex"), "wallTex", "Walls"),
-		tex_field(s.get("upperTex"), "upperTex", "Upper", true),
-		tex_field(s.get("lowerTex"), "lowerTex", "Lower", true),
+		EdStyle.note("Its walls are every piece of wall it shows: the walls, the steps up and down to the rooms next door, the lintels over them. Textures follow the world — nothing to peg or align."),
 		EdStyle.h4("Spread"),
 		EdStyle.flow([EdStyle.small_button("Scatter %s here" % EdScatter.presets().get(ed.scatter_preset, {}).get("name", ""), func(): ed.scatter_sectors(), "Fill the selected sectors with the mix chosen in the Scatter tab")])])
 
@@ -661,13 +662,11 @@ func _insp_loop(p: VBoxContainer, d: Dictionary, ids: Dictionary) -> void:
 			one += 1
 	var two := ids.size() - one
 	_put(p, [EdStyle.h3("Walls of sector %s%s" % [str(ed.sel_face), (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else ""], "%d lines" % ids.size()),
-		EdStyle.note("%d walls, %d lines into the next room · the side facing this sector. A texture clicked in the browser goes on all of them: the walls, and the tops and bottoms of the openings." % [one, two]),
-		EdStyle.h4("Textures — this side"),
-		tex_field(ed.loop_tex_of("walls"), "@loop.walls", "Walls", true) if one > 0 else null,
-		tex_field(ed.loop_tex_of("upper"), "@loop.upper", "Tops (upper)", true) if two > 0 else null,
-		tex_field(ed.loop_tex_of("lower"), "@loop.lower", "Bottoms (lower)", true) if two > 0 else null,
-		tex_field(ed.loop_tex_of("mid"), "@loop.mid", "Middles (in openings)", true) if two > 0 else null,
-		EdStyle.note("A middle fills the opening — a fence, a window, a door. Click one line to pick it alone; Shift+Alt+click another sector's line to add its walls.")])
+		EdStyle.note("%d walls, %d lines into the next room · the side facing this sector. A texture clicked in the browser skins all of them on this side: the walls, and the steps and lintels of the openings." % [one, two]),
+		EdStyle.h4("This side"),
+		tex_field(ed.loop_tex_of("skin"), "@loop.skin", "Skin", true),
+		tex_field(ed.loop_tex_of("mid"), "@loop.mid", "Fill the openings", true) if two > 0 else null,
+		EdStyle.note("A fill stands in the opening — a fence, a window, a grate. Cleared, the room's own walls show again. Click one line to pick it alone; Shift+Alt+click another sector's line to add its walls.")])
 
 func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String, n: int) -> void:
 	if ed.sel_face != null and ed.sector_index(ed.sel_face) >= 0:
@@ -683,7 +682,7 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 	if info != null and info.get("free", false):
 		_put(p, [EdStyle.h3("Linedef %s" % key, small),
 			EdStyle.note("%d units · on its own: it stands as a wall %d thick, and when more lines close a shape with it, that shape becomes a sector." % [roundi(len), EdDoc.LINEDEF_THICK]),
-			tex_field(o.get("midTex"), "midTex", "Wall texture", true),
+			tex_field(o.get("tex", o.get("midTex")), "tex", "Wall texture", true),
 			EdStyle.row("Wall height", [EdStyle.num(o.get("wallH", ""), func(v): each("wall height", func(x):
 				if v > 0:
 					x["wallH"] = v
@@ -706,11 +705,13 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 			var sd: Dictionary = sides.get(sid, {})
 			var base := "sides.%s" % sid
 			items.append(EdStyle.h4("Side facing sector %s%s · %s" % [sid, (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else "", "inside" if MewdEditor.is_inside(sec) else "outside"]))
+			# ONE SKIN A SIDE: every piece of wall on this face — the wall,
+			# or the step and the lintel of an opening — and, in an
+			# opening, what stands in it (a fence, a window: the fill)
+			items.append(tex_field(sd.get("tex", o.get("tex", sd.get("upperTex", sd.get("lowerTex")))), base + ".tex",
+				"Skin" if two else "Wall", true))
 			if two:
-				items.append(tex_field(sd.get("upperTex", o.get("upperTex")), base + ".upperTex", "Top (upper)", true))
-			items.append(tex_field(sd.get("midTex", o.get("midTex") if two else o.get("wallTex")), base + ".midTex", "Middle" if two else "Wall", true))
-			if two:
-				items.append(tex_field(sd.get("lowerTex", o.get("lowerTex")), base + ".lowerTex", "Bottom (lower)", true))
+				items.append(tex_field(sd.get("midTex", o.get("midTex")), base + ".midTex", "Fill the opening", true))
 			items.append(EdStyle.row("Offset x / y", [
 				EdStyle.num(EdDoc.got(sd, "xoff", o.get("xoff", 0)), func(v): _set_side(sid, "x offset", func(x): x["xoff"] = v)),
 				EdStyle.num(EdDoc.got(sd, "yoff", o.get("yoff", 0)), func(v): _set_side(sid, "y offset", func(x): x["yoff"] = v))]))
@@ -727,10 +728,8 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 			items.append(srow)
 	else:
 		items += [EdStyle.h4("Textures — both sides"),
-			tex_field(o.get("upperTex"), "upperTex", "Top (upper)", true),
-			tex_field(o.get("midTex"), "midTex", "Middle", true),
-			tex_field(o.get("lowerTex"), "lowerTex", "Bottom (lower)", true),
-			tex_field(o.get("wallTex"), "wallTex", "Wall (one-sided)", true)]
+			tex_field(o.get("tex"), "tex", "Skin", true),
+			tex_field(o.get("midTex"), "midTex", "Fill the opening", true)]
 	var has_mid := EdDoc.tex(o, "midTex") != ""
 	if o.get("sides") is Dictionary:
 		for x in o.sides.values():
@@ -775,10 +774,7 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 				EdStyle.row("Doorway", [EdStyle.check(o.get("opening", false), func(v): each("doorway", func(x): _flag(x, "opening", v)))]),
 				EdStyle.note("This line is where an inside sector meets the outside, so it is a wall unless it is a doorway. Split it with Insert (vertices mode) to make a doorway in part of a wall.")]
 	items += _align_block(n)
-	items += [EdStyle.h4("Pegging"),
-		EdStyle.row("Upper unpegged", [EdStyle.check(o.get("unpegUpper", false), func(v): each("upper unpegged", func(x): _flag(x, "unpegUpper", v)))]),
-		EdStyle.row("Lower unpegged", [EdStyle.check(o.get("unpegLower", false), func(v): each("lower unpegged", func(x): _flag(x, "unpegLower", v)))]),
-		EdStyle.note("In 3D, the arrow keys over a wall nudge its offsets (Shift: 8 at a time). Deleting a line joins the two sectors on it into one.")]
+	items += [EdStyle.note("Textures follow the world: their rows are nailed to height 0 and run round the room, so a step, its lintel and the storey above carry one picture. In 3D, the arrow keys over a wall nudge its offsets (Shift: 8 at a time). Deleting a line joins the two sectors on it into one.")]
 	_put(p, items)
 
 func _align_block(n: int) -> Array:
@@ -787,12 +783,9 @@ func _align_block(n: int) -> Array:
 	var sx := EdStyle.num(1, func(v): if v > 0: ed.align_sel("scale", {"xscale": v}), 0.25)
 	var sy := EdStyle.num(1, func(v): if v > 0: ed.align_sel("scale", {"yscale": v}), 0.25)
 	var srow := EdStyle.row("Scale all x / y", [sx, sy])
-	srow.tooltip_text = "Put this scale on every side of every selected line, then Align X"
-	return [EdStyle.h4("Alignment%s" % ((" — all %d lines" % n) if n > 1 else "")),
-		EdStyle.flow([b.call("Align X", "x", "Shift+A: each run of joined lines carries its texture on from one to the next, no seams at the corners"),
-			b.call("Align Y", "y", "every side takes the first line's y offset"),
-			b.call("Match", "match", "every side takes the first line's scale and y offset, then Align X")]),
-		EdStyle.flow([b.call("Fit across", "fitX", "stretch each run a touch so its texture repeats a whole number of times along it, then Align X"),
+	srow.tooltip_text = "Put this scale on every side of every selected line"
+	return [EdStyle.h4("Stretch%s" % ((" — all %d lines" % n) if n > 1 else "")),
+		EdStyle.flow([b.call("Fit across", "fitX", "stretch each run a touch so its texture repeats a whole number of times along it"),
 			b.call("Fit up", "fitY", "stretch each wall a touch so its texture fits a whole number of times floor to top"),
 			b.call("Reset", "reset", "no offsets, no scale")]),
 		srow]

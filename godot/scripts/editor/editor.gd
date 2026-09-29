@@ -728,10 +728,11 @@ func _in_hole_of(si: int, q: Vector2) -> bool:
 	var s = sector_at(q.x, q.y)
 	return s != null and s.id != doc.sectors[si].id
 
-## A texture onto one part of every wall of a loop, on the side facing
-## sel_face (null clears it): "walls" (one-sided lines), "upper",
-## "lower", "mid" (two-sided lines: a see-through middle in the
-## opening), or "all" — the walls, the tops and the bottoms.
+## A texture onto every wall of a loop, on the side facing sel_face
+## (null clears it): the "skin" — every piece of wall on that face, a
+## one-sided wall or the step and lintel of an opening — or the "mid",
+## what stands in a two-sided opening (a fence, a window). (The older
+## parts, "walls", "upper", "lower" and "all", are the skin.)
 func loop_texture(part: String, name) -> void:
 	if sel_kind != "line" or sel_face == null:
 		return
@@ -745,11 +746,8 @@ func loop_texture(part: String, name) -> void:
 		var two: bool = info.has(k) and info[k].sectors.size() > 1
 		var fields := []
 		match part:
-			"walls": fields = [] if two else ["midTex"]
-			"upper": fields = ["upperTex"] if two else []
-			"lower": fields = ["lowerTex"] if two else []
 			"mid": fields = ["midTex"] if two else []
-			_: fields = ["upperTex", "lowerTex"] if two else ["midTex"]
+			_: fields = ["tex"]
 		if fields.is_empty():
 			continue
 		if not d.lines.has(k):
@@ -781,17 +779,12 @@ func loop_tex_of(part: String):
 		if not sel_ids.has(l.key):
 			continue
 		var two: bool = l.sectors.size() > 1
-		var f := ""
-		match part:
-			"walls": f = "" if two else "midTex"
-			"upper": f = "upperTex" if two else ""
-			"lower": f = "lowerTex" if two else ""
-			"mid": f = "midTex" if two else ""
-		if f == "":
+		var f := "midTex" if part == "mid" else "tex"
+		if part == "mid" and not two:
 			continue
 		var o: Dictionary = doc.lines.get(l.key, {})
 		var sd = o.get("sides", {}).get(face) if o.get("sides") is Dictionary else null
-		var v = sd.get(f) if sd is Dictionary and sd.get(f) != null else o.get(f if two else "wallTex", o.get(f))
+		var v = sd.get(f) if sd is Dictionary and sd.get(f) != null else o.get(f)
 		seen[str(v) if v != null else ""] = true
 	if seen.size() > 1:
 		return "(mixed)"
@@ -1628,6 +1621,10 @@ func set_hover(h) -> void:
 	hovered = h
 	hover_changed.emit()
 
+func _two_sided(key: String) -> bool:
+	var l = line_info(key)
+	return l != null and l.sectors.size() > 1
+
 ## The selection if there is one of this kind, or the highlighted thing.
 func target_or(kind: String) -> Dictionary:
 	if sel_kind == kind and not sel_ids.is_empty():
@@ -1644,7 +1641,8 @@ func apply_texture(name: String, field := "") -> void:
 	if surf != null:
 		var s: Dictionary = surf
 		if s.part == "wall":
-			var f := "upperTex" if s.get("band") == "upper" else ("lowerTex" if s.get("band") == "lower" else "midTex")
+			# the face's skin — or, in a two-sided opening, what stands in it
+			var f := "midTex" if s.get("band") == "middle" and _two_sided(s.line) else "tex"
 			var face_id := str(doc.sectors[s.sector].id) if s.sector >= 0 and s.sector < doc.sectors.size() else ""
 			var d := edit_begin("texture %s" % name)
 			if not d.lines.has(s.line):
@@ -2055,9 +2053,6 @@ func _key(e: InputEventKey) -> bool:
 			if OS.get_keycode_string(k) == MODES[m].key and not (e.shift_pressed and (k == KEY_A or k == KEY_G)):
 				set_mode(m)
 				return true
-	if k == KEY_A and e.shift_pressed:
-		align_sel("x")
-		return true
 	if k == KEY_G and e.shift_pressed:
 		snap_sel_to_grid()
 		return true

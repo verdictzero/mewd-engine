@@ -43,7 +43,7 @@ const DEFAULT_SKYBOX := "BSKY2"
 ## An open world by default: a new sector is under the sky.
 const SECTOR_DEFAULTS := {
 	"floor": 0, "ceil": 1024,
-	"floorTex": DEFAULT_FLOOR, "ceilTex": "SKY", "wallTex": "GRIDWALL", "upperTex": null, "lowerTex": null,
+	"floorTex": DEFAULT_FLOOR, "ceilTex": "SKY", "wallTex": "GRIDWALL", "upperTex": null, "lowerTex": null,   # (the two nulls: the web build's file shape; the editor no longer shows them)
 	"light": 0.72, "outdoor": true, "sky": 0, "name": "",
 }
 ## a new map's ground: full bright, walled at a height you see over
@@ -724,13 +724,15 @@ static func faces_of(doc: Dictionary, keys: Array, lines = null) -> Array:
 			var sd: Dictionary = sides.get(str(s.id), {})
 			var h := 0.0
 			var tx := ""
+			# the face's SKIN (its side's `tex`, the line's), else the room's
+			# walls; a middle standing in a two-sided opening is its own
 			if other == null:
 				h = num(s.get("ceil"), 256) - num(s.get("floor"), 0)
-				tx = _first([tex(sd, "midTex"), tex(o, "wallTex"), tex(s, "wallTex")])
+				tx = _first([tex(sd, "tex"), tex(sd, "midTex"), tex(o, "tex"), tex(o, "wallTex"), tex(s, "wallTex")])
 			elif _inside(s) != _inside(other) and not o.get("opening", false):
 				var inn: Dictionary = s if _inside(s) else other
 				h = num(inn.get("ceil"), 256) - num(inn.get("floor"), 0)
-				tx = _first([tex(sd, "midTex"), tex(o, "midTex"), tex(inn, "wallTex")])
+				tx = _first([tex(sd, "tex"), tex(sd, "midTex"), tex(o, "tex"), tex(o, "midTex"), tex(inn, "wallTex")])
 			else:
 				var lower := num(other.get("floor"), 0) - num(s.get("floor"), 0)
 				var upper := num(s.get("ceil"), 256) - num(other.get("ceil"), 256)
@@ -739,10 +741,10 @@ static func faces_of(doc: Dictionary, keys: Array, lines = null) -> Array:
 					tx = _first([tex(sd, "midTex"), tex(o, "midTex")])
 				elif lower >= upper:
 					h = lower
-					tx = _first([tex(sd, "lowerTex"), tex(o, "lowerTex"), tex(s, "lowerTex"), tex(s, "wallTex")])
+					tx = _first([tex(sd, "tex"), tex(sd, "lowerTex"), tex(o, "tex"), tex(o, "lowerTex"), tex(s, "lowerTex"), tex(s, "wallTex")])
 				else:
 					h = upper
-					tx = _first([tex(sd, "upperTex"), tex(o, "upperTex"), tex(s, "upperTex"), tex(s, "wallTex")])
+					tx = _first([tex(sd, "tex"), tex(sd, "upperTex"), tex(o, "tex"), tex(o, "upperTex"), tex(s, "upperTex"), tex(s, "wallTex")])
 			out.append({"key": key, "sec": s.id, "start": start, "end": end, "len": len, "h": maxf(0.0, h),
 				"tex": tx if tx != "" else "GRIDWALL",
 				"xoff": num(got(sd, "xoff", o.get("xoff")), 0), "yoff": num(got(sd, "yoff", o.get("yoff")), 0),

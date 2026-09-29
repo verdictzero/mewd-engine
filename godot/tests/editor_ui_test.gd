@@ -157,12 +157,12 @@ func run() -> void:
 	var painted := 0
 	for k in ed.sel_ids:
 		var sd = ed.doc.lines.get(k, {}).get("sides", {}).get(str(room.id), {})
-		if sd.get("upperTex") == "CONC_1" and sd.get("lowerTex") == "CONC_1" and sd.get("midTex") == null:
+		if sd.get("tex") == "CONC_1" and sd.get("midTex") == null:
 			painted += 1
-	ok(painted == 4 and ed.loop_tex_of("upper") == "CONC_1", "a texture clicked goes on all four, on the room's side (%d)" % painted)
-	ed.ui.panels.picking = {"field": "@loop.lower", "label": "Bottoms", "allow_none": true}
+	ok(painted == 4 and ed.loop_tex_of("skin") == "CONC_1", "a texture clicked skins all four, on the room's side (%d)" % painted)
+	ed.ui.panels.picking = {"field": "@loop.mid", "label": "Fill", "allow_none": true}
 	ed.ui.panels.pick_texture("CONC_2")
-	ok(ed.loop_tex_of("lower") == "CONC_2" and ed.loop_tex_of("upper") == "CONC_1", "and a field of the loop's sets that part alone")
+	ok(ed.loop_tex_of("mid") == "CONC_2" and ed.loop_tex_of("skin") == "CONC_1", "and the loop's fill field sets what stands in the openings alone")
 	ed.undo()
 	ed.undo()
 	ok(ed.doc.lines.is_empty(), "two undos, and no line has an override (%d)" % ed.doc.lines.size())

@@ -7,13 +7,17 @@
 ## into one surface. The light is baked into the vertex colour (r the
 ## light, g how much of it is sky); the shader does the rest.
 ##
-## THE UVs ARE DOOM'S. A wall's u runs along the line from the end its
-## side measures from (a front from v1, a back from v2) and its v is
-## (peg - z) / texture height, `peg` being the height the texture's top
-## row is nailed to: the ceiling for a middle, the top of a step for a
-## lower, the lintel's bottom plus a repeat for an upper. A floor's is
-## its map position over the texture's size, so floors tile from the
-## world origin and line up across sectors.
+## THE UVs ARE THE WORLD'S, at the user's request — not Doom's slots
+## and pegs. A wall's v is its height, straight: the texture's rows are
+## nailed to z = 0 and repeat up from there, so a step, the lintel over
+## it, the wall between and the storey above all carry one picture with
+## no seam and nothing to peg. Its u is the distance round the ring of
+## the room the face looks into (_ring_u): every wall of a room carries
+## on from the last round its corners, and a two-sided line's two faces
+## each follow their own room. A floor's is its map position over the
+## texture's size, so floors tile from the world origin and line up
+## across sectors. A side's offsets and scale (xoff, yoff, xscale,
+## yscale) nudge and stretch all of that.
 ##
 ## THE WINDING IS GODOT'S: a front face is clockwise as seen, so a floor
 ## is wound clockwise seen from above (a map ring is anticlockwise) and a
@@ -25,7 +29,7 @@
 ## wearing its own texture; a MIDDLE standing in a two-sided line — a
 ## door, a fence, a painted horizon, drawn once at its own height, or a
 ## building's outside wall filling the opening; NONE for no wall at all;
-## pegging and scale; floors round HOLES (earcut, from the outline and
+## offsets and scale; floors round HOLES (earcut, from the outline and
 ## the holes); a ROOF over every roofed room, Level.DECK over its
 ## ceiling, and round its edge the side of the slab; the free BOXES (level
 ## props); and each surface's Doom 64 colour and fog, per vertex, for
@@ -257,15 +261,22 @@ static func _fog_of(s: Level.Sector) -> Color:
 
 ## One face of a line, as the sector it looks into sees it (sideOf): the
 ## line's own offsets and scale with that side's over them, and that
-## side's textures (null where it says nothing).
+## side's textures (null where it says nothing). A side's SKIN (`tex`)
+## is every piece of wall on that face — the step, the lintel, a
+## one-sided wall — never the middle standing in a two-sided opening,
+## which is its own thing (midTex); the older slot names still read.
 static func _side(l: Level.Line, s: Level.Sector) -> Dictionary:
 	var o = l.sides.get(str(s.doc_id)) if not l.sides.is_empty() and s.doc_id != null else null
 	if o == null:
 		return {"mid": null, "upper": null, "lower": null, "xoff": l.xoff, "yoff": l.yoff, "xscale": l.xscale, "yscale": l.yscale}
 	var xs = o.get("xscale")
 	var ys = o.get("yscale")
-	return {"mid": o.get("midTex") if o.get("midTex") else null, "upper": o.get("upperTex") if o.get("upperTex") else null,
-		"lower": o.get("lowerTex") if o.get("lowerTex") else null,
+	var skin = o.get("tex") if o.get("tex") else null
+	var mid = o.get("midTex") if o.get("midTex") else null
+	if mid == null and skin != null and l.back == -1:
+		mid = skin
+	return {"mid": mid, "upper": skin if skin != null else (o.get("upperTex") if o.get("upperTex") else null),
+		"lower": skin if skin != null else (o.get("lowerTex") if o.get("lowerTex") else null),
 		"xoff": float(o.get("xoff", l.xoff)), "yoff": float(o.get("yoff", l.yoff)),
 		"xscale": float(xs) if xs != null and float(xs) > 0 else l.xscale,
 		"yscale": float(ys) if ys != null and float(ys) > 0 else l.yscale}
@@ -365,7 +376,7 @@ func _roof_edge(lv: Level, l: Level.Line) -> void:
 		var sd := {"xoff": l.xoff, "yoff": l.yoff, "xscale": l.xscale, "yscale": l.yscale}
 		_paint = null
 		_fog = NO_FOG
-		_quad(l, str(tex), z0, z1, side == 1, z1 + sd.yoff, minf(1.2, a.light) + l.contrast, 1.0, sd)
+		_quad(l, str(tex), z0, z1, side == 1, a, minf(1.2, a.light) + l.contrast, 1.0, sd)
 
 func _walls(lv: Level, l: Level.Line) -> void:
 	if l.multi:
@@ -380,11 +391,9 @@ func _walls(lv: Level, l: Level.Line) -> void:
 			var tex = sd.mid if sd.mid != null else (l.middle if i == 0 else (st.wall_tex if st.wall_tex != "" else l.middle))
 			if _none(tex):
 				continue
-			var th: float = bank.size_of(str(tex)).y * sd.yscale
-			var peg: float = (st.floor + th if l.peg_middle == "bottom" else st.ceil) + sd.yoff
 			_paint = _paint_wall(st)
 			_fog = _fog_of(st)
-			_quad(l, str(tex), st.floor, st.ceil, true, peg, st.light + l.contrast, st.sky, sd)
+			_quad(l, str(tex), st.floor, st.ceil, true, st, st.light + l.contrast, st.sky, sd)
 		_paint = null
 		_fog = NO_FOG
 		return
@@ -394,11 +403,9 @@ func _walls(lv: Level, l: Level.Line) -> void:
 		var tex = sd.mid if sd.mid != null else l.middle
 		if _none(tex):
 			return
-		var th: float = bank.size_of(str(tex)).y * sd.yscale
-		var peg: float = (s.floor + th if l.peg_middle == "bottom" else s.ceil) + sd.yoff
 		_paint = _paint_wall(s)
 		_fog = _fog_of(s)
-		_quad(l, str(tex), s.floor, s.ceil, true, peg, s.light + l.contrast, s.sky, sd)
+		_quad(l, str(tex), s.floor, s.ceil, true, s, s.light + l.contrast, s.sky, sd)
 		_paint = null
 		_fog = NO_FOG
 		return
@@ -413,11 +420,9 @@ func _walls(lv: Level, l: Level.Line) -> void:
 		var sd := _side(l, open)
 		var tex = sd.lower if sd.lower != null else l.lower
 		if not _none(tex):
-			var th: float = bank.size_of(str(tex)).y * sd.yscale
-			var peg: float = (open.ceil if l.peg_lower == "ceiling" else z1) + sd.yoff
 			_paint = _paint_wall(open, z0, z1)
 			_fog = _fog_of(open)
-			_quad(l, str(tex), z0, z1, lo_front, peg, open.light + l.contrast, open.sky, sd)
+			_quad(l, str(tex), z0, z1, lo_front, open, open.light + l.contrast, open.sky, sd)
 	# THE LINTEL, facing whichever side is higher — unless both are sky,
 	# or it rises from a roof towards the open sky (no sky walls)
 	if absf(f.ceil - b.ceil) > 1e-3 and not (f.ceil_tex == "SKY" and b.ceil_tex == "SKY") and not _none(l.upper):
@@ -429,8 +434,6 @@ func _walls(lv: Level, l: Level.Line) -> void:
 		var sd := _side(l, open)
 		var tex = sd.upper if sd.upper != null else l.upper
 		if not _none(tex):
-			var th: float = bank.size_of(str(tex)).y * sd.yscale
-			var peg: float = (z1 if l.peg_upper == "top" else z0 + th) + sd.yoff
 			# THE GABLE FACES THE STREET: a band over outdoor ground is seen
 			# from under the sky, and lit by it
 			var gable := from.ceil_tex == "SKY"
@@ -438,11 +441,11 @@ func _walls(lv: Level, l: Level.Line) -> void:
 			var facing := (not hi_front) if gable else hi_front
 			_paint = _paint_wall(lit, z0, z1)
 			_fog = _fog_of(lit)
-			_quad(l, str(tex), z0, z1, facing, peg, lit.light + l.contrast, lit.sky, sd)
+			_quad(l, str(tex), z0, z1, facing, lit, lit.light + l.contrast, lit.sky, sd)
 			if gable and open.ceil_tex != "" and open.ceil_tex != "NONE":
 				_paint = _paint_wall(open, z0, z1)
 				_fog = _fog_of(open)
-				_quad(l, str(tex), z0, z1, not facing, peg, open.light + l.contrast, lit.sky, sd)
+				_quad(l, str(tex), z0, z1, not facing, open, open.light + l.contrast, lit.sky, sd)
 	_paint = null
 	_fog = NO_FOG
 	# A MIDDLE IN THE OPENING: the thing standing in the hole — a door, a
@@ -469,18 +472,17 @@ func _walls(lv: Level, l: Level.Line) -> void:
 			continue
 		var th: float = bank.size_of(str(tex)).y * sd.yscale
 		_fog = _fog_of(sec)
+		# a thing standing in the opening (a fence, a sign) is as tall as
+		# its picture, once, on the floor — its rows nailed to its foot
 		if l.mid_once and l.mid_height == null:
-			var peg: float = bot + th + sd.yoff
-			var b0 := maxf(bot, peg - th)
-			var b1 := minf(top, peg)
-			if b1 <= b0:
+			var b1 := minf(top, bot + th)
+			if b1 <= bot:
 				continue
-			_paint = _paint_wall(sec, b0, b1)
-			_quad(l, str(tex), b0, b1, fs[0], peg, sec.light + l.contrast, sec.sky, sd)
+			_paint = _paint_wall(sec, bot, b1)
+			_quad(l, str(tex), bot, b1, fs[0], sec, sec.light + l.contrast, sec.sky, _foot(sd, bot, th))
 			continue
-		var peg2: float = (bot + th if l.peg_middle == "bottom" else top) + sd.yoff
 		_paint = _paint_wall(sec, bot, top)
-		_quad(l, str(tex), bot, top, fs[0], peg2, sec.light + l.contrast, sec.sky, sd)
+		_quad(l, str(tex), bot, top, fs[0], sec, sec.light + l.contrast, sec.sky, sd)
 	_paint = null
 	_fog = NO_FOG
 
@@ -500,14 +502,8 @@ func _walls_columns(lv: Level, l: Level.Line) -> void:
 		var tex = own if own != null else bd.tex
 		if _none(tex):
 			continue
-		var th: float = bank.size_of(str(tex)).y * sd.yscale
 		var z0: float = bd.z0
 		var z1: float = bd.z1
-		var peg: float
-		if bd.kind == "upper":
-			peg = (z1 if l.peg_upper == "top" else z0 + th) + sd.yoff
-		else:
-			peg = (open.ceil if l.peg_lower == "ceiling" else z1) + sd.yoff
 		# THE GABLE FACES THE STREET: a band over outdoor ground is seen
 		# from under the sky, and lit by it
 		var gable: bool = bd.kind == "upper" and from.ceil_tex == "SKY"
@@ -515,11 +511,11 @@ func _walls_columns(lv: Level, l: Level.Line) -> void:
 		var facing: bool = (not bd.open_front) if gable else bd.open_front
 		_paint = _paint_wall(lit, z0, z1)
 		_fog = _fog_of(lit)
-		_quad(l, str(tex), z0, z1, facing, peg, lit.light + l.contrast, lit.sky, sd)
+		_quad(l, str(tex), z0, z1, facing, lit, lit.light + l.contrast, lit.sky, sd)
 		if gable and open.ceil_tex != "" and open.ceil_tex != "NONE":
 			_paint = _paint_wall(open, z0, z1)
 			_fog = _fog_of(open)
-			_quad(l, str(tex), z0, z1, not facing, peg, open.light + l.contrast, lit.sky, sd)
+			_quad(l, str(tex), z0, z1, not facing, open, open.light + l.contrast, lit.sky, sd)
 	_paint = null
 	_fog = NO_FOG
 	var any_mid := not _none(l.middle)
@@ -554,31 +550,81 @@ func _walls_columns(lv: Level, l: Level.Line) -> void:
 			var th: float = bank.size_of(str(tex)).y * sd.yscale
 			_fog = _fog_of(sec)
 			if l.mid_once and l.mid_height == null:
-				var peg: float = bot + th + sd.yoff
-				var b0 := maxf(bot, peg - th)
-				var b1 := minf(top, peg)
-				if b1 <= b0:
+				var b1 := minf(top, bot + th)
+				if b1 <= bot:
 					continue
-				_paint = _paint_wall(sec, b0, b1)
-				_quad(l, str(tex), b0, b1, fs[0], peg, sec.light + l.contrast, sec.sky, sd)
+				_paint = _paint_wall(sec, bot, b1)
+				_quad(l, str(tex), bot, b1, fs[0], sec, sec.light + l.contrast, sec.sky, _foot(sd, bot, th))
 				continue
-			var peg2: float = (bot + th if l.peg_middle == "bottom" else top) + sd.yoff
 			_paint = _paint_wall(sec, bot, top)
-			_quad(l, str(tex), bot, top, fs[0], peg2, sec.light + l.contrast, sec.sky, sd)
+			_quad(l, str(tex), bot, top, fs[0], sec, sec.light + l.contrast, sec.sky, sd)
 	_paint = null
 	_fog = NO_FOG
 
-func _quad(l: Level.Line, tex: String, z0: float, z1: float, facing_front: bool, peg: float, light: float, sky: float, sd: Dictionary) -> void:
+## Where a line's face starts round the ring of the room it looks into:
+## [u at the line's v1, u at its v2] — the distance round the ring to
+## each, measured the way the room reads its walls (right to left along
+## a counter-clockwise ring seen from inside, so u falls along it), or
+## null where the line is on no edge of that room (then u runs from the
+## line's own end, as Doom's did).
+var _ring_cache := {}
+func _ring_u(l: Level.Line, s: Level.Sector):
+	var key := l.index * 1000003 + s.index
+	if _ring_cache.has(key):
+		return _ring_cache[key]
+	var out = null
+	var p1 := Vector2(l.x1, l.y1)
+	var p2 := Vector2(l.x2, l.y2)
+	var rings: Array = [s.poly]
+	if not s.flat_holes.is_empty():
+		rings = [s.flat_outer]
+		for h in s.flat_holes:
+			rings.append(h)
+	for ring in rings:
+		var n: int = ring.size()
+		var acc := 0.0
+		for i in n:
+			var a: Vector2 = ring[i]
+			var b: Vector2 = ring[(i + 1) % n]
+			var len := a.distance_to(b)
+			if len > 1e-6 and DocCompile.seg_dist(a, b, p1) < 0.05 and DocCompile.seg_dist(a, b, p2) < 0.05:
+				out = [-(acc + a.distance_to(p1)), -(acc + a.distance_to(p2))]
+				break
+			acc += len
+		if out != null:
+			break
+	_ring_cache[key] = out
+	return out
+
+## a side's offsets with the texture's foot put at `bot`: its top row
+## one picture up from there
+static func _foot(sd: Dictionary, bot: float, th: float) -> Dictionary:
+	var o := sd.duplicate()
+	o.yoff = float(sd.yoff) + bot + th
+	return o
+
+## One piece of wall on a line, from z0 up to z1, facing its front or
+## its back, its u round `s`'s ring and its v the world's height.
+func _quad(l: Level.Line, tex: String, z0: float, z1: float, facing_front: bool, s: Level.Sector, light: float, sky: float, sd: Dictionary) -> void:
 	if z1 - z0 <= 1e-6 or _none(tex):
 		return
 	var ts := bank.size_of(tex)
 	var tw: float = ts.x * sd.xscale
 	var th: float = ts.y * sd.yscale
 	var b := _batch(tex)
-	var u0: float = sd.xoff / tw
-	var u1: float = (sd.xoff + l.len) / tw
-	var vt := (peg - z1) / th
-	var vb := (peg - z0) / th
+	var ru = _ring_u(l, s) if s != null else null
+	var ua: float
+	var uc: float
+	if ru != null:
+		ua = float(ru[0] if facing_front else ru[1]) + float(sd.xoff)
+		uc = float(ru[1] if facing_front else ru[0]) + float(sd.xoff)
+	else:
+		ua = float(sd.xoff)
+		uc = float(sd.xoff) + l.len
+	var u0 := ua / tw
+	var u1 := uc / tw
+	var vt: float = (float(sd.yoff) - z1) / th
+	var vb: float = (float(sd.yoff) - z0) / th
 	var color := _light(light, sky)
 	# a front side reads from v1, a back side from v2
 	var a := Vector2(l.x1, l.y1) if facing_front else Vector2(l.x2, l.y2)

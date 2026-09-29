@@ -96,14 +96,16 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   build and like Doom. The compiler (doc_compile.gd) is compileCore:
   edges split at T-junctions, sectors inside sectors bridged in as
   holes (rooms sharing a wall one hole), free-standing linedefs stood
-  up as walls, the line overrides (blocking, blind, textures, offsets,
-  scale, pegging, a face per side), the outside wall where a roofed
+  up as walls, the line overrides (blocking, blind, a skin per face,
+  offsets, scale, a fill in an opening), the outside wall where a roofed
   room meets the open air, no sky walls and a roof over every roofed
   room, Doom 64's sector colours and each sector's fog, the free boxes
   (props — drawn, and solid to nothing, as on the web), the plants, and
   the scatters (scatter.gd, dart for dart the web build's). MapGeo
   builds the floors (earcut.gd round holes), ceilings, roofs, walls
-  with Doom's pegging, the middles standing in openings and the boxes,
+  whose textures follow the world (v is height, u the way round the
+  room's ring: no slots, no pegs, no aligning — at the user's request),
+  the middles standing in openings and the boxes,
   one mesh per texture; a level with colours, fog or two-faced walls is
   drawn with godot/shaders/world_tint.gdshader (the colour and fog per
   vertex, faces culled).

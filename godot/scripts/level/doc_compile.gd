@@ -1004,6 +1004,19 @@ static func _apply_line(l: Level.Line, o: Dictionary) -> void:
 		l.blocking = true
 	if o.get("blockSight", false):
 		l.block_sight = true
+	# THE SKIN (`tex`): every piece of wall on the line, both faces —
+	# the step and the lintel of a two-sided line, the wall of a
+	# one-sided one (the older slot names, wallTex/upperTex/lowerTex,
+	# still read)
+	if o.get("tex"):
+		if two:
+			l.upper = o.tex
+			l.lower = o.tex
+			if l.multi:
+				for bd in l.bands:
+					bd.tex = o.tex
+		elif l.middle != null:
+			l.middle = o.tex
 	if o.get("wallTex") or o.get("upperTex") or o.get("lowerTex"):
 		if two:
 			if o.get("upperTex"):
@@ -1035,11 +1048,6 @@ static func _apply_line(l: Level.Line, o: Dictionary) -> void:
 		l.xscale = float(o.xscale)
 	if float(o.get("yscale", 0)) > 0 and float(o.yscale) != 1.0:
 		l.yscale = float(o.yscale)
-	if o.get("unpegUpper", false):
-		l.peg_upper = "top"
-	if o.get("unpegLower", false):
-		l.peg_lower = "ceiling"
-		l.peg_middle = "bottom"
 	if not sides.is_empty():
 		l.sides = {}
 		for k in sides:

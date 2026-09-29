@@ -1188,12 +1188,15 @@ func texture_of(h: Dictionary) -> String:
 			if v != "":
 				return v
 		return "GRIDWALL"
+	# the face's SKIN first, then the room's walls
 	if h.band == "upper":
-		return first.call([EdDoc.tex(side, "upperTex"), EdDoc.tex(o, "upperTex"), EdDoc.tex(s, "upperTex"), EdDoc.tex(s, "wallTex")])
+		return first.call([EdDoc.tex(side, "tex"), EdDoc.tex(side, "upperTex"), EdDoc.tex(o, "tex"), EdDoc.tex(o, "upperTex"), EdDoc.tex(s, "upperTex"), EdDoc.tex(s, "wallTex")])
 	if h.band == "lower":
-		return first.call([EdDoc.tex(side, "lowerTex"), EdDoc.tex(o, "lowerTex"), EdDoc.tex(s, "lowerTex"), EdDoc.tex(s, "wallTex")])
+		return first.call([EdDoc.tex(side, "tex"), EdDoc.tex(side, "lowerTex"), EdDoc.tex(o, "tex"), EdDoc.tex(o, "lowerTex"), EdDoc.tex(s, "lowerTex"), EdDoc.tex(s, "wallTex")])
 	if EdDoc.tex(side, "midTex") != "":
 		return EdDoc.tex(side, "midTex")
+	if EdDoc.tex(side, "tex") != "":
+		return EdDoc.tex(side, "tex")
 	var l = ed.line_info(h.line)
 	if l != null and l.sectors.size() > 1:
 		if EdDoc.tex(o, "midTex") != "":
@@ -1202,7 +1205,7 @@ func texture_of(h: Dictionary) -> String:
 			if MewdEditor.is_inside(d.sectors[i]):
 				return first.call([EdDoc.tex(d.sectors[i], "wallTex")])
 		return first.call([EdDoc.tex(s, "wallTex")])
-	return first.call([EdDoc.tex(o, "wallTex"), EdDoc.tex(s, "wallTex")])
+	return first.call([EdDoc.tex(o, "tex"), EdDoc.tex(o, "wallTex"), EdDoc.tex(s, "wallTex")])
 
 # ---------------------------------------------------------------------
 # THE HIGHLIGHTS

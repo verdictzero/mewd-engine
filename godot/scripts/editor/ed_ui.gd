@@ -342,7 +342,7 @@ func _build_main() -> void:
 	wrap3d.add_child(v3)
 	wrap3d.move_child(v3, 0)
 	ed.view3d = v3
-	help3d = _help(wrap3d, "Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel height · Ctrl+wheel brightness · Ctrl+C/V texture · B fullbright · H grid · Shift+A align")
+	help3d = _help(wrap3d, "Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel height · Ctrl+wheel brightness · Ctrl+C/V texture · B fullbright · H grid")
 	cross = _crosshair()
 	wrap3d.add_child(cross)
 	wrap2d = _wrap("MAP  2D")
