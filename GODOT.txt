@@ -46,7 +46,9 @@ RUNNING IT
     --zoom=N             the scope of the gun in hand starts at step N
                          (the lance's screen, the launcher's thermal)
     --prof               print where a frame's time goes, every 2 s
-                         (fps, draw calls, and the game's own sections)
+                         (fps, draw calls, and the game's own sections);
+                         FRAME RATE in the pause menu's DEBUG tab shows
+                         the same under the frame rate, on any machine
     --edit               straight into MEWD Editor, the map editor (the
                          web build's ?edit); at the terminal, E or EDIT
     --edit-ops=FILE      with --edit, run a script of edits (the format

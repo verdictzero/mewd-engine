@@ -5,8 +5,13 @@
 //   y  the light (sector light times the actor's own `lit`)
 //   z  how much of that light is sky
 //   w  flags: +1 mirrored, +2 fullbright, and for the thermal sight alone
-//      +4 a body (warm whatever it wears), +8 frozen, +16 alight
+//      +4 a body (warm whatever it wears), +8 frozen, +16 alight;
+//      +32 swaying where they stand, +64 running; and from 128 up the
+//      phase of the sway (the actor's id), so the crowd does not lean
+//      as one
 // The quad is `cell` units: a sprite is drawn one unit to the pixel.
+// THE SWAY is worked out here off TIME (js/people.js SWAY), so the
+// crowd's rows need not be written for it (render/standees.gd).
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 
@@ -33,9 +38,20 @@ void vertex() {
 	warm = mod(floor(flags / 4.0), 2.0);
 	frozen = mod(floor(flags / 8.0), 2.0);
 	alight = mod(floor(flags / 16.0), 2.0);
+	float stands = mod(floor(flags / 32.0), 2.0);
+	float runs = mod(floor(flags / 64.0), 2.0);
+	float phase = floor(flags / 128.0);
 	light = cd.y;
 	sky = cd.z;
 	vec3 feet = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	// the lean where they stand, harder and faster when running
+	if (stands + runs > 0.5) {
+		float t = (TIME * 35.0 + phase * 37.0) * 0.055 * (runs > 0.5 ? 4.0 : 1.0);
+		float lean = sin(t) * 1.3 * (runs > 0.5 ? 1.6 : 1.0);
+		float bob = abs(sin(t * 2.0 + phase)) * 0.7 * (runs > 0.5 ? 3.0 : 1.0) - 0.7 * runs;
+		// (map x, y) is (x, -z) here
+		feet += vec3(cos(phase) * lean, bob, -sin(phase) * lean);
+	}
 	// the eye's right, flattened: the card turns about Y only
 	vec3 right = INV_VIEW_MATRIX[0].xyz;
 	right = normalize(vec3(right.x, 0.0, right.z));

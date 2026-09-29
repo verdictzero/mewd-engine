@@ -30,6 +30,8 @@ var frame_rate := PackedFloat32Array()
 var drag := PackedFloat32Array()
 var gravity := PackedFloat32Array()
 var free := PackedInt32Array()
+## the indices alive, in no order (tic drops the dead from it)
+var live := PackedInt32Array()
 var frames := 8
 var mat: ShaderMaterial
 var _buf := PackedFloat32Array()
@@ -81,6 +83,7 @@ func spawn(o: Dictionary) -> int:
 	free.resize(free.size() - 1)
 	alive[i] = 1
 	count += 1
+	live.append(i)
 	px[i] = o.x; py[i] = o.y; pz[i] = o.z
 	vx[i] = o.get("vx", 0.0); vy[i] = o.get("vy", 0.0); vz[i] = o.get("vz", 0.0)
 	age[i] = o.get("age", 0.0)
@@ -105,7 +108,9 @@ func kill(i: int) -> void:
 ## One tic. `collide(i, nx, ny, nz) -> bool` is asked before a particle
 ## moves; true kills it where it is.
 func tic(collide: Callable = Callable()) -> void:
-	for i in max:
+	var keep := PackedInt32Array()
+	var has_collide := collide.is_valid()
+	for i in live:
 		if not alive[i]:
 			continue
 		age[i] += 1.0
@@ -119,14 +124,18 @@ func tic(collide: Callable = Callable()) -> void:
 		var nx := px[i] + vx[i]
 		var ny := py[i] + vy[i]
 		var nz := pz[i] + vz[i]
-		if collide.is_valid() and collide.call(i, nx, ny, nz):
+		if has_collide and collide.call(i, nx, ny, nz):
 			kill(i)
 			continue
 		px[i] = nx; py[i] = ny; pz[i] = nz
+		keep.append(i)
+	live = keep
 
 func draw() -> void:
+	if count == 0 and multimesh.visible_instance_count == 0:
+		return
 	var n := 0
-	for i in max:
+	for i in live:
 		if not alive[i]:
 			continue
 		var t := age[i] / life[i]

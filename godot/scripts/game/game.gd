@@ -7,6 +7,8 @@
 extends Node3D
 
 const BASE_FOV := 72.0
+## past this, an idle somebody thinks one tic in four (tic)
+const LOD_FAR := 1200.0
 const MOUSE_SENS := 0.0022
 const MAX_TICS := 6
 
@@ -453,6 +455,7 @@ func _process(dt: float) -> void:
 		_acc -= U.SEC
 		n += 1
 		tic()
+	_prof_tics += n
 	_prof_add("tics", t0)
 	if n == MAX_TICS:
 		_acc = 0.0
@@ -508,6 +511,8 @@ func _process(dt: float) -> void:
 	_prof_add("standees", t0)
 	t0 = Time.get_ticks_usec()
 	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
+	_prof_add("draw.fire", t0)
+	t0 = Time.get_ticks_usec()
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
 	frost.particles.draw()
@@ -515,29 +520,59 @@ func _process(dt: float) -> void:
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
 	arc.draw(camera)
+	_prof_add("draw.guns", t0)
+	t0 = Time.get_ticks_usec()
 	escalation.draw()
+	_prof_add("draw.escalation", t0)
+	t0 = Time.get_ticks_usec()
 	fx.draw()
 	giblets.draw()
-	_prof_add("fx draw", t0)
+	_prof_add("draw.fx", t0)
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 	_prof_frame()
 
-## --prof: where a frame's time goes, averaged and printed every 2 s
+## --prof: where a frame's time goes, averaged and printed every 2 s —
+## and, with FRAME RATE on in the pause menu, shown under the frame rate
+## (prof_text), so a slow machine can say where its time goes
 var _prof := {}
 var _prof_on := OS.get_cmdline_user_args().has("--prof")
+var _prof_print := _prof_on
 var _prof_n := 0
+var _prof_tics := 0
+var _prof_last := {}
+var _prof_last_tics := 0.0
 func _prof_add(k: String, t0: int) -> void:
 	if _prof_on:
 		_prof[k] = _prof.get(k, 0) + Time.get_ticks_usec() - t0
+
+## the last average, a short line: the tics, the crowd, the rest
+func prof_text() -> String:
+	var t: Dictionary = _prof_last
+	if t.is_empty():
+		return ""
+	var ms := func(k: String) -> float: return float(t.get(k, 0.0)) / 1000.0
+	return "tics %.1f (x%.1f, people %.1f) · crowd %.1f (%d rows) · guns %.1f · fx %.1f · scopes %.1f ms" % [
+		ms.call("tics"), _prof_last_tics, ms.call("tic.actors"), ms.call("standees"), standees.written,
+		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx") + ms.call("draw.fire") + ms.call("tic.fire"),
+		ms.call("scopes+weather")]
 
 func _prof_frame() -> void:
 	if not _prof_on:
 		return
 	_prof_n += 1
-	if _prof_n < 120:
+	if _prof_n < 60:
 		return
-	var line := "PROF fps %d  process %.1fms  draws %d  objs %d  prims %dk |" % [Engine.get_frames_per_second(),
+	_prof_last = {}
+	for k in _prof:
+		_prof_last[k] = float(_prof[k]) / _prof_n
+	_prof_last_tics = float(_prof_tics) / _prof_n
+	if not _prof_print:
+		_prof.clear()
+		_prof_n = 0
+		_prof_tics = 0
+		return
+	var line := "PROF fps %d  tics/frame %.2f  process %.1fms  draws %d  objs %d  prims %dk |" % [Engine.get_frames_per_second(), float(_prof_tics) / _prof_n,
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
@@ -547,6 +582,7 @@ func _prof_frame() -> void:
 	print(line)
 	_prof.clear()
 	_prof_n = 0
+	_prof_tics = 0
 
 ## This machine's hands this tic, as a command (Player.tic's Dictionary;
 ## TicCmd's fields): the keys, the pad and the glass. The look is not in
@@ -599,15 +635,37 @@ func tic() -> void:
 	if doors != null:
 		doors.tic()
 	weather.tic()
-	for a in actors:
+	var t0 := Time.get_ticks_usec()
+	# THE CROWD FAR OFF THINKS LESS OFTEN (at the user's request, for
+	# speed): somebody with nothing on — not alight, not afraid, no
+	# target, not held — further than LOD_FAR from the player takes one
+	# tic in four. They wander a shade slower where nobody can tell. Not
+	# in a match, whose worlds must agree.
+	var lod: bool = net == null and player != null
+	var lx: float = player.x if lod else 0.0
+	var ly: float = player.y if lod else 0.0
+	var lod_far2 := LOD_FAR * LOD_FAR
+	for a: Actor in actors:
+		if lod and a.burning == 0 and a.panic == 0 and a.target == null and not a.frozen and a.bored == 0 and a.ash <= 0.0 \
+				and (tics + a.id) % 4 != 0:
+			var ddx: float = a.x - lx
+			var ddy: float = a.y - ly
+			if ddx * ddx + ddy * ddy > lod_far2:
+				continue
 		a.tic()
+	_prof_add("tic.actors", t0)
+	t0 = Time.get_ticks_usec()
 	tracers.tic()
 	fire.wind = weather.wind()
 	fire.rain = weather.frame.get("rain", 0.0)
 	fire.tic()
+	_prof_add("tic.fire", t0)
+	t0 = Time.get_ticks_usec()
 	forest.wind = fire.wind
 	forest.rain = fire.rain
 	forest.tic()
+	_prof_add("tic.forest", t0)
+	t0 = Time.get_ticks_usec()
 	rain.tic()
 	flame.tic()
 	frost.tic()
@@ -615,10 +673,17 @@ func tic() -> void:
 	missiles.tic()
 	potatoes.tic()
 	arc.tic()
+	_prof_add("tic.guns", t0)
+	t0 = Time.get_ticks_usec()
 	escalation.tic()
+	_prof_add("tic.escalation", t0)
+	t0 = Time.get_ticks_usec()
 	fx.tic()
 	giblets.tic()
-	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
+	_prof_add("tic.fx", t0)
+	t0 = Time.get_ticks_usec()
+	fire.apply_char(tics)
+	_prof_add("tic.char", t0)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
 	if big_message_tics > 0:
 		big_message_tics -= 1
 		if big_message_tics == 0:

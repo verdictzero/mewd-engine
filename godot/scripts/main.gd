@@ -337,6 +337,12 @@ func _process(_dt: float) -> void:
 			toggle_pause()
 	if fps_label.visible:
 		fps_label.text = "%d FPS" % Engine.get_frames_per_second()
+		# and where the time goes, from the game's own clock (Game.prof_text)
+		if game != null:
+			game._prof_on = true
+			var t: String = game.prof_text()
+			if t != "":
+				fps_label.text += "   " + t
 	var shot := ""
 	var at := 20
 	for a in OS.get_cmdline_user_args():
