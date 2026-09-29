@@ -101,6 +101,12 @@ func start_game() -> void:
 	if not _shooting():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+static func _arg(prefix: String) -> bool:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(prefix):
+			return true
+	return false
+
 static func _shooting() -> bool:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
@@ -144,9 +150,9 @@ func apply_prefs(p: Dictionary) -> void:
 		game.player.debug = bool(p.debug)
 		game.player.invincible = bool(p.godmode)
 		game.weather.fire_haze = bool(p.haze)
-		if game.weather.kind != str(p.weather):
+		if game.weather.kind != str(p.weather) and not _arg("--weather="):
 			game.weather.kind = str(p.weather)
-		if absf(float(p.hour) - game._set_hour) > 1e-3:
+		if absf(float(p.hour) - game._set_hour) > 1e-3 and not _arg("--hour="):
 			game._set_hour = float(p.hour)
 			game.weather.hour = float(p.hour)
 

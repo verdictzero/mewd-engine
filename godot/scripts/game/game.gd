@@ -26,6 +26,7 @@ var lamps: Lamps
 var tics := 0
 var kills := 0
 var weather := Weather.new()
+var rain: Rain
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
 var frost: FrostStream
@@ -77,6 +78,11 @@ func _ready() -> void:
 			_shot_frames = int(a.substr(14))
 		elif a.begins_with("--autofire"):
 			_autofire = true
+		elif a.begins_with("--weather="):
+			weather.kind = a.substr(10)
+		elif a.begins_with("--hour="):
+			weather.hour = float(a.substr(7))
+			_set_hour = weather.hour
 		elif a.begins_with("--weapon="):
 			_start_weapon = a.substr(9)
 	var which := "maze"
@@ -119,6 +125,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(flame.particles)
 	frost = FrostStream.new(self)
 	add_child(frost.particles)
+	rain = Rain.new(self)
+	add_child(rain.pool)
 	bore = BoreSystem.new(self)
 	add_child(bore)
 	missiles = MissileSystem.new(self)
@@ -241,6 +249,7 @@ func _process(dt: float) -> void:
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
 	frost.particles.draw()
+	rain.pool.draw()
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
 	arc.draw(camera)
@@ -270,10 +279,12 @@ func tic() -> void:
 		a.tic()
 	tracers.tic()
 	fire.wind = weather.wind()
+	fire.rain = weather.frame.get("rain", 0.0)
 	fire.tic()
 	forest.wind = fire.wind
 	forest.rain = fire.rain
 	forest.tic()
+	rain.tic()
 	flame.tic()
 	frost.tic()
 	bore.tic()
