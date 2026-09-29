@@ -1,4 +1,5 @@
 ## MEWD — the title (index.html #title, css/style.css, js/main.js).
+## (MEWD: Made Entirely Without Doom.)
 ##
 ## The logo over the menu, the pair centred on the glass — as wide as
 ## the glass allows (96% of it, or 112% of its height) and never so

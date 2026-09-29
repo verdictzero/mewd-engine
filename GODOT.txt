@@ -1,6 +1,8 @@
 MEWD — THE GODOT PORT
 =====================
 
+(MEWD: Made Entirely Without Doom.)
+
 At the user's request: the whole game rewritten in Godot 4 (4.3), in
 GDScript, on the branch claude/godot-rewrite. The web build in js/ stays
 where it is and keeps working; it is the reference every file here was
@@ -352,6 +354,20 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   machine of a match. The editor's 3D view draws the doors shut. THE
   ANNEXE has one of each.
 
+  THE TROOPS FIND THE WAY (game/nav.gd; the Godot build's own). Doom's
+  chase is on the plan — straight at you, round what is in the way — and
+  never finds a stair or a door. Nav makes the level a graph: a node for
+  each storey of each sector a trooper can stand in, a way across each
+  two-sided line it can walk over (tall enough, a step up at most, a
+  drop of 96 down at most, not walled at that height, no locked or low
+  door). A trooper whose target is in another room plans the way there
+  (A*, each room costed from where it was entered), again every two
+  seconds or when the target changes room, and chases the next point on
+  it — just over the next line — aiming again each step; in the target's
+  own room it chases as Doom does. Doors open as it comes (auto doors
+  open for anybody walking), and steps are steps: up the stairs to the
+  terrace, through the shop's door, into the office by both.
+
   LOOP SELECT (the Godot editor's own; not in the web build): in Lines
   mode double-click or Alt+click a line, or Alt+click a wall in 3D, or
   a sector's "Select its walls" — every wall of the room on that side
@@ -427,9 +443,9 @@ WHAT IS NOT PORTED YET
     barrels; a few extra rooftop conifers in THE SPRAWL.
   - Of MEWD Editor: see THE MAP EDITOR above — the Godot-scene export.
   - Of room over room: the web build's decks and outside walls have no
-    thickness and these always do (not a port, a change); the troops' chase is Doom's, on the plan, so they do not find the
-    stairs to somebody upstairs; the crowd's scare and the rain's
-    spawning ask the plan; a match's spawn pads are on the ground.
+    thickness and these always do (not a port, a change); the crowd's
+    scare and the rain's spawning ask the plan; a match's spawn pads are
+    on the ground.
   - Of network play: the Node host's serving of the web build's files
     on its own port (the Godot host is a socket and nothing else; serve
     the page from anywhere), the `use` key in the command (the Godot

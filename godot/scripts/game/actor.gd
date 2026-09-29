@@ -242,16 +242,41 @@ func update_sector() -> void:
 		sector = s
 		z = s.floor
 
+## THE WAY TO THE TARGET (game/nav.gd): in its room, the target; in
+## another, the next point on the way there — planned again every two
+## seconds or when the target changes room, and each point passed as the
+## trooper steps into the room it is in.
+var _way := []
+var _way_to := -1
+var _way_at := -1000
+
+func _chase_point() -> Vector2:
+	var tp := Vector2(target.x, target.y)
+	var nav: Nav = game.nav
+	var ts: Level.Sector = target.sector
+	if nav == null or ts == null or sector == null or ts == sector:
+		_way = []
+		return tp
+	if _way.is_empty() or _way_to != ts.index or game.tics - _way_at > 70:
+		_way = nav.path(sector.index, Vector2(x, y), ts.index, tp)
+		_way_to = ts.index
+		_way_at = game.tics
+	while not _way.is_empty() and (sector.index == _way[0].into or Vector2(x, y).distance_to(_way[0].p) < speed + 2.0):
+		_way.pop_front()
+	return tp if _way.is_empty() else _way[0].p
+
 ## Doom's P_NewChaseDir: straight at the target if it can, then the
-## longer axis, then the shorter, then anything but back, then back.
+## longer axis, then the shorter, then anything but back, then back —
+## the target, or the next point on the way to it (_chase_point).
 func new_chase_dir() -> void:
 	if target == null:
 		movedir = DI.NODIR
 		return
 	var olddir := movedir
 	var turnaround: int = OPPOSITE[olddir]
-	var dx: float = target.x - x
-	var dy: float = target.y - y
+	var goal := _chase_point()
+	var dx: float = goal.x - x
+	var dy: float = goal.y - y
 	var d1: int = DI.EAST if dx > 10 else (DI.WEST if dx < -10 else DI.NODIR)
 	var d2: int = DI.SOUTH if dy < -10 else (DI.NORTH if dy > 10 else DI.NODIR)
 	if d1 != DI.NODIR and d2 != DI.NODIR:
@@ -476,7 +501,9 @@ func A_Chase() -> void:
 		just_attacked = true
 		return
 	movecount -= 1
-	if movecount < 0 or not try_walk():
+	# on the way to another room: aimed again at the next point each step
+	var away: bool = game.nav != null and target.sector != null and sector != null and target.sector != sector
+	if movecount < 0 or away or not try_walk():
 		new_chase_dir()
 	if movedir != DI.NODIR:
 		angle = DIR_ANGLE[movedir]

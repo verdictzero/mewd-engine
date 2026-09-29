@@ -65,6 +65,7 @@ func _init() -> void:
 	_shots(lv)
 	_sight(lv)
 	_doors(lv)
+	_troops(lv)
 	_crowd(lv)
 	_fire()
 	await _net()
@@ -352,6 +353,71 @@ func _doors(lv: Level) -> void:
 	_put(p, 1230, 768, 128, PI)
 	settle.call(40)
 	check(east.open == 1.0, "and does from the terrace")
+
+# ---- troops ---------------------------------------------------------------
+
+## A trooper sent after the player, until it is in `room` (or `tics` run
+## out): where it got to.
+func _chase(from: Vector2, room: String, tics: int) -> Dictionary:
+	var p = game.player
+	var a: Actor = game.spawn("SWAT", from.x, from.y, 0.0)
+	a.target = p
+	a.set_state(a.info.see)
+	var got := false
+	var hi := 0.0
+	for i in tics:
+		game.tics += 1
+		a.tic()
+		if game.doors != null:
+			game.doors.tic()
+		hi = maxf(hi, a.z)
+		if a.sector != null and a.sector.name == room:
+			got = true
+			break
+	var out := {"got": got, "tics": game.tics, "z": a.z, "hi": hi, "at": Vector2(a.x, a.y), "in": a.sector.name if a.sector else "?"}
+	a.remove()
+	return out
+
+func _troops(lv: Level) -> void:
+	print("layers: troops")
+	var p = game.player
+	var nav: Nav = game.nav
+	check(nav != null and nav.links > 0, "the rooms are a graph of ways (%d)" % (nav.links if nav else 0))
+	p.health = 1000000
+	# UP THE STAIRS: from the yard, after you on the terrace
+	_put(p, 1400, 700, 128, PI / 2)
+	var t0: int = game.tics
+	var r := _chase(Vector2(1344, 1450), "terrace", 1500)
+	check(r.got and r.z == 128.0, "a trooper in the yard goes up the stairs after you on the terrace (%s at z %.0f, %d tics)" % [r.in, r.z, r.tics - t0])
+	# THROUGH A DOOR: from the yard, after you in the shop
+	_put(p, 1000, 768, 0, 0.0)
+	t0 = game.tics
+	r = _chase(Vector2(500, 900), "shop", 1500)
+	check(r.got and r.z == 0.0, "one outside the shop comes in through its door after you (%s, %d tics)" % [r.in, r.tics - t0])
+	# BOTH: up the stairs, across the terrace, through the office's door
+	_put(p, 900, 768, 128, 0.0)
+	t0 = game.tics
+	r = _chase(Vector2(1344, 1450), "office", 2500)
+	check(r.got and r.z == 128.0, "and one in the yard finds the stairs and the office's door after you in the office (%s at z %.0f, %d tics)" % [r.in, r.z, r.tics - t0])
+	# and without the graph (Doom's own chase), it does not find them
+	game.nav = null
+	r = _chase(Vector2(1344, 1450), "office", 2500)
+	game.nav = nav
+	check(not r.got, "(which, chasing on the plan as Doom does, it never would: %s at z %.0f)" % [r.in, r.z])
+	# A LOCKED DOOR is no way through
+	var west: Level.Door = null
+	for d in game.level.doors:
+		if d.z0 == 0.0:
+			west = d
+	west.locked = true
+	var nav2 := Nav.new(game.level)
+	var shop := _named(game.level, "shop")[0] as Level.Sector
+	var yard: Level.Sector = game.level.sector_at(500, 900)
+	check(nav.path(yard.index, Vector2(500, 900), shop.index, Vector2(1000, 768)).size() > 0
+		and nav2.path(yard.index, Vector2(500, 900), shop.index, Vector2(1000, 768)).is_empty(),
+		"and a locked door is no way in")
+	west.locked = false
+	p.health = 100
 
 func _sight(lv: Level) -> void:
 	print("layers: sight")

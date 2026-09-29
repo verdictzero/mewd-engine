@@ -1,6 +1,9 @@
 MEWD
 ====
 
+MEWD stands for MADE ENTIRELY WITHOUT DOOM: a Doom-style engine, built
+from scratch, with none of Doom's code or data in it.
+
 The engine is MEWD; the game is MEWD Demo; the map editor is MEWD
 Editor (at the user's request — it was Grocery Store Simulator and
 GSS-EDIT).

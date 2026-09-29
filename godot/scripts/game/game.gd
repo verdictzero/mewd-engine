@@ -11,6 +11,7 @@ const MOUSE_SENS := 0.0022
 const MAX_TICS := 6
 
 var doors: Doors = null
+var nav: Nav = null
 var level: Level
 var bank: TexBank
 var player: Player
@@ -188,6 +189,8 @@ func start_map(doc: Dictionary) -> void:
 	bank = TexBank.new()
 	var geo := MapGeo.new(bank).build(level)
 	add_child(geo)
+	# the way from room to room, for the troops (game/nav.gd)
+	nav = Nav.new(level)
 	# the doors (game/doors.gd), none on a map without
 	doors = Doors.new(self) if not level.doors.is_empty() else null
 	if doors != null:
