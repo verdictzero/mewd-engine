@@ -44,11 +44,11 @@ func _draw() -> void:
 	# the phone: an outlined slab with a screen inside
 	var body := PackedVector2Array()
 	for p in [Vector2(10.23, 1.75), Vector2(22.25, 13.77), Vector2(13.77, 22.25), Vector2(1.75, 10.23)]:
-		body.append(xf * (p * k))
+		body.append(xf * (_small(p) * k))
 	draw_colored_polygon(body, Color.BLACK)
 	var screen := PackedVector2Array()
 	for p in [Vector2(10.23, 4.2), Vector2(19.8, 13.77), Vector2(13.77, 19.8), Vector2(4.2, 10.23)]:
-		screen.append(xf * (p * k))
+		screen.append(xf * (_small(p, SCREEN) * k))
 	draw_colored_polygon(screen, Color("#d0201a"))
 	# and the two arrows round it: arcs with a head on the leading end,
 	# pointing the way the phone turns (anticlockwise, on the glass)
@@ -68,3 +68,11 @@ func _draw() -> void:
 	var t := "R O T A T E   D E V I C E"
 	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	draw_string(font, Vector2((size.x - w) / 2.0, c.y + s * 0.95), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
+
+## the phone, a size smaller than the arrows round it (about its middle)
+## (and its screen by less, so the outline stays as thick as it was)
+const PHONE := 0.68
+const SCREEN := 0.58
+static func _small(p: Vector2, by := PHONE) -> Vector2:
+	return Vector2(12, 12) + (p - Vector2(12, 12)) * by
+
