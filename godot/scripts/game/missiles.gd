@@ -344,7 +344,7 @@ func _fly_tic() -> void:
 		var nz: float = s.z + s.dz * s.speed
 		var body := _body_on_leg(s, nx, ny, nz, t)
 		var wall := lv.ray_hit_wall(s.x, s.y, s.z, nx, ny, nz)
-		var sec := lv.sector_at(nx, ny)
+		var sec := lv.span_at(nx, ny, s.z)
 		var at = null
 		var direct = null
 		var face = null
@@ -438,10 +438,10 @@ func detonate(at: Vector3, direct = null, face = null) -> void:
 	if face != null:
 		game.decals.hole(at, face, true)
 	else:
-		var under: Level.Sector = game.level.sector_at(at.x, at.y)
+		var under: Level.Sector = game.level.span_at(at.x, at.y, at.z)
 		if under and at.z - under.floor < 72.0:
 			game.decals.hole(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1), true)
-	game.fire.ignite(at.x, at.y, WARHEAD.heat, WARHEAD.heatRadius)
+	game.fire.ignite(at.x, at.y, WARHEAD.heat, WARHEAD.heatRadius, at.z)
 	game.scare(at.x, at.y, 700.0)
 	game.noise(at, 1600.0)
 	var hit := {}

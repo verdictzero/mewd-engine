@@ -277,9 +277,12 @@ func _impact() -> Dictionary:
 		var y := from.y + uy * s
 		var z := from.z + slope * s
 		sec = lv.sector_at(x, y, sec)
+		if sec != null and lv.layered:
+			# the storey the last step was in: a deck stops it from under
+			sec = lv.span_in(sec, from.z + slope * maxf(0.0, s - IMPACT_STEP))
 		if sec != null:
 			var under := z < sec.floor
-			var above := not sec.outdoor and z > sec.ceil
+			var above := (not sec.outdoor or sec.above != -1) and z > sec.ceil
 			if under or above:
 				# back along the step to the plane it crossed, which for
 				# the flat floors that are all of them is exact

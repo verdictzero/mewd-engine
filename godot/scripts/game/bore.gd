@@ -133,7 +133,7 @@ func _fly_tic() -> void:
 				_drill(s, t)
 				continue
 		var wall := lv.ray_hit_wall(s.x, s.y, s.z, nx, ny, nz)
-		var sec := lv.sector_at(nx, ny)
+		var sec := lv.span_at(nx, ny, s.z)
 		s.life -= 1
 		var spent: bool = sec == null or nz <= sec.floor + 2.0 or nz >= sec.ceil - 2.0 or s.life <= 0
 		if not wall.is_empty() or spent:

@@ -110,12 +110,16 @@ var _charge_voice := ""
 ## between the two
 var prev := Vector4()
 
-func _init(g, sx: float, sy: float, a: float) -> void:
+func _init(g, sx: float, sy: float, a: float, sz = null) -> void:
 	game = g
 	x = sx
 	y = sy
 	angle = a
 	sector = g.level.sector_at(x, y)
+	# A START ON AN UPPER LAYER of an edited map: in the storey at its
+	# height, not the ground under it — a hair over the deck
+	if sz != null and sector != null:
+		sector = g.level.span_in(sector, float(sz) + 1.0)
 	z = sector.floor if sector else 0.0
 	view_z = z + U.PLAYER_EYE
 	prev = Vector4(x, y, view_z, 0)
@@ -180,6 +184,9 @@ func move(cmd: Dictionary) -> void:
 		# trees stop you too, and you slide round them the way you slide
 		# along a wall: the whole move, then each axis alone
 		var F = game.forest
+		# (the trees stand on the ground: upstairs, over them, nothing)
+		if lv.layered and sector != null and sector.storey > 0:
+			F = null
 		if F != null and F.blocks(nx, ny, radius):
 			if not F.blocks(nx, y, radius):
 				ny = y
@@ -200,7 +207,9 @@ func move(cmd: Dictionary) -> void:
 
 	var sec := lv.sector_at(x, y, sector)
 	if sec:
-		sector = sec
+		# WHICH STOREY YOU ARE ON: standing, the highest floor a step or
+		# less over your feet; in the air, the one your height is in
+		sector = sec if sec.above == -1 else (lv.stand_in(sec, z) if on_ground else lv.span_in(sec, z))
 	var floor := sector.floor if sector else z
 	var ceil := sector.ceil if sector else INF
 

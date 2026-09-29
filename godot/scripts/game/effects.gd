@@ -378,19 +378,19 @@ func tic() -> void:
 			if (game.tics & 3) == 1 and U.p_random() < 60.0 + flame * 120.0:
 				puff(e.x, e.y, e.z + e.h * 0.9, 34.0 if e.tree else 20.0, 170)
 	embers.tic(func(_i: int, nx: float, ny: float, nz: float) -> bool:
-		# embers go out on the floor
-		var s := lv.sector_at(nx, ny)
+		# embers go out on the floor (of the storey they were in)
+		var s := lv.span_at(nx, ny, embers.pz[_i])
 		return nz <= (s.floor if s else 0.0) + 1.0)
 	smoke.tic()
 	# the licks stop at a wall for the same reason the stream's do
 	body_flames.tic(func(_i: int, nx: float, ny: float, nz: float) -> bool:
-		var s := lv.sector_at(nx, ny)
+		var s := lv.span_at(nx, ny, body_flames.pz[_i])
 		return s == null or nz <= s.floor - 2.0 or nz >= s.ceil)
 	if gore.count > 0:
 		gore.tic(func(i: int, nx: float, ny: float, nz: float) -> bool:
 			if gore_kind[i] != 1:
 				return false
-			var s := lv.sector_at(nx, ny)
+			var s := lv.span_at(nx, ny, gore.pz[i])
 			return s == null or nz <= s.floor + 1.0)
 
 ## Once a frame.

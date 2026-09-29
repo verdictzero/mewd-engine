@@ -23,10 +23,21 @@
 ## roofed room instead), Doom 64's sector colours and each sector's fog,
 ## the props, the plants, and what the scatters grow.
 ##
-## Not ported, because no map the game plays uses them: LAYERS (the
-## map in storeys — FEATURES.storeys and FEATURES.slopes are off in the
-## web build too) and the editor's problem report beyond what the build
-## itself runs into.
+## A MAP IN LAYERS (compileLayers): each layer's linedefs stood up on
+## their own, then every layer's outlines laid over each other (overlay:
+## cut wherever two cross or a corner of one lands on another, and
+## walked face by face), and each face built as a COLUMN of the rooms of
+## every layer over it, bottom-up (Level.add_column) — each storey's
+## ceiling brought down to the floor of the one over it, the deck between
+## them. A layer's line overrides land on the level lines along them;
+## a line is a building's outside wall only in the openings where a
+## roofed room meets the open air (its mid_z); things on an upper layer
+## stand on the floor of their layer's room (their `z`); the scatters
+## spread over the ground layer.
+##
+## Not ported: the sector's own storeys and slopes (FEATURES.storeys and
+## FEATURES.slopes are off in the web build too) and the editor's
+## problem report beyond what the build itself runs into (EdDoc's).
 class_name DocCompile
 
 const EPS := 0.5
@@ -52,11 +63,109 @@ static var problems: Array = []
 static var last_scattered: Array = []
 static var last_grown: Dictionary = {}
 
+const LAYER_PARTS := ["vertices", "sectors", "lines", "linedefs"]
+## anything under this from a point is that point, laying layers over
+## each other (doc.js WELD)
+const WELD := 0.49
+
 static func compile(doc: Dictionary) -> Level:
 	problems = []
 	last_scattered = []
 	last_grown = {}
-	if not doc.get("linedefs", []).is_empty():
+	var lays := layers_of(doc)
+	if lays.size() > 1:
+		return _compile_layers(doc, lays)
+	# one layer with anything on it: that layer, as the map always was —
+	# whichever layer happens to be open in the editor
+	if lays.size() == 1 and int(lays[0].k) != int(doc.get("layer", 0)):
+		doc = doc.duplicate()
+		for p in LAYER_PARTS:
+			doc[p] = lays[0][p]
+	return _compile_core(doc, {})
+
+## Every layer with something on it, bottom-up: [{k, vertices, sectors,
+## lines, linedefs}] (layersOf, less the empty ones).
+static func layers_of(doc: Dictionary) -> Array:
+	var cur := int(doc.get("layer", 0))
+	var ks := [cur]
+	var L = doc.get("layers")
+	if L is Dictionary:
+		for k in L:
+			if not ks.has(int(k)):
+				ks.append(int(k))
+	ks.sort()
+	var out := []
+	for k in ks:
+		var g := {"k": k, "vertices": [], "sectors": [], "lines": {}, "linedefs": []}
+		var src = doc if k == cur else (L.get(str(k)) if L is Dictionary else null)
+		if src is Dictionary:
+			for p in LAYER_PARTS:
+				if src.get(p) != null:
+					g[p] = src[p]
+		if not g.sectors.is_empty() or not g.linedefs.is_empty():
+			out.append(g)
+	return out
+
+## A MAP IN LAYERS: each layer's linedefs stood up on its own, then the
+## layers laid over each other and the faces compiled as one plan, a
+## column of rooms each (compileLayers).
+static func _compile_layers(doc: Dictionary, lays: Array) -> Level:
+	var built := []
+	for li in lays.size():
+		var g: Dictionary = lays[li]
+		var d := doc.duplicate()
+		for p in LAYER_PARTS:
+			d[p] = g[p]
+		d["layer"] = g.k
+		var w: Dictionary = linedef_walls(d, problems, int(doc.get("nextId", 0)) + 100000 * (li + 1)) \
+			if not g.linedefs.is_empty() else d
+		built.append({"k": g.k, "vertices": w.vertices, "sectors": w.sectors, "lines": g.lines})
+	var ov := overlay(built)
+	var F := doc.duplicate()
+	F["vertices"] = ov.vertices
+	F["lines"] = {}
+	F["linedefs"] = []
+	var fs := []
+	for i in ov.faces.size():
+		var f: Dictionary = ov.faces[i]
+		var st := []
+		for e in f.stack:
+			st.append({"k": built[e.li].k, "s": e.s})
+		fs.append({"id": -(i + 1), "verts": f.verts, "__void": f.stack.is_empty(), "__stack": st})
+	F["sectors"] = fs
+	F.erase("layers")
+	F.erase("layer")
+	return _compile_core(F, {"layers": built})
+
+## The rooms of one column, bottom-up, as Level.add_column wants them
+## (stackProps): each storey's ceiling brought down to the floor of the
+## one over it, and a storey open to the sky under another roofed by
+## that one's floor. One that starts below the floor of the one under
+## it cannot be stacked, and is left out and said.
+static func _stack_props(stack: Array) -> Array:
+	var out := []
+	for e in stack:
+		var p := sector_props(e.s)
+		if not out.is_empty():
+			var lo: Dictionary = out[out.size() - 1]
+			if p.floor < lo.p.floor:
+				problems.append({"kind": "sector", "id": e.s.get("id"), "layer": e.k,
+					"msg": "layer %d: sector %s starts at %s, under the floor of sector %s on layer %d (%s) — raise it" % [
+						e.k, str(e.s.get("id")), str(p.floor), str(lo.s.get("id")), lo.k, str(lo.p.floor)]})
+				continue
+			if p.floor < lo.p.ceil:
+				problems.append({"kind": "sector", "id": e.s.get("id"), "layer": e.k,
+					"msg": "layer %d: sector %s's floor (%s) cuts into sector %s under it (ceiling %s) — the room under is cut down to it" % [
+						e.k, str(e.s.get("id")), str(p.floor), str(lo.s.get("id")), str(lo.p.ceil)]})
+			lo.p.ceil = p.floor
+			if lo.p.ceilTex == "SKY" or lo.p.ceilTex == "NONE":
+				lo.p.ceilTex = p.floorTex
+		out.append({"k": e.k, "s": e.s, "p": p})
+	return out
+
+static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
+	var layered := not ctx.is_empty()
+	if not layered and not doc.get("linedefs", []).is_empty():
 		doc = linedef_walls(doc, problems)
 	var lv := Level.new()
 	lv.name = doc.get("name", "")
@@ -133,6 +242,22 @@ static func compile(doc: Dictionary) -> Level:
 			continue
 		var holes := _hole_outlines(kids_of.get(i, []), ring_idx, V, s)
 		var poly: PackedVector2Array = bridge(rings[i], holes) if holes.size() else rings[i]
+		if s.has("__stack"):
+			# A PIECE OF A MAP IN LAYERS: the room of every layer over it
+			var st := _stack_props(s.__stack)
+			if st.is_empty():
+				continue
+			var got := PackedInt32Array()
+			if st.size() == 1:
+				got.append(lv.add_sector(poly, st[0].p))
+			else:
+				got = lv.add_column(poly, st.map(func(e): return e.p))
+			index[i] = got[0]
+			for j in got.size():
+				pieces.append([st[j].s, got[j], st[j].k])
+				if holes.size():
+					flat_holes[got[j]] = [rings[i], holes]
+			continue
 		var li := lv.add_sector(poly, sector_props(s))
 		index[i] = li
 		pieces.append([s, li])
@@ -143,7 +268,25 @@ static func compile(doc: Dictionary) -> Level:
 	# placed by hand, keeping clear of it, in the order they were made
 	var scattered := []
 	if not doc.get("scatters", []).is_empty():
-		scattered = _grow_scatters(doc, plain, areas, boxes)
+		if layered:
+			# on a map in layers, the scatters spread over the ground layer
+			var G: Dictionary = ctx.layers[0]
+			for g in ctx.layers:
+				if int(g.k) == 0:
+					G = g
+			var gdoc := {"sectors": G.sectors, "props": doc.get("props", []), "things": doc.get("things", []),
+				"scatters": doc.scatters}
+			var gplain := []
+			var gareas := PackedFloat64Array()
+			var gboxes := []
+			for sd in G.sectors:
+				var pl := _pts(G.vertices, PackedInt32Array(sd.verts))
+				gplain.append(pl)
+				gboxes.append(_bbox(pl))
+				gareas.append(absf(signed_area(pl)))
+			scattered = _grow_scatters(gdoc, gplain, gareas, gboxes)
+		else:
+			scattered = _grow_scatters(doc, plain, areas, boxes)
 		last_scattered = scattered
 	var things := []
 	var started := false
@@ -152,6 +295,16 @@ static func compile(doc: Dictionary) -> Level:
 			if started:
 				continue
 			started = true
+		# A THING ON AN UPPER LAYER stands on the floor of that layer's
+		# room: the game puts it in the storey at that height
+		if layered and int(t.get("layer", 0) if t.get("layer") != null else 0) != 0:
+			for g in ctx.layers:
+				if int(g.k) != int(t.layer):
+					continue
+				var room = _sector_in(g, float(t.x), float(t.y))
+				if room != null:
+					t = t.duplicate()
+					t["z"] = float(room.get("floor", 0.0) if room.get("floor") != null else 0.0)
 		things.append(t)
 	if not started:
 		# a map with no start gets one, in the middle of its first sector
@@ -167,6 +320,8 @@ static func compile(doc: Dictionary) -> Level:
 		lv.add_sector(sq, sector_props({"id": 0}))
 		problems.append({"kind": "map", "msg": "the map has no sectors that can be built"})
 	lv.things = things
+	if layered:
+		lv.layered = true
 	lv.finish()
 	for pc in pieces:
 		lv.sectors[pc[1]].doc_id = pc[0].get("id")
@@ -174,19 +329,72 @@ static func compile(doc: Dictionary) -> Level:
 		lv.sectors[li].flat_outer = flat_holes[li][0]
 		lv.sectors[li].flat_holes = flat_holes[li][1]
 
-	# 5. the line overrides
+	# 5. the line overrides — on a map in layers, each layer's lines, in
+	# its own vertices
 	var dlines: Dictionary = doc.get("lines", {})
-	for k in dlines:
-		var ab := _key_verts(k)
-		if ab.x < 0 or ab.x >= V.size() or ab.y >= V.size():
-			continue
-		for l in _level_lines_on(lv, V[ab.x], V[ab.y]):
-			_apply_line(l, dlines[k])
+	var opened := {}
+	for g in (ctx.layers if layered else [{"vertices": V, "lines": dlines}]):
+		var gv: Array = g.vertices
+		var gl: Dictionary = g.lines if g.lines is Dictionary else {}
+		for k in gl:
+			var ab := _key_verts(k)
+			if ab.x < 0 or ab.x >= gv.size() or ab.y >= gv.size():
+				continue
+			var o: Dictionary = gl[k]
+			for l in _level_lines_on(lv, gv[ab.x], gv[ab.y]):
+				_apply_line(l, o)
+				if o.get("opening", false):
+					# a doorway ON THAT LAYER: the storeys of the others keep
+					# their walls along it
+					if not opened.has(l):
+						opened[l] = {}
+					opened[l][int(g.get("k", 0))] = true
 
 	# 5c. INSIDE MEETS OUTSIDE: a wall. Where a roofed sector meets one
 	# open to the sky the map has a building's outside wall, from the
-	# floor to the roof, solid, and blind — unless the line is a doorway
-	for dl in _doc_lines(S, parent_of):
+	# floor to the roof, solid, and blind — unless the line is a doorway.
+	# IN LAYERS, storey by storey: only the openings that are a room with
+	# a roof on one side and the open air on the other (as the rooms were
+	# drawn, not as the stacking roofed them) — a terrace over a house is
+	# open air beside open air.
+	if layered:
+		var src_of := {}
+		var layer_of := {}
+		for pc in pieces:
+			src_of[pc[1]] = pc[0]
+			layer_of[pc[1]] = pc[2]
+		for l in lv.lines:
+			if l.back == -1 or l.holes.is_empty():
+				continue
+			var odd := []
+			for h in l.holes:
+				var a = src_of.get(h.front.index)
+				var b = src_of.get(h.back.index)
+				if a == null or b == null:
+					continue
+				if _roofed(a) != _roofed(b):
+					var kin: int = layer_of[h.front.index] if _roofed(a) else layer_of[h.back.index]
+					if opened.has(l) and opened[l].has(kin):
+						continue
+					odd.append([a, b, h])
+			if odd.is_empty():
+				continue
+			var inside: Dictionary = odd[0][0] if _roofed(odd[0][0]) else odd[0][1]
+			# and each storey's piece of it in that storey's own walls —
+			# unless the line wears a middle of its own
+			if not (l.mid_once and l.middle != null):
+				for e in odd:
+					var room: Dictionary = e[0] if _roofed(e[0]) else e[1]
+					e[2]["wall"] = _tex_or(room.get("wallTex"), "GRIDWALL")
+			if odd.size() < l.holes.size():
+				l.mid_z = odd.map(func(e): return Vector2(e[2].z0, e[2].z1))
+			l.middle = l.middle if l.mid_once and l.middle != null else _tex_or(inside.get("wallTex"), "GRIDWALL")
+			l.mid_height = null
+			l.mid_once = false
+			l.blocking = true
+			l.block_sight = true
+			l.exterior = true
+	for dl in ([] if layered else _doc_lines(S, parent_of)):
 		if dl.sectors.size() != 2:
 			continue
 		var sa: Dictionary = S[dl.sectors[0]]
@@ -219,6 +427,11 @@ static func compile(doc: Dictionary) -> Level:
 		for l in lv.lines:
 			if l.back == -1:
 				continue
+			if l.multi:
+				for bd in l.bands:
+					if bd.kind == "upper" and bd.open.ceil_tex == "SKY" and bd.from.ceil_tex != "SKY":
+						bd.tex = "NONE"
+				continue
 			var f := lv.sectors[l.front]
 			var b := lv.sectors[l.back]
 			if absf(f.ceil - b.ceil) <= 1e-6:
@@ -230,6 +443,9 @@ static func compile(doc: Dictionary) -> Level:
 		for pc in pieces:
 			var L := lv.sectors[pc[1]]
 			if L.ceil_tex == "SKY" or L.ceil_tex == "NONE":
+				continue
+			# a storey with another over it has that one's floor for a roof
+			if L.above != -1:
 				continue
 			L.roof_tex = _tex_or(pc[0].get("roofTex"), L.ceil_tex)
 
@@ -755,6 +971,9 @@ static func _apply_line(l: Level.Line, o: Dictionary) -> void:
 				l.upper = o.upperTex
 			if o.get("lowerTex"):
 				l.lower = o.lowerTex
+			if l.multi:
+				for bd in l.bands:
+					bd.tex = l.upper if bd.kind == "upper" else l.lower
 		elif o.get("wallTex") and l.middle != null:
 			l.middle = o.wallTex
 	if o.get("midTex") and two:
@@ -960,7 +1179,7 @@ static func wall_outline(P: Array, w: float, in_a := 0.0, in_b := 0.0) -> Packed
 	return PackedVector2Array(left + right)
 
 ## The document with its linedefs stood up as thin walls (linedefWalls).
-static func linedef_walls(doc: Dictionary, probs: Array) -> Dictionary:
+static func linedef_walls(doc: Dictionary, probs: Array, id_base := -1) -> Dictionary:
 	var chains := linedef_chains(doc)
 	if chains.is_empty():
 		return doc
@@ -980,7 +1199,7 @@ static func linedef_walls(doc: Dictionary, probs: Array) -> Dictionary:
 	out.vertices = V.duplicate()
 	out.sectors = doc.sectors.duplicate()
 	var made := []
-	var id: int = maxi(int(doc.get("nextId", 1)), 1) + 100000
+	var id: int = id_base if id_base >= 0 else maxi(int(doc.get("nextId", 1)), 1) + 100000
 	var crosses := func(A: PackedVector2Array, B: PackedVector2Array) -> bool:
 		for i in A.size():
 			for j in B.size():
@@ -1050,3 +1269,201 @@ static func linedef_walls(doc: Dictionary, probs: Array) -> Dictionary:
 		id += 1
 		out.sectors.append(ns)
 	return out
+
+# ------------------------------------------------------------------
+# LAYERS, LAID OVER EACH OTHER (overlay in js/editor/doc.js)
+# ------------------------------------------------------------------
+
+## The smallest sector of geometry g round (x, y), or null (sectorIn).
+static func _sector_in(g: Dictionary, x: float, y: float):
+	var best = null
+	var ba := INF
+	for sd in g.sectors:
+		var r := _pts(g.vertices, PackedInt32Array(sd.verts))
+		if r.size() < 3 or not pip(r, x, y):
+			continue
+		var a := absf(signed_area(r))
+		if a < ba:
+			ba = a
+			best = sd
+	return best
+
+static func _seg_t(a: Vector2, b: Vector2, p: Vector2) -> float:
+	var d := b - a
+	var l2 := d.length_squared()
+	return clampf((p - a).dot(d) / l2, 0.0, 1.0) if l2 > 0.0 else 0.0
+
+static func _weld(P: Array, cell: Dictionary, x: float, y: float) -> int:
+	var fx := floori(x)
+	var fy := floori(y)
+	for i in range(-1, 2):
+		for j in range(-1, 2):
+			for k in cell.get(Vector2i(fx + i, fy + j), []):
+				if absf(P[k].x - x) <= WELD and absf(P[k].y - y) <= WELD:
+					return k
+	P.append(Vector2(x, y))
+	var key := Vector2i(fx, fy)
+	if not cell.has(key):
+		cell[key] = []
+	cell[key].append(P.size() - 1)
+	return P.size() - 1
+
+## Every edge of every layer's sectors in one plane, cut wherever two
+## cross or a corner of one lands on another, and walked face by face.
+## Each face any layer covers is one piece of the built map, with the
+## room of each layer over it, bottom-up; a face none covers is a hole.
+## lays: [{k, vertices, sectors}] bottom-up. Returns {vertices (Vector2),
+## faces: [{verts, stack: [{li, s}]}]}.
+static func overlay(lays: Array) -> Dictionary:
+	var rings := []
+	for li in lays.size():
+		var g: Dictionary = lays[li]
+		for sd in g.sectors:
+			var pts := _pts(g.vertices, PackedInt32Array(sd.verts))
+			if pts.size() < 3 or self_crosses(pts) or absf(signed_area(pts)) < 1.0:
+				continue
+			rings.append({"li": li, "s": sd, "pts": pts, "area": absf(signed_area(pts)), "box": _bbox(pts)})
+	var P := []
+	var cell := {}
+	var segs := []
+	for r in rings:
+		var pts: PackedVector2Array = r.pts
+		for i in pts.size():
+			var a := pts[i]
+			var b := pts[(i + 1) % pts.size()]
+			if a == b:
+				continue
+			segs.append([a, b, Rect2(a.min(b) - Vector2.ONE, (a.max(b) - a.min(b)) + Vector2.ONE * 2.0)])
+	# each segment cut at every crossing, and at every end of another that
+	# lies on it
+	var edges := {}
+	for si in segs.size():
+		var S: Array = segs[si]
+		var sa: Vector2 = S[0]
+		var sb: Vector2 = S[1]
+		var d := sb - sa
+		var cuts := [[0.0, sa.x, sa.y, 0], [1.0, sb.x, sb.y, 1]]
+		for ti in segs.size():
+			if ti == si:
+				continue
+			var T: Array = segs[ti]
+			if not (T[2] as Rect2).intersects(S[2], true):
+				continue
+			for q in [T[0], T[1]]:
+				var t := _seg_t(sa, sb, q)
+				if (sa + d * t).distance_to(q) < EPS and t > 1e-6 and t < 1.0 - 1e-6:
+					cuts.append([t, q.x, q.y, cuts.size()])
+			if seg_cross(sa, sb, T[0], T[1]):
+				var e: Vector2 = T[1] - T[0]
+				var den := d.x * e.y - d.y * e.x
+				if absf(den) < 1e-9:
+					continue
+				var t: float = ((T[0].x - sa.x) * e.y - (T[0].y - sa.y) * e.x) / den
+				cuts.append([t, snappedf(sa.x + d.x * t, 0.001), snappedf(sa.y + d.y * t, 0.001), cuts.size()])
+		cuts.sort_custom(func(u, v): return u[0] < v[0] or (u[0] == v[0] and u[3] < v[3]))
+		var prev := -1
+		for c in cuts:
+			var k := _weld(P, cell, c[1], c[2])
+			if prev != -1 and prev != k:
+				edges[Vector2i(mini(prev, k), maxi(prev, k))] = [prev, k]
+			prev = k
+	# THE FACES: each point's neighbours anticlockwise, and every edge
+	# walked both ways with the face on its left
+	var adj := {}
+	for e in edges.values():
+		for pr in [[e[0], e[1]], [e[1], e[0]]]:
+			if not adj.has(pr[0]):
+				adj[pr[0]] = []
+			if not adj[pr[0]].has(pr[1]):
+				adj[pr[0]].append(pr[1])
+	var order := {}
+	for v in adj:
+		var ns: Array = adj[v].duplicate()
+		var pv: Vector2 = P[v]
+		ns.sort_custom(func(p, q): return atan2(P[p].y - pv.y, P[p].x - pv.x) < atan2(P[q].y - pv.y, P[q].x - pv.x))
+		order[v] = ns
+	var seen := {}
+	var faces := []
+	for u0 in order:
+		for v0 in order[u0]:
+			if seen.has(Vector2i(u0, v0)):
+				continue
+			var ring := []
+			var u: int = u0
+			var v: int = v0
+			var guard := 0
+			while not seen.has(Vector2i(u, v)) and guard < 1000000:
+				guard += 1
+				seen[Vector2i(u, v)] = true
+				ring.append(u)
+				var around: Array = order[v]
+				var i := around.find(u)
+				var w: int = around[(i - 1 + around.size()) % around.size()]
+				u = v
+				v = w
+			# spurs in and straight back out are not edges of it
+			var again := true
+			while again and ring.size() > 3:
+				again = false
+				for k in ring.size():
+					var n := ring.size()
+					if ring[(k - 1 + n) % n] == ring[(k + 1) % n]:
+						var k2 := (k + 1) % n
+						var keep := []
+						for q in n:
+							if q != k and q != k2:
+								keep.append(ring[q])
+						ring = keep
+						again = true
+						break
+			if ring.size() < 3:
+				continue
+			var uniq := {}
+			for q in ring:
+				uniq[q] = true
+			if uniq.size() != ring.size():
+				continue
+			var pts := PackedVector2Array()
+			for q in ring:
+				pts.append(P[q])
+			if signed_area(pts) <= 0.25:
+				continue
+			faces.append(ring)
+	# WHAT IS OVER EACH FACE: a point just inside it, off its longest
+	# edge, and the smallest room of each layer round that point
+	var out := []
+	for ring in faces:
+		var pts := PackedVector2Array()
+		for q in ring:
+			pts.append(P[q])
+		var n := pts.size()
+		var by_len := []
+		for k in n:
+			by_len.append([k, pts[k].distance_to(pts[(k + 1) % n])])
+		by_len.sort_custom(func(p, q): return p[1] > q[1] or (p[1] == q[1] and p[0] < q[0]))
+		var at = null
+		for m in mini(6, by_len.size()):
+			var k: int = by_len[m][0]
+			var len: float = by_len[m][1]
+			var a := pts[k]
+			var b := pts[(k + 1) % n]
+			var e := minf(0.05, len * 0.05)
+			var x := (a.x + b.x) / 2.0 - (b.y - a.y) / len * e
+			var y := (a.y + b.y) / 2.0 + (b.x - a.x) / len * e
+			if pip(pts, x, y):
+				at = Vector2(x, y)
+				break
+		if at == null:
+			at = centroid(pts)
+		var stack := []
+		for li in lays.size():
+			var best = null
+			var ba := INF
+			for r in rings:
+				if r.li == li and r.area < ba and (r.box as Rect2).grow(0.01).has_point(at) and pip(r.pts, at.x, at.y):
+					ba = r.area
+					best = r.s
+			if best != null:
+				stack.append({"li": li, "s": best})
+		out.append({"verts": ring, "stack": stack})
+	return {"vertices": P, "faces": out}

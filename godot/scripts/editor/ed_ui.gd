@@ -146,6 +146,7 @@ func _build_top() -> void:
 		["Open THE SPRAWL", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("sprawl"))],
 		["Open a new JESSE (PvP maze)", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("jesse"))],
 		["Open THE GRID", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("grid"))],
+		["Open THE ANNEXE (two storeys)", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("layers"))],
 		"-",
 		["Open…", "Ctrl+O", open_dialog],
 		["Save", "Ctrl+S", ed.file_save],

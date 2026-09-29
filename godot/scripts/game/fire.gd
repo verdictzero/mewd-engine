@@ -466,10 +466,11 @@ func _link_cells() -> void:
 ## that counts as a wall here, and a door is judged on what it WILL be
 ## (dynamic: open), since these links are worked out once at startup.
 ##
-## TODO(storeys): the JS asks lv.spanIn(sector, z) for the storey of each
-## side's column at height z; the Godot Level has no columns yet, so
-## each side is its own sector and `z` is unused.
-func _fire_blocked(x1: float, y1: float, x2: float, y2: float, _z := 8.0) -> bool:
+## AT A HEIGHT, because a map in storeys has rooms over rooms: the wall
+## between two first floors is not the wall between the two rooms under
+## them, so each side's storey at z is asked (span_in); a column of one
+## hands back the sector it was given, and this is the check it was.
+func _fire_blocked(x1: float, y1: float, x2: float, y2: float, z := 8.0) -> bool:
 	var lv: Level = game.level
 	for l in lv.lines_in_box(minf(x1, x2), minf(y1, y2), maxf(x1, x2), maxf(y1, y2)):
 		var t := U.seg_intersect(x1, y1, x2, y2, l.x1, l.y1, l.x2, l.y2)
@@ -479,6 +480,12 @@ func _fire_blocked(x1: float, y1: float, x2: float, y2: float, _z := 8.0) -> boo
 			return true
 		var a: Level.Sector = lv.sectors[l.front]
 		var b: Level.Sector = lv.sectors[l.back]
+		if l.multi:
+			a = lv.span_in(a, z)
+			b = lv.span_in(b, z)
+			# a building's outside wall in the openings at this height
+			if l.blocking and not l.mid_z.is_empty() and Level._in_mid_z(l, z):
+				return true
 		if a.props.get("dynamic", false) or b.props.get("dynamic", false):
 			continue
 		if minf(a.ceil, b.ceil) - maxf(a.floor, b.floor) <= 0.0:
@@ -493,10 +500,18 @@ func _fire_blocked(x1: float, y1: float, x2: float, y2: float, _z := 8.0) -> boo
 ## fuel is being dumped there too — a fuel can makes its own. `radius`
 ## in map units; the box of cells it covers is lit. Returns how many
 ## cells caught.
-func ignite(x: float, y: float, strength := 60.0, radius := float(CELL)) -> int:
+##
+## `z`, where it is known, is the height it happens at: on a map in
+## storeys the fire goes into the PLANE of the storey there (plane_at),
+## so a flamer on the terrace lights the terrace and not the yard under
+## it; none of that is asked on a map of one storey.
+func ignite(x: float, y: float, strength := 60.0, radius := float(CELL), z := NAN) -> int:
 	# TODO(boxes): the JS hands the call to the grid world's boxes first
 	# (this.boxes?.ignite) — not ported
 	if off:
+		return 0
+	var pl := plane_at(x, y, z)
+	if pl < 0:
 		return 0
 	var cx0 := cell_x(x - radius)
 	var cx1 := cell_x(x + radius)
@@ -505,7 +520,7 @@ func ignite(x: float, y: float, strength := 60.0, radius := float(CELL)) -> int:
 	var lit := 0
 	for cy in range(cy0, cy1 + 1):
 		for cx in range(cx0, cx1 + 1):
-			var i := idx(cx, cy)
+			var i := idx(cx, cy, pl)
 			if sector_of[i] < 0:
 				continue
 			# ACCELERANT. Something poured here burns even on bare lino.
@@ -532,8 +547,19 @@ func ignite(x: float, y: float, strength := 60.0, radius := float(CELL)) -> int:
 ## calls fire.ignite(x, y, burnFuel, burnRadius)) — the same thing under
 ## the name the actor port asks for. `radius` is in map units, as the
 ## JS's burnRadius is: 1 is the cell they are standing in.
-func add_heat(x: float, y: float, amount: float, radius := 1.0) -> int:
-	return ignite(x, y, amount, float(radius))
+func add_heat(x: float, y: float, amount: float, radius := 1.0, z := NAN) -> int:
+	return ignite(x, y, amount, float(radius), z)
+
+## THE PLANE OF THE STOREY at (x, y, z) on a map in storeys: its storey
+## in its column, or -1 where that storey has no cells (nothing to burn
+## up there). Plane 0 with no height, and on every map of one storey.
+func plane_at(x: float, y: float, z: float) -> int:
+	if is_nan(z) or not game.level.layered:
+		return 0
+	var s: Level.Sector = game.level.span_at(x, y, z)
+	if s == null:
+		return 0
+	return s.storey if s.storey < levels else -1
 
 ## AND PUTTING ONE OUT. Not symmetrical with ignite: fire is a THRESHOLD
 ## system, so taking heat away moves a cell across a line — under
@@ -541,8 +567,11 @@ func add_heat(x: float, y: float, amount: float, radius := 1.0) -> int:
 ## CANNOT DO IS PUT THE FUEL BACK. Embers go too: a doused cell has its
 ## ember clock cleared, so the aisle behind you stays dark. ROUND, NOT
 ## SQUARE, unlike ignite — a spray is a cone. Returns cells cooled.
-func douse(x: float, y: float, strength := 90.0, radius := float(CELL)) -> int:
+func douse(x: float, y: float, strength := 90.0, radius := float(CELL), z := NAN) -> int:
 	if off:
+		return 0
+	var pl := plane_at(x, y, z)
+	if pl < 0:
 		return 0
 	var cx0 := cell_x(x - radius)
 	var cx1 := cell_x(x + radius)
@@ -552,7 +581,7 @@ func douse(x: float, y: float, strength := 90.0, radius := float(CELL)) -> int:
 	var cooled := 0
 	for cy in range(cy0, cy1 + 1):
 		for cx in range(cx0, cx1 + 1):
-			var i := idx(cx, cy)
+			var i := idx(cx, cy, pl)
 			if sector_of[i] < 0 or heat[i] == 0:
 				continue
 			var dx := world_x(cx) - x
@@ -586,9 +615,12 @@ func _activate(i: int) -> void:
 	_active_set[i] = 1
 	active.append(i)
 
-## How hot it is at (x, y), 0..1.
-func heat_at(x: float, y: float) -> float:
-	return heat[idx(cell_x(x), cell_y(y))] / 255.0
+## How hot it is at (x, y), 0..1 — at height z, on a map in storeys.
+func heat_at(x: float, y: float, z := NAN) -> float:
+	var pl := plane_at(x, y, z)
+	if pl < 0:
+		return 0.0
+	return heat[idx(cell_x(x), cell_y(y), pl)] / 255.0
 
 func burn_fraction() -> float:
 	return burnt_fuel / total_fuel if total_fuel > 0.0 else 0.0
@@ -866,7 +898,10 @@ func _burn_things() -> void:
 	for a in game.actors:
 		if a.removed or a.fireproof or ("noclip" in a and a.noclip):
 			continue
-		var h := heat[idx(cell_x(a.x), cell_y(a.y))]
+		var pa := plane_at(a.x, a.y, a.z)
+		if pa < 0:
+			continue
+		var h := heat[idx(cell_x(a.x), cell_y(a.y), pa)]
 		if h < 70:
 			continue
 		if a.flammable and not a.burning:
@@ -875,7 +910,8 @@ func _burn_things() -> void:
 			a.damage(3, null, {"fire": true})
 	var p = game.player
 	if p != null and not p.dead and p.has_method("damage"):
-		var h := heat[idx(cell_x(p.x), cell_y(p.y))]
+		var pp := plane_at(p.x, p.y, p.z)
+		var h: int = heat[idx(cell_x(p.x), cell_y(p.y), pp)] if pp >= 0 else 0
 		if h > 70 and (tics & 7) == 0:
 			p.damage(maxi(2, h >> 5), null, {"fire": true})
 
@@ -895,6 +931,7 @@ func _update_atmosphere() -> void:
 		return
 	var sx := 0.0
 	var sy := 0.0
+	var sz := 0.0
 	var sw := 0.0
 	var step := maxi(1, active.size() >> 6)
 	for k in range(0, active.size(), step):
@@ -911,12 +948,17 @@ func _update_atmosphere() -> void:
 		sx += x * w
 		sy += y * w
 		sw += w
+		if sector_of[i] >= 0:
+			sz += game.level.sectors[sector_of[i]].floor * w
 	sx *= step
 	sy *= step
 	sw *= step
 	if sw > 0.01:
 		var s: Level.Sector = game.level.sector_at(sx / sw, sy / sw)
-		fire_light_pos = Vector3(sx / sw, sy / sw, (s.floor + 48.0) if s else 48.0)
+		var fz: float = (s.floor + 48.0) if s else 48.0
+		if game.level.layered:
+			fz = sz / (sw / step) + 48.0
+		fire_light_pos = Vector3(sx / sw, sy / sw, fz)
 		# flicker, keyed to the tic so it is the same for everything
 		var flick := 0.86 + 0.14 * sin(tics * 0.7) * cos(tics * 0.31)
 		fire_light = minf(1.8, sqrt(sw) * 0.36) * flick

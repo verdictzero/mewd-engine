@@ -146,7 +146,7 @@ func tic() -> void:
 		if not wall.is_empty():
 			_land(wall.x, wall.y, wall.z)
 			return true
-		var sec := lv.sector_at(nx, ny)
+		var sec := lv.span_at(nx, ny, z)
 		var floor := sec.floor if sec else 0.0
 		if nz <= floor + 3.0:
 			_land(nx, ny, floor)
@@ -185,7 +185,7 @@ func _land(x: float, y: float, z: float) -> void:
 	landed += 1
 	var cooled := 0
 	if g.fire != null:
-		cooled = g.fire.douse(x, y, HOSE.cool, HOSE.coolRadius)
+		cooled = g.fire.douse(x, y, HOSE.cool, HOSE.coolRadius, z)
 	doused += cooled
 	# STEAM off whatever it has just put out: the one sign at a distance
 	# that the water is winning

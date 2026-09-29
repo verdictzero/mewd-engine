@@ -29,6 +29,14 @@
 ## the holes); a ROOF over every roofed room; the free BOXES (level
 ## props); and each surface's Doom 64 colour and fog, per vertex, for
 ## godot/shaders/world_tint.gdshader, which such a level is drawn with.
+##
+## AND A MAP IN STOREYS (Level's columns, addLine in js/mapgeo.js): every
+## storey's floor and ceiling (the ceiling of the room under a deck is
+## the underside of the floor over it); a one-sided wall a storey at a
+## time, each in its own skin; a two-sided line as its BANDS — every
+## interval of z where exactly one of its columns is open, the face of
+## whatever is in the way — and a middle once per HOLE, where both are
+## (and only in the openings a building's outside wall fills, mid_z).
 class_name MapGeo
 extends RefCounted
 
@@ -246,6 +254,26 @@ func _flats(s: Level.Sector) -> void:
 	_fog = NO_FOG
 
 func _walls(lv: Level, l: Level.Line) -> void:
+	if l.multi:
+		_walls_columns(lv, l)
+		return
+	if l.back == -1 and l.front_col.size() > 1:
+		# the outside of a house of storeys backing onto nothing: a storey
+		# at a time, each in its own skin (the ground in the line's)
+		for i in l.front_col.size():
+			var st := lv.sectors[l.front_col[i]]
+			var sd := _side(l, st)
+			var tex = sd.mid if sd.mid != null else (l.middle if i == 0 else (st.wall_tex if st.wall_tex != "" else l.middle))
+			if _none(tex):
+				continue
+			var th: float = bank.size_of(str(tex)).y * sd.yscale
+			var peg: float = (st.floor + th if l.peg_middle == "bottom" else st.ceil) + sd.yoff
+			_paint = _paint_wall(st)
+			_fog = _fog_of(st)
+			_quad(l, str(tex), st.floor, st.ceil, true, peg, st.light + l.contrast, st.sky, sd)
+		_paint = null
+		_fog = NO_FOG
+		return
 	if l.back == -1:
 		var s := lv.sectors[l.front]
 		var sd := _side(l, s)
@@ -339,6 +367,90 @@ func _walls(lv: Level, l: Level.Line) -> void:
 		var peg2: float = (bot + th if l.peg_middle == "bottom" else top) + sd.yoff
 		_paint = _paint_wall(sec, bot, top)
 		_quad(l, str(tex), bot, top, fs[0], peg2, sec.light + l.contrast, sec.sky, sd)
+	_paint = null
+	_fog = NO_FOG
+
+## A two-sided line between columns: its bands, then a middle in each of
+## its holes (the two-sided half of addLine in js/mapgeo.js).
+func _walls_columns(lv: Level, l: Level.Line) -> void:
+	for bd in l.bands:
+		if _none(bd.tex):
+			continue
+		var open: Level.Sector = bd.open
+		var from: Level.Sector = bd.from
+		# a step between two patches of sky draws nothing
+		if bd.kind == "upper" and open.ceil_tex == "SKY" and from.ceil_tex == "SKY":
+			continue
+		var sd := _side(l, open)
+		var own = sd.upper if bd.kind == "upper" else sd.lower
+		var tex = own if own != null else bd.tex
+		if _none(tex):
+			continue
+		var th: float = bank.size_of(str(tex)).y * sd.yscale
+		var z0: float = bd.z0
+		var z1: float = bd.z1
+		var peg: float
+		if bd.kind == "upper":
+			peg = (z1 if l.peg_upper == "top" else z0 + th) + sd.yoff
+		else:
+			peg = (open.ceil if l.peg_lower == "ceiling" else z1) + sd.yoff
+		# THE GABLE FACES THE STREET: a band over outdoor ground is seen
+		# from under the sky, and lit by it
+		var gable: bool = bd.kind == "upper" and from.ceil_tex == "SKY"
+		var lit := from if gable else open
+		var facing: bool = (not bd.open_front) if gable else bd.open_front
+		_paint = _paint_wall(lit, z0, z1)
+		_fog = _fog_of(lit)
+		_quad(l, str(tex), z0, z1, facing, peg, lit.light + l.contrast, lit.sky, sd)
+		if gable and open.ceil_tex != "" and open.ceil_tex != "NONE":
+			_paint = _paint_wall(open, z0, z1)
+			_fog = _fog_of(open)
+			_quad(l, str(tex), z0, z1, not facing, peg, open.light + l.contrast, lit.sky, sd)
+	_paint = null
+	_fog = NO_FOG
+	var any_mid := not _none(l.middle)
+	if not any_mid:
+		for o in l.sides.values():
+			if o is Dictionary and not _none(o.get("midTex")):
+				any_mid = true
+	if not any_mid:
+		return
+	for h in l.holes:
+		# a wall in some of the openings only (mid_z)
+		if not l.mid_z.is_empty():
+			var hit := false
+			for m in l.mid_z:
+				if absf(m.x - h.z0) < 1.0 and absf(m.y - h.z1) < 1.0:
+					hit = true
+			if not hit:
+				continue
+		var bot: float = h.z0
+		var top: float = h.z1
+		if l.mid_height != null:
+			top = minf(top, bot + float(l.mid_height))
+		if top <= bot:
+			continue
+		for fs in [[true, h.front], [false, h.back]]:
+			var sec: Level.Sector = fs[1]
+			var sd := _side(l, sec)
+			# a building's outside wall: each storey in its own room's walls
+			var tex = sd.mid if sd.mid != null else h.get("wall", l.middle)
+			if _none(tex):
+				continue
+			var th: float = bank.size_of(str(tex)).y * sd.yscale
+			_fog = _fog_of(sec)
+			if l.mid_once and l.mid_height == null:
+				var peg: float = bot + th + sd.yoff
+				var b0 := maxf(bot, peg - th)
+				var b1 := minf(top, peg)
+				if b1 <= b0:
+					continue
+				_paint = _paint_wall(sec, b0, b1)
+				_quad(l, str(tex), b0, b1, fs[0], peg, sec.light + l.contrast, sec.sky, sd)
+				continue
+			var peg2: float = (bot + th if l.peg_middle == "bottom" else top) + sd.yoff
+			_paint = _paint_wall(sec, bot, top)
+			_quad(l, str(tex), bot, top, fs[0], peg2, sec.light + l.contrast, sec.sky, sd)
 	_paint = null
 	_fog = NO_FOG
 

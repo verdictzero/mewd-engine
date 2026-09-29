@@ -65,7 +65,7 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 	if not wall.is_empty():
 		_land(wall.x, wall.y, wall.z)
 		return true
-	var sec := lv.sector_at(nx, ny)
+	var sec := lv.span_at(nx, ny, z)
 	var floor := sec.floor if sec else 0.0
 	if nz <= floor + 4.0:
 		_land(nx, ny, floor)
@@ -89,7 +89,7 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 func _land(x: float, y: float, z: float) -> void:
 	hits += 1
 	if game.fire != null:
-		doused += game.fire.douse(x, y, JET.cool, JET.coolRadius)
+		doused += game.fire.douse(x, y, JET.cool, JET.coolRadius, z)
 	if game.forest != null and game.forest.has_method("douse"):
 		game.forest.douse(x, y, JET.treeRadius)
 	if game.fx != null:

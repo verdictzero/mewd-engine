@@ -647,10 +647,9 @@ static func layer_floor_at(doc: Dictionary, k: int, x: float, y: float):
 	var s = sector_in(layer_geom(doc, k), x, y)
 	return null if s == null else num(s.get("floor"), 0)
 
-## The document to compile: a map in layers is built from its ground
-## (the web build lays the storeys over each other as columns of rooms,
-## which the Godot engine does not have yet — see GODOT.txt); one layer
-## with anything on it is that layer, whichever is open.
+## The document to compile when it is NOT in layers: the one layer with
+## anything on it, whichever is open. (A map in layers is compiled whole
+## — DocCompile lays the storeys over each other as columns of rooms.)
 static func for_compile(doc: Dictionary) -> Dictionary:
 	var lays := layers_of(doc)
 	var filled: Array = []

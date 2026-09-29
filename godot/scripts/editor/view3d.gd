@@ -495,12 +495,18 @@ static func sprite_batches(things: Array, L, layer_k: int, d: Dictionary) -> Dic
 		var y := float(t.y)
 		var fz := 0.0
 		var light := 1.0
-		if layer_k != 0:
-			fz = EdDoc.num(EdDoc.layer_floor_at(d, layer_k, x, y), 0)
-		elif L != null:
+		# on the floor of ITS OWN layer's room (a map in storeys), lit by
+		# the storey of the build it stands in
+		var tk := int(EdDoc.num(t.get("layer"), 0))
+		if tk != 0:
+			fz = EdDoc.num(EdDoc.layer_floor_at(d, tk, x, y), 0)
+		if L != null:
 			var sec = L.sector_at(x, y)
 			if sec != null:
-				fz = sec.floor
+				if tk != 0:
+					sec = L.span_in(sec, fz + 1.0)
+				else:
+					fz = sec.floor
 				light = clampf(sec.light, 0.15, 1.0)
 		var c: Color = b.tint
 		b.buf.append_array([b.w * s, 0, 0, x, 0, b.h * s, 0, fz, 0, 0, 1, -y, c.r * light, c.g * light, c.b * light, 1.0])

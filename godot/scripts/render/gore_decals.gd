@@ -91,8 +91,8 @@ func throw_angle(n: Vector3, d: Vector3) -> float:
 	var dv: float = d.dot(b[1])
 	return atan2(dv, du) if (du != 0.0 or dv != 0.0) else cosmetic() * TAU
 
-func _light_at(x: float, y: float) -> float:
-	var s: Level.Sector = game.level.sector_at(x, y)
+func _light_at(x: float, y: float, z := 0.0) -> float:
+	var s: Level.Sector = game.level.span_at(x, y, z)
 	return s.light if s else 0.75
 
 func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> int:
@@ -109,7 +109,7 @@ func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> in
 	var pos := U.v3(at.x, at.y, at.z) + bz * (LIFT + (next % 8) * 0.04)
 	var i := next
 	mm.set_instance_transform(i, Transform3D(Basis(bx, by, bz), pos))
-	mm.set_instance_custom_data(i, Color(kind, cosmetic(), _now(), _light_at(at.x, at.y)))
+	mm.set_instance_custom_data(i, Color(kind, cosmetic(), _now(), _light_at(at.x, at.y, at.z)))
 	next = (next + 1) % CAP
 	_count = mini(_count + 1, CAP)
 	mm.visible_instance_count = _count
@@ -156,7 +156,7 @@ func bleed(a, h: Vector3, d: Vector3) -> int:
 	var k := 6.0 + cosmetic() * 18.0
 	var fx := h.x + u.x * k
 	var fy := h.y + u.y * k
-	var sec: Level.Sector = game.level.sector_at(fx, fy)
+	var sec: Level.Sector = game.level.span_at(fx, fy, h.z)
 	if sec:
 		blood(Vector3(fx, fy, a.z if a.get("z") != null else sec.floor), UP, Vector3(u.x, u.y, 0))
 		n += 1
@@ -176,7 +176,7 @@ func spray_walls(h: Vector3, u: Vector3, rays: int, reach: float, cone: float, s
 	var lv: Level = game.level
 	var base := atan2(u.y, u.x)
 	var flat := maxf(1e-6, Vector2(u.x, u.y).length())
-	var under := lv.sector_at(h.x, h.y)
+	var under := lv.span_at(h.x, h.y, h.z)
 	var fl: float = under.floor if under else -INF
 	var n := 0
 	for k in rays:

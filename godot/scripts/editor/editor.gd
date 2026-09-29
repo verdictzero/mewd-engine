@@ -329,8 +329,27 @@ static func _compile_geo(d: Dictionary, b) -> Dictionary:
 	return c
 
 static func _compile(d: Dictionary) -> Dictionary:
-	var cd := EdDoc.for_compile(d)
-	var probs := EdDoc.problems_of(cd)
+	var probs: Array = []
+	var cd := d
+	if EdDoc.is_layered(d):
+		# A MAP IN LAYERS is built whole, every storey (compileLayers):
+		# each layer's problems said with its number
+		for g in EdDoc.layers_of(d):
+			if g.sectors.is_empty() and g.linedefs.is_empty():
+				continue
+			var gd := d.duplicate()
+			for part in EdDoc.LAYER_PARTS:
+				gd[part] = g[part]
+			gd["layer"] = g.k
+			for p in EdDoc.problems_of(gd):
+				if p.kind != "map":
+					var q: Dictionary = p.duplicate()
+					q["layer"] = g.k
+					q["msg"] = "layer %d: %s" % [g.k, p.msg]
+					probs.append(q)
+	else:
+		cd = EdDoc.for_compile(d)
+		probs = EdDoc.problems_of(cd)
 	var lv: Level = null
 	lv = DocCompile.compile(cd)
 	var seen := {}
@@ -340,12 +359,6 @@ static func _compile(d: Dictionary) -> Dictionary:
 		if not seen.has(p.msg):
 			probs.append(p)
 			seen[p.msg] = true
-	var n := 0
-	for g in EdDoc.layers_of(d):
-		if not g.sectors.is_empty() or not g.linedefs.is_empty():
-			n += 1
-	if n > 1:
-		probs.append({"kind": "map", "msg": "the map has %d layers: this build plays and draws the ground layer — storeys are not in the Godot engine yet" % n})
 	return {"level": lv, "problems": probs, "scattered": DocCompile.last_scattered.duplicate(), "grown": DocCompile.last_grown.duplicate()}
 
 func _apply_compile(c: Dictionary) -> void:
@@ -443,7 +456,8 @@ func file_new(from_grid := false) -> void:
 	reframe()
 	say("new map from THE GRID" if from_grid else "new map — drag on the ground to draw a sector (or R), D to draw any shape")
 
-## THE DEMO LEVELS: a new MAZE, THE SPRAWL, a new JESSE, THE GRID.
+## THE DEMO LEVELS: a new MAZE, THE SPRAWL, a new JESSE, THE GRID, and
+## THE ANNEXE (a map in two storeys: godot/scripts/maps/layers.gd).
 func file_demo(which := "maze") -> void:
 	var seed := MazeMap.new_seed()
 	var d: Dictionary
@@ -451,6 +465,7 @@ func file_demo(which := "maze") -> void:
 		"sprawl": d = SprawlMap.build()
 		"jesse": d = JesseMap.build(seed)
 		"grid": d = EdDoc.grid_doc()
+		"layers": d = LayersMap.build()
 		_: d = MazeMap.build(seed)
 	d = EdDoc.normalise(EdDoc.clone(d))
 	d.erase("jesse")
@@ -460,6 +475,7 @@ func file_demo(which := "maze") -> void:
 		"sprawl": say("opened the demo level, THE SPRAWL")
 		"jesse": say("opened a new JESSE, the PvP maze (seed %d)" % seed)
 		"grid": say("opened THE GRID")
+		"layers": say("opened THE ANNEXE, a map in two storeys — Alt+PgUp for the upstairs")
 		_: say("opened a new maze (seed %d)" % seed)
 
 func reframe() -> void:

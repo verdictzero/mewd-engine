@@ -40,6 +40,9 @@ const SAMPLE_GAIN := {
 
 ## the ears: anything with an x and a y
 var listener = null
+## a map in storeys: the height between the two counts too, so a shot
+## upstairs is quieter than one beside you (see _gain_for)
+var layered := false
 var volume := 1.0
 var _streams := {}
 
@@ -71,6 +74,8 @@ func _gain_for(from) -> float:
 	if from == null or listener == null or from == listener:
 		return 1.0
 	var d := sqrt(U.dist2(from.x, from.y, listener.x, listener.y))
+	if layered and "z" in from and "z" in listener:
+		d = Vector2(d, float(from.z) - float(listener.z)).length()
 	if d > MAX_DISTANCE:
 		return 0.0
 	return pow(maxf(0.0, 1.0 - d / MAX_DISTANCE), 1.7)

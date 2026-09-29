@@ -316,7 +316,7 @@ func reconcile(you, ack: int) -> void:
 			p.z = oz + (p.z - oz) * kk
 			var sec := lv.sector_at(p.x, p.y, p.sector)
 			if sec:
-				p.sector = sec
+				p.sector = sec if sec.above == -1 else lv.span_in(sec, p.z)
 
 func _take_body(you: Dictionary) -> void:
 	var p = game.player
@@ -329,7 +329,8 @@ func _take_body(you: Dictionary) -> void:
 	p.on_ground = int(you.g) != 0
 	var sec: Level.Sector = game.level.sector_at(p.x, p.y, p.sector)
 	if sec:
-		p.sector = sec
+		# the storey at the height the host says (the snapshot's z)
+		p.sector = sec if sec.above == -1 else game.level.span_in(sec, p.z)
 
 # ---- the others ------------------------------------------------------------
 
@@ -421,7 +422,7 @@ func frame() -> void:
 		pup.pitch = s0.pitch + (s1.pitch - s0.pitch) * k
 		var sec := lv.sector_at(a.x, a.y, a.sector)
 		if sec:
-			a.sector = sec
+			a.sector = sec if sec.above == -1 else lv.span_in(sec, a.z)
 		g.blockmap.moved(a)
 		# and what they are doing, as of the nearer of the two
 		_look(pup, int((s0 if k < 0.5 else s1).f))

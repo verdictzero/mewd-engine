@@ -26,4 +26,7 @@ run net     --script res://godot/tests/net_test.gd
 # editor driven by input events, to the game and back
 run editor  --script res://godot/tests/editor_test.gd
 run editorui --script res://godot/tests/editor_ui_test.gd -- --edit
+# ROOM OVER ROOM: a map in the editor's layers, compiled whole and played
+# (godot/tests/layers_test.gd on THE ANNEXE, godot/scripts/maps/layers.gd)
+run layers  --script res://godot/tests/layers_test.gd -- --map=layers
 exit $fail

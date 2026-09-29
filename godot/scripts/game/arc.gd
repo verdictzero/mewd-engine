@@ -114,10 +114,13 @@ func _sight_end(p) -> Vector3:
 	var b := e + Vector3(cos(p.angle) * cp, sin(p.angle) * cp, sin(p.pitch)) * ARC.range
 	var w: Dictionary = game.level.ray_hit_wall(e.x, e.y, e.z, b.x, b.y, b.z)
 	var t: float = w.t if not w.is_empty() else 1.0
+	var qz := e.z
 	for k in range(1, 49):
 		var f := (k / 48.0) * t
 		var q := e.lerp(b, f)
-		var s: Level.Sector = game.level.sector_at(q.x, q.y)
+		# the storey the last sample was in (a map in storeys)
+		var s: Level.Sector = game.level.span_at(q.x, q.y, qz)
+		qz = q.z
 		if s and (q.z <= s.floor + 1.0 or q.z >= s.ceil - 1.0):
 			t = f
 			break
@@ -253,7 +256,7 @@ func _branch(b: Dictionary, np: Vector3, dmg: float) -> void:
 			var r := 50.0 + (U.p_random() / 256.0) * 150.0
 			var x := np.x + cos(ang) * r
 			var y := np.y + sin(ang) * r
-			var s: Level.Sector = game.level.sector_at(x, y)
+			var s: Level.Sector = game.level.span_at(x, y, np.z)
 			if s == null:
 				continue
 			b.subs.append({"a": np, "who": null, "to": Vector3(x, y, s.floor), "t": 0, "seed": (U.p_random() << 8) | U.p_random()})
@@ -326,7 +329,7 @@ func tic() -> void:
 		d.x += d.vx
 		d.y += d.vy
 		d.z += d.vz
-		var s: Level.Sector = game.level.sector_at(d.x, d.y)
+		var s: Level.Sector = game.level.span_at(d.x, d.y, d.z - d.vz)
 		if s and d.z <= s.floor:
 			if d.bounced or d.vz > -2.5:
 				drips.remove_at(i)

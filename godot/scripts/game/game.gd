@@ -87,7 +87,7 @@ var last_hit := Vector3()
 var _slot := 0
 ## held still by the pause menu, and the menu's look settings
 var paused := false
-## which map: "maze" (the demo's), "jesse", "sprawl" or "grid"
+## which map: "maze" (the demo's), "jesse", "sprawl", "grid" or "layers"
 var map_name := "maze"
 ## or a map from MEWD Editor's Play: the document itself (main.gd sets it)
 var play_doc = null
@@ -150,6 +150,7 @@ func _ready() -> void:
 		"jesse": doc = JesseMap.build(seed, opts)
 		"sprawl": doc = SprawlMap.build()
 		"grid": doc = TheGrid.build()
+		"layers": doc = LayersMap.build()
 		_: doc = MazeMap.build(seed, int(opts.get("cells", MazeMap.CELLS)), int(opts.get("people", MazeMap.PEOPLE)))
 	# A MAP FROM THE EDITOR, on a test run (js/main.js's PLAY_KEY): the
 	# document it handed over, compiled by the same compiler
@@ -163,6 +164,9 @@ func _ready() -> void:
 			for t in doc.things:
 				if t.type == "START" and at.size() >= 3:
 					t.x = float(at[0]); t.y = float(at[1]); t.angle = deg_to_rad(float(at[2]))
+					# a fourth: the layer it stands on (a map in storeys)
+					if at.size() >= 4:
+						t["layer"] = int(at[3])
 	start_map(doc)
 
 func start_map(doc: Dictionary) -> void:
@@ -187,7 +191,7 @@ func start_map(doc: Dictionary) -> void:
 			break
 	if start == null:
 		start = {"x": level.bounds.get_center().x, "y": level.bounds.get_center().y, "angle": 0.0}
-	player = Player.new(self, float(start.x), float(start.y), float(start.angle))
+	player = Player.new(self, float(start.x), float(start.y), float(start.angle), start.get("z"))
 	players = [player]
 	if _start_weapon != "":
 		player.weapon = _start_weapon
@@ -308,6 +312,8 @@ func _make_sky(name: String) -> void:
 ## js/material.js, from js/sectorgrid.js) — the eye's own sector's.
 func _skybox_fog() -> void:
 	var s := level.sector_at(player.x, player.y)
+	if s != null and level.layered and player.sector != null:
+		s = player.sector      # the storey the eye is in
 	if s == null:
 		return
 	var open: bool = s.outdoor or s.ceil_tex == "SKY"
@@ -589,7 +595,10 @@ func _spawn_things() -> void:
 		var type: String = THING_ACTORS.get(t.type, "")
 		if type == "":
 			continue
-		var a := Actor.new(self, type, float(t.x), float(t.y), float(t.get("angle", 0.0)), {"variant": int(t.get("variant", 0))})
+		var o := {"variant": int(t.get("variant", 0))}
+		if t.get("z") != null:
+			o["z"] = float(t.z)
+		var a := Actor.new(self, type, float(t.x), float(t.y), float(t.get("angle", 0.0)), o)
 		actors.append(a)
 
 func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:
@@ -603,6 +612,9 @@ func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:
 func thing_in_way(who, nx: float, ny: float):
 	for a in blockmap.near(nx, ny):
 		if a.removed or not a.solid or a.dead:
+			continue
+		# on a map in storeys, only what is at your own height
+		if level.layered and (a.z >= who.z + who.height or who.z >= a.z + a.height):
 			continue
 		var rr: float = who.radius + a.radius
 		var d2 := U.dist2(nx, ny, a.x, a.y)
@@ -672,15 +684,20 @@ func explode(a, opts := {}) -> void:
 	var structure: float = opts.get("structure", 0.0)
 	var structure_radius: float = opts.get("structureRadius", radius * 1.4)
 	play_sound(opts.get("sound", "explode"), a)
-	fire.ignite(a.x, a.y, heat, heat_radius)
 	var under := level.sector_at(a.x, a.y)
 	var az: float = a.z if "z" in a else (under.floor if under else 0.0)
+	# on a map in storeys: the storey it went up in
+	under = level.span_at(a.x, a.y, az)
+	fire.ignite(a.x, a.y, heat, heat_radius, az if "z" in a else NAN)
 	if under and az - under.floor < 64.0:
 		decals.hole(Vector3(a.x, a.y, under.floor), Vector3(0, 0, 1), true)
 	if structure > 0.0:
 		fire.damage_structure(a.x, a.y, structure_radius, structure)
 	for o in actors_in_cone_around(a, radius):
 		if typeof(a) == TYPE_OBJECT and o == a:
+			continue
+		# not through a floor: nobody downstairs is hurt by a blast upstairs
+		if level.layered and level.sight_blocked(a.x, a.y, az + 16.0, o.x, o.y, o.z + o.height * 0.5):
 			continue
 		var d := sqrt(U.dist2(a.x, a.y, o.x, o.y))
 		o.damage(roundf(dmg * (1.0 - d / radius)), null, {"fire": true})
@@ -708,7 +725,12 @@ func trace(from, ang: float, pitch: float, range: float) -> Dictionary:
 	var best_t: float = wall.t if not wall.is_empty() else 1.0
 	var best = null
 	var sec: Level.Sector = from.sector if from.sector != null else level.sector_at(ax, ay)
-	if sec:
+	if level.layered:
+		# every floor, deck and roof along it, column by column
+		var fh := level.ray_hit_flat(ax, ay, az, tx, ty, tz, true)
+		if not fh.is_empty():
+			best_t = minf(best_t, fh.t)
+	elif sec:
 		if tz < sec.floor:
 			best_t = minf(best_t, (az - sec.floor) / (az - tz))
 		if tz > sec.ceil:
@@ -803,7 +825,15 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 	var wall := level.ray_hit_wall(ox, oy, z, tx, ty, tz)
 	var max_t: float = wall.t if not wall.is_empty() else 1.0
 	var floor_hit = null
-	if pitch != 0.0:
+	if pitch != 0.0 and level.layered:
+		# ON A MAP IN STOREYS the floors, decks and roofs along the whole
+		# of it, column by column: a round from under the terrace stops in
+		# its deck, and one fired over the terrace's edge flies on
+		var fh := level.ray_hit_flat(ox, oy, z, tx, ty, tz)
+		if not fh.is_empty() and fh.t < max_t:
+			max_t = fh.t
+			floor_hit = fh.z
+	elif pitch != 0.0:
 		var sec: Level.Sector = from.sector if from.sector != null else level.sector_at(ox, oy)
 		if sec:
 			if tz < sec.floor and z > sec.floor:

@@ -87,7 +87,7 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 	if not wall.is_empty():
 		_land(wall.x, wall.y, wall.z, Decals.wall_normal(wall.line, x, y))
 		return true
-	var sec := lv.sector_at(nx, ny)
+	var sec := lv.span_at(nx, ny, z)
 	var floor := sec.floor if sec else 0.0
 	if nz <= floor + 4.0:
 		_land(nx, ny, floor, Vector3(0, 0, 1))
@@ -115,13 +115,13 @@ func _land(x: float, y: float, z: float, _surface: Vector3) -> void:
 	if game.fx != null:
 		game.fx.splash(x, y, z)
 	if game.fire != null:
-		game.fire.ignite(x, y, STREAM.heat, STREAM.heatRadius)
+		game.fire.ignite(x, y, STREAM.heat, STREAM.heatRadius, z)
 
 func _burn_actor(a, x: float, y: float, z: float) -> void:
 	if a.flammable:
 		a.ignite(300)
 	a.damage(5 + (U.p_random() % 5), game.player, {"fire": true, "stream": true})
 	if game.fire != null:
-		game.fire.ignite(x, y, STREAM.heat, 24.0)
+		game.fire.ignite(x, y, STREAM.heat, 24.0, z)
 	if game.fx != null:
 		game.fx.splash(x, y, z)

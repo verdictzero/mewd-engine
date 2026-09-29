@@ -26,8 +26,10 @@ RUNNING IT
                          build makes for ?seed=N — the generator is a
                          straight port, random-number call for call)
     --map=NAME           maze (the default), jesse, sprawl (THE SPRAWL,
-                         the web build's ?sprawl) or grid (?grid)
-    --at=X,Y,DEG         stand the start somewhere else (for pictures)
+                         the web build's ?sprawl), grid (?grid) or layers
+                         (THE ANNEXE: a map in two storeys, room over room)
+    --at=X,Y,DEG[,LAYER] stand the start somewhere else (for pictures);
+                         LAYER: on that layer's floor, on a map in layers
     --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
                          MINIGUN, LANCE, LAUNCHER or ARC
     --autofire           hold the trigger (for pictures and tests)
@@ -95,6 +97,61 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   drawn with godot/shaders/world_tint.gdshader (the colour and fog per
   vertex, faces culled).
 
+  ROOM OVER ROOM (js/level.js's COLUMNS, js/editor/doc.js's LAYERS). A
+  map drawn in the editor's layers is compiled WHOLE, as the web build
+  compiles it: each layer's linedefs stood up on their own, every
+  layer's outlines laid over each other (DocCompile.overlay — cut where
+  they cross, walked face by face), and each face built as a COLUMN,
+  Level.add_column: the room of every layer over it, bottom-up, each
+  storey's ceiling brought down to the floor of the one over it (the
+  DECK between them has no thickness; the room under an upper floor
+  has that floor's texture for its ceiling). Every other sector is a
+  column of one — every sector of every map not in layers — and for
+  those nothing below is asked or costs anything different (the level's
+  `layered` is false and each new question is behind it or behind a
+  column's `above`/a line's `multi`).
+    - A point is in one column: sector_at answers with its GROUND storey
+      (the web build's sectorAt). The storey is asked by height:
+      span_in / span_at (the one whose floor..ceiling holds z, or the
+      highest under it — the web build's spanIn), and stand_in for a
+      body on its feet: the highest floor a step (24) or less over them,
+      so the top of a stair a step under a deck walks onto the deck.
+    - A line joins two whole columns (front_col, back_col). Walking
+      through it asks the two storeys at the mover's height (a hall's
+      door is a door, the landing over it a wall); the crowd will not
+      walk off a drop of more than 96 to the LOWER floor; nobody goes
+      under a deck head first. It is drawn as its BANDS — every interval
+      of z where exactly one side is open, in the skin of the storey
+      that is shut there — and a middle in each HOLE, where both are.
+    - A building's outside wall (a roofed room against open air) is
+      walled storey by storey: only in the openings where that is so
+      (mid_z — a terrace beside an office is open), each storey in its
+      own room's walls; a line marked as a doorway (opening) is one on
+      ITS OWN LAYER only, so a ground-floor door is not a hole in the
+      wall upstairs.
+    - Rays: sight_blocked and ray_hit_wall ask the storeys at the
+      crossing's height, and on a layered map ray_hit_flat walks the
+      segment column by column for the first floor, deck or roof it
+      passes through (a sky ceiling is air). So the hitscan, the eye's
+      trace and sight stop at a floor, and a round can pass over an
+      upper storey's edge or under it.
+    - Everything that moves or lands asks the storey by height: the
+      player (stand_in on his feet, span_in in the air), the crowd and
+      the troops (spawned on their layer's floor, kept on their storey,
+      solid only to what is at their height), the flame, frost, water,
+      bore, missiles, arc, beam, embers, giblets, rain (onto the top of
+      a column) and the decals under them; a blast does not reach
+      through a floor. The fire grid's planes are the storeys (as in
+      js/fire.js) and ignite/douse/heat_at take the height, so a fire on
+      a terrace burns up there and does not come down, and one under it
+      does not go up (open air under a deck has no way up; an indoor
+      room climbs slowly into the storey over it, the web build's
+      CEIL_SPREAD). A client puts each body in the storey at the height
+      the host's snapshot gives (the wire is unchanged); sound falls off
+      with height too.
+    - Vehicles, the wood, the street lamps, the scatters, a match's
+      spawn pads and the plants stay on the ground (as in the web build).
+
   THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE, JESSE, THE
   SPRAWL (sprawl.gd) and THE GRID (grid.gd) are ported and produce the
   SAME document as the JS — JESSE was diffed against js/maps/jesse.js
@@ -102,7 +159,11 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   its compiled level (every sector, line, band, side, thing, plant and
   box) against compileDoc(sprawlDoc()) (godot/tests/sprawl_dump.gd,
   which the suite runs to hold the counts), and the grid's crowd
-  against buildGrid.
+  against buildGrid. THE ANNEXE (godot/scripts/maps/layers.gd,
+  --map=layers) is the port's own: a yard, a shop with an office over
+  it and a terrace beside that over open yard, drawn in two layers, with
+  stairs cut by the editor's step generator — the map room over room is
+  tested and pictured on.
 
   THE SIMULATION runs at 35 tics a second, at most six a frame, and
   the picture is drawn between the last two (godot/scripts/game/
@@ -234,15 +295,18 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   editor opens on; its grid, snap and left panel are remembered in
   user://mewd-editor/prefs.json. A map saved by either editor opens in
   the other. File > Open demo: a new MAZE, THE SPRAWL, a new JESSE,
-  THE GRID. The compile runs in a thread, on a copy, so a big map never
-  holds the mouse.
+  THE GRID, THE ANNEXE (a map in two storeys). The compile runs in a
+  thread, on a copy, so a big map never holds the mouse.
+
+  A map in LAYERS is edited in full (each layer's plan, the others
+  ghosted, rooms standing on the layer under), saved in full, and BUILT
+  in full — every storey in the 3D view and in the game, room over room
+  (see THE LEVEL); each layer's problems are listed with its number.
+  The 3D view's picking is of the layer being edited.
 
   NOT PORTED: the web's "Export Godot scene…" (this is Godot); a pen's
   eraser end; the texture pack's animation in the 3D view (the port's
-  game does not animate them either). A map in LAYERS is edited in full
-  (each layer's plan, the others ghosted, rooms standing on the layer
-  under) and saved in full, but built from its ground layer only: the
-  engine has no room-over-room yet (the problem list says so).
+  game does not animate them either).
 
 
 TESTS
@@ -269,7 +333,17 @@ TESTS
   bake and layers), and the editor driven by input events
   (godot/tests/editor_ui_test.gd: drags, clicks, keys, the inspector's
   fields, the 3D view's picking, visual mode, PLAY into the game and F2
-  back).
+  back), and ROOM OVER ROOM (godot/tests/layers_test.gd on THE ANNEXE:
+  the compile's columns, walls and doors a storey at a time; walking up
+  the step generator's stairs onto the terrace, round it, into the
+  office, the walls up there, off the edge and down; under the deck,
+  its walls, a jump into it; a round from under stopping in the deck
+  while the shopper over it lives, one over the edge from the yard
+  finding them; sight blocked by the slab; an actor on each storey
+  staying on it, frightened or not; fire on the terrace not coming
+  down, fire under it not going up; and over a loopback network the
+  snapshot's height and the client's bodies on the right storey). The
+  editor's test holds its map in layers to the web build's build of it.
   A shell with xvfb can also render pictures with --shot.
 
   CROSS-PLAY, by hand (needs node, and Playwright for the second):
@@ -282,9 +356,10 @@ TESTS
 
 WHAT IS NOT PORTED YET
 
-  - Of the map compiler: LAYERS (a map in storeys) and the storeys and
-    slopes of a sector (off in the web build too, FEATURES in
-    js/editor/doc.js); fog FOLLOWED along the line of sight from sector
+  - Of the map compiler: the storeys and slopes of a SECTOR (its own
+    `storeys` and `floorSlope` — off in the web build too, FEATURES in
+    js/editor/doc.js; a map in LAYERS is the way to build upstairs, and
+    is built); fog FOLLOWED along the line of sight from sector
     to sector (a surface here is fogged by its own sector's over the
     whole distance), and a sector's thing colour and fog on sprites and
     plants.
@@ -293,8 +368,11 @@ WHAT IS NOT PORTED YET
     along the line of sight; the web's smoke on world surfaces; the
     grid sky's palette snap order; JESSE's lamp-post colour and red
     barrels; a few extra rooftop conifers in THE SPRAWL.
-  - Of MEWD Editor: see THE MAP EDITOR above — building a map's upper
-    LAYERS (the compiler's), and the Godot-scene export.
+  - Of MEWD Editor: see THE MAP EDITOR above — the Godot-scene export.
+  - Of room over room: a deck has no thickness (as in the web build);
+    the troops' chase is Doom's, on the plan, so they do not find the
+    stairs to somebody upstairs; the crowd's scare and the rain's
+    spawning ask the plan; a match's spawn pads are on the ground.
   - Of network play: the Node host's serving of the web build's files
     on its own port (the Godot host is a socket and nothing else; serve
     the page from anywhere), the `use` key in the command (the Godot

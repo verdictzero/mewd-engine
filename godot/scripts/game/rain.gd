@@ -40,6 +40,9 @@ func tic() -> void:
 			var x: float = p.x + (U.p_random() / 255.0 - 0.5) * 2.0 * BOX - w.x * lean
 			var y: float = p.y + (U.p_random() / 255.0 - 0.5) * 2.0 * BOX - w.y * lean
 			var s := lv.sector_at(x, y)
+			# rain falls from the sky onto the top of a column
+			if s != null and s.above != -1:
+				s = lv.top_of(s)
 			if s == null or not (s.outdoor or s.props.get("forest", false) or s.props.get("outside", false)):
 				continue
 			var a := 0.55 + rain * 0.25
@@ -48,5 +51,5 @@ func tic() -> void:
 				"vz": -FALL - (U.p_random() / 255.0) * 2.0, "life": LIFE, "size0": 18.0, "size1": 18.0,
 				"c0": Color(1, 1, 1, a), "c1": Color(1, 1, 1, a)})
 	pool.tic(func(_i, nx, ny, nz):
-		var s := lv.sector_at(nx, ny)
+		var s := lv.span_at(nx, ny, nz)
 		return s == null or nz <= s.floor + 2.0)

@@ -109,6 +109,9 @@ func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> 
 	reactiontime = int(info.get("reaction", 0))
 	variant = int(opts.get("variant", 0))
 	sector = game.level.sector_at(x, y)
+	# one placed on an upper layer stands in the storey at its height
+	if sector != null and opts.get("z") != null:
+		sector = game.level.span_in(sector, float(opts.z) + 1.0)
 	z = sector.floor if sector else 0.0
 	if info.has("spawn"):
 		set_state(info.spawn)
@@ -212,16 +215,19 @@ func can_stand_at(nx: float, ny: float) -> bool:
 	var r: Vector3 = game.level.slide_move(x, y, nx - x, ny - y, radius, z, height, true)
 	if r.z > 0.0 or absf(r.x - nx) > 0.01 or absf(r.y - ny) > 0.01:
 		return false
-	if game.forest != null and game.forest.blocks(nx, ny, radius):
+	if game.forest != null and not (game.level.layered and sector != null and sector.storey > 0) and game.forest.blocks(nx, ny, radius):
 		return false
+	var layered: bool = game.level.layered
 	for o in game.blockmap.near(nx, ny):
 		if o == self or o.removed or not o.solid or o.dead:
+			continue
+		if layered and (o.z >= z + height or z >= o.z + o.height):
 			continue
 		var rr: float = radius + o.radius
 		if U.dist2(nx, ny, o.x, o.y) < rr * rr:
 			return false
 	var p = game.player
-	if p != null and not p.dead:
+	if p != null and not p.dead and not (layered and (p.z >= z + height or z >= p.z + p.height)):
 		var rr: float = radius + p.radius
 		if U.dist2(nx, ny, p.x, p.y) < rr * rr:
 			return false
@@ -230,6 +236,9 @@ func can_stand_at(nx: float, ny: float) -> bool:
 func update_sector() -> void:
 	var s: Level.Sector = game.level.sector_at(x, y, sector)
 	if s:
+		# the storey under the feet, not the ground under the building
+		if s.above != -1:
+			s = game.level.stand_in(s, z)
 		sector = s
 		z = s.floor
 
@@ -420,7 +429,7 @@ func burn_tic() -> void:
 		game.fx.body_fire(self)
 	lit = minf(1.0, lit + 0.05)
 	if game.fire != null and info.has("burnTrail") and game.tics % int(info.burnTrail) == 0:
-		game.fire.add_heat(x, y, float(info.get("burnFuel", 14)), int(info.get("burnRadius", 1)))
+		game.fire.add_heat(x, y, float(info.get("burnFuel", 14)), int(info.get("burnRadius", 1)), z)
 	if burning <= 0:
 		lit = 0.0
 
@@ -545,7 +554,7 @@ func A_Watch() -> void:
 			var ang := (k / 8.0) * TAU
 			var sx := x if k == 8 else x + cos(ang) * R
 			var sy := y if k == 8 else y + sin(ang) * R
-			var h: float = F.heat_at(sx, sy)
+			var h: float = F.heat_at(sx, sy, z)
 			if h < 0.22:
 				continue
 			hot += 1
@@ -609,7 +618,7 @@ func A_Flee() -> void:
 	var F = game.fire
 	panic -= 1
 	if panic <= 0 and not burning:
-		if F == null or F.heat_at(x, y) < 0.15:
+		if F == null or F.heat_at(x, y, z) < 0.15:
 			set_state(info.spawn)
 			return
 		panic = 35
@@ -629,7 +638,7 @@ func A_Flee() -> void:
 		var ny := y + sin(ang) * speed
 		var s := (sqrt(U.dist2(nx, ny, tx, ty)) - d0) * 3.0 * sign
 		if F != null:
-			s -= F.heat_at(nx, ny) * 260.0 + F.heat_at(x + cos(ang) * speed * 4, y + sin(ang) * speed * 4) * 140.0
+			s -= F.heat_at(nx, ny, z) * 260.0 + F.heat_at(x + cos(ang) * speed * 4, y + sin(ang) * speed * 4, z) * 140.0
 		if d == movedir:
 			s += 6.0
 		if d == OPPOSITE[movedir]:
@@ -722,7 +731,7 @@ func freeze() -> void:
 func frost_tic() -> void:
 	if removed:
 		return
-	var hot: float = game.fire.heat_at(x, y) if game.fire != null else 0.0
+	var hot: float = game.fire.heat_at(x, y, z) if game.fire != null else 0.0
 	if frozen and hot > 0.2 and not fireproof:
 		burn_away()
 		return
@@ -774,7 +783,7 @@ func burn_away(source = null) -> void:
 	set_state(info.burnAway, true)
 	game.play_sound("ignite", self)
 	if game.fire != null and float(info.get("fuel", 0)) > 0.0:
-		game.fire.ignite(x, y, float(info.fuel))
+		game.fire.ignite(x, y, float(info.fuel), float(FireSystem.CELL), z)
 
 ## a heap of ash on the floor
 func collapse(source = null) -> void:

@@ -110,7 +110,7 @@ func _put(pool: String, at: Vector3, normal: Vector3, size: float, kind: float, 
 
 func _light_at(at: Vector3) -> float:
 	var g = get_parent()
-	var s: Level.Sector = g.level.sector_at(at.x, at.y)
+	var s: Level.Sector = g.level.span_at(at.x, at.y, at.z)
 	return s.light if s else 0.8
 
 ## A round into a surface. `hot`: the minigun's, whose rim glows.
@@ -163,7 +163,7 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	# blood that are already there
 	var pos := U.v3(at.x, at.y, at.z) + n * (0.9 if kind == KIND_SEAR else 1.3)
 	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
-	var s: Level.Sector = get_parent().level.sector_at(at.x, at.y)
+	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
 	# w: the surface's light, plus two if it is under the sky
 	var light := (s.light if s else 0.8) + (2.0 if s != null and s.sky > 0.5 else 0.0)
 	p.mm.set_instance_custom_data(p.next, Color(kind, randf(), _now(), light))

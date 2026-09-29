@@ -219,6 +219,7 @@ func start_game() -> void:
 		ng.bot = _arg("--netbot")
 		ng.bot_fire = not OS.get_cmdline_user_args().has("--netbot=look")
 	sound.listener = game.player
+	sound.layered = game.level != null and game.level.layered
 	var hud := Hud.new()
 	hud.game = game
 	hud_layer.add_child(hud)

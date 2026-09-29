@@ -387,7 +387,7 @@ func tic() -> void:
 		if not wall.is_empty():
 			_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i])
 			return true
-		var sec := lv.sector_at(nx, ny)
+		var sec := lv.span_at(nx, ny, z)
 		var floor := sec.floor if sec else 0.0
 		if nz <= floor + 1.0:
 			_land(Vector3(nx, ny, floor), chunk_kind[i], UP, C.vx[i], C.vy[i])
@@ -425,7 +425,7 @@ func tic() -> void:
 		if not wall.is_empty():
 			_land_cold(wall.x, wall.y, wall.z)
 			return true
-		var sec := lv.sector_at(nx, ny)
+		var sec := lv.span_at(nx, ny, S.pz[i])
 		var floor := sec.floor if sec else 0.0
 		if nz <= floor + 1.0:
 			_land_cold(nx, ny, floor)
@@ -453,7 +453,7 @@ func _land(at: Vector3, kind: int, n: Vector3, vx: float, vy: float) -> void:
 	if n == UP and U.p_random() < GIB.splatChance:
 		splat(at.x, at.y, at.z, 24.0 + randf() * 16.0)
 	if LIGHT_FLOOR and kind == K_BURN and n == UP and game.get("fire") != null:
-		game.fire.ignite(at.x, at.y, LAND_HEAT, 16.0)
+		game.fire.ignite(at.x, at.y, LAND_HEAT, 16.0, at.z)
 
 ## And a cold one, which is the same minus every single thing that was
 ## warm about it: ice does not bleed, it leaves the cold coming off it.
@@ -508,7 +508,7 @@ func _draw_ash() -> void:
 	var lv: Level = game.level
 	for k in ash_piles.size():
 		var p: Array = ash_piles[k]
-		var s := lv.sector_at(p[0], p[1])
+		var s := lv.span_at(p[0], p[1], p[2])
 		_ash_mm.set_instance_transform(k, Transform3D(Basis(), U.v3(p[0], p[1], p[2])))
 		_ash_mm.set_instance_custom_data(k, Color(float(p[3]), s.light if s else 0.7, s.sky if s else 0.0, 0.0))
 	_ash_mm.visible_instance_count = ash_piles.size()

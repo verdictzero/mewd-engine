@@ -74,12 +74,8 @@ func check_point(ed: MewdEditor, name: String, want: Dictionary) -> void:
 	var ids := ed.sel_ids.keys()
 	var wids: Array = want.sel.ids
 	ok(JSON.stringify(ids) == JSON.stringify(wids), "%s: selection %s == %s" % [name, ids, wids])
-	# the build: the web build compiles every layer as columns of rooms,
-	# which the Godot engine does not have, so a layered map is held only
-	# to the ground layer's own build (the checkpoint before it)
-	if EdDoc.is_layered(ed.doc):
-		print("   %s: layered — %d layers; the ground is built" % [name, EdDoc.layers_of(ed.doc).size()])
-		return
+	# the build — a map in layers too: every layer laid over the others
+	# and built as columns of rooms, as the web build builds it
 	ed.compile_now()
 	var lv: Level = ed.compiled.level
 	var b: Dictionary = want.built
