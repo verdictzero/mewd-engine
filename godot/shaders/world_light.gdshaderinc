@@ -29,3 +29,39 @@ vec3 world_air(vec3 c, float d) {
 	float at = clamp((d - air_near) / max(1.0, air_far - air_near), 0.0, 1.0);
 	return mix(c, air_color.rgb, at * at);
 }
+
+// THE POSITRON LANCE'S LIGHT (js/material.js beamPos, and js/beam.js
+// ticLight), and it is a SEGMENT and not a point: a column drawn from
+// the muzzle to where it landed is lit along its whole length, so every
+// fragment measures its distance to the nearest point ON THE LINE. A
+// point light at the muzzle would light the wall beside you and leave
+// the street the beam crossed in the dark, which is exactly backwards.
+// DIFFERENTIAL AND RANDOMISED, at the user's request: a hash of the
+// fragment's place on a coarse grid picks the rate and phase of its
+// flicker, so no two surfaces agree about it. It outlives the beam (the
+// level falls over js/beam.js AFTERGLOW). Globals, set by BeamSystem.
+global uniform float beam_level;
+global uniform vec3 beam_pos;
+global uniform vec3 beam_dir;
+global uniform float beam_len;
+global uniform float beam_range;
+global uniform float beam_seed;
+global uniform vec4 beam_color;
+
+// what the beam adds to a surface of colour `albedo` at world point `wp`
+vec3 world_beam(vec3 albedo, vec3 wp) {
+	if (beam_level <= 0.0) return vec3(0.0);
+	vec3 rel = wp - beam_pos;
+	float along = clamp(dot(rel, beam_dir), 0.0, beam_len);
+	float off = distance(rel, beam_dir * along);
+	float ba = clamp(1.0 - off / beam_range, 0.0, 1.0);
+	ba *= ba;
+	// (a sine-free hash of the cell: see sear_decal.gdshader for why)
+	vec3 h3 = fract(floor(wp * 0.017) * 0.1031);
+	h3 += dot(h3, h3.zyx + 31.32);
+	float n = fract((h3.x + h3.y) * h3.z);
+	float flick = 0.62 + 0.38 * sin(beam_seed * (4.0 + n * 9.0) + n * 31.4);
+	// and a hard white core to it very close in, which is what stops a
+	// wall a metre from the column reading as merely green
+	return albedo * beam_color.rgb * (ba * beam_level * flick) + beam_color.rgb * ba * ba * beam_level * 0.22 * flick;
+}

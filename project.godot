@@ -57,3 +57,31 @@ light_color={
 "type": "color",
 "value": Color(1, 1, 1, 1)
 }
+beam_level={
+"type": "float",
+"value": 0.0
+}
+beam_pos={
+"type": "vec3",
+"value": Vector3(0, -10000, 0)
+}
+beam_dir={
+"type": "vec3",
+"value": Vector3(0, 0, 1)
+}
+beam_len={
+"type": "float",
+"value": 0.0
+}
+beam_range={
+"type": "float",
+"value": 700.0
+}
+beam_seed={
+"type": "float",
+"value": 0.0
+}
+beam_color={
+"type": "color",
+"value": Color(0.62, 1, 0.78, 1)
+}

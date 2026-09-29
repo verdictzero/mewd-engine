@@ -13,14 +13,17 @@ uniform sampler2D tex : source_color, filter_nearest_mipmap, repeat_enable;
 uniform bool masked = false;
 
 varying float depth;
+varying vec3 wpos;
 
 void vertex() {
 	depth = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
 	vec4 c = texture(tex, UV);
 	if (masked && c.a < 0.5) discard;
 	float l = world_band(COLOR.r, depth, COLOR.g);
-	ALBEDO = world_air(c.rgb * l * light_color.rgb, depth);
+	// and the lance's column, if one is out or has just been (world_beam)
+	ALBEDO = world_air(c.rgb * l * light_color.rgb + world_beam(c.rgb, wpos), depth);
 }

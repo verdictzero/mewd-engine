@@ -35,6 +35,14 @@ class Sector:
 	var convex := false
 	var lines: Array = []
 	var props := {}
+	# what the map compiler (DocCompile) hangs on a sector of an edited
+	# map — see compileCore in js/editor/doc.js:
+	var doc_id = null                     # the document sector it is (a line's SIDES key)
+	var tint = null                       # Doom 64's colours: {floor, ceil, thing, top, bottom} -> Color
+	var fog = null                        # its own fog: Color(r, g, b, density 0..100), or null
+	var roof_tex := ""                    # a roofed room seen from above
+	var flat_outer := PackedVector2Array()   # a sector with holes: its outline...
+	var flat_holes: Array = []               # ...and the holes, for its floor
 
 class Line:
 	var index := 0
@@ -58,6 +66,16 @@ class Line:
 	var xoff := 0.0
 	var yoff := 0.0
 	var stamp := 0
+	# the line overrides of an edited map (applyLine in js/editor/doc.js)
+	var xscale := 1.0
+	var yscale := 1.0
+	var peg_upper := ""                   # "top": upper unpegged
+	var peg_lower := ""                   # "ceiling": lower unpegged
+	var peg_middle := ""                  # "bottom": a one-sided middle on the floor
+	var sides := {}                       # str(doc sector id) -> {midTex, upperTex, lowerTex, xoff, ...}
+	var mid_once := false                 # a two-sided middle drawn once, its own height
+	var mid_height = null
+	var exterior := false                 # a building's outside wall (roofed against open air)
 
 var name := ""
 var verts := PackedVector2Array()
@@ -66,6 +84,19 @@ var lines: Array[Line] = []
 var things: Array = []
 var world := {}
 var bounds := Rect2()
+## FREE BOXES (level.props in js/editor/doc.js): {x0, y0, x1, y1, z0, z1,
+## tex, topTex, light, sky, tint (Color or null), fog (Color or null)} —
+## drawn by MapGeo, owned by no sector, and solid to nothing (as in the
+## web build: see boxGeometry in js/mapgeo.js)
+var props: Array = []
+## the placed and scattered plants, {kind, x, y, scale}, for the forest
+var plants: Array = []
+## the map's own light (mapLightOf in js/editor/doc.js): lightColor,
+## ambient (Color, times its amount), fogAmbient, fog (Color, a = density)
+var map_light := {}
+## whether any surface needs the tinted world shader (colours, fog, a
+## map light, two-faced walls) — MapGeo reads it
+var tinted := false
 
 var _vkey := {}
 var _edges := {}

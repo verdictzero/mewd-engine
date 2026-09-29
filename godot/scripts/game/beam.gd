@@ -608,7 +608,7 @@ func render(time := 0.0) -> void:
 		var wide := R * 0.055
 		var fd := life * (1.0 - trav) * 0.26 * clampf((s - hide_len * 0.25) / hide_len, 0.0, 1.0)
 		for off in [-wide, wide]:
-			var c := from + d * (s + off)
+			var c: Vector3 = from + d * (s + off)
 			for k in SIDES + 1:
 				var th := float(k) / SIDES * TAU
 				var nn := e1 * cos(th) + e2 * sin(th)
@@ -634,5 +634,5 @@ func render(time := 0.0) -> void:
 func _put(v: int, p: Vector3, n: Vector3, fade: float) -> int:
 	_pos[v] = U.v3(p.x, p.y, p.z)
 	_nrm[v] = U.v3(n.x, n.y, n.z)
-	_uv[v].y = fade
+	_uv[v] = Vector2(_uv[v].x, fade)
 	return v + 1

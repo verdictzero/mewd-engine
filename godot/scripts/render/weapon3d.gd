@@ -18,7 +18,16 @@ const GUNS := {
 	"EXTINGUISHER": {"url": "extinguisher.glb", "fit": GUN_LENGTH, "out": 2.8, "tint": [0.72, 1.02, 1.45]},
 	"BORE": {"url": "bore.glb", "fit": GUN_LENGTH * 0.67, "out": 1.33, "tint": [1.6, 0.30, 0.22]},
 	"MINIGUN": {"url": "minigun.glb", "fit": GUN_LENGTH * 1.25, "out": 2.6, "tint": [1.7, 1.4, 0.8], "heat": "minigun_barrel_mat", "spin": 6.0},
-	"LANCE": {"url": "lance.glb", "fit": GUN_LENGTH * 1.9, "out": 2.4, "pos": [-0.12, 0.23, 0], "rot": [0.03, -0.09, 0.06], "tint": [0.55, 1.35, 0.80]},
+	# THE LANCE has a SCREEN and a LENS in it (js/scope.js): `display` is
+	# the material the file paints flat that is the panel on the rear
+	# deck — it wears the scope's live feed — and `optics` the green lens.
+	# `aim` is a SECOND hold, blended to by the scope's aim(): the gun
+	# swings up and inboard until the panel is in the middle of the frame
+	# a hand's breadth from the eye (solved, not nudged — see js/weapon3d.js).
+	"LANCE": {"url": "lance.glb", "fit": GUN_LENGTH * 1.9, "out": 2.4, "pos": [-0.12, 0.23, 0], "rot": [0.03, -0.09, 0.06], "tint": [0.55, 1.35, 0.80],
+		"aim": {"pos": [-0.1894, 0.2730, 0], "rot": [-0.04, -0.17, 0.05], "out": 1.80},
+		"display": {"material": "dynamic_display_surface_mat"},
+		"optics": {"material": "optics_mat", "base": [0.34, 0.80, 0.0]}},
 	"LAUNCHER": {"url": "launcher.glb", "fit": GUN_LENGTH * 1.05, "out": 2.6, "pos": [0.20, -0.15, 0], "rot": [0.05, 0.16, -0.03], "tint": [1, 1, 1]},
 	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
 }
@@ -29,6 +38,14 @@ var current := ""
 var sway := Vector2()
 var kick := 0.0
 var spin_angle := 0.0
+## THE GUNS WITH A SCREEN ON THEM, name to scope (Scope, or anything that
+## answers screen_material(), optics_material(base), set_panel_box(min,
+## size) and aim()). Set before the gun is first drawn: the materials are
+## handed out when the model loads.
+var scopes := {}
+## how far the gun in hand is raised to the eye, 0..1, chasing its
+## scope's aim()
+var aim := 0.0
 
 func _ready() -> void:
 	camera = Camera3D.new()
@@ -56,17 +73,38 @@ func _load(name: String) -> Dictionary:
 	add_child(group)
 	var mats := []
 	var spinner: Node3D = null
-	_dress(root, def, mats)
+	_dress(root, def, mats, scopes.get(name))
 	if def.has("spin"):
 		spinner = _find_spinner(root)
 	return {"group": group, "mats": mats, "def": def, "spinner": spinner}
 
-## every surface into the gun shader, keeping its own picture
-func _dress(n: Node, def: Dictionary, mats: Array) -> void:
+## every surface into the gun shader, keeping its own picture — except a
+## gun's SCREEN and LENS, which its scope dresses: the file paints them
+## flat because in the original they are a screen never switched on and a
+## lens never lit
+func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 	if n is MeshInstance3D:
 		var mi: MeshInstance3D = n
 		for i in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(i)
+			var nm: String = src.resource_name if src != null else ""
+			if scope != null and def.has("display") and nm == def.display.material:
+				mi.set_surface_override_material(i, scope.screen_material())
+				# THE PICTURE IS LAID ACROSS THE PANEL'S OWN BOX, measured off
+				# the geometry the file shipped: the mesh is planar, so x and
+				# y across it ARE the screen's two axes
+				var v: PackedVector3Array = mi.mesh.surface_get_arrays(i)[Mesh.ARRAY_VERTEX]
+				var lo := Vector2(INF, INF)
+				var hi := Vector2(-INF, -INF)
+				for q in v:
+					lo = lo.min(Vector2(q.x, q.y))
+					hi = hi.max(Vector2(q.x, q.y))
+				if v.size() > 0:
+					scope.set_panel_box(lo, hi - lo)
+				continue
+			if scope != null and def.has("optics") and nm == def.optics.material:
+				mi.set_surface_override_material(i, scope.optics_material(def.optics.get("base", [0.34, 0.80, 0.0])))
+				continue
 			var m := ShaderMaterial.new()
 			m.shader = preload("res://godot/shaders/gun.gdshader")
 			var t := Vector3(def.tint[0], def.tint[1], def.tint[2])
@@ -83,7 +121,7 @@ func _dress(n: Node, def: Dictionary, mats: Array) -> void:
 			mats.append(m)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children():
-		_dress(c, def, mats)
+		_dress(c, def, mats, scope)
 
 func _find_spinner(n: Node) -> Node3D:
 	if n is Node3D and (n.name.to_lower().contains("barrel") or n.name.to_lower().contains("rotat") or n.name.to_lower().contains("spin")):
@@ -140,11 +178,29 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	kick += ((1.0 if firing else 0.0) - kick) * (0.35 if firing else 0.12)
 	var jx := (randf() - 0.5) * 0.006 if firing else 0.0
 	var jy := (randf() - 0.5) * 0.005 if firing else 0.0
+	# THE GUN IS RAISED, OR IT IS NOT, OR IT IS SOMEWHERE BETWEEN: its
+	# scope says where it should be and this chases it, over about a third
+	# of a second rather than a cut. A gun with no second hold never
+	# leaves zero and none of the blending below does anything.
+	var sc = scopes.get(current)
+	var want: float = sc.aim() if def.has("aim") and sc != null else 0.0
+	aim += (want - aim) * (1.0 - pow(0.0015, dt))
+	var a := aim if def.has("aim") else 0.0
+	var hold: Dictionary = def.get("aim", {})
 	var off: Array = def.get("pos", [0, 0, 0])
+	var aoff: Array = hold.get("pos", off)
 	var rot: Array = def.get("rot", [0, 0, 0])
-	var out: float = def.out
-	g.position = Vector3(VIEW.pos[0] + off[0] + bob_x + jx, VIEW.pos[1] + off[1] - bob_y + jy, (VIEW.pos[2] + off[2] + kick * 0.025) * out)
-	g.rotation = Vector3(VIEW.pitch + rot[0] + sway.y, VIEW.yaw + rot[1] + sway.x, VIEW.roll + rot[2] + sway.x * 0.4)
+	var arot: Array = hold.get("rot", rot)
+	var out: float = lerpf(float(def.out), float(hold.get("out", def.out)), a)
+	# AND THE BOB AND THE SWAY GO AWAY WITH IT: what the hip hold reads
+	# as life, the aimed one reads as a shake you cannot sight through
+	var steady := 1.0 - a * 0.88
+	g.position = Vector3(VIEW.pos[0] + lerpf(off[0], aoff[0], a) + (bob_x + jx) * steady,
+		VIEW.pos[1] + lerpf(off[1], aoff[1], a) - bob_y * steady + jy * steady,
+		(VIEW.pos[2] + lerpf(off[2], aoff[2], a) + kick * 0.025) * out)
+	g.rotation = Vector3(VIEW.pitch + lerpf(rot[0], arot[0], a) + sway.y * steady,
+		VIEW.yaw + lerpf(rot[1], arot[1], a) + sway.x * steady,
+		VIEW.roll + lerpf(rot[2], arot[2], a) + sway.x * 0.4 * steady)
 	if G.spinner != null:
 		spin_angle += p.spin * def.spin * TAU * dt
 		G.spinner.rotation.z = spin_angle

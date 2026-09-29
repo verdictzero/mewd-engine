@@ -7,7 +7,10 @@
 ## holds the trigger with each gun in turn, asserting what the web build
 ## does: the MINIGUN kills them (and they come apart), the FLAMER sets
 ## them alight and they RUN, the EXTINGUISHER freezes them solid, and the
-## BORE locks, flies, drills and bursts. Prints OK or fails.
+## BORE locks, flies, drills and bursts, and the LANCE charges to the red,
+## lets go, and its column kills whoever is down the run and sears the
+## far wall. Prints OK or fails. The Game is lance_game.gd: game.gd with
+## the lance wired in, until game.gd has it itself.
 extends SceneTree
 
 var game
@@ -15,7 +18,7 @@ var failures := 0
 
 func _init() -> void:
 	U.p_seed()
-	game = preload("res://godot/scripts/game/game.gd").new()
+	game = preload("res://godot/tests/lance_game.gd").new()
 	root.add_child(game)
 	await process_frame
 	var p = game.player
@@ -31,6 +34,7 @@ func _init() -> void:
 	_bore(p, run)
 	_launcher(p, run)
 	_arc(p, run)
+	_lance(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
 
@@ -142,3 +146,49 @@ func _arc(p, run: Vector2) -> void:
 	check(game.arc.fired == 1, "ARC: a full charge let go fired one bolt")
 	check(game.arc.last_chain.size() >= 4, "ARC: the chain struck %d" % game.arc.last_chain.size())
 	check(down >= 4, "ARC: %d of 5 down" % down)
+
+func _lance(p, run: Vector2) -> void:
+	_settle(60)
+	var beam = game.weapon_system("charge")
+	check(beam != null, "LANCE: the game hands the player a beam system")
+	if beam == null:
+		return
+	# A TAP IS A VENT: two seconds and let go, nothing leaves the muzzle
+	p.pitch = 0.0
+	p.angle = run.x
+	var shots0: int = beam.shots
+	var cells0: int = p.ammo.cells
+	_hold("LANCE", 2 * 35)
+	check(p.charge == 70 and p.charge_stage() == 0, "LANCE: two seconds held is charge %d, stage %d" % [p.charge, p.charge_stage()])
+	_settle(1)
+	check(p.charge == 0 and beam.shots == shots0 and p.ammo.cells == cells0, "LANCE: let go under the red, it vented and spent nothing")
+	_settle(2)     # the finger off the trigger: a press held through a vent does not wind again
+	# AND SEVEN SECONDS IS THE SHOT: the victim down the run, the far
+	# wall behind them
+	var v := _victim(p, run, 500.0)
+	var bursts0: int = game.giblets.bursts
+	p.pitch = 0.0
+	_hold("LANCE", 7 * 35 + 5)
+	check(p.charge_stage() == 3, "LANCE: seven seconds held is stage %d" % p.charge_stage())
+	# the tic the dial goes red is the first of the window: 7 s + 5 is six
+	check(absf(p.hold_fraction() - (1.0 - 6.0 / 175.0)) < 1e-4, "LANCE: and the window at the top is draining (%.3f)" % p.hold_fraction())
+	var cells1: int = p.ammo.cells
+	_settle(1)
+	check(beam.shots == shots0 + 1 and beam.live and p.beam_tics > 0, "LANCE: let go at the red, the column is out (stage %d, %d tics)" % [beam.stage, p.beam_tics])
+	check(p.charge == 0 and p.fire_index >= 0, "LANCE: the coil is spent and the gun is firing")
+	var n := 0
+	while beam.live and n < 80:
+		game.tic()
+		n += 1
+	check(not beam.live and p.beam_tics == 0 and n == Player.BEAM_TICS[2], "LANCE: the column was out %d tics (BEAM_TICS %d)" % [n, Player.BEAM_TICS[2]])
+	check(v.dead or v.removed, "LANCE: the shopper down the run is dead (%d killed)" % beam.killed)
+	check(game.giblets.bursts > bursts0, "LANCE: and came apart — three thousand a tic is past anybody's gib health")
+	var h: Dictionary = beam.hit
+	check(not h.is_empty() and absf(h.n.z) < 0.5, "LANCE: the column stopped on a wall")
+	if not h.is_empty():
+		var d := sqrt(U.dist2(h.at.x, h.at.y, p.x, p.y))
+		check(absf(d - run.y) < 60.0, "LANCE: the far wall, %d units down a %d unit run" % [d, run.y])
+	check(game.decals.sears == 1 and game.decals.slags == 3 + 7, "LANCE: one sear and %d slag on it" % game.decals.slags)
+	check(beam.seared == 1 + game.decals.slags, "LANCE: and the beam counts them all (%d)" % beam.seared)
+	check(beam.glow > 0.0, "LANCE: the light outlives the column")
+	check(p.debug or p.ammo.cells == cells1 - 1, "LANCE: one cell spent")

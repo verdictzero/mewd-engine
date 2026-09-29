@@ -13,6 +13,15 @@ const HOLE_SIZE := [8.0, 13.0]
 const HOT_SCALE := 1.35
 const BLOOD_REACH := 260.0
 
+## THE SEARS ARE FEW AND ENORMOUS (js/decals.js POOLS.sear): what the
+## positron lance leaves where its column lands — a crater (kind 8) and
+## the slag thrown round it (kind 9), in one pool of their own with a
+## shader of their own (sear_decal.gdshader), because they GLOW and are
+## blended premultiplied rather than cut out like a hole.
+const SEAR_POOL := 96
+const KIND_SEAR := 8.0
+const KIND_SLAG := 9.0
+
 class Pool:
 	var mm: MultiMesh
 	var next := 0
@@ -20,6 +29,10 @@ class Pool:
 
 var pools := {}
 var mat: ShaderMaterial
+var sear_mat: ShaderMaterial
+## counts, for the tests
+var sears := 0
+var slags := 0
 var _t0 := Time.get_ticks_msec()
 
 func _ready() -> void:
@@ -43,9 +56,34 @@ func _ready() -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 		pools[k] = p
+	# the sears, on their own material
+	sear_mat = ShaderMaterial.new()
+	sear_mat.shader = preload("res://godot/shaders/sear_decal.gdshader")
+	sear_mat.set_shader_parameter("gl_depth", RenderingServer.get_rendering_device() == null)
+	var squad := QuadMesh.new()
+	squad.size = Vector2(1, 1)
+	squad.material = sear_mat
+	var sp := Pool.new()
+	sp.cap = SEAR_POOL
+	sp.mm = MultiMesh.new()
+	sp.mm.transform_format = MultiMesh.TRANSFORM_3D
+	sp.mm.use_custom_data = true
+	sp.mm.mesh = squad
+	sp.mm.instance_count = sp.cap
+	sp.mm.visible_instance_count = 0
+	var smi := MultiMeshInstance3D.new()
+	smi.multimesh = sp.mm
+	smi.custom_aabb = AABB(Vector3(-1e6, -1e5, -1e6), Vector3(2e6, 2e5, 2e6))
+	smi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# under everything else on the surface: the sears paint first
+	smi.sorting_offset = -1.0
+	add_child(smi)
+	pools["sear"] = sp
 
 func _process(_dt: float) -> void:
 	mat.set_shader_parameter("now", _now())
+	if sear_mat != null:
+		sear_mat.set_shader_parameter("now", _now())
 
 func _now() -> float:
 	return (Time.get_ticks_msec() - _t0) / 1000.0
@@ -68,7 +106,7 @@ func _put(pool: String, at: Vector3, normal: Vector3, size: float, kind: float, 
 	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
 	p.mm.set_instance_custom_data(p.next, Color(kind, U.p_random() / 255.0, _now(), light))
 	p.next = (p.next + 1) % p.cap
-	p.mm.visible_instance_count = maxi(p.mm.visible_instance_count, p.next if p.mm.visible_instance_count < p.cap else p.cap)
+	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
 
 func _light_at(at: Vector3) -> float:
 	var g = get_parent()
@@ -92,3 +130,42 @@ func bleed(who, at: Vector3, dir: Vector3) -> void:
 	elif who.sector != null:
 		# on the floor at their feet
 		_put("blood", Vector3(at.x + d.x * 20.0, at.y + d.y * 20.0, who.sector.floor), Vector3(0, 0, 1), 16.0 + U.p_random() / 16.0, 2.0, _light_at(at))
+
+## A SEAR: where the positron lance's column landed — the crater,
+## enormous, turned so its streaks lean the way the beam was going (`d`,
+## map space). It glows for as long as its age says; see the SEAR branch
+## of sear_decal.gdshader, and BeamSystem.SEAR for the size.
+func sear(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
+	_put_thrown("sear", at, normal, size * (0.9 + 0.2 * randf()), d, KIND_SEAR)
+	sears += 1
+
+## And a gob of SLAG thrown out of it, landed at `at` on the same surface,
+## thrown along `d`.
+func slag(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
+	_put_thrown("sear", at, normal, size, d, KIND_SLAG)
+	slags += 1
+
+## A decal turned so its +x points along `d` laid flat on the surface —
+## what turns a spatter to face the way it was thrown (js/decals.js
+## throwAngle). A `d` along the normal gets a random turn.
+func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vector3, kind: float) -> void:
+	var p: Pool = pools[pool]
+	var n := U.v3(normal.x, normal.y, normal.z).normalized()
+	var g := U.v3(d.x, d.y, d.z)
+	var x := g - n * g.dot(n)
+	if x.length() < 1e-3:
+		var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
+		x = up.cross(n).normalized().rotated(n, randf() * TAU)
+	x = x.normalized()
+	var y := n.cross(x)
+	var basis := Basis(x * size, y * size, n * size)
+	# lifted a little further than a hole: a sear is laid over holes and
+	# blood that are already there
+	var pos := U.v3(at.x, at.y, at.z) + n * (0.9 if kind == KIND_SEAR else 1.3)
+	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
+	var s: Level.Sector = get_parent().level.sector_at(at.x, at.y)
+	# w: the surface's light, plus two if it is under the sky
+	var light := (s.light if s else 0.8) + (2.0 if s != null and s.sky > 0.5 else 0.0)
+	p.mm.set_instance_custom_data(p.next, Color(kind, randf(), _now(), light))
+	p.next = (p.next + 1) % p.cap
+	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
