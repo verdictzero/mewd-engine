@@ -17,12 +17,14 @@ var camera: Camera3D
 var actors: Array = []
 var blockmap := ActorGrid.new()
 var standees: Standees
-## the fire grid, when there is one (js/fire.js) — asked by the crowd
-var fire = null
+## the fire grid (js/fire.js) — asked by the crowd, fed by the flame
+var fire: FireSystem = null
+var fire_sprites: FireSprites
 var tics := 0
 var kills := 0
 ## the systems the guns hand their work to, when they are ported
-var flame = null
+var flame: FlameStream
+var frost = null
 var bore = null
 var tracers: Tracers
 var decals: Decals
@@ -65,6 +67,9 @@ func _ready() -> void:
 func start_map(doc: Dictionary) -> void:
 	var t0 := Time.get_ticks_msec()
 	level = DocCompile.compile(doc)
+	fire = FireSystem.new(self)
+	fire_sprites = FireSprites.new()
+	add_child(fire_sprites)
 	bank = TexBank.new()
 	var geo := MapGeo.new(bank).build(level)
 	add_child(geo)
@@ -84,6 +89,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(standees)
 	tracers = Tracers.new()
 	add_child(tracers)
+	flame = FlameStream.new(self)
+	add_child(flame.particles)
 	decals = Decals.new()
 	add_child(decals)
 	camera = Camera3D.new()
@@ -181,7 +188,9 @@ func _process(dt: float) -> void:
 		_acc = 0.0
 	_place_camera(_acc / U.SEC)
 	standees.draw(actors, camera.position, tics)
+	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
 	tracers.draw_for(camera, _acc / U.SEC)
+	flame.particles.draw()
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 	_frames += 1
@@ -209,6 +218,9 @@ func tic() -> void:
 	for a in actors:
 		a.tic()
 	tracers.tic()
+	flame.tic()
+	fire.tic()
+	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
 	if tics % 35 == 0:
 		actors = actors.filter(func(a): return not a.removed)
 
@@ -273,7 +285,7 @@ func gib(a: Actor) -> void:
 
 ## how much of the place has gone, for the readout's first bar
 func burn_percent() -> float:
-	return fire.burn_percent() if fire != null and fire.has_method("burn_percent") else 0.0
+	return fire.burn_percent() if fire != null else 0.0
 
 func on_monster_killed(_a, _source) -> void:
 	kills += 1

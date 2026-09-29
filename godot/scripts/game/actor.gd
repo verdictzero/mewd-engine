@@ -331,6 +331,10 @@ func die(source, _overkill := 0.0, opts := {}) -> void:
 # ------------------------------------------------------------------
 
 func ignite(tics := 350) -> void:
+	# a map that says nothing burns still lets its people burn — the
+	# thing with a `burn` state is the exception (js/actor.js ignite)
+	if game.level.world.get("noBurn", false) and not info.has("burn"):
+		return
 	if not flammable or removed or dead:
 		return
 	var was_alight := burning > 0
