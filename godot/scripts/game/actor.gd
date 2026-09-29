@@ -352,6 +352,8 @@ func ignite(tics := 350) -> void:
 
 func burn_tic() -> void:
 	burning -= 1
+	if game.fx != null:
+		game.fx.body_fire(self)
 	lit = minf(1.0, lit + 0.05)
 	if game.fire != null and info.has("burnTrail") and game.tics % int(info.burnTrail) == 0:
 		game.fire.add_heat(x, y, float(info.get("burnFuel", 14)), int(info.get("burnRadius", 1)))
@@ -419,6 +421,7 @@ func A_SwatFire() -> void:
 	var spread := ((U.p_random() - U.p_random()) / 255.0) * 0.1
 	var dmg := ((U.p_random() % 5) + 1) * 3
 	game.hitscan(self, angle + spread, 2048.0, dmg, {"shot": true})
+	game.fx.muzzle(self)
 	shots += 1
 
 ## the army's rifle is a burst: two rounds, four to twenty each, half the scatter
@@ -429,6 +432,7 @@ func A_ArmyFire() -> void:
 		var spread := ((U.p_random() - U.p_random()) / 255.0) * 0.05
 		var dmg := ((U.p_random() % 5) + 1) * 4
 		game.hitscan(self, angle + spread, 2048.0, dmg, {"shot": true})
+	game.fx.muzzle(self)
 	shots += 1
 
 func A_Gib() -> void:

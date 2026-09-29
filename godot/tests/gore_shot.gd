@@ -150,9 +150,9 @@ func _run() -> void:
 	var t0 := Time.get_ticks_msec()
 	for t in tic_count:
 		_tic()
-	print("gore: %d tics in %d ms — chunks %d, trail %d, shards %d, blood %d, body fire %d, decals %d" % [
+	print("gore: %d tics in %d ms — chunks %d, trail %d, shards %d, blood %d, body fire %d, embers %d, smoke %d, decals %d" % [
 		tic_count, Time.get_ticks_msec() - t0, g.giblets.chunks.count, g.giblets.trail.count, g.giblets.shards.count,
-		g.fx.gore.count, g.fx.body_flames.count, g.gore_decals.bloods])
+		g.fx.gore.count, g.fx.body_flames.count, g.fx.embers.count, g.fx.smoke.count, g.gore_decals.bloods])
 
 	standees = Standees.new()
 	root.get_child(0).add_child(standees)

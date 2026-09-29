@@ -22,12 +22,16 @@ var fire: FireSystem = null
 var fire_sprites: FireSprites
 var tics := 0
 var kills := 0
+var weather := Weather.new()
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
 var frost = null
 var bore = null
 var tracers: Tracers
 var decals: Decals
+var gore_decals: GoreDecals
+var fx: Effects
+var giblets: Giblets
 var hud: Hud
 var weapon3d: Weapon3D
 var sound: Sound
@@ -94,6 +98,12 @@ func start_map(doc: Dictionary) -> void:
 	add_child(flame.particles)
 	decals = Decals.new()
 	add_child(decals)
+	gore_decals = GoreDecals.new(self)
+	add_child(gore_decals)
+	fx = Effects.new(self)
+	add_child(fx)
+	giblets = Giblets.new(self)
+	add_child(giblets)
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -188,10 +198,13 @@ func _process(dt: float) -> void:
 	if n == MAX_TICS:
 		_acc = 0.0
 	_place_camera(_acc / U.SEC)
+	weather.apply(dt, burn_percent() / 100.0)
 	standees.draw(actors, camera.position, tics)
 	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
+	fx.draw()
+	giblets.draw()
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 
@@ -211,11 +224,15 @@ func tic() -> void:
 	_cycle = 0
 	player.tic(cmd)
 	tics += 1
+	weather.tic()
 	for a in actors:
 		a.tic()
 	tracers.tic()
-	flame.tic()
+	fire.wind = weather.wind()
 	fire.tic()
+	flame.tic()
+	fx.tic()
+	giblets.tic()
 	fire.apply_char(tics)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
 	if tics % 35 == 0:
 		actors = actors.filter(func(a): return not a.removed)
@@ -276,8 +293,7 @@ func scare(x: float, y: float, r: float) -> void:
 ## A person coming apart: the fireball where they stood (js/people.js
 ## Giblets.burst — the pieces come with the gore port).
 func gib(a: Actor) -> void:
-	spawn("BLAST", a.x, a.y)
-	scare(a.x, a.y, 900.0)
+	giblets.burst(a)
 	a.remove()
 
 ## how much of the place has gone, for the readout's first bar
@@ -372,7 +388,7 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 	if best != null:
 		best.damage(dmg, from, opts)
 		if opts.get("shot", false):
-			decals.bleed(best, bp, Vector3(dx, dy, tz - z))
+			gore_decals.bleed(best, bp, Vector3(dx, dy, tz - z))
 		last_hit = bp
 		return best
 	if not wall.is_empty() and (pitch == 0.0 or wall.t <= max_t + 1e-9):

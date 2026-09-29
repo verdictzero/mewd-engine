@@ -51,6 +51,9 @@ func _init() -> void:
 	mat.set_shader_parameter("lut", preload("res://godot/data/palette_lut.png"))
 	rect.material = mat
 	add_child(rect)
+	# the picture a third brighter, at the user's request (js/main.js
+	# DEFAULT_PREFS bright 1.35), before the dither and the snap
+	set_picture(1.35, 1.0, 1.0)
 
 func _ready() -> void:
 	rect.texture = world.get_texture()
@@ -74,6 +77,11 @@ func _resize() -> void:
 	var tx := clampf(roundf(buf.x / cols), 1.0, 4.0)
 	var ty := clampf(roundf(buf.y / rows), 1.0, 4.0)
 	mat.set_shader_parameter("taps", Vector2(tx, ty))
+
+## brightness, contrast, gamma — applied before the dither and the snap,
+## so a brighter picture is still made of the palette's colours
+func set_picture(bright: float, contrast: float, gamma: float) -> void:
+	mat.set_shader_parameter("picture", Vector3(bright, contrast, gamma))
 
 func set_tint(c: Color) -> void:
 	mat.set_shader_parameter("tint", Vector3(c.r, c.g, c.b))

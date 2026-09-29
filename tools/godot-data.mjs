@@ -46,4 +46,23 @@ function png(w, h, rgba) {
 }
 const lut = pal.buildLutAtlas(colors);
 writeFileSync(new URL('palette_lut.png', OUT), png(lut.width, lut.height, lut.data));
-console.log(`texpack ${Object.keys(pack).length}, palette ${colors.length}, lut ${lut.width}x${lut.height}`);
+
+/* THE STREET LAMP'S TILES. They are palette-indexed run-length tiles in
+   the web build, drawn out at load; here they are PNGs the port stands
+   up as geometry (godot/scripts/render/lamps.gd). Transparent where the
+   tile says CLEAR_INDEX, the ramp palette's colour everywhere else. */
+const art = await import('../js/art-data.js');
+for (const name of ['lamp_head', 'lamp_post']) {
+  const c = art.CUTOUTS[name];
+  const bytes = Buffer.from(c.tile, 'base64');
+  const rgba = new Uint8Array(c.w * c.h * 4);
+  let at = 0;
+  for (let i = 0; i + 1 < bytes.length && at < c.w * c.h; i += 2)
+    for (let n = bytes[i + 1]; n > 0 && at < c.w * c.h; n--, at++) {
+      if (bytes[i] === art.CLEAR_INDEX) continue;
+      const col = pal.PALETTE[bytes[i]];
+      rgba.set([col[0], col[1], col[2], 255], at * 4);
+    }
+  writeFileSync(new URL(`${name}.png`, OUT), png(c.w, c.h, rgba));
+}
+console.log(`texpack ${Object.keys(pack).length}, palette ${colors.length}, lut ${lut.width}x${lut.height}, lamp tiles`);
