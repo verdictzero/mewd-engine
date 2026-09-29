@@ -24,6 +24,9 @@ var music: Music
 var pause_layer: CanvasLayer
 var pause: PauseMenu
 var fps_label: Label
+var touch_layer: CanvasLayer
+var touch: TouchControls
+var rotate_notice: RotateNotice
 
 func _ready() -> void:
 	lofi = Lofi.new()
@@ -47,6 +50,12 @@ func _ready() -> void:
 	fps_label.position = Vector2(12, 680)
 	fps_label.visible = false
 	hud_layer.add_child(fps_label)
+	# a phone held upright is told to turn; above everything
+	var rot_layer := CanvasLayer.new()
+	rot_layer.layer = 20
+	add_child(rot_layer)
+	rotate_notice = RotateNotice.new()
+	rot_layer.add_child(rotate_notice)
 	var args := OS.get_cmdline_user_args()
 	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title") and not args.has("--terminal"))
 	# the terminal first, as the web build opens on it — unless the
@@ -112,11 +121,18 @@ func start_game() -> void:
 	hud.game = game
 	hud_layer.add_child(hud)
 	game.hud = hud
+	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"):
+		touch_layer = CanvasLayer.new()
+		touch_layer.layer = 2
+		add_child(touch_layer)
+		touch = TouchControls.new()
+		touch_layer.add_child(touch)
+		game.touch = touch
 	music.start(0)
 	apply_prefs(pause.prefs)
 	if OS.get_cmdline_user_args().has("--pause"):
 		toggle_pause.call_deferred()
-	if not _shooting():
+	if not _shooting() and touch == null:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 static func _arg(prefix: String) -> bool:
@@ -137,6 +153,11 @@ var _frames := 0
 
 func _process(_dt: float) -> void:
 	_frames += 1
+	if touch != null:
+		touch.visible = game != null and not pause.visible
+		if touch.pause_pulse:
+			touch.pause_pulse = false
+			toggle_pause()
 	if fps_label.visible:
 		fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 	var shot := ""
@@ -165,6 +186,8 @@ func apply_prefs(p: Dictionary) -> void:
 	if game != null:
 		game.look_sens = float(p.sens)
 		game.invert = bool(p.invert)
+		if touch != null:
+			touch.lefty = bool(p.get("lefty", false))
 		game.player.debug = bool(p.debug)
 		game.player.invincible = bool(p.godmode)
 		game.weather.fire_haze = bool(p.haze)
@@ -188,7 +211,8 @@ func resume() -> void:
 	pause.visible = false
 	if game != null:
 		game.paused = false
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if touch == null:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func quit_to_title() -> void:
 	pause.visible = false

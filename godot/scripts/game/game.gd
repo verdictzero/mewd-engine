@@ -44,6 +44,8 @@ var fx: Effects
 var giblets: Giblets
 var hud: Hud
 var weapon3d: Weapon3D
+## the phone's controls, when there is a touch screen (Main sets it)
+var touch: TouchControls
 var sound: Sound
 ## where the last round stopped, for the tracer
 var last_hit := Vector3()
@@ -236,6 +238,8 @@ func _bind_keys() -> void:
 ## input, handed down by Main: a SubViewport outside a container is
 ## sent none of its own
 func handle_input(event: InputEvent) -> void:
+	if touch != null and touch.visible and event is InputEventMouse:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_look += event.relative * MOUSE_SENS * look_sens * Vector2(1.0, -1.0 if invert else 1.0)
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -267,6 +271,9 @@ func _process(dt: float) -> void:
 	if rs.length() < 0.18:
 		rs = Vector2()
 	var pad_look := Vector2(rs.x * 3.2, rs.y * 2.2 * (-1.0 if invert else 1.0)) * dt * look_sens
+	if touch != null and touch.visible:
+		touch.sens = look_sens
+		_look += touch.take_look() * Vector2(1.0, -1.0 if invert else 1.0)
 	player.turn(Vector2(_look.x + keyturn, _look.y) + pad_look)
 	_look = Vector2()
 	_acc += dt
@@ -306,7 +313,21 @@ func tic() -> void:
 		"attack": Input.is_action_pressed("attack") or _autofire,
 		"slot": _slot,
 		"cycle": _cycle,
+		"use": Input.is_action_pressed("use"),
 	}
+	# the glass adds to the keys, as js/touch.js's command does
+	if touch != null and touch.visible:
+		if touch.move != Vector2():
+			cmd.fwd = clampf(cmd.fwd + touch.move.y, -1.0, 1.0)
+			cmd.side = clampf(cmd.side + touch.move.x, -1.0, 1.0)
+		cmd.run = cmd.run or (touch.run and touch.move.length() > 0.85)
+		cmd.attack = cmd.attack or touch.attack
+		cmd.use = cmd.use or touch.use
+		cmd.jump = cmd.jump or touch.jump_pulse
+		touch.jump_pulse = false
+		if touch.cycle != 0:
+			cmd.cycle = touch.cycle
+			touch.cycle = 0
 	_jump = false
 	_slot = 0
 	_cycle = 0

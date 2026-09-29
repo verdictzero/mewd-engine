@@ -33,6 +33,7 @@ RUNNING IT
                          the port was checked
     --title              with --shot, stay on the title
     --pause              open the pause menu
+    --touch              the phone's controls, without a touch screen
 
   Controls are the web build's: WASD or the arrows (Q/E strafe too),
   mouse to look (click to capture it), Shift to run, Space to jump, F
@@ -111,6 +112,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/audio.js, js/music.js      audio/sound.gd, audio/music.gd
     js/titlescene.js, the title   title/title_forest.gd, title/title.gd
     the pause menu                ui/pause.gd
+    js/touch.js, portrait notice  ui/touch.gd, ui/rotate.gd
 
 
 TESTS
@@ -131,7 +133,7 @@ WHAT IS NOT PORTED YET
     the grid, which need them.
   - The sky baker (js/skyart.js) for maps without a skybox; rain;
     breaches and ruins; the thermal sight; the VTOL gunship.
-  - Touch controls, the terminal front door, the MEWD Editor, and the
+  - The MEWD Editor and the
     network play (js/net/, tools/server.mjs) — Godot has its own editor
     and its own networking, and whether these are ported line for line
     or rebuilt on Godot's is a decision still to make.
