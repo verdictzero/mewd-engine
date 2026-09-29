@@ -4,7 +4,7 @@
 ##   --resolution 1280x720 --script res://godot/tests/lance_shot.gd -- out.png [mode] [--seed=N]
 ##
 ## The picture's real layers (Lofi, the gun's world, the Game with the
-## lance wired in — lance_game.gd), the maze, the player turned down the
+## lance), the maze, the player turned down the
 ## longest clear run with three shoppers along it, the LANCE in hand, and
 ## then by `mode`:
 ##   charge  the trigger held seven seconds and a bit: the dial red, the
@@ -43,7 +43,7 @@ func _init() -> void:
 		lofi.pixel_aspect = 1.0
 	w3d = Weapon3D.new()
 	lofi.gun.add_child(w3d)
-	game = preload("res://godot/tests/lance_game.gd").new()
+	game = preload("res://godot/scripts/game/game.gd").new()
 	game.weapon3d = w3d
 	lofi.world.add_child(game)
 	process_frame.connect(_frame)
@@ -85,7 +85,7 @@ func _frame() -> void:
 		if mode in ["charge", "aim"]:
 			game._autofire = true     # and keep holding it
 		if mode == "aim":
-			game.zoom_press = true
+			game._zoom = true
 	if frames == 10 and mode in ["fire", "side", "sear", "above"]:
 		_tics(1, false)       # let go
 		_tics(5, false)
@@ -108,7 +108,7 @@ func _frame() -> void:
 			# long enough for the smoke to go and the crater to cool a little
 			_tics(int(OS.get_environment("SEAR_TICS")) if OS.get_environment("SEAR_TICS") != "" else 60, false)
 			# walk up to the wall it landed on
-			var h: Dictionary = game.lance_beam.hit
+			var h: Dictionary = game.beam.hit
 			if not h.is_empty():
 				p.x = h.at.x - cos(run.x) * 260.0
 				p.y = h.at.y - sin(run.x) * 260.0
@@ -122,8 +122,8 @@ func _frame() -> void:
 	var at := 40 if mode in ["charge", "aim"] else 13
 	if frames == at:
 		print("lance_shot: %s — charge %d stage %d, beam live %s stage %d, killed %d, sears %d slags %d, scope renders %d draws %d, aim %.2f" % [
-			mode, p.charge, p.charge_stage(), game.lance_beam.live, game.lance_beam.stage, game.lance_beam.killed,
-			game.decals.sears, game.decals.slags, game.lance_scope.renders, game.lance_scope.draws, w3d.aim])
+			mode, p.charge, p.charge_stage(), game.beam.live, game.beam.stage, game.beam.killed,
+			game.decals.sears, game.decals.slags, game.scope.renders, game.scope.draws, w3d.aim])
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(out)
 		quit()

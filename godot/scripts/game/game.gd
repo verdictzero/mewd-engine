@@ -42,6 +42,9 @@ var decals: Decals
 var gore_decals: GoreDecals
 var fx: Effects
 var giblets: Giblets
+var beam: BeamSystem
+var scope: Scope
+var _zoom := false
 var hud: Hud
 var weapon3d: Weapon3D
 ## the phone's controls, when there is a touch screen (Main sets it)
@@ -149,6 +152,14 @@ func start_map(doc: Dictionary) -> void:
 	add_child(fx)
 	giblets = Giblets.new(self)
 	add_child(giblets)
+	beam = BeamSystem.new(self)
+	add_child(beam)
+	# under the Game, so the scope's feed draws this world
+	scope = Scope.new()
+	add_child(scope)
+	scope.set_stages(player.stage_marks())
+	if weapon3d != null:
+		weapon3d.scopes["LANCE"] = scope
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -200,7 +211,7 @@ func _bind_keys() -> void:
 		"left": [KEY_A, KEY_Q], "right": [KEY_D, KEY_E],
 		"turn_left": [KEY_LEFT], "turn_right": [KEY_RIGHT],
 		"run": [KEY_SHIFT], "jump": [KEY_SPACE], "use": [KEY_F],
-		"attack": [KEY_CTRL], "pause": [KEY_ESCAPE, KEY_P],
+		"attack": [KEY_CTRL], "pause": [KEY_ESCAPE, KEY_P], "zoom": [KEY_Z, KEY_C],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -212,6 +223,9 @@ func _bind_keys() -> void:
 	var mb := InputEventMouseButton.new()
 	mb.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("attack", mb)
+	var rb := InputEventMouseButton.new()
+	rb.button_index = MOUSE_BUTTON_RIGHT
+	InputMap.action_add_event("zoom", rb)
 	# THE PAD, the web build's standard mapping (js/input.js): the left
 	# stick walks, the right looks, the right trigger fires, the left
 	# jumps, A uses, the shoulders cycle the guns, a stick click runs,
@@ -246,6 +260,8 @@ func handle_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if event.is_action_pressed("jump"):
 		_jump = true
+	if event.is_action_pressed("zoom"):
+		_zoom = true
 	if event.is_action_pressed("prev_weapon"):
 		_cycle = -1
 	elif event.is_action_pressed("next_weapon"):
@@ -274,7 +290,10 @@ func _process(dt: float) -> void:
 	if touch != null and touch.visible:
 		touch.sens = look_sens
 		_look += touch.take_look() * Vector2(1.0, -1.0 if invert else 1.0)
-	player.turn(Vector2(_look.x + keyturn, _look.y) + pad_look)
+	# a zoomed scope slows the look with the view
+	var lance: bool = player.weapon == "LANCE" and not player.dead
+	var slow: float = scope.view_scale() if lance else 1.0
+	player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
 	_look = Vector2()
 	_acc += dt
 	var n := 0
@@ -285,6 +304,27 @@ func _process(dt: float) -> void:
 	if n == MAX_TICS:
 		_acc = 0.0
 	_place_camera(_acc / U.SEC)
+	beam.draw((tics + _acc / U.SEC) * U.SEC, dt)
+	scope.held = lance
+	if touch != null:
+		touch.scope_on = lance
+		touch.scope_up = scope.zoom_index > 0
+		if touch.aim_pulse:
+			touch.aim_pulse = false
+			if lance:
+				scope.toggle_aim()
+		if touch.zoom_pulse:
+			touch.zoom_pulse = false
+			if lance:
+				scope.step_aimed()
+	if not lance and scope.zoom_index > 0:
+		scope.set_zoom(0)
+	elif lance and _zoom:
+		scope.work("cycle")
+	_zoom = false
+	camera.fov = BASE_FOV * slow
+	scope.render(camera)
+	scope.update(player, tics)
 	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
 	lamps.draw(camera.position, Vector2(cos(player.angle), sin(player.angle)), weather.frame.get("skyLight", 0.85))
@@ -364,6 +404,15 @@ func _place_camera(f: float) -> void:
 	camera.position = U.v3(x, y, vz)
 	# map angle a faces (cos a, sin a); Godot's -Z faces rotation.y = a - PI/2
 	camera.rotation = Vector3(p.pitch, p.angle - PI / 2.0, 0.0)
+	# THE SHAKE, on the eye and not the player, so the aim stays put:
+	# four sines at rates that do not divide into each other
+	var sh: float = beam.shake if beam != null else 0.0
+	if sh > 0.001:
+		var t := Time.get_ticks_msec() * 0.001
+		var k := sh * sh
+		camera.rotation.y += k * (0.022 * sin(t * 47.3) + 0.013 * sin(t * 29.1 + 1.7))
+		camera.rotation.x += k * (0.017 * sin(t * 41.7 + 0.9) + 0.010 * sin(t * 23.3 + 2.4))
+		camera.position += U.v3(k * 5.5 * sin(t * 53.1 + 0.3), k * 5.5 * cos(t * 44.9 + 1.9), k * 4.0 * sin(t * 61.7 + 2.6))
 
 ## The map's things that are actors, into the world.
 const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY", "STREETLAMP": "STREETLAMP"}
@@ -517,6 +566,8 @@ func weapon_system(kind: String):
 			return missiles
 		"arc":
 			return arc
+		"charge":
+			return beam
 	return null
 
 ## Being shot at wakes the place up, and so does setting fire to it.

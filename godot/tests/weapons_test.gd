@@ -9,8 +9,7 @@
 ## them alight and they RUN, the EXTINGUISHER freezes them solid, and the
 ## BORE locks, flies, drills and bursts, and the LANCE charges to the red,
 ## lets go, and its column kills whoever is down the run and sears the
-## far wall. Prints OK or fails. The Game is lance_game.gd: game.gd with
-## the lance wired in, until game.gd has it itself.
+## far wall. Prints OK or fails.
 extends SceneTree
 
 var game
@@ -18,7 +17,7 @@ var failures := 0
 
 func _init() -> void:
 	U.p_seed()
-	game = preload("res://godot/tests/lance_game.gd").new()
+	game = preload("res://godot/scripts/game/game.gd").new()
 	root.add_child(game)
 	await process_frame
 	var p = game.player

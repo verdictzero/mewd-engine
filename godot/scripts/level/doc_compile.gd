@@ -306,7 +306,7 @@ static func sector_props(s: Dictionary) -> Dictionary:
 	p.wallTex = _tex_or(s.get("wallTex"), "GRIDWALL")
 	p.upperTex = _tex_or(s.get("upperTex"), p.wallTex)
 	p.lowerTex = _tex_or(s.get("lowerTex"), p.wallTex)
-	p.outdoor = s.get("outdoor") != false
+	p.outdoor = not (s.get("outdoor") is bool and s.outdoor == false)
 	if s.get("sky") == null:
 		p.erase("sky")
 	p.fuel = 0
