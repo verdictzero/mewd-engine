@@ -210,6 +210,28 @@ func _bind_keys() -> void:
 	var mb := InputEventMouseButton.new()
 	mb.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("attack", mb)
+	# THE PAD, the web build's standard mapping (js/input.js): the left
+	# stick walks, the right looks, the right trigger fires, the left
+	# jumps, A uses, the shoulders cycle the guns, a stick click runs,
+	# Start or Back pauses
+	var pad := {"use": [JOY_BUTTON_A], "run": [JOY_BUTTON_LEFT_STICK, JOY_BUTTON_RIGHT_STICK],
+		"pause": [JOY_BUTTON_START, JOY_BUTTON_BACK], "prev_weapon": [JOY_BUTTON_LEFT_SHOULDER],
+		"next_weapon": [JOY_BUTTON_RIGHT_SHOULDER]}
+	for action in pad:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		for b in pad[action]:
+			var ev := InputEventJoypadButton.new()
+			ev.button_index = b
+			InputMap.action_add_event(action, ev)
+	for pair in [["attack", JOY_AXIS_TRIGGER_RIGHT, 1.0], ["jump", JOY_AXIS_TRIGGER_LEFT, 1.0],
+			["fwd", JOY_AXIS_LEFT_Y, -1.0], ["back", JOY_AXIS_LEFT_Y, 1.0],
+			["left", JOY_AXIS_LEFT_X, -1.0], ["right", JOY_AXIS_LEFT_X, 1.0]]:
+		var ev := InputEventJoypadMotion.new()
+		ev.axis = pair[1]
+		ev.axis_value = pair[2]
+		InputMap.action_add_event(pair[0], ev)
+		InputMap.action_set_deadzone(pair[0], 0.18)
 
 ## input, handed down by Main: a SubViewport outside a container is
 ## sent none of its own
@@ -220,6 +242,10 @@ func handle_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if event.is_action_pressed("jump"):
 		_jump = true
+	if event.is_action_pressed("prev_weapon"):
+		_cycle = -1
+	elif event.is_action_pressed("next_weapon"):
+		_cycle = 1
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.physical_keycode
 		if k >= KEY_1 and k <= KEY_7:
@@ -235,8 +261,13 @@ func _process(dt: float) -> void:
 		return
 	dt = minf(dt, 0.25)
 	# the look, every frame
-	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.4 * dt
-	player.turn(Vector2(_look.x + keyturn, _look.y))
+	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.6 * dt
+	# the right stick: 3.2 radians a second across, 2.2 up and down
+	var rs := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
+	if rs.length() < 0.18:
+		rs = Vector2()
+	var pad_look := Vector2(rs.x * 3.2, rs.y * 2.2 * (-1.0 if invert else 1.0)) * dt * look_sens
+	player.turn(Vector2(_look.x + keyturn, _look.y) + pad_look)
 	_look = Vector2()
 	_acc += dt
 	var n := 0
