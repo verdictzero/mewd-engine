@@ -114,12 +114,11 @@ html, body {
 .logo-slot.big .logo { width: min(96vw, 112vh, 1951px); max-height: 66vh; object-fit: contain; }
 @supports (height: 1dvh) { .logo-slot.big .logo { width: min(96vw, 112dvh, 1951px); max-height: 66dvh; } }
 
-/* ONCE THE TITLE'S LEVEL IS DRAWING THE LOGO ITSELF — inside the
-   picture, under the dither, see TitleForest.loadLogo — the page's one
-   keeps its place and is not seen, and the shade over the picture goes:
-   nothing sits between the menu and the dithered frame. */
+/* ONCE THE TITLE'S LEVEL IS DRAWING — with the logo's shadows inside
+   the picture, under the dither, see TitleForest.loadLogo — the shade
+   over the picture goes. The logo itself stays the page's, in front of
+   the dither, at the user's request. */
 #title.live { background: none; }
-#title.live .logo-slot.big .logo { visibility: hidden; }
 
 /* THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words,
    centred, one under another, and a marker by the one you are on that

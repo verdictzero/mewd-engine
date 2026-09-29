@@ -35,22 +35,28 @@ const FOV = 50;
 /* THE LAYERS, at the user's request, top to bottom:
 
      the menu            HTML, over everything
+     MEWD                the page's own logo, HTML, over the dither —
+                         its colours are the picture's, never snapped
+     the blue overlay    BLUE, multiplied over the finished frame by
+                         the pipeline's last pass (LofiPipeline.tint)
      the dither LUT      the game's own post pass (js/lofi.js)
-     MEWD                the logo, drawn INTO the picture as an overlay,
-                         so it is dithered and snapped with the forest
-     the blue overlay    BLUE, multiplied over ...
-     monochrome          ... the forest taken to grey
+     its shadows         drawn INTO the picture as an overlay, so the
+                         dark behind the word is dithered with the wood
+     monochrome          the forest taken to grey
      the forest          everything below
 
-   So the forest's materials are patched to write grey times BLUE, and
-   the logo, which is not part of the forest, is neither. */
-const BLUE = [0.34, 0.52, 1.0];
+   The blue is over the dither, not under it, because the palette has
+   no blue that saturated: under it, the wash came out slate. BLUE is
+   the logo's own — the bright circuit lines in its letters, about
+   #3e5ebe, scaled so its strongest channel is 1 — so white grass is
+   the blue of the word. */
+export const BLUE = [0.326, 0.495, 1.0];
 const LUMA = 'vec3(0.299, 0.587, 0.114)';
 /* THE WIND, at the user's request: the clock every plant's vertex
-   shader bends to (see monoBlue) */
+   shader bends to (see mono) */
 const uWindTime = { value: 0 };
 
-/** Grey, then blue: added to a MeshBasicMaterial's fragment shader after
+/** Grey (the blue comes later, over the dither): added to a MeshBasicMaterial's fragment shader after
  *  its colour and texture have been read. With a `sway`, the vertex
  *  shader BENDS the cutout in the wind too: the root stays put, the
  *  push goes as the square of the height up the plant, so a tuft curls
@@ -58,11 +64,11 @@ const uWindTime = { value: 0 };
  *  tall for it (TitleForest.geo). The push is in world units, so a tall
  *  tree and a short tuft with the same `sway` lean the same angle, and
  *  its phase is where the plant stands, so a gust runs along the row. */
-function monoBlue(m, sway = 0) {
+function mono(m, sway = 0) {
   m.onBeforeCompile = sh => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
       `#include <map_fragment>
-       diffuseColor.rgb = vec3(dot(diffuseColor.rgb, ${LUMA})) * vec3(${BLUE.map(v => v.toFixed(3)).join(', ')});`);
+       diffuseColor.rgb = vec3(dot(diffuseColor.rgb, ${LUMA}));`);
     if (!sway) return;
     sh.uniforms.uWindTime = uWindTime;
     sh.vertexShader = 'uniform float uWindTime;\n' + sh.vertexShader.replace('#include <begin_vertex>',
@@ -79,7 +85,7 @@ function monoBlue(m, sway = 0) {
          transformed.x += ${sway.toFixed(4)} * hy * up * gust * (0.8 + bend) / sx;
        }`);
   };
-  m.customProgramCacheKey = () => 'mewd-mono-blue-' + sway;
+  m.customProgramCacheKey = () => 'mewd-mono-' + sway;
   return m;
 }
 
@@ -87,7 +93,7 @@ function monoBlue(m, sway = 0) {
    there and how tall, and its TINT, which is the air: the game swaps
    three's fog out for its own sector fog (js/material.js), which knows
    nothing of this scene, so the fog is off here and each row is
-   coloured for how much air it stands behind — the far ones blue. */
+   coloured for how much air it stands behind — the far ones darker. */
 /* THE ROWS, at the user's request: GRASS AND PINES AND NOTHING ELSE —
    seven rows of grass from under the eye back to the trees, and seven
    rows of pines behind them, each row of pines TALLER than the one in
@@ -103,7 +109,7 @@ function monoBlue(m, sway = 0) {
 
    Each row's TINT dims with depth — the air — and its SWAY is how hard
    the wind bends it: the grass hard, the tall pines at the back barely
-   (see monoBlue). */
+   (see mono). */
 const GRASS = ['meadow_grass_var_a', 'meadow_grass_var_b', 'new_meadow_grass_1', 'new_meadow_grass_2',
                'new_meadow_grass_tall_1', 'grass', 'savanna_grass_short_1', 'savanna_grass_short_2',
                'savanna_grass_tall_1', 'savanna_grass_tall_2'];
@@ -171,13 +177,12 @@ export class TitleForest {
     this.geo.translate(0, 0.5, 0);
   }
 
-  /* THE LOGO, IN THE PICTURE. An orthographic overlay the pipeline
-     draws over the forest and before its post pass, so MEWD goes
-     through the dither and the palette like everything else. WHERE it
-     goes is still decided by the page: the HTML logo stays in the
-     title's layout, invisible, and its box is copied here every frame
-     — so the logo sits exactly where the CSS puts it, on every screen
-     shape, and the menu under it never moves. */
+  /* THE LOGO'S SHADOWS, IN THE PICTURE. An orthographic overlay the
+     pipeline draws over the forest and before its post pass. The logo
+     itself is the page's, in front of the dither (see THE LAYERS); the
+     overlay only darkens the wood behind it, and WHERE is copied from
+     the page's logo every frame — so the shade sits exactly under the
+     word on every screen shape. */
   async loadLogo(url) {
     const t = await new Promise((ok, no) => new THREE.TextureLoader().load(url, ok, undefined, no));
     t.colorSpace = THREE.SRGBColorSpace;
@@ -186,14 +191,13 @@ export class TitleForest {
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
     this.logo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false, fog: false }));
-    this.logo.renderOrder = 2;
+    this.logo.renderOrder = 2;          // kept for its box; not drawn
     /* AND BEHIND IT, FOR CONTRAST, at the user's request: the logo's own
        outline, blurred and black, twice — a tight drop shadow a little
        down and right, which gives every letter an edge against the
        grass, and a wide dark halo, which pushes the whole wood back
        behind the word. Cut from the picture once, on a canvas; drawn
-       under the logo in the same overlay, so they go through the dither
-       with it. */
+       under the logo, in the overlay, so they go through the dither. */
     this.shadows = [];
     for (const [blur, alpha, dx, dy, order] of [[70, 0.72, 0, 0.01, 0], [14, 0.9, 0.012, 0.03, 1]]) {
       const st = shadowOf(t.image, blur);
@@ -204,7 +208,6 @@ export class TitleForest {
       scene.add(m);
       this.shadows.push({ mesh: m, pad: st.pad, dx, dy });
     }
-    scene.add(this.logo);
     this.overlay = { scene, camera, visible: false };
     return this;
   }
@@ -250,7 +253,7 @@ export class TitleForest {
     if (!m) {
       m = new THREE.MeshBasicMaterial({ map: this.textures.get(kind), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
       m.color.setRGB(...tint);
-      monoBlue(m, sway);
+      mono(m, sway);
       this.materials.set(key, m);
     }
     return m;
@@ -259,7 +262,7 @@ export class TitleForest {
   _build(sky, ground) {
     const s = this.scene;
     /* behind it all, the colour the sky has at the horizon */
-    s.background = new THREE.Color().setRGB(...BLUE.map(v => v * 0.12));
+    s.background = new THREE.Color().setRGB(0.12, 0.12, 0.12);
 
     /* THE SKY, the top half of BSKY1 on a plane that rides with the
        eye; its own drift is a slow slide of the picture */
@@ -271,7 +274,7 @@ export class TitleForest {
       this.skyTex = sky;
       const m = new THREE.MeshBasicMaterial({ map: sky, fog: false, depthWrite: false });
       m.color.setScalar(1.1);
-      monoBlue(m);
+      mono(m);
       this.sky = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
       this.sky.renderOrder = -1;
       s.add(this.sky);
@@ -279,7 +282,7 @@ export class TitleForest {
 
     /* THE GROUND, a strip that rides with the eye and slides its
        texture the other way, which is the same as standing still */
-    const g = monoBlue(new THREE.MeshBasicMaterial({ color: 0x5a6a3a, fog: false }));
+    const g = mono(new THREE.MeshBasicMaterial({ color: 0x5a6a3a, fog: false }));
     if (ground) {
       ground.colorSpace = THREE.SRGBColorSpace;
       ground.wrapS = ground.wrapT = THREE.RepeatWrapping;
@@ -300,7 +303,7 @@ export class TitleForest {
        colour of a wood in shadow from the ground to well up their
        trunks, so what shows between them low down is more forest and
        never sky */
-    const band = monoBlue(new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.09, 0.12, 0.10), fog: false }));
+    const band = mono(new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.09, 0.12, 0.10), fog: false }));
     this.band = new THREE.Mesh(new THREE.PlaneGeometry(1400, 30), band);
     this.band.position.set(0, 15 - 0.5, -240);
     s.add(this.band);

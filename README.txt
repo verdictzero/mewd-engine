@@ -180,16 +180,19 @@ re-dresses whatever falls off its left end as a different plant at a
 different size. The wind is AGGRESSIVE: gusts rolling along the rows, a
 sway and a whip at the tips, the grass bending hardest. Under the top
 half of BSKY1, on GRASS5. THE LAYERS,
-top to bottom, at the user's request: the HTML menu; the game's dither
-and palette LUT; MEWD; a blue overlay; a monochrome filter; the forest.
-So the forest's materials write grey times BLUE (monoBlue), and the
-logo is drawn INTO the frame as an overlay — dithered, never tinted —
-over the box the page's own, now invisible, logo still takes in the
-layout (TitleForest.loadLogo / placeLogo), so it sits where the CSS
-puts it on every screen shape. Behind it, for contrast, its own outline
-blurred and black twice over: a tight drop shadow down and right and a
-wide dark halo (shadowOf), in the same overlay and under the same
-dither; a real
+top to bottom, at the user's request: the HTML menu; MEWD, the page's
+own HTML logo, in front of the dither and never snapped; a blue
+overlay; the game's dither and palette LUT; the logo's shadows; a
+monochrome filter; the forest. The forest's materials write grey (mono
+in js/titlescene.js), and the blue is multiplied over the finished
+frame by the pipeline's last pass (LofiPipeline.tint, white everywhere
+but the title) — over the dither, because the palette has no blue that
+saturated and under it the wash came out slate. BLUE is the logo's own,
+the bright circuit lines in its letters (about #3e5ebe) scaled so white
+grass is that blue. Behind the logo, for contrast, its outline blurred
+and black twice over: a tight drop shadow down and right and a wide
+dark halo (shadowOf), drawn into the frame over the box the page's logo
+takes (TitleForest.loadLogo / placeLogo), under the dither; a real
 perspective camera moving sideways does the parallax, and each row is
 a ring that re-dresses whatever falls off its left end as a different
 plant at a different size. It is drawn through the game's own pipeline

@@ -63,7 +63,7 @@ import { ThermalScope } from './thermal.js';
 import { KINDS } from './forest.js';
 import { Music } from './music.js';
 import { VERSION } from './version.js';
-import { TitleForest } from './titlescene.js';
+import { TitleForest, BLUE as TITLE_BLUE } from './titlescene.js';
 
 const $ = id => document.getElementById(id);
 /* THE LOADING SCREEN SAYS ONE THING, at the user's request, and it is
@@ -1165,10 +1165,9 @@ async function boot() {
      taken it is thrown away. */
   let titleForest = new TitleForest();
   titleForest.load().catch(e => { console.warn('title forest', e); titleForest = null; });
-  /* and MEWD goes INTO that picture, under the dither, at the user's
-     request: the page's logo keeps its place in the layout, invisible,
-     and the one drawn in the frame is laid over its box (see
-     TitleForest.loadLogo). Until it is in, the page's own shows. */
+  /* MEWD itself is the page's, in front of the dither, at the user's
+     request; its shadows go INTO the picture, under the dither, laid
+     over the page logo's box every frame (see TitleForest.loadLogo). */
   const titleLogo = title.querySelector('.logo-slot.big .logo');
   const logoReady = titleLogo.complete ? Promise.resolve() : new Promise(ok => titleLogo.addEventListener('load', ok, { once: true }));
   logoReady.then(() => titleForest?.loadLogo(titleLogo.currentSrc || titleLogo.src))
@@ -1257,7 +1256,9 @@ async function boot() {
       title.classList.toggle('live', !!titleForest.overlay?.visible);
       const after = pipeline.afterWorld;
       pipeline.afterWorld = null;            // the game's decals are not in this world
+      pipeline.tint.setRGB(...TITLE_BLUE);
       pipeline.render(titleForest.scene, titleForest.camera, [titleForest.overlay]);
+      pipeline.tint.setRGB(1, 1, 1);
       pipeline.afterWorld = after;
     } else pipeline.render(scene, camera, overlays);
 

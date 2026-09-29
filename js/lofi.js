@@ -365,12 +365,17 @@ void main() {
 }
 `;
 
-/* The last pass does nothing but make the squares big. */
+/* The last pass does nothing but make the squares big — and multiply
+   by uTint, which is white (nothing) except on the title, where it is
+   the blue the forest is washed with: AFTER the palette snap, at the
+   user's request, because the palette has no blue that saturated and
+   the wash is to be the logo's own. */
 const BLIT_FRAG = /* glsl */`
 precision highp float;
 uniform sampler2D tGrid;
+uniform vec3 uTint;
 varying vec2 vUv;
-void main() { gl_FragColor = vec4(texture2D(tGrid, vUv).rgb, 1.0); }
+void main() { gl_FragColor = vec4(texture2D(tGrid, vUv).rgb * uTint, 1.0); }
 `;
 
 export class LofiPipeline {
@@ -454,12 +459,14 @@ export class LofiPipeline {
     });
 
     this.blitMaterial = new THREE.RawShaderMaterial({
-      uniforms: { tGrid: { value: this.grid.texture } },
+      uniforms: { tGrid: { value: this.grid.texture }, uTint: { value: new THREE.Color(1, 1, 1) } },
       vertexShader: POST_VERT,
       fragmentShader: BLIT_FRAG,
       depthTest: false,
       depthWrite: false,
     });
+    /** the colour the finished frame is multiplied by; white is none */
+    this.tint = this.blitMaterial.uniforms.uTint.value;
 
     /* One triangle, not two. A full-screen triangle has no seam down the
        diagonal and shades every pixel exactly once. Both passes draw it,
