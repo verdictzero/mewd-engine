@@ -76,6 +76,13 @@ func _init() -> void:
 		room.extra_cull_margin = 16384.0
 		room.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gun.add_child(room)
+		# an eye that is always there: with no camera (the title, the
+		# editor — no gun yet) the viewport draws nothing, and the room
+		# with it came out black. The gun's own camera takes over while
+		# it is held, and this one again when it goes.
+		var eye := Camera3D.new()
+		eye.name = "RoomEye"
+		gun.add_child(eye)
 	filter = SubViewport.new()
 	filter.name = "Filter"
 	filter.disable_3d = true
