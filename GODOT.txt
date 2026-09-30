@@ -321,6 +321,12 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   way it looks, on the layer you are editing (the START is moved in the
   copy the game gets, never in the map); with only the plan on screen,
   or the camera over no room, the START as drawn.
+  ROOM STYLES, at the user's request: a named set of walls, floor,
+  ceiling and brightness (doc.styles), painted onto rooms from the
+  sector inspector ("Wears") or made from a room ("Save as"); change a
+  style in the Map tab and every room wearing it changes; set a room's
+  own texture and it is off the style. The values are written into the
+  sectors, so the game and the compiler never see a style.
 
     ed_doc.gd       the document: the web build's JSON (Vector2 vertices
                     in memory, [x, y] on disk), undo, the tidy after an

@@ -29,7 +29,7 @@ const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LO
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
 ## asset — so it is always the latest and costs the site nothing to host
-const ZIP_URL := "https://github.com/verdictzero/sellwrong/archive/refs/heads/main.zip"
+const ZIP_URL := "https://github.com/verdictzero/mewd-engine/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
 const VERSION := "0.2.0"

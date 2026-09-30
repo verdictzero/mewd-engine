@@ -200,7 +200,9 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		var sl = slots.get(aid)
 		if sl != null:
 			# due this tic? and in front of the eye?
-			var rate: int = 1 if d2 < near2 else (2 if d2 < mid2 else 4)
+			# (a blast, blood, a body falling: every tic wherever it is —
+			# only the living crowd can wait)
+			var rate: int = 1 if (d2 < near2 or not a.monster or a.dead) else (2 if d2 < mid2 else 4)
 			if (tics + aid) % rate != 0:
 				continue
 			if cull and d2 > 160.0 * 160.0 and dx * look.x + dy * look.y < 0.3 * sqrt(d2):

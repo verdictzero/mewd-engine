@@ -104,6 +104,9 @@ var beam_stage := 0
 var vented := false
 ## the held charge sound and which of the two it is — see lance_voice
 var charge_loop = null
+## THE FIRING IS ONE HELD SOUND on a volley weapon (js/player.js gunLoop):
+## the minigun's recording, looped from the first round to the last
+var gun_loop = null
 var _charge_voice := ""
 
 ## where the body was at the start of this tic, for the frame to draw
@@ -306,6 +309,7 @@ func weapon_tic(cmd: Dictionary) -> void:
 	_weapon_tic(attack)
 	# the lance's held sound, judged from the state AFTER the tic
 	lance_voice()
+	gun_voice()
 
 func _weapon_tic(attack: bool) -> void:
 	var d := def()
@@ -556,6 +560,18 @@ func vent_charge() -> void:
 ## is filling and the stage-three whine from the third mark. Judged from
 ## the state AFTER the tic, so every way of ending a charge — the shot,
 ## the vent, the swap, dying — stops it through this one function.
+## Judged after the tic, on whether rounds are leaving, so a dry belt
+## and a released trigger end it the same way.
+func gun_voice() -> void:
+	var on: bool = firing() and def().get("volley", false) and not dead
+	if on and gun_loop == null:
+		var snd = _snd()
+		if snd != null:
+			gun_loop = snd.loop("minigunloop", self)
+	elif not on and gun_loop != null:
+		gun_loop.stop()
+		gun_loop = null
+
 func lance_voice() -> void:
 	var winding: bool = def().get("charge", false) and charge > 0 and beam_tics == 0 and not dead
 	var want := ""
@@ -646,6 +662,9 @@ func die(source = null) -> void:
 	if charge_loop != null:
 		charge_loop.stop()
 		charge_loop = null
+	if gun_loop != null:
+		gun_loop.stop()
+		gun_loop = null
 	_charge_voice = ""
 	charge = 0
 	beam_tics = 0

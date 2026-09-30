@@ -540,7 +540,9 @@ func _insp_sector(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: Strin
 				x["lightColor"] = s.get("lightColor") if s.get("lightColor") != null else "#ffc890"
 			else:
 				x.erase("lightColor"))
-	var set_bright := func(v): each("brightness", func(x): x["light"] = snappedf(clampf(v, 0, 255) / 255.0, 0.0001))
+	var set_bright := func(v): each("brightness", func(x):
+		x["light"] = snappedf(clampf(v, 0, 255) / 255.0, 0.0001)
+		x.erase("style"))
 	var area := absf(EdDoc.signed_area(r)) / 4096.0
 	_put(p, [EdStyle.h3("Sector %d%s" % [s.id, (" · " + str(s.name)) if str(s.get("name", "")) != "" else ""], small),
 		EdStyle.note("%d corners · %d cells²%s" % [s.verts.size(), roundi(area), (" · picked: " + ed.surf.part) if ed.surf != null else ""]),
@@ -562,6 +564,8 @@ func _insp_sector(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: Strin
 		EdStyle.note("The colour of the light on the floor, the ceiling, the things standing here, and the walls from top to bottom. Unticked is white."),
 		cols,
 		moods,
+		EdStyle.h4("Style"),
+		_style_block(s),
 		EdStyle.h4("Textures"),
 		tex_field(s.get("floorTex"), "floorTex", "Floor"),
 		null if EdDoc.tex(s, "ceilTex") == "SKY" else tex_field(s.get("ceilTex"), "ceilTex", "Ceiling"),
@@ -1023,8 +1027,15 @@ func pick_texture(name: String) -> void:
 			ed.door_preset["tex"] = name
 		elif field.begins_with("@loop."):
 			ed.loop_texture(field.substr(6), name)
+		elif field.begins_with("@style."):
+			var parts := field.split(".")
+			ed.update_style(int(parts[1]), parts[2], name)
+			render_map()
 		elif ed.sel_kind != "":
-			each("%s %s" % [field.split(".")[-1], name], func(x): set_path(x, field, name))
+			each("%s %s" % [field.split(".")[-1], name], func(x):
+				set_path(x, field, name)
+				if ed.sel_kind == "sector" and field in MewdEditor.STYLE_KEYS:
+					x.erase("style"))
 		picking = null
 		render_insp()
 		render_tex()
@@ -1337,6 +1348,54 @@ func set_world(label: String, fn: Callable) -> void:
 	fn.call(d.world)
 	ed.edit_end(false)
 
+## THE STYLE BLOCK in a sector's inspector: which it wears, the rest to
+## choose, and a way to make one from this room.
+func _style_block(s: Dictionary) -> Control:
+	var box := VBoxContainer.new()
+	var names := [["", "— none (custom) —"]]
+	for st in ed.styles():
+		names.append([str(st.name), str(st.name)])
+	var worn := str(s.get("style", ""))
+	box.add_child(EdStyle.row("Wears", [EdStyle.option(names, worn, func(v):
+		if v == "":
+			ed.unstyle()
+		else:
+			ed.apply_style(v)
+		render_insp(), "Paint a style onto the selected rooms")]))
+	var nm := EdStyle.text_field(worn if worn != "" else "", func(_v): pass)
+	nm.placeholder_text = "a name"
+	box.add_child(EdStyle.row("Save as", [nm, EdStyle.small_button("＋ Style", func():
+		ed.style_from_sector(nm.text, s.id)
+		render_insp()
+		render_map(), "A style from this room's walls, floor, ceiling and brightness — new, or bringing one of that name up to date")]))
+	if ed.styles().is_empty():
+		box.add_child(EdStyle.flow([EdStyle.small_button("Starter styles", func():
+			ed.add_starter_styles()
+			render_insp()
+			render_map(), "Five to begin with: street, car park, room, office, sewer")]))
+	box.add_child(EdStyle.note("A room wearing a style follows it (Map tab). Set a texture or the brightness here and the room is off it, custom again."))
+	return box
+
+## THE LIST in the Map tab: every style, editable, and what wears it.
+func _styles_list() -> Control:
+	var box := VBoxContainer.new()
+	var st := ed.styles()
+	for i in st.size():
+		var y: Dictionary = st[i]
+		var name := str(y.get("name", ""))
+		var used := ed.style_use(name)
+		box.add_child(EdStyle.row("Name", [EdStyle.text_field(name, func(v): ed.update_style(i, "name", v); render_map(); render_insp()),
+			EdStyle.small_button("✕", func(): ed.delete_style(i); render_map(); render_insp(), "Delete the style; the rooms wearing it keep its look")]))
+		box.add_child(tex_field(y.get("wallTex"), "@style.%d.wallTex" % i, "Walls"))
+		box.add_child(tex_field(y.get("floorTex"), "@style.%d.floorTex" % i, "Floor"))
+		box.add_child(tex_field(y.get("ceilTex"), "@style.%d.ceilTex" % i, "Ceiling"))
+		box.add_child(EdStyle.row("Brightness", [EdStyle.num(roundi(EdDoc.num(y.get("light"), 1.0) * 255.0),
+			func(v): ed.update_style(i, "light", snappedf(clampf(v, 0, 255) / 255.0, 0.0001)), 16)]))
+		box.add_child(EdStyle.note("%s · worn by %d room%s" % [("open to the sky" if EdDoc.tex(y, "ceilTex") == "SKY" else "roofed"), used, "" if used == 1 else "s"]))
+	box.add_child(EdStyle.flow([EdStyle.small_button("＋ New style", func(): ed.add_style(); render_map()),
+		EdStyle.small_button("Starter styles", func(): ed.add_starter_styles(); render_map(), "Five to begin with: street, car park, room, office, sewer") if st.is_empty() else null]))
+	return box
+
 func render_map() -> void:
 	var p: VBoxContainer = panes.map.box
 	_clear(p)
@@ -1376,6 +1435,9 @@ func render_map() -> void:
 			skies.append([n, n])
 	var items := [EdStyle.h3("Map"),
 		EdStyle.row("Name", [EdStyle.text_field(d.get("name", ""), func(v): ed.edit("rename map", func(dd): dd["name"] = v, false))]),
+		EdStyle.h4("Room styles"),
+		EdStyle.note("A style is walls, floor, ceiling and brightness with a name. Paint it onto rooms from the sector inspector; change it here and every room wearing it changes."),
+		_styles_list(),
 		EdStyle.h4("World"),
 		EdStyle.row("Nothing burns", [EdStyle.check(w.get("noBurn", false), func(v): set_world("noBurn", func(ww): ww["noBurn"] = v))]),
 		EdStyle.row("No responders", [EdStyle.check(w.get("noSquads", false), func(v): set_world("noSquads", func(ww): ww["noSquads"] = v))]),

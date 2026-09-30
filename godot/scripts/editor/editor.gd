@@ -1448,6 +1448,7 @@ func set_inside(inside: bool, ids = null) -> void:
 	for s in d.sectors:
 		if not which.has(s.id):
 			continue
+		s.erase("style")
 		var f := EdDoc.num(s.get("floor"), 0)
 		if inside:
 			if EdDoc.tex(s, "ceilTex") == "SKY" or EdDoc.tex(s, "ceilTex") == "":
@@ -1655,6 +1656,171 @@ func _two_sided(key: String) -> bool:
 	var l = line_info(key)
 	return l != null and l.sectors.size() > 1
 
+# ---------------------------------------------------------------------
+# ROOM STYLES, at the user's request: a named set of walls, floor,
+# ceiling and brightness (doc.styles: [{name, wallTex, floorTex,
+# ceilTex, light}]) painted onto rooms. A room wearing one carries its
+# name (sector.style) and its values; change the style and every room
+# wearing it changes; change a room's own texture and it is off the
+# style (custom again). The game never reads any of this — the values
+# are written into the sectors, so the file plays as it always did.
+# ---------------------------------------------------------------------
+const STYLE_KEYS := ["wallTex", "floorTex", "ceilTex", "light"]
+const STARTER_STYLES := [
+	{"name": "STREET", "wallTex": "GRIDWALL", "floorTex": "LAWN2", "ceilTex": "SKY", "light": 1.0},
+	{"name": "CAR PARK", "wallTex": "CONC_2", "floorTex": "PARKLOT1", "ceilTex": "SKY", "light": 0.9},
+	{"name": "ROOM", "wallTex": "CONC_1", "floorTex": "CONC_2", "ceilTex": "OFCCEIL1", "light": 0.8},
+	{"name": "OFFICE", "wallTex": "OFCCUB01", "floorTex": "OFCCARP1", "ceilTex": "OFCCEIL1", "light": 0.85},
+	{"name": "SEWER", "wallTex": "CONC_7", "floorTex": "CONC_4", "ceilTex": "CONC_7", "light": 0.45},
+]
+
+func styles() -> Array:
+	return doc.get("styles", []) if doc.get("styles") is Array else []
+
+func style_index(name: String) -> int:
+	var st := styles()
+	for i in st.size():
+		if str(st[i].get("name", "")) == name:
+			return i
+	return -1
+
+## how many rooms wear a style
+func style_use(name: String) -> int:
+	var n := 0
+	for s in doc.sectors:
+		if str(s.get("style", "")) == name:
+			n += 1
+	return n
+
+## the style's values onto one sector (a room going in or out gets its
+## ceiling sorted as set_inside does), and its name on it
+static func _wear(s: Dictionary, st: Dictionary) -> void:
+	var was_in := EdDoc.tex(s, "ceilTex") != "SKY" and EdDoc.tex(s, "ceilTex") != ""
+	var now_in := EdDoc.tex(st, "ceilTex") != "SKY" and EdDoc.tex(st, "ceilTex") != ""
+	var f := EdDoc.num(s.get("floor"), 0)
+	if now_in and not was_in and EdDoc.num(s.get("ceil"), 1024) - f > 512:
+		s["ceil"] = f + 128
+	if not now_in and was_in and EdDoc.num(s.get("ceil"), 0) - f < 512:
+		s["ceil"] = f + 1024
+	for k in STYLE_KEYS:
+		if st.has(k) and st[k] != null:
+			s[k] = st[k]
+	s["style"] = str(st.name)
+
+## Paint a style onto the selected sectors (or `ids`).
+func apply_style(name: String, ids = null) -> void:
+	var i := style_index(name)
+	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "sector" else {})
+	if i < 0 or which.is_empty():
+		return
+	var d := edit_begin("style %s" % name)
+	var st: Dictionary = d.styles[i]
+	for s in d.sectors:
+		if which.has(s.id):
+			_wear(s, st)
+	edit_end(false)
+	say("%s on %d room%s" % [name, which.size(), "" if which.size() == 1 else "s"])
+
+## Take a sector off its style: its own values stay, the name goes.
+func unstyle(ids = null) -> void:
+	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "sector" else {})
+	if which.is_empty():
+		return
+	var d := edit_begin("no style")
+	for s in d.sectors:
+		if which.has(s.id):
+			s.erase("style")
+	edit_end(false)
+
+## A style made from a sector as it is (or brought up to date, if the
+## name is taken), and the sector put in it.
+func style_from_sector(name: String, sector_id) -> void:
+	name = name.strip_edges().to_upper()
+	if name == "":
+		return
+	var d := edit_begin("style %s from room" % name)
+	if not d.get("styles") is Array:
+		d["styles"] = []
+	var src = null
+	for s in d.sectors:
+		if s.id == sector_id:
+			src = s
+	if src == null:
+		return
+	var st := {"name": name}
+	for k in STYLE_KEYS:
+		st[k] = src.get(k, EdDoc.SECTOR_DEFAULTS.get(k))
+	var i := style_index(name)
+	if i < 0:
+		d.styles.append(st)
+	else:
+		d.styles[i] = st
+	# and every room already wearing that name takes the new values
+	for s in d.sectors:
+		if s == src or str(s.get("style", "")) == name:
+			_wear(s, st)
+	edit_end(false)
+	say("style %s" % name)
+
+## One value of a style changed, and every room wearing it with it.
+func update_style(i: int, key: String, value) -> void:
+	if i < 0 or i >= styles().size():
+		return
+	var d := edit_begin("style %s" % key, "style.%d.%s" % [i, key])
+	var st: Dictionary = d.styles[i]
+	if key == "name":
+		var nn := str(value).strip_edges().to_upper()
+		if nn == "" or (style_index(nn) >= 0 and style_index(nn) != i):
+			edit_end(false)
+			return
+		for s in d.sectors:
+			if str(s.get("style", "")) == str(st.name):
+				s["style"] = nn
+		st["name"] = nn
+	else:
+		st[key] = value
+		for s in d.sectors:
+			if str(s.get("style", "")) == str(st.name):
+				_wear(s, st)
+	edit_end(false)
+
+func add_style(name := "") -> void:
+	var d := edit_begin("new style")
+	if not d.get("styles") is Array:
+		d["styles"] = []
+	var n: int = d.styles.size() + 1
+	var nm := name
+	while nm == "" or style_index(nm) >= 0:
+		nm = "STYLE %d" % n
+		n += 1
+	var st := {"name": nm}
+	for k in STYLE_KEYS:
+		st[k] = EdDoc.SECTOR_DEFAULTS.get(k)
+	d.styles.append(st)
+	edit_end(false)
+
+## the starter set, for a map with none (or none of these names)
+func add_starter_styles() -> void:
+	var d := edit_begin("starter styles")
+	if not d.get("styles") is Array:
+		d["styles"] = []
+	for st in STARTER_STYLES:
+		if style_index(st.name) < 0:
+			d.styles.append(st.duplicate())
+	edit_end(false)
+
+## the style gone; the rooms that wore it keep its values, unstyled
+func delete_style(i: int) -> void:
+	if i < 0 or i >= styles().size():
+		return
+	var d := edit_begin("delete style")
+	var name := str(d.styles[i].get("name", ""))
+	d.styles.remove_at(i)
+	for s in d.sectors:
+		if str(s.get("style", "")) == name:
+			s.erase("style")
+	edit_end(false)
+
 ## The selection if there is one of this kind, or the highlighted thing.
 func target_or(kind: String) -> Dictionary:
 	if sel_kind == kind and not sel_ids.is_empty():
@@ -1691,6 +1857,12 @@ func apply_texture(name: String, field := "") -> void:
 			edit_end(false)
 		return
 	if kind == "sector" and field != "":
+		if field in STYLE_KEYS:
+			var dd := edit_begin("texture %s" % name)
+			for s in dd.sectors:
+				if ids.has(s.id):
+					s.erase("style")
+			edit_end(false)
 		var d := edit_begin("%s %s" % [field, name])
 		for s in d.sectors:
 			if ids.has(s.id):

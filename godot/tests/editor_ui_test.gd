@@ -170,6 +170,30 @@ func run() -> void:
 	ok(ed.sel_ids.size() == 1 and ed.sel_face == null, "a plain click picks one line again")
 	ed.clear_sel()
 
+	# ROOM STYLES: one made from the room, painted on the ground, changed on both
+	ed.style_from_sector("TEST", room.id)
+	ok(ed.styles().size() == 1 and ed.style_index("TEST") == 0 and ed.sector_by_id(room.id).get("style") == "TEST",
+		"a style made from the room, and the room wears it")
+	ed.select("sector", [ground.id])
+	ed.apply_style("TEST")
+	var g2 = ed.sector_by_id(ground.id)
+	var r2 = ed.sector_by_id(room.id)
+	ok(g2.get("style") == "TEST" and g2.get("wallTex") == r2.get("wallTex") and g2.get("ceilTex") == r2.get("ceilTex"),
+		"painted on the ground: its walls and ceiling are the room's (%s, %s)" % [str(g2.get("wallTex")), str(g2.get("ceilTex"))])
+	ed.update_style(0, "wallTex", "CONC_2")
+	ok(ed.sector_by_id(ground.id).get("wallTex") == "CONC_2" and ed.sector_by_id(room.id).get("wallTex") == "CONC_2",
+		"the style's walls changed, and both rooms with it")
+	ed.ui.panels.picking = {"field": "wallTex", "label": "Walls", "allow_none": false}
+	ed.select("sector", [ground.id])
+	ed.ui.panels.pick_texture("CONC_1")
+	ok(ed.sector_by_id(ground.id).get("style") == null and ed.sector_by_id(room.id).get("style") == "TEST",
+		"a texture set by hand takes that room off the style; the other still wears it")
+	for i in 4:
+		ed.undo()
+	ok(ed.styles().is_empty() and ed.sector_by_id(room.id).get("style") == null and ed.sector_by_id(ground.id).get("style") == null,
+		"four undos, and no style anywhere")
+	ed.clear_sel()
+
 	# THE DOOR TOOL (O): a click on a wall, a door in it
 	ok(key(ed, KEY_O) and ed.mode == "doors", "O is Doors")
 	var doors_in := func() -> Array:

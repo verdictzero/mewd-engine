@@ -630,17 +630,19 @@ func tic() -> void:
 	weather.tic()
 	var t0 := Time.get_ticks_usec()
 	# THE CROWD FAR OFF THINKS LESS OFTEN (at the user's request, for
-	# speed): somebody with nothing on — not alight, not afraid, no
+	# speed): somebody ALIVE with nothing on — not alight, not afraid, no
 	# target, not held — further than LOD_FAR from the player takes one
-	# tic in four. They wander a shade slower where nobody can tell. Not
-	# in a match, whose worlds must agree.
+	# tic in four. They wander a shade slower where nobody can tell. Only
+	# the living crowd: a death, a blast in the air, blood, a stone must
+	# run every tic or they hang (the user saw them). Not in a match,
+	# whose worlds must agree.
 	var lod: bool = net == null and player != null
 	var lx: float = player.x if lod else 0.0
 	var ly: float = player.y if lod else 0.0
 	var lod_far2 := LOD_FAR * LOD_FAR
 	for a: Actor in actors:
-		if lod and a.burning == 0 and a.panic == 0 and a.target == null and not a.frozen and a.bored == 0 and a.ash <= 0.0 \
-				and (tics + a.id) % 4 != 0:
+		if lod and a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.panic == 0 and a.target == null \
+				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and (tics + a.id) % 4 != 0:
 			var ddx: float = a.x - lx
 			var ddy: float = a.y - ly
 			if ddx * ddx + ddy * ddy > lod_far2:
