@@ -7,8 +7,8 @@
 ## side is too short for one above the other, so there the logo takes
 ## the left and the menu stands at its right.
 ##
-## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words and a
-## marker by the one you are on that blinks the way the skull did. The
+## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words (no
+## blinking marker, at the user's request). The
 ## one you are on is filled in red, the logo's brick, at the user's
 ## request. NEW GAME and MAP EDITOR go somewhere; the others shake their
 ## heads.
@@ -42,7 +42,6 @@ var font: Font
 ## the logo's shadows, inside the picture: [TextureRect, grow, dx, dy]
 var shade: Control
 var shadows := []
-var _blink := 0.0
 var _shake := {}
 
 func _ready() -> void:
@@ -197,8 +196,7 @@ func _style() -> void:
 		var ink := Color("#ffffff") if (on and live) else (Color("#e9e9ee") if live else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.6 if on else 0.34))
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			b.add_theme_color_override(c, ink)
-		var marker := "▶ " if on and fmod(_blink, 1.0) < 0.5 else "  "
-		b.text = marker + _spaced(ITEMS[j][0]) + "  "
+		b.text = _spaced(ITEMS[j][0])
 
 func take(i: int) -> void:
 	mark(i)
@@ -213,10 +211,6 @@ func take(i: int) -> void:
 		OS.shell_open(ZIP_URL)
 
 func _process(dt: float) -> void:
-	var was := fmod(_blink, 1.0) < 0.5
-	_blink += dt
-	if was != (fmod(_blink, 1.0) < 0.5):
-		_style()
 	for j in _shake.keys():
 		_shake[j] -= dt
 		var t: float = 0.32 - _shake[j]
