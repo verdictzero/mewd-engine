@@ -33,6 +33,8 @@ var _mine_head: HBoxContainer
 var _mine_grid: GridContainer
 var _pack_box: VBoxContainer
 var _groups := []
+## the layers tab: the map's storeys, Photoshop's way (ed_layers.gd)
+var layers: EdLayers
 
 const MOODS := {
 	"Warm lamp": {"floor": "#ffd9a0", "ceil": "#ffe8c0", "thing": "#ffe0b0", "top": "#ffd08a", "bottom": "#8a5a30"},
@@ -74,7 +76,7 @@ func build() -> void:
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 0)
 	sv.add_child(tabs)
-	for pair in [["tex", "Textures"], ["things", "Things"], ["scatter", "Scatter"], ["map", "Map"]]:
+	for pair in [["tex", "Textures"], ["things", "Things"], ["scatter", "Scatter"], ["layers", "Layers"], ["map", "Map"]]:
 		var k: String = pair[0]
 		var b := Button.new()
 		b.text = pair[1]
@@ -93,15 +95,23 @@ func build() -> void:
 		sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		holder.add_child(sc)
 		panes[k] = {"scroll": sc, "box": _pane_box(sc)}
+	# the layers: a tree, scrolled by itself, the height of the tab
+	layers = EdLayers.new(ed, ui)
+	var lb := layers.build(holder)
+	panes["layers"] = {"scroll": lb, "box": lb}
 	_tex_box = panes.tex.box
 	show_tab("tex")
 	ed.sel_changed.connect(func():
+		if tab == "layers":
+			layers.sel_changed()
 		if picking == null:
 			mark("insp")
 		mark("tex")
 		if tab == "things":
 			mark("things"))
 	ed.doc_changed.connect(func():
+		if tab == "layers":
+			mark("layers")
 		mark("insp")
 		if tab == "map":
 			mark("map")
@@ -115,7 +125,8 @@ func build() -> void:
 		if tab == "map":
 			mark("map"))
 	ed.textures_changed.connect(func(): _tex_built = false; mark("tex"))
-	ed.layer_changed.connect(func(_k): mark("insp"))
+	ed.layer_changed.connect(func(_k): mark("insp"); mark("layers"))
+	ed.layers_shown_changed.connect(func(): mark("layers"))
 	var t := Timer.new()
 	t.wait_time = 0.05
 	t.autostart = true
@@ -157,6 +168,11 @@ func _flush() -> void:
 	for k in _dirty.keys():
 		if typing and k in ["insp", "map", "things"]:
 			continue
+		# not while a drag moves the map: once, when it is let go
+		if k == "layers" and (ed.dragging or tab != "layers"):
+			if tab != "layers":
+				_dirty.erase(k)
+			continue
 		_dirty.erase(k)
 		match k:
 			"insp": render_insp()
@@ -164,6 +180,7 @@ func _flush() -> void:
 			"things": render_things()
 			"scatter": render_scatter()
 			"map": render_map()
+			"layers": layers.render()
 
 func show_tab(t: String) -> void:
 	if t == "insp":
@@ -188,6 +205,7 @@ func show_tab(t: String) -> void:
 		"map": render_map()
 		"scatter": render_scatter()
 		"things": render_things()
+		"layers": layers.render()
 
 func flash_insp() -> void:
 	var tw := insp_panel.create_tween()

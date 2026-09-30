@@ -583,6 +583,177 @@ static func set_layer(doc: Dictionary, k: int) -> Dictionary:
 		doc.erase("layer")
 	return doc
 
+## A layer's name: its own (doc.layerNames), or what it is.
+static func layer_name(doc: Dictionary, k: int) -> String:
+	var names = doc.get("layerNames")
+	if names is Dictionary and names.get(str(k)) is String and names[str(k)] != "":
+		return names[str(k)]
+	if k == 0:
+		return "Ground"
+	return ("Storey %d" % k) if k > 0 else ("Basement %d" % -k)
+
+static func set_layer_name(doc: Dictionary, k: int, name: String) -> void:
+	name = name.strip_edges()
+	if not doc.get("layerNames") is Dictionary:
+		doc["layerNames"] = {}
+	if name == "" or name == layer_name({}, k):
+		doc.layerNames.erase(str(k))
+	else:
+		doc.layerNames[str(k)] = name
+	if doc.layerNames.is_empty():
+		doc.erase("layerNames")
+
+static func layer_filled(doc: Dictionary, k: int) -> bool:
+	var g := layer_geom(doc, k)
+	return not g.sectors.is_empty() or not g.linedefs.is_empty()
+
+## fn(L) on the layers put away (doc.layers), every one of `ks` among
+## them; `back` is the one being edited afterwards.
+static func _stored(doc: Dictionary, ks: Array, back: int, fn: Callable) -> void:
+	var tmp := LAYER_MAX
+	while tmp in ks:
+		tmp -= 1
+	set_layer(doc, tmp)
+	if not doc.get("layers") is Dictionary:
+		doc["layers"] = {}
+	fn.call(doc.layers)
+	for k in doc.layers.keys():
+		var g = doc.layers[k]
+		if not g is Dictionary or (g.get("sectors", []).is_empty() and g.get("linedefs", []).is_empty()):
+			doc.layers.erase(k)
+	set_layer(doc, back)
+	if doc.get("layers") is Dictionary and doc.layers.is_empty():
+		doc.erase("layers")
+
+## The lowest floor on a layer, or null when it is empty.
+static func _base_of(g) -> Variant:
+	if not g is Dictionary:
+		return null
+	var lo = null
+	for s in g.get("sectors", []):
+		var f := num(s.get("floor"), 0)
+		lo = f if lo == null else minf(lo, f)
+	return lo
+
+static func _raise(g, dz: float) -> void:
+	if not g is Dictionary or dz == 0.0:
+		return
+	for s in g.get("sectors", []):
+		s["floor"] = num(s.get("floor"), SECTOR_DEFAULTS.floor) + dz
+		s["ceil"] = num(s.get("ceil"), SECTOR_DEFAULTS.ceil) + dz
+
+static func _thing_layer(t: Dictionary, k: int) -> void:
+	if k == 0:
+		t.erase("layer")
+	else:
+		t["layer"] = k
+
+## Two layers change places in the stack: each takes the other's height
+## (its lowest floor where the other's was), its things and its name.
+static func swap_layers(doc: Dictionary, a: int, b: int) -> void:
+	if a == b or a < LAYER_MIN or b < LAYER_MIN or a > LAYER_MAX or b > LAYER_MAX:
+		return
+	var cur := int(doc.get("layer", 0))
+	var back := b if cur == a else (a if cur == b else cur)
+	_stored(doc, [a, b], back, func(L: Dictionary):
+		var ga = L.get(str(a))
+		var gb = L.get(str(b))
+		var fa = _base_of(ga)
+		var fb = _base_of(gb)
+		var za: float = fb if fb != null else (float(b - a) * STOREY_H + (fa if fa != null else 0.0))
+		var zb: float = fa if fa != null else (float(a - b) * STOREY_H + (fb if fb != null else 0.0))
+		if fa != null:
+			_raise(ga, za - fa)
+		if fb != null:
+			_raise(gb, zb - fb)
+		L.erase(str(a))
+		L.erase(str(b))
+		if ga != null:
+			L[str(b)] = ga
+		if gb != null:
+			L[str(a)] = gb)
+	for t in doc.things:
+		var k := int(num(t.get("layer"), 0))
+		if k == a:
+			_thing_layer(t, b)
+		elif k == b:
+			_thing_layer(t, a)
+	var names = doc.get("layerNames")
+	if names is Dictionary:
+		var na = names.get(str(a))
+		var nb = names.get(str(b))
+		names.erase(str(a))
+		names.erase(str(b))
+		if na != null:
+			names[str(b)] = na
+		if nb != null:
+			names[str(a)] = nb
+
+## A layer and its things gone.
+static func delete_layer(doc: Dictionary, k: int) -> void:
+	if k == int(doc.get("layer", 0)):
+		var e := _empty_layer()
+		for p in LAYER_PARTS:
+			doc[p] = e[p]
+	elif doc.get("layers") is Dictionary:
+		doc.layers.erase(str(k))
+		if doc.layers.is_empty():
+			doc.erase("layers")
+	doc.things = doc.things.filter(func(t): return int(num(t.get("layer"), 0)) != k)
+	if doc.get("layerNames") is Dictionary:
+		doc.layerNames.erase(str(k))
+		if doc.layerNames.is_empty():
+			doc.erase("layerNames")
+
+## A copy of layer k and its things on the first empty layer over it, a
+## storey up for every layer it went; its number, or null if there is no
+## room.
+static func duplicate_layer(doc: Dictionary, k: int):
+	var dst := k + 1
+	while dst <= LAYER_MAX and layer_filled(doc, dst):
+		dst += 1
+	if dst > LAYER_MAX:
+		return null
+	var src := layer_geom(doc, k)
+	var g := {}
+	for p in LAYER_PARTS:
+		g[p] = src[p].duplicate(true) if (src[p] is Array or src[p] is Dictionary) else src[p]
+	_raise(g, float(dst - k) * STOREY_H)
+	for s in g.sectors:
+		s["id"] = take_id(doc)
+	for ld in g.linedefs:
+		if ld is Dictionary and ld.has("id"):
+			ld["id"] = take_id(doc)
+	_stored(doc, [dst], int(doc.get("layer", 0)), func(L: Dictionary): L[str(dst)] = g)
+	for t in doc.things.duplicate():
+		if int(num(t.get("layer"), 0)) == k:
+			var c: Dictionary = t.duplicate(true)
+			c["id"] = take_id(doc)
+			_thing_layer(c, dst)
+			if THING_TYPES.get(c.type, {}).get("one", false):
+				continue
+			doc.things.append(c)
+	set_layer_name(doc, dst, layer_name(doc, k) + " copy")
+	return dst
+
+## The document without some layers (the ones hidden in the layers
+## pane): what the 3D view is built from.
+static func without_layers(doc: Dictionary, hidden: Dictionary) -> Dictionary:
+	var d := doc.duplicate()
+	var cur := int(doc.get("layer", 0))
+	if doc.get("layers") is Dictionary:
+		var L := {}
+		for k in doc.layers:
+			if not hidden.has(int(k)):
+				L[k] = doc.layers[k]
+		d["layers"] = L
+	if hidden.has(cur):
+		var e := _empty_layer()
+		for p in LAYER_PARTS:
+			d[p] = e[p]
+	d["things"] = doc.things.filter(func(t): return not hidden.has(int(num(t.get("layer"), 0))))
+	return d
+
 ## The smallest sector of geometry g round (x, y), or null.
 static func sector_in(g: Dictionary, x: float, y: float):
 	var best = null

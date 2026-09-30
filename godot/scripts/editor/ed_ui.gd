@@ -169,6 +169,7 @@ func _build_top() -> void:
 		["Paste in place (onto another layer: a storey up)", "Ctrl+Shift+V", func(): ed.paste(true)],
 		["Layer up", "Alt+PgUp", func(): ed.set_layer(ed.layer() + 1)],
 		["Layer down", "Alt+PgDn", func(): ed.set_layer(ed.layer() - 1)],
+		["Layers panel", "", func(): panels.show_tab("layers")],
 		["Select all", "Ctrl+A", ed.select_all_in_mode],
 		"-",
 		["Snap selection to grid", "Shift+G", ed.snap_sel_to_grid],
@@ -231,7 +232,15 @@ func _build_top() -> void:
 	layer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	layer_lbl.tooltip_text = "The layer being edited: 0 is the ground, 1 the storey on it, and so on. Alt+PgUp / Alt+PgDn"
-	layer_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	layer_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer_lbl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	layer_lbl.tooltip_text += " · click: the Layers panel"
+	layer_lbl.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			if ed.tabs_hidden:
+				ed.tabs_hidden = false
+				refresh_bar()
+			panels.show_tab("layers"))
 	layers.add_child(layer_lbl)
 	layers.add_child(EdStyle.small_button("▲", func(): ed.set_layer(ed.layer() + 1), "Layer up (Alt+PgUp)"))
 	top.add_child(layers)

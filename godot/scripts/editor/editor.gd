@@ -34,6 +34,8 @@ signal hover_changed
 signal status_changed(msg: String)
 signal textures_changed
 signal layer_changed(k: int)
+## a layer shown or hidden (the layers pane's eye)
+signal layers_shown_changed
 signal camera_changed
 signal frame_req
 signal frame_sel_req
@@ -134,6 +136,9 @@ var _thread: Thread = null
 var _compile_again := false
 var _tex_key := ""
 var _last_layer := 0
+## the layers hidden in the layers pane (the view's, not the map's): not
+## ghosted in the plan, and left out of the 3D view
+var hidden_layers := {}
 var _other_key = null
 var _other_cache: Array = []
 ## headless tests build the editor without views and compile at once
@@ -316,14 +321,14 @@ func compile_now() -> void:
 		_thread = null
 		if res is Dictionary and res.get("geo") != null:
 			res.geo.free()
-	_apply_compile(_compile(EdDoc.clone(doc)))
+	_apply_compile(_compile_geo(EdDoc.clone(doc), null, hidden_layers.duplicate()))
 
 func _start_compile() -> void:
 	# A BUILD WITHOUT THREADS (the web page: GitHub Pages cannot send the
 	# headers a browser wants before it lends a page threads): here and now
 	if not OS.has_feature("threads"):
 		var g: bool = view3d != null and view3d.active
-		_apply_compile(_compile_geo(EdDoc.clone(doc), bank if g else null))
+		_apply_compile(_compile_geo(EdDoc.clone(doc), bank if g else null, hidden_layers.duplicate()))
 		return
 	if _thread != null:
 		_compile_again = true
@@ -331,12 +336,19 @@ func _start_compile() -> void:
 	_thread = Thread.new()
 	# the 3D view's meshes are built in the thread too, when it is showing
 	var geo: bool = view3d != null and view3d.active
-	_thread.start(_compile_geo.bind(EdDoc.clone(doc), bank if geo else null))
+	_thread.start(_compile_geo.bind(EdDoc.clone(doc), bank if geo else null, hidden_layers.duplicate()))
 
 ## The compile, and the level's meshes (MapGeo) for the 3D view, off the
 ## main thread: the servers take calls from any thread.
-static func _compile_geo(d: Dictionary, b) -> Dictionary:
+static func _compile_geo(d: Dictionary, b, hidden := {}) -> Dictionary:
 	var c := _compile(d)
+	if not hidden.is_empty():
+		# the layers hidden in the pane: the problems are the whole map's,
+		# the level shown is without them
+		d = EdDoc.without_layers(d, hidden)
+		var shown := _compile(d)
+		c["level"] = shown.level
+		c["scattered"] = shown.scattered
 	if b != null and c.level != null:
 		var mg := MapGeo.new(b)
 		c["geo"] = mg.build(c.level)
@@ -1062,7 +1074,7 @@ func other_layers() -> Array:
 	if _other_key != doc:
 		_other_cache = []
 		for g in EdDoc.layers_of(doc):
-			if g.k != layer() and not g.sectors.is_empty():
+			if g.k != layer() and not g.sectors.is_empty() and not hidden_layers.has(g.k):
 				_other_cache.append(g)
 		_other_key = doc
 	return _other_cache
@@ -1073,14 +1085,102 @@ func set_layer(k: int) -> void:
 		return
 	cancel_path()
 	clear_sel()
+	if hidden_layers.erase(k):
+		layers_shown_changed.emit()
 	history.push("layer %d" % k)
 	EdDoc.set_layer(doc, k)
 	_other_key = null
 	changed(true)
 	var g := EdDoc.layer_geom(doc, k)
 	var n: int = g.sectors.size()
-	say("layer %d%s — %s; Alt+PgUp / Alt+PgDn change layer" % [k, " (the ground)" if k == 0 else "",
+	say("layer %d%s — %s; Alt+PgUp / Alt+PgDn change layer" % [k, (" · " + EdDoc.layer_name(doc, k)) if k != 0 or doc.get("layerNames", {}).has("0") else " (the ground)",
 		("%d sector%s" % [n, "" if n == 1 else "s"]) if n > 0 else "empty: draw on it, and rooms stand on the layer under"])
+
+## THE LAYERS PANE's own (ed_layers.gd): the eye, the name, the stack.
+func layer_hidden(k: int) -> bool:
+	return hidden_layers.has(k)
+
+func set_layer_hidden(k: int, hide: bool) -> void:
+	if hide and k == layer():
+		say("the layer being edited is always shown — pick another to hide this one")
+		return
+	if hide == hidden_layers.has(k):
+		return
+	if hide:
+		hidden_layers[k] = true
+	else:
+		hidden_layers.erase(k)
+	_other_key = null
+	layers_shown_changed.emit()
+	if headless:
+		compile_now()
+	else:
+		_compile_at = Time.get_ticks_msec()
+	say("%s %s" % [EdDoc.layer_name(doc, k), "hidden" if hide else "shown"])
+
+func rename_layer(k: int, name: String) -> void:
+	if name.strip_edges() == EdDoc.layer_name(doc, k):
+		return
+	edit("rename layer", func(d): EdDoc.set_layer_name(d, k, name), false)
+	say("layer %d is %s" % [k, EdDoc.layer_name(doc, k)])
+
+## A layer up or down the stack, swapping with the one there.
+func move_layer(k: int, dir: int) -> void:
+	move_layer_to(k, k + dir)
+
+## A layer to another place in the stack (dragged in the layers pane),
+## the ones between each a place the other way: one undo step.
+func move_layer_to(k: int, to: int) -> void:
+	to = clampi(to, EdDoc.LAYER_MIN, EdDoc.LAYER_MAX)
+	if to == k:
+		return
+	cancel_path()
+	clear_sel()
+	var dir := 1 if to > k else -1
+	var swaps := func(d):
+		var at := k
+		while at != to:
+			EdDoc.swap_layers(d, at, at + dir)
+			at += dir
+	edit("move layer", swaps, false)
+	var h := {}
+	for j in hidden_layers:
+		var jj: int = j
+		if j == k:
+			jj = to
+		elif (dir > 0 and j > k and j <= to) or (dir < 0 and j < k and j >= to):
+			jj = j - dir
+		h[jj] = true
+	hidden_layers = h
+	_other_key = null
+	changed(true)
+	layers_shown_changed.emit()
+	say("%s moved to layer %d" % [EdDoc.layer_name(doc, to), to])
+
+func delete_layer(k: int) -> void:
+	cancel_path()
+	clear_sel()
+	var name := EdDoc.layer_name(doc, k)
+	edit("delete layer", func(d): EdDoc.delete_layer(d, k), false)
+	hidden_layers.erase(k)
+	_other_key = null
+	changed(true)
+	say("%s deleted (Ctrl+Z brings it back)" % name)
+
+func duplicate_layer(k: int) -> void:
+	var out := [null]
+	edit("duplicate layer", func(d): out[0] = EdDoc.duplicate_layer(d, k), false)
+	if out[0] == null:
+		say("no room over layer %d for a copy" % k)
+		return
+	_other_key = null
+	set_layer(int(out[0]))
+
+## The things shown (not on a hidden layer).
+func shown_things() -> Array:
+	if hidden_layers.is_empty():
+		return doc.things
+	return doc.things.filter(func(t): return not hidden_layers.has(int(EdDoc.num(t.get("layer"), 0))))
 
 func layer_floor(x: float, y: float) -> float:
 	var s = sector_at(x, y)

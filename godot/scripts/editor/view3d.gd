@@ -440,7 +440,7 @@ func build_sprites() -> void:
 		c.queue_free()
 	var batches = ed.compiled.get("sprites")
 	if batches == null or ed.layer() != 0:
-		var all: Array = ed.doc.things + ed.compiled.get("scattered", [])
+		var all: Array = ed.shown_things() + ed.compiled.get("scattered", [])
 		batches = sprite_batches(all, ed.compiled.get("level"), ed.layer(), ed.doc)
 	for key in batches:
 		var b: Dictionary = batches[key]

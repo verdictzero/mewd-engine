@@ -51,7 +51,7 @@ func _ready() -> void:
 		img.set_pixel(i, 9 - i, Color(230 / 255.0, 190 / 255.0, 130 / 255.0, 0.16))
 	_hatch = ImageTexture.create_from_image(img)
 	_layers_ready()
-	for sg in [ed.doc_changed, ed.sel_changed, ed.grid_changed, ed.layout_changed, ed.compiled_ready, ed.layer_changed]:
+	for sg in [ed.doc_changed, ed.sel_changed, ed.grid_changed, ed.layout_changed, ed.compiled_ready, ed.layer_changed, ed.layers_shown_changed]:
 		sg.connect(_dirty0)
 	for sg in [ed.path_changed, ed.cursor_changed, ed.camera_changed, ed.hover_changed]:
 		sg.connect(func(_a = null): _over())
@@ -914,6 +914,8 @@ func _draw_scatter_area(c: Dictionary, is_sel: bool, hov: bool, ci: CanvasItem) 
 			Color("#ffcf9a") if is_sel else Color("#d7b4ff"), 10, HORIZONTAL_ALIGNMENT_LEFT, ci)
 
 func _draw_thing(t: Dictionary, q: Vector2, is_sel: bool, hov: bool, ci: CanvasItem) -> void:
+	if not hov and not ed.hidden_layers.is_empty() and ed.layer_hidden(int(EdDoc.num(t.get("layer"), 0))):
+		return
 	var def: Dictionary = EdDoc.THING_TYPES.get(t.type, {"color": "#f0f", "radius": 16})
 	var r := maxf(3.0, def.radius * scale_)
 	if not hov:

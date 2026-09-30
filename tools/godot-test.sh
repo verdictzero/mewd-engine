@@ -34,4 +34,7 @@ run death   --script res://godot/tests/death_test.gd
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
 run layers  --script res://godot/tests/layers_test.gd -- --map=layers
+# the editor's layers pane: the stack, the hierarchy, the eye, move, duplicate, delete
+# (godot/tests/layers_pane_test.gd)
+run layerspane --script res://godot/tests/layers_pane_test.gd -- --edit
 exit $fail

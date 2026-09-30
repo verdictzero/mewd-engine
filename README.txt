@@ -221,6 +221,21 @@ undo and redo, copy and paste, snap, and Q for visual mode. PLAY (F5)
 hands the document to the game and starts you where the 3D camera
 stands; F2 comes back. Help in the menu lists the keys.
 
+The LAYERS tab is a layers panel in the style of Photoshop. The
+storeys are a stack, with the top one first, and each has a
+thumbnail of its plan, a name and an eye.
+  - Click a storey to edit it.
+  - The eye hides a storey from the plan and the 3D view; the map
+    still keeps it. Alt+click the eye to show that storey alone.
+  - Double-click to rename a storey.
+  - Drag a storey up or down the stack. It trades heights with the
+    storeys it passes.
+  - Right-click, or use the buttons along the bottom, to add,
+    duplicate, move or delete a storey.
+  - Open a storey to see its hierarchy. Each room sits under the room
+    it is cut from, and each thing under the room it stands in. Click
+    one to select it, or double-click to frame it.
+
 Files are JSON (.gssmap.json) and open in either build's editor.
 Ctrl+S saves into user://mewd-editor/maps/; File > Open… and Save as
 file… use the desktop's file dialog; an autosave is opened on start.
@@ -310,6 +325,8 @@ runs every headless suite in turn and exits non-zero if any fails:
     death      the dead removed, and their sprites with them
     pad        the pad's bindings on every device, the menus' reading
     layers     room over room on THE ANNEXE
+    layerspane the editor's layers panel: the stack, the hierarchy, the
+               eye, moving, duplicating and deleting storeys
 
 The classic build's test is `node tools/smoke-test.mjs`. With xvfb,
 `--shot=out.png` renders a picture of anything for checking by eye.
