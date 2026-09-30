@@ -6,11 +6,9 @@
 ## budgeted, and this is the budget: a few hundred embers and a couple
 ## of hundred puffs at most, alive at once, in two draw calls.
 ##
-## WHERE THEY COME FROM. Nothing spawns from every burning cell — with
-## an aisle alight that is hundreds of sources. Each tic a handful of
-## burning cells NEAR THE PLAYER are sampled at random, from the store's
-## grid and from the forest's, and those throw
-## the frame's sparks. Far fires are a glow on the horizon anyway.
+## WHERE THEY COME FROM: off the people and the cars that are alight
+## (the fire that spread across the floor is gone, at the user's
+## request, and with it the sampling of its cells).
 ##
 ## EMBERS are cutout quads a couple of units across, bright gold going
 ## to dark coal, lifted by the heat and then falling, and they die when
@@ -172,7 +170,7 @@ func body_fire(a, scale := 1.0) -> int:
 	return n
 
 ## The one fire light, pulled toward everybody who is alight — the
-## protocol FireSystem._update_atmosphere will use (see its TODO).
+## protocol the light on the walls could read (nothing does yet).
 func glow_into(acc: Dictionary) -> void:
 	if glow.sw <= 0.0:
 		return
@@ -340,43 +338,7 @@ func fireball(x: float, y: float, z: float, size := 90.0, life := 22) -> void:
 # ------------------------------------------------------------------
 
 func tic() -> void:
-	var p = game.player
-	var F = game.get("fire")
 	var lv: Level = game.level
-	if p != null and F != null and F.active.size() > 0:
-		# EIGHT SAMPLES, NOT THREE: with the fire on a three-tic clock a run
-		# of shelving is alight and spent inside four seconds. Still a sample
-		# and not a sum: with a whole aisle going the answer does not change.
-		var len: int = F.active.size()
-		for k in 8:
-			var i: int = F.active[(U.p_random() * 256 + U.p_random()) % len]
-			var h: int = F.heat[i]
-			if h < 110:
-				continue
-			var c: int = i % F.plane
-			var x: float = F.world_x(c % F.cols)
-			var y: float = F.world_y(c / F.cols)
-			if U.dist2(x, y, p.x, p.y) > 900.0 * 900.0:
-				continue
-			var si: int = F.sector_of[i]
-			var z: float = lv.sectors[si].floor if si >= 0 else 0.0
-			if U.p_random() < h * 0.55:
-				ember(x, y, z + 14.0 + (U.p_random() & 31), 1, h / 255.0)
-			# and off the TOP of the flame rather than off the floor, so it
-			# leaves the plume instead of appearing inside it
-			if (game.tics & 1) == 0 and U.p_random() < 110:
-				puff(x, y, z + 52.0, 32.0, 150)
-	# the forest's: a few burning trees and patches of ground near the
-	# player, the hottest (the middle of their burn) throwing the most
-	var forest = game.get("forest")
-	if p != null and forest != null and forest.active.size() > 0:
-		for e in forest.emitters(p.x, p.y, 1200.0, 4):
-			var q: float = (e.t - 0.5) / 0.3
-			var flame := exp(-q * q)
-			if U.p_random() < 40.0 + flame * 150.0:
-				ember(e.x, e.y, e.z + e.h * (0.35 + _r() * 0.6), 2 if e.tree else 1, 0.6 + flame)
-			if (game.tics & 3) == 1 and U.p_random() < 60.0 + flame * 120.0:
-				puff(e.x, e.y, e.z + e.h * 0.9, 34.0 if e.tree else 20.0, 170)
 	embers.tic(func(_i: int, nx: float, ny: float, nz: float) -> bool:
 		# embers go out on the floor (of the storey they were in)
 		var s := lv.span_at(nx, ny, embers.pz[_i])

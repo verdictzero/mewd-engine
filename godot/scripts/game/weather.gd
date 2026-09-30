@@ -48,7 +48,6 @@ var kind := "clear"
 var rate := HOURS_PER_MINUTE
 var running := true
 var smoke := 0.0
-var fire_haze := true
 var frame := {}
 ## a map's own sky colours over the hour's (Weather.skin): the grid's green
 var sky_skin := {}
@@ -129,17 +128,10 @@ func tic() -> void:
 		if night_hour(hour) >= 32.0:
 			hour = 8.0
 
-## The clock's picture into the shaders. `burn` and `wood` are how much of
-## the place is alight (0..1); `hot` how many cells are burning.
-func apply(dt: float, burn := 0.0, wood := 0.0, hot := 0.0) -> Dictionary:
-	var target := minf(1.0, hot / SMOKE_HOT + (burn + wood) * 0.7) if fire_haze else 0.0
-	if not fire_haze:
-		smoke = 0.0
-	else:
-		var tau := SMOKE_RISE if target > smoke else SMOKE_FALL
-		smoke += (target - smoke) * minf(1.0, dt / tau)
-		if target == 0.0 and smoke < 0.003:
-			smoke = 0.0
+## The clock's picture into the shaders. (The fire's haze, `smoke`, is
+## always clear now: the fire that spread is gone.)
+func apply(dt: float) -> Dictionary:
+	smoke = 0.0
 	cloud_time += dt
 	frame = skin(sample_frame(hour, kind, smoke))
 	var f := frame
@@ -149,8 +141,8 @@ func apply(dt: float, burn := 0.0, wood := 0.0, hot := 0.0) -> Dictionary:
 	RenderingServer.global_shader_parameter_set("air_far", f.airFar)
 	RenderingServer.global_shader_parameter_set("sky_light", f.skyLight)
 	RenderingServer.global_shader_parameter_set("light_falloff", f.falloff)
-	RenderingServer.global_shader_parameter_set("min_light", f.minLight + burn * 0.30)
-	RenderingServer.global_shader_parameter_set("global_light", 1.0 + burn * 0.22)
+	RenderingServer.global_shader_parameter_set("min_light", f.minLight)
+	RenderingServer.global_shader_parameter_set("global_light", 1.0)
 	return f
 
 func skin(f: Dictionary) -> Dictionary:

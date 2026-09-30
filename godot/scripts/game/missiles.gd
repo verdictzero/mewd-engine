@@ -442,7 +442,6 @@ func detonate(at: Vector3, direct = null, face = null) -> void:
 		var under: Level.Sector = game.level.span_at(at.x, at.y, at.z)
 		if under and at.z - under.floor < 72.0:
 			game.decals.hole(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1), true)
-	game.fire.ignite(at.x, at.y, WARHEAD.heat, WARHEAD.heatRadius, at.z)
 	game.scare(at.x, at.y, 700.0)
 	game.noise(at, 1600.0)
 	var hit := {}

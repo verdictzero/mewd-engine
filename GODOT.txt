@@ -207,14 +207,16 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   game.gd). The actors are the web build's state tables and actions
   (states.gd, actor.gd): Doom's chase for the troops; the crowd's watch,
   flee and contagious panic; burning, freezing, thawing, shattering,
-  burning away, the bore's hold. The fire grid (fire.gd) is identical to
-  js/fire.js tic for tic on the three scenarios in godot/tests/fire_*.
+  burning away, the bore's hold. THE FIRE THAT SPREAD IS GONE, at the
+  user's request: no fuel grid, no burn meter, no haze, no wood catching,
+  no brigade. People and cars still catch and burn (Actor.ignite,
+  Effects.body_fire) — that is the fire the game keeps.
 
   THE DATA the port reads from the web build's own tables is written by
   `node tools/godot-data.mjs`: the texture list (godot/data/
   texpack.json), the palette and its LUT, and the lamp art. Everything
-  else — the fire art, the effect atlases, the ash — is baked in
-  GDScript at start-up, from the same generators.
+  else — the effect atlases, the ash — is baked in GDScript at
+  start-up, from the same generators.
 
   THE REST, file for file:
     js/player.js, weapon tables   game/player.gd, game/weapons.gd
@@ -234,9 +236,8 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/standees.js                render/standees.gd
     js/forest.js                  game/forest.gd, render/forest_view.gd
     js/lamplight.js, lamp posts   render/lamps.gd
-    js/fireart.js                 render/fire_art.gd, render/fire_sprites.gd
     js/responders.js, vehicles.js game/vehicles.gd, vehicle*.gd, swat_van.gd,
-      car.js, brigade.js, water.js  army_apc.gd, fire_truck.gd, water.gd
+      car.js                        army_apc.gd
     js/weather.js                 game/weather.gd
     js/hud.js                     render/hud.gd
     js/audio.js, js/music.js      audio/sound.gd, audio/music.gd

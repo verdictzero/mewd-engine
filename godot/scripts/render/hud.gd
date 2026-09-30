@@ -55,9 +55,6 @@ func _draw() -> void:
 	var GAP := roundf(8.0 * s)
 	var bw := roundf(minf(size.x * 0.34, 240.0 * s))
 	var y := M
-	# how much of the place has gone
-	_bar(M, y, bw, BAR, game.burn_percent() / 100.0, UI.burn)
-	y += BAR + GAP
 	# the tank in your hands
 	var d := p.def()
 	if d.has("ammo"):

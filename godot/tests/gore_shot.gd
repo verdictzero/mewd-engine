@@ -11,9 +11,9 @@
 ## away to a heap of ash. Run for `tics` (default 10: the pieces in the
 ## air) and drawn from the START; 150 shows what is left on the room.
 ## Asserts the counts come out as the JS's would, and prints them.
-## Mode `fire` instead sets three of them alight close up, leaves a heap
-## of ash, and starts a fire on the floor, for the body fire, the
-## embers and the smoke (default 60 tics).
+## Mode `fire` instead sets three of them alight close up and leaves a
+## heap of ash, for the body fire, the embers and the smoke (default 60
+## tics).
 extends SceneTree
 
 class StubPlayer:
@@ -30,7 +30,7 @@ class StubGame:
 	var actors: Array = []
 	var blockmap := ActorGrid.new()
 	var player = null
-	var fire = null
+	var forest = null
 	var tics := 0
 	var fx: Effects
 	var giblets: Giblets
@@ -173,8 +173,6 @@ func _tic() -> void:
 	for a in torches:
 		if not a.removed and a.burning > 0:
 			g.fx.body_fire(a)
-	if g.fire != null:
-		g.fire.tic()
 	g.fx.tic()
 	g.giblets.tic()
 
@@ -189,12 +187,10 @@ func _process(_dt: float) -> bool:
 		return true
 	return false
 
-## three alight close up, a heap of ash, and the floor on fire beyond them
-func _fire_scene(sx: float, sy: float, c: float, s: float, run: float) -> void:
+## three alight close up, and a heap of ash
+func _fire_scene(sx: float, sy: float, c: float, s: float, _run: float) -> void:
 	if OS.get_cmdline_user_args().size() < 2:
 		tic_count = 60
-	g.fire = FireSystem.new(g)
-	g.fire.ignite(sx + c * minf(420.0, run - 60.0), sy + s * minf(420.0, run - 60.0), 190, 60)
 	for i in 3:
 		var d := 120.0 + i * 50.0
 		var side := (i - 1) * 22.0

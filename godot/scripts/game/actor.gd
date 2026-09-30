@@ -453,8 +453,6 @@ func burn_tic() -> void:
 	if game.fx != null:
 		game.fx.body_fire(self)
 	lit = minf(1.0, lit + 0.05)
-	if game.fire != null and info.has("burnTrail") and game.tics % int(info.burnTrail) == 0:
-		game.fire.add_heat(x, y, float(info.get("burnFuel", 14)), int(info.get("burnRadius", 1)), z)
 	if burning <= 0:
 		lit = 0.0
 
@@ -570,27 +568,17 @@ func A_Watch() -> void:
 	if burning:
 		A_Scare(x, y)
 		return
-	var F = game.fire
-	if F != null:
-		var R := float(info.get("scareRange", 320))
-		var hot := 0
-		var hx := 0.0
-		var hy := 0.0
-		var hw := 0.0
-		for k in 9:
-			var ang := (k / 8.0) * TAU
-			var sx := x if k == 8 else x + cos(ang) * R
-			var sy := y if k == 8 else y + sin(ang) * R
-			var h: float = F.heat_at(sx, sy, z)
-			if h < 0.22:
-				continue
-			hot += 1
-			hx += sx * h
-			hy += sy * h
-			hw += h
-		if hot:
-			A_Scare(hx / hw, hy / hw)
-			return
+	# (the ground no longer burns — at the user's request the fire that
+	# spread is gone, and only people and cars burn — so what frightens
+	# a shopper is somebody alight, or somebody already running)
+	var R := float(info.get("scareRange", 320))
+	for o in game.blockmap.near(x, y):
+		if o == self or o.removed or o.burning <= 0:
+			continue
+		if U.dist2(x, y, o.x, o.y) > R * R:
+			continue
+		A_Scare(o.x, o.y)
+		return
 	const SEE := 190.0
 	const FADE := 24
 	for o in game.blockmap.near(x, y):
@@ -642,13 +630,10 @@ func A_PickExit() -> void:
 ## further from the fright), minus the heat where it would land, minus a
 ## little for turning — and walked in score order until one is free.
 func A_Flee() -> void:
-	var F = game.fire
 	panic -= 1
 	if panic <= 0 and not burning:
-		if F == null or F.heat_at(x, y, z) < 0.15:
-			set_state(info.spawn)
-			return
-		panic = 35
+		set_state(info.spawn)
+		return
 	exit_tic -= 1
 	if exit_tic <= 0:
 		A_PickExit()
@@ -664,8 +649,6 @@ func A_Flee() -> void:
 		var nx := x + cos(ang) * speed
 		var ny := y + sin(ang) * speed
 		var s := (sqrt(U.dist2(nx, ny, tx, ty)) - d0) * 3.0 * sign
-		if F != null:
-			s -= F.heat_at(nx, ny, z) * 260.0 + F.heat_at(x + cos(ang) * speed * 4, y + sin(ang) * speed * 4, z) * 140.0
 		if d == movedir:
 			s += 6.0
 		if d == OPPOSITE[movedir]:
@@ -758,12 +741,9 @@ func freeze() -> void:
 func frost_tic() -> void:
 	if removed:
 		return
-	var hot: float = game.fire.heat_at(x, y, z) if game.fire != null else 0.0
-	if frozen and hot > 0.2 and not fireproof:
-		burn_away()
-		return
-	if hot > 0.2 or burning > 0:
-		frost = maxf(0.0, frost - FIRE_THAW * (1.0 if burning > 0 else hot))
+	# (only their own burning thaws them now: the floor no longer burns)
+	if burning > 0:
+		frost = maxf(0.0, frost - FIRE_THAW)
 	else:
 		thaw_tick += 1
 		if thaw_tick >= THAW_EVERY:
@@ -809,8 +789,6 @@ func burn_away(source = null) -> void:
 	solid = bool(info.get("solid", monster))
 	set_state(info.burnAway, true)
 	game.play_sound("ignite", self)
-	if game.fire != null and float(info.get("fuel", 0)) > 0.0:
-		game.fire.ignite(x, y, float(info.fuel), float(FireSystem.CELL), z)
 
 ## a heap of ash on the floor
 func collapse(source = null) -> void:

@@ -16,9 +16,6 @@
 ##   boom    a van shot through its armour and then charred to the end:
 ##           asserts the blockers took the rounds, that it went up,
 ##           tumbled and came down a wreck, and draws it in the air
-##   water   a fire truck parked in the plaza and a shopper alight in
-##           front of it: asserts the cannon turned and poured and the
-##           shopper was put out, and draws the jet
 ##   army    the SWAT pressure pushed to the army's threshold: asserts an
 ##           APC came, hovering, and draws it
 extends SceneTree
@@ -43,8 +40,6 @@ func _init() -> void:
 		tic_count = int(args[2])
 	elif mode == "boom":
 		tic_count = 0
-	elif mode == "water":
-		tic_count = 46
 	elif mode == "army":
 		tic_count = 260
 	U.p_seed()
@@ -97,7 +92,6 @@ func _setup() -> void:
 	print("responders: plaza %s, ring %s, player at (%d, %d)" % [plaza, r, p.x, p.y])
 	match mode:
 		"boom": _boom()
-		"water": _water()
 		"army": _army()
 		_: _swat()
 
@@ -192,45 +186,6 @@ func _boom() -> void:
 	var toward := (plaza.get_center() - Vector2(v.x, v.y)).normalized()
 	cam_from = Vector3(v.x + toward.x * 620.0, v.y + toward.y * 620.0, v.ground + 70.0)
 	_frame_on(Vector3(v.x, v.y, v.cz - 40.0))
-
-func _water() -> void:
-	var lv: Level = game.level
-	var p = game.player
-	var fm := esc.model("firetruck")
-	assert(fm != null, "the fire truck loads")
-	# a truck parked at the plaza's west, facing east, and somebody alight
-	# six hundred units in front of it
-	var y0 := plaza.get_center().y
-	var x0 := plaza.position.x + 150.0
-	var route := [{"x": x0 - 40.0, "y": y0}, {"x": x0, "y": y0, "angle": 0.0}]
-	var ft := FireTruck.new(esc.vehicles, fm, route)
-	ft.park_angle = 0.0
-	esc.vehicles.add_vehicle(ft)
-	var who: Actor = game.spawn("SHOPPER", x0 + 560.0, y0 + 60.0)
-	who.ignite(4000)
-	# a long fuse, so they burn until the water has them rather than going
-	# off on their own
-	who.torch = 5000
-	who.burning = 5000
-	who.panic = 0
-	var burning0 := who.burning
-	var poured_at := -1
-	for t in tic_count:
-		_tic()
-		# held still, so the picture is the jet on them
-		who.x = x0 + 560.0
-		who.y = y0 + 60.0
-		if ft.pouring > 0 and poured_at < 0:
-			poured_at = t
-	print("responders: truck %s, turret %.2f, barrel %.2f, poured %d tics (first at %d), water alive %d, landed %d, soaked %d, shopper burning %d -> %d" % [
-		ft.state, ft.gun_yaw, ft.gun_pitch, ft.pouring, poured_at, esc.water.live_count(), esc.water.landed, esc.water.soaked, burning0, who.burning])
-	assert(ft.state == "parked", "the truck parked")
-	assert(ft.pouring > 0, "the cannon poured")
-	assert(who.burning < burning0 - tic_count - 200, "the water reached them")
-	p.x = x0 + 300.0
-	p.y = y0 - 330.0
-	cam_from = Vector3(x0 + 330.0, y0 - 420.0, 90.0)
-	_frame_on(Vector3(x0 + 280.0, y0 + 30.0, 60.0))
 
 ## the camera: from beside the player unless told otherwise, at what matters
 func _frame_on(at: Vector3) -> void:

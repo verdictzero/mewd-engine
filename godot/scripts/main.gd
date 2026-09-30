@@ -375,7 +375,6 @@ func apply_prefs(p: Dictionary) -> void:
 		if game.net == null:
 			game.player.debug = bool(p.debug)
 			game.player.invincible = bool(p.godmode)
-		game.weather.fire_haze = bool(p.haze)
 		if game.weather.kind != str(p.weather) and not _arg("--weather="):
 			game.weather.kind = str(p.weather)
 		if absf(float(p.hour) - game._set_hour) > 1e-3 and not _arg("--hour="):

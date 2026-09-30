@@ -13,8 +13,7 @@
 ## under the terrace stopping in its deck while the shopper standing on
 ## it lives, one fired over the edge from the yard hitting them, one
 ## fired down from the terrace stopping on it; sight blocked by the
-## slab; the crowd on each storey staying on it; fire on the terrace not
-## coming down through it, and fire under it not going up; and over a
+## slab; the crowd on each storey staying on it; and over a
 ## loopback network, the host's snapshot carrying the height and the
 ## client putting the bodies on the right storey. Prints OK or fails.
 extends SceneTree
@@ -67,7 +66,6 @@ func _init() -> void:
 	_doors(lv)
 	_troops(lv)
 	_crowd(lv)
-	_fire()
 	await _net()
 	print("layers: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
@@ -482,66 +480,6 @@ func _crowd(lv: Level) -> void:
 			ok = ok and up.z == 128.0
 			far = maxf(far, Vector2(up.x - x1, up.y - y1).length())
 		check(ok and far > 32.0, "a frightened shopper upstairs runs (%.0f), and does not run off the edge" % far)
-
-# ---- fire -----------------------------------------------------------------------
-
-func _fire() -> void:
-	print("layers: fire")
-	var lv := DocCompile.compile(LayersMap.build())
-	lv.world["noCellFire"] = false
-	for s in lv.sectors:
-		if s.name == "terrace" or s.name == "yard":
-			s.props["fuel"] = 300
-	var g := StubGame.new()
-	g.level = lv
-	var F := FireSystem.new(g)
-	g.fire = F
-	check(F.levels == 2, "two planes of cells, one a storey (%d)" % F.levels)
-	var x := 1344.0
-	var y := 760.0
-	var lit := F.ignite(x, y, 120.0, 32.0, 128.0)
-	check(lit > 0 and F.heat_at(x, y, 128.0) > 0.0 and F.heat_at(x, y, 0.0) == 0.0,
-		"lit on the terrace: hot on the terrace (%.2f), cold in the yard under it" % F.heat_at(x, y, 128.0))
-	var ground_hot := 0
-	var up_hot := 0
-	for t in range(1, 2001):
-		g.tics = t
-		F.tic()
-		for i in F.plane:
-			if F.heat[i] > 0:
-				ground_hot += 1
-		for i in range(F.plane, F.plane * 2):
-			if F.heat[i] > 0:
-				up_hot += 1
-	check(up_hot > 0 and ground_hot == 0, "it burns up there and never comes down through the deck (%d cell-tics up, %d down)" % [up_hot, ground_hot])
-	# and one lit under it does not go up through it
-	var g2 := StubGame.new()
-	g2.level = DocCompile.compile(LayersMap.build())
-	g2.level.world["noCellFire"] = false
-	for s in g2.level.sectors:
-		if s.name == "terrace" or s.name == "yard":
-			s.props["fuel"] = 300
-	var F2 := FireSystem.new(g2)
-	g2.fire = F2
-	F2.ignite(x, y, 120.0, 32.0, 0.0)
-	check(F2.heat_at(x, y, 0.0) > 0.0 and F2.heat_at(x, y, 128.0) == 0.0, "lit under the terrace: hot in the yard, cold on the deck")
-	up_hot = 0
-	ground_hot = 0
-	for t in range(1, 2001):
-		g2.tics = t
-		F2.tic()
-		for i in F2.plane:
-			if F2.heat[i] > 0:
-				ground_hot += 1
-		for i in range(F2.plane, F2.plane * 2):
-			if F2.heat[i] > 0:
-				up_hot += 1
-	check(ground_hot > 0 and up_hot == 0, "it burns in the yard and never goes up through the slab (%d down, %d up)" % [ground_hot, up_hot])
-	# on a map of one storey, a height changes nothing
-	var g3 := StubGame.new()
-	g3.level = DocCompile.compile(MazeMap.build(7))
-	var F3 := FireSystem.new(g3)
-	check(F3.plane_at(100.0, 100.0, 500.0) == 0 and F3.plane_at(100.0, 100.0, NAN) == 0, "and on a map of one storey the plane is always the ground's")
 
 # ---- the network ----------------------------------------------------------------
 

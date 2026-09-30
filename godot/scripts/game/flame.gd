@@ -114,14 +114,10 @@ func _land(x: float, y: float, z: float, _surface: Vector3) -> void:
 	hits += 1
 	if game.fx != null:
 		game.fx.splash(x, y, z)
-	if game.fire != null:
-		game.fire.ignite(x, y, STREAM.heat, STREAM.heatRadius, z)
 
 func _burn_actor(a, x: float, y: float, z: float) -> void:
 	if a.flammable:
 		a.ignite(300)
 	a.damage(5 + (U.p_random() % 5), game.player, {"fire": true, "stream": true})
-	if game.fire != null:
-		game.fire.ignite(x, y, STREAM.heat, 24.0, z)
 	if game.fx != null:
 		game.fx.splash(x, y, z)

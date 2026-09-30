@@ -1,24 +1,20 @@
-## MEWD — the wood's simulation, headless (Forest, js/forest.js).
+## MEWD — the wood, headless (Forest, js/forest.js's planting).
 ##
 ## godot --headless --script res://godot/tests/forest_test.gd -- [seed]
 ##
 ## 1. PLACED: MazeMap.build(seed) through DocCompile, a Forest over its
 ##    PLANT things (a tree in each plaza). Checks the trunk blocks and
-##    the crown catches the flame's question, lights one tree and runs
-##    it to the end (with the maze's noBurn lifted) — a tree in a plaza
-##    is a tree on fire, not a forest fire, so exactly its own cell burns.
+##    the crown catches the flame's question.
 ## 2. SCATTER: the same level with a forest floor laid over a corner of
-##    it, planted by the golf scatter; one match, and the front is
-##    printed every 1000 tics as it walks.
+##    it, planted by the golf scatter: trees and understory come up, and
+##    the trunks block.
+## (The wood's fire went with the fire that spread, at the user's request.)
 extends SceneTree
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed := int(args[0]) if args.size() > 0 else 7
 	var doc := MazeMap.build(seed)
-	# the maze's world is noBurn (the editor's default world): nothing
-	# catches there, the plaza trees included — so it is lifted here
-	doc.world["noBurn"] = false
 	var lv := DocCompile.compile(doc)
 	U.p_seed()
 	var ok := true
@@ -38,13 +34,6 @@ func _init() -> void:
 	ok = _check("clear of the trunk", f.blocks(tx + 60, ty, 16.0), false) and ok
 	ok = _check("hits the crown", f.hits_tree(tx + 10, ty, tz + float(k.h) * 0.4), true) and ok
 	ok = _check("misses above it", f.hits_tree(tx, ty, tz + float(k.h) * 1.2), false) and ok
-	var lit := f.ignite(tx, ty, 26.0)
-	ok = _check("one cell lit", lit, 1) and ok
-	for i in 2000:
-		f.tic()
-	ok = _check("burnt through", f.state[f.trees.cell[0]], 2) and ok
-	ok = _check("nothing still alight", f.active.size(), 0) and ok
-	print("placed burn %.0f%%" % (f.burn_fraction() * 100.0))
 
 	# ---- the scatter
 	var b := lv.bounds
@@ -53,13 +42,12 @@ func _init() -> void:
 	var w := Forest.new(lv, {"rects": [rect], "plants": [], "seed": 5})
 	print("scatter: %d trees, %d plants over %d fuel cells, built in %d ms" % [w.tree_count(), w.plant_count(), w.fuel_cells, Time.get_ticks_msec() - t0])
 	ok = _check("scatter planted trees", w.tree_count() > 0, true) and ok
-	var c := rect.get_center()
-	w.ignite(c.x, c.y, 80.0)
-	for i in 6000:
-		w.tic()
-		if (i + 1) % 1000 == 0:
-			print("  tic %5d  burnt %5.1f%%  alight %4d  hot %d" % [i + 1, w.burn_fraction() * 100.0, w.active.size(), w.burning_cells()])
-	ok = _check("the front walked", w.burn_fraction() > 0.05, true) and ok
+	ok = _check("and an understory", w.plant_count() > w.tree_count(), true) and ok
+	var blocked := 0
+	for i in mini(50, w.tree_count()):
+		if w.blocks(w.trees.x[i], w.trees.y[i], 8.0):
+			blocked += 1
+	ok = _check("the scatter's trunks block", blocked > 0, true) and ok
 	print("OK" if ok else "FAILED")
 	quit(0 if ok else 1)
 

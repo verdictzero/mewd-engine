@@ -50,9 +50,6 @@ var camera: Camera3D
 var actors: Array = []
 var blockmap := ActorGrid.new()
 var standees: Standees
-## the fire grid (js/fire.js) — asked by the crowd, fed by the flame
-var fire: FireSystem = null
-var fire_sprites: FireSprites
 var forest: Forest
 var forest_view: ForestView
 var lamps: Lamps
@@ -69,7 +66,7 @@ var frost: FrostStream
 var bore: BoreSystem
 ## the quad launcher's seeker and its missiles
 var missiles: MissileSystem
-## the police, the army and the fire brigade, and every vehicle (js/responders.js, vehicles.js, brigade.js)
+## the police and the army, and every vehicle (js/responders.js, vehicles.js)
 var escalation: Escalation
 var arc: ArcSystem
 var tracers: Tracers
@@ -183,9 +180,6 @@ func _ready() -> void:
 func start_map(doc: Dictionary) -> void:
 	var t0 := Time.get_ticks_msec()
 	level = DocCompile.compile(doc)
-	fire = FireSystem.new(self)
-	fire_sprites = FireSprites.new()
-	add_child(fire_sprites)
 	forest = Forest.new(level)
 	forest_view = ForestView.new(forest)
 	add_child(forest_view)
@@ -496,7 +490,7 @@ func _process(dt: float) -> void:
 	scope.update(player, tics)
 	thermal.update(player, tics)
 	green_thermal.update(player, tics)
-	weather.apply(dt, burn_percent() / 100.0, forest.burn_fraction(), fire.burning_cells() + forest.burning_cells())
+	weather.apply(dt)
 	if skybox_mat != null:
 		_skybox_fog()
 	_prof_add("scopes+weather", t0)
@@ -509,9 +503,6 @@ func _process(dt: float) -> void:
 	t0 = Time.get_ticks_usec()
 	standees.draw(actors, camera.position, tics, Vector2(cos(player.angle), sin(player.angle)) if weapon3d != null else Vector2())
 	_prof_add("standees", t0)
-	t0 = Time.get_ticks_usec()
-	fire_sprites.draw(fire, camera.position, tics + _acc / U.SEC)
-	_prof_add("draw.fire", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.draw_for(camera, _acc / U.SEC)
 	flame.particles.draw()
@@ -554,7 +545,7 @@ func prof_text() -> String:
 	var ms := func(k: String) -> float: return float(t.get(k, 0.0)) / 1000.0
 	return "tics %.1f (x%.1f, people %.1f) · crowd %.1f (%d rows) · guns %.1f · fx %.1f · scopes %.1f ms" % [
 		ms.call("tics"), _prof_last_tics, ms.call("tic.actors"), ms.call("standees"), standees.written,
-		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx") + ms.call("draw.fire") + ms.call("tic.fire"),
+		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx"),
 		ms.call("scopes+weather")]
 
 func _prof_frame() -> void:
@@ -656,16 +647,7 @@ func tic() -> void:
 	_prof_add("tic.actors", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.tic()
-	fire.wind = weather.wind()
-	fire.rain = weather.frame.get("rain", 0.0)
-	fire.tic()
-	_prof_add("tic.fire", t0)
-	t0 = Time.get_ticks_usec()
-	forest.wind = fire.wind
-	forest.rain = fire.rain
-	forest.tic()
-	_prof_add("tic.forest", t0)
-	t0 = Time.get_ticks_usec()
+	forest.wind = weather.wind()
 	rain.tic()
 	flame.tic()
 	frost.tic()
@@ -681,9 +663,6 @@ func tic() -> void:
 	fx.tic()
 	giblets.tic()
 	_prof_add("tic.fx", t0)
-	t0 = Time.get_ticks_usec()
-	fire.apply_char(tics)
-	_prof_add("tic.char", t0)   # TODO: rebuild the charred sectors' geometry (MapGeo per-sector)
 	if big_message_tics > 0:
 		big_message_tics -= 1
 		if big_message_tics == 0:
@@ -821,21 +800,14 @@ func actors_in_cone_around(at, radius: float) -> Array:
 func explode(a, opts := {}) -> void:
 	var radius: float = opts.get("radius", 150.0)
 	var dmg: float = opts.get("damage", 60.0)
-	var heat: float = opts.get("heat", 230.0)
-	var heat_radius: float = opts.get("heatRadius", 86.0)
 	var ign: int = opts.get("ignite", 320)
-	var structure: float = opts.get("structure", 0.0)
-	var structure_radius: float = opts.get("structureRadius", radius * 1.4)
 	play_sound(opts.get("sound", "explode"), a)
 	var under := level.sector_at(a.x, a.y)
 	var az: float = a.z if "z" in a else (under.floor if under else 0.0)
 	# on a map in storeys: the storey it went up in
 	under = level.span_at(a.x, a.y, az)
-	fire.ignite(a.x, a.y, heat, heat_radius, az if "z" in a else NAN)
 	if under and az - under.floor < 64.0:
 		decals.hole(Vector3(a.x, a.y, under.floor), Vector3(0, 0, 1), true)
-	if structure > 0.0:
-		fire.damage_structure(a.x, a.y, structure_radius, structure)
 	for o in actors_in_cone_around(a, radius):
 		if typeof(a) == TYPE_OBJECT and o == a:
 			continue
@@ -846,10 +818,6 @@ func explode(a, opts := {}) -> void:
 		o.damage(roundf(dmg * (1.0 - d / radius)), null, {"fire": true})
 		if o.has_method("ignite"):
 			o.ignite(ign)
-
-## how much of the place has gone, for the readout's first bar
-func burn_percent() -> float:
-	return fire.burn_percent() if fire != null else 0.0
 
 func on_monster_killed(_a, _source) -> void:
 	kills += 1

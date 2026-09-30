@@ -52,20 +52,16 @@ const TIERS := [
 		"dispatch": "SOMEBODY HAS CALLED IT IN", "arrive": "SECURITY HAS PULLED INTO THE LOT"},
 	{"tier": 3, "name": "the police", "at": 18, "delay": 55 * TICRATE, "count": 2,
 		"dispatch": "SIRENS, A LONG WAY OFF", "arrive": "BLUE LIGHTS ON THE ROAD"},
-	{"tier": 4, "name": "the fire brigade", "at": 30, "delay": 70 * TICRATE, "count": 2,
-		"dispatch": "A SECOND SIREN, DEEPER", "arrive": "THE FIRE BRIGADE IS HERE"},
 	{"tier": 5, "name": "riot police", "at": 50, "delay": 90 * TICRATE, "count": 4,
 		"dispatch": "HELICOPTER", "arrive": "THE VANS ARE HERE"},
 	{"tier": 6, "name": "the helicopter", "at": 75, "delay": 120 * TICRATE, "count": 1,
 		"dispatch": "YOU CAN HEAR IT COMING", "arrive": "IT IS OVERHEAD"},
 ]
 
-## How the alarm is made from what the night looks like.
+## How the alarm is made from what the night looks like. (It was the
+## fire's, mostly; with the fire that spread gone, it is the killing.)
 const ALARM := {
-	"store": 0.55,      # per percent of the store burnt
-	"wood": 0.25,       # per percent of the wood
 	"kill": 2.0,        # per member of staff
-	"minute": 3.0,      # per minute anything has been alight
 	"max": 100.0,
 }
 
@@ -122,7 +118,6 @@ const SEE_HALF := 1.05
 
 var game
 var alarm := 0.0
-var alight_tics := 0
 var dispatched := {}         # tier -> tic dispatched
 var arrived := {}
 var defeated_count := 0
@@ -163,8 +158,8 @@ func map_value(key: String):
 		return lv.world[key]
 	return lv.get(key)
 
-static func alarm_of(store_pct: float, wood_pct: float, kills: int, minutes_alight: float) -> float:
-	return minf(ALARM.max, store_pct * ALARM.store + wood_pct * ALARM.wood + kills * ALARM.kill + minutes_alight * ALARM.minute)
+static func alarm_of(kills: int) -> float:
+	return minf(ALARM.max, kills * ALARM.kill)
 
 ## The curve, as a pure function: how many times harder the night is
 ## pressing `t` tics after the call.
@@ -224,15 +219,11 @@ func arrival_points() -> Array:
 func tic() -> void:
 	tics += 1
 	var g = game
-	var forest = g.get("forest")
-	if (g.fire != null and g.fire.burning_cells() > 0) or (forest != null and forest.burning_cells() > 0):
-		alight_tics += 1
 	squad_tic()
 	# once a second is plenty for something that only ever climbs
 	if tics % TICRATE:
 		return
-	var a := alarm_of(g.burn_percent(), forest.burn_fraction() * 100.0 if forest != null else 0.0,
-		int(g.kills), alight_tics / float(TICRATE) / 60.0)
+	var a := alarm_of(int(g.kills))
 	if a > alarm:
 		alarm = a
 	for t in TIERS:

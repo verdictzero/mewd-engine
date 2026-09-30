@@ -33,8 +33,6 @@ const PAINT := [
 ]
 
 var game
-## the water cannon's stream, for the fire trucks to pour through
-var water: WaterStream = null
 var all: Array = []
 var flying: Array = []       # chunks still in the air
 var resting: Array = []      # and chunks that are not
@@ -199,8 +197,6 @@ class Chunk:
 		rx = roundf(rx / PI) * PI
 		rz = roundf(rz / PI) * PI
 		z = ground - Vehicle.extent_of(corners, rx, rz).x
-		if fleet.game.fire != null:
-			fleet.game.fire.ignite(x, y, 70.0, 26.0)
 		place()
 
 	func discard() -> void:

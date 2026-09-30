@@ -23,7 +23,7 @@
 ##
 ## WHAT SPREADS. Every cell of forest is fuel — the floor is dry needle
 ## litter — and a cell with a tree in it burns hotter and longer and
-## throws fire further. The wind is the fire's (FireSystem.wind), turned
+## bends the leaves. The wind is the weather's (Weather.wind), turned
 ## into the same four multipliers, so the smoke goes where the fire is
 ## going. That is the whole model, and it percolates: light one tree
 ## anywhere and, left alone, the whole wood goes, at walking pace
@@ -42,10 +42,8 @@ class_name Forest
 extends RefCounted
 
 const CELL := 64
-## the store's clock, so the two fires keep time
-const FIRE_INTERVAL := 9
 
-## How each kind of plant is drawn and what it does to a fire.
+## How each kind of plant is drawn.
 ##
 ##   h      world units tall (the sprite's foot on the ground)
 ##   aspect the sprite's width over its height
@@ -146,22 +144,6 @@ const KINDS := [
 	{"name": "tundra_bush_4", "h": 58, "aspect": 1.728, "r": 0, "w": 0, "set": "tundra", "cover": true},
 	{"name": "tundra_bush_5", "h": 60, "aspect": 1.656, "r": 0, "w": 0, "set": "tundra", "cover": true},
 ]
-
-## The fire's numbers. Durations are in fire tics (FIRE_INTERVAL game
-## tics each); chances are out of 256 per fire tic per neighbour.
-##
-## SLOW AND SURE, and those are two different dials. The chances stay
-## HIGH (a burning cell lights most of its neighbours before it is done)
-## and the burn is LONG, with nothing able to spread until it is a third
-## of the way through. A ground cell smoulders for ten seconds, a tree
-## for eighteen, and a front walks downwind at a cell every eight
-## seconds or so, creeps against the wind, and always takes the lot.
-const BURN := {
-	"treeTics": 110, "groundTics": 60,
-	"w0": 0.30, "w1": 0.90,          # the part of a burn that can light a neighbour
-	"treeToTree": 5.0, "treeToGround": 4.0, "groundToTree": 5.0, "groundToGround": 4.0,
-	"diagonal": 0.6,
-}
 
 ## THE PLANTING, taken from github.com/verdictzero/golf's own vegetation
 ## scatter. ONE CELL GROWS ONE CLASS, and the three weights are a
@@ -355,7 +337,6 @@ var bounds := Rect2()
 ## the car park: a margin round it stays open
 var clearing := Rect2()
 var plants_only := false
-var no_burn := false
 var origin_x := 0.0
 var origin_y := 0.0
 var cols := 0
@@ -364,30 +345,20 @@ var tics := 0
 
 var fuel := PackedByteArray()       # 1 where there is forest floor
 var tree := PackedByteArray()       # 1 where a tree stands (fire lives longer)
-var state := PackedByteArray()      # 0 green, 1 alight, 2 gone
-var prog := PackedByteArray()       # how far through the burn, 0..255
 var cell_tree := PackedInt32Array()
 ## The understory is SEVERAL plants a cell, laid down contiguously, so a
 ## cell points at a run of them rather than at one.
 var cover_start := PackedInt32Array()
 var cover_count := PackedByteArray()
-var active := PackedInt32Array()
-var _active_set := PackedByteArray()
-## WHICH CELLS CHANGED, for the drawing to repaint: ForestView takes them
-var dirty := PackedInt32Array()
-var _dirty_set := PackedByteArray()
 var fuel_cells := 0
-var burn_accum := 0              # sum of prog over every cell, for the fraction
-var hot_cells := 0
 var town_plants := 0
 
 var trees := PlantSet.new()
 var covers := PlantSet.new()
 
-## the weather, as the wood feels it: FireSystem's wind (units a tic)
-## and rain, which the game copies over each tic so the two fires agree
+## the weather's wind (units a tic), which the game copies over each
+## tic, for the leaves
 var wind := Vector2(0.28, 0.05)
-var rain := 0.0
 
 ## opts: rects (Array of Rect2, the forest floor), bounds (Rect2, the
 ## grid's extent; the level's by default), clearing (Rect2), seed, and
@@ -399,7 +370,6 @@ func _init(lv: Level, opts := {}) -> void:
 	rects = opts.get("rects", [])
 	bounds = opts.get("bounds", lv.bounds)
 	clearing = opts.get("clearing", Rect2())
-	no_burn = bool(lv.world.get("noBurn", false))
 	var plants: Array = opts.get("plants", plants_from_things(lv.things, lv.bounds))
 	origin_x = bounds.position.x
 	origin_y = bounds.position.y
@@ -408,7 +378,7 @@ func _init(lv: Level, opts := {}) -> void:
 		cols = ceili(bounds.size.x / CELL)
 		rows = ceili(bounds.size.y / CELL)
 	var n := maxi(1, cols * rows)
-	for arr in ["fuel", "tree", "state", "prog", "cover_count", "_active_set", "_dirty_set"]:
+	for arr in ["fuel", "tree", "cover_count"]:
 		var a: PackedByteArray = get(arr)
 		a.resize(n)
 		a.fill(0)
@@ -573,171 +543,15 @@ func _plant_town(list: Array) -> void:
 # Setting it alight
 # ------------------------------------------------------------------
 ## Light every green cell within `radius` of a point. Returns how many.
-func ignite(x: float, y: float, radius := 40.0) -> int:
-	# and in a world where nothing catches, no plant does either
-	if cols == 0 or no_burn:
-		return 0
-	var lit := 0
-	for cy in range(cell_y(y - radius), cell_y(y + radius) + 1):
-		for cx in range(cell_x(x - radius), cell_x(x + radius) + 1):
-			var i := idx(cx, cy)
-			if not fuel[i] or state[i] != 0:
-				continue
-			_light(i)
-			lit += 1
-	return lit
-
-## And putting it out: an alight cell goes back to green if it has
-## hardly started and to gone if it has, because a tree that is half
-## burnt is not a tree you have saved. The line is a third of the way.
-func douse(x: float, y: float, radius := 40.0) -> int:
-	if cols == 0:
-		return 0
-	var r2 := radius * radius
-	var out := 0
-	for cy in range(cell_y(y - radius), cell_y(y + radius) + 1):
-		for cx in range(cell_x(x - radius), cell_x(x + radius) + 1):
-			var i := idx(cx, cy)
-			if state[i] != 1:
-				continue
-			if U.dist2(world_x(cx), world_y(cy), x, y) > r2:
-				continue
-			state[i] = 0 if prog[i] < 85 else 2
-			if state[i] == 0:
-				prog[i] = 0
-			_active_set[i] = 0
-			_mark(i)
-			out += 1
-	return out
-
-func _light(i: int) -> void:
-	state[i] = 1
-	prog[i] = 1
-	if not _active_set[i]:
-		_active_set[i] = 1
-		active.append(i)
-	_mark(i)
-
-func _mark(i: int) -> void:
-	if _dirty_set[i]:
-		return
-	_dirty_set[i] = 1
-	dirty.append(i)
-
-## The changed cells since the last call, for the drawing — and cleared.
-func take_dirty() -> PackedInt32Array:
-	var out := dirty
-	for i in out:
-		_dirty_set[i] = 0
-	dirty = PackedInt32Array()
-	return out
-
-func burn_fraction() -> float:
-	return float(burn_accum) / (255.0 * fuel_cells) if fuel_cells else 0.0
-
-func burning_cells() -> int:
-	return hot_cells
-
+# ------------------------------------------------------------------
+# Questions the rest of the game asks
+# ------------------------------------------------------------------
 func tree_count() -> int:
 	return trees.n
 
 func plant_count() -> int:
 	return trees.n + covers.n
 
-## Is a cell's plant (or ground) alight right now?
-func is_burning(i: int) -> bool:
-	return state[i] == 1
-
-# ------------------------------------------------------------------
-# One step of the fire
-# ------------------------------------------------------------------
-func tic() -> void:
-	tics += 1
-	if cols == 0 or tics % FIRE_INTERVAL:
-		return
-	var w0: float = BURN.w0
-	var w1: float = BURN.w1
-	var next := PackedInt32Array()
-	var hot := 0
-	var wm := FireSystem.wind_multipliers(wind.x, wind.y)
-	var m_e := wm[0]
-	var m_n := wm[1]
-	var m_w := wm[2]
-	var m_s := wm[3]
-	# the rain, on a wood that is all under the sky: a burn that has
-	# hardly started goes out, and nothing lights easily
-	var rain_spread := 1.0 - 0.8 * rain
-	# a WHILE, not a for over the size: a cell lit by this pass is pushed
-	# onto `active` by _light and must be walked (and carried into
-	# `next`) in this same pass, as the JS loop's live length does
-	var k := -1
-	while k + 1 < active.size():
-		k += 1
-		var i := active[k]
-		var dur: int = BURN.treeTics if tree[i] else BURN.groundTics
-		var step := maxi(1, roundi(255.0 / dur))
-		var before := prog[i]
-		var after := mini(255, before + step)
-		if rain > 0.0 and before < 85 and U.p_random() < roundi(rain * 14.0):
-			# put out early: back to green, the way douse does it
-			state[i] = 0
-			prog[i] = 0
-			_active_set[i] = 0
-			_mark(i)
-			continue
-		prog[i] = after
-		burn_accum += after - before
-		_mark(i)
-		var t := after / 255.0
-		if after >= 255:
-			state[i] = 2
-			_active_set[i] = 0
-			continue
-		next.append(i)
-		if t < w0 or t > w1:
-			continue
-		hot += 1
-		# spread, to the eight neighbours, with the wind
-		var cx := i % cols
-		var cy := i / cols
-		var from_tree := tree[i] != 0
-		for dy in range(-1, 2):
-			var ny := cy + dy
-			if ny < 0 or ny >= rows:
-				continue
-			for dx in range(-1, 2):
-				if dx == 0 and dy == 0:
-					continue
-				var nx := cx + dx
-				if nx < 0 or nx >= cols:
-					continue
-				var j := ny * cols + nx
-				if not fuel[j] or state[j] != 0:
-					continue
-				var chance: float
-				if from_tree:
-					chance = BURN.treeToTree if tree[j] else BURN.treeToGround
-				else:
-					chance = BURN.groundToTree if tree[j] else BURN.groundToGround
-				if dx != 0 and dy != 0:
-					chance *= BURN.diagonal
-				if dx > 0:
-					chance *= m_e
-				elif dx < 0:
-					chance *= m_w
-				if dy > 0:
-					chance *= m_n
-				elif dy < 0:
-					chance *= m_s
-				chance *= rain_spread
-				if U.p_random() < roundi(chance):
-					_light(j)
-	active = next
-	hot_cells = hot
-
-# ------------------------------------------------------------------
-# Questions the rest of the game asks
-# ------------------------------------------------------------------
 ## Is a circle at (x,y) inside a trunk? Bushes count; ferns do not.
 func blocks(x: float, y: float, radius: float) -> bool:
 	if cols == 0 or trees.n == 0:
@@ -805,53 +619,3 @@ func clamp_inside(o, margin := 48.0) -> void:
 		return
 	o.x = clampf(o.x, bounds.position.x + margin, bounds.end.x - margin)
 	o.y = clampf(o.y, bounds.position.y + margin, bounds.end.y - margin)
-
-## Add what is burning near a point to a light's centre of mass:
-## acc is {sx, sy, sw, n}.
-func glow_into(acc: Dictionary, px: float, py: float, range := 900.0) -> void:
-	if active.is_empty():
-		return
-	var r2 := range * range
-	var step := maxi(1, active.size() >> 7)
-	for k in range(0, active.size(), step):
-		var i := active[k]
-		var t := prog[i] / 255.0
-		var q := (t - 0.5) / 0.3
-		var w := exp(-q * q) * (1.3 if tree[i] else 0.45) * step
-		if w < 0.01:
-			continue
-		var x := world_x(i % cols)
-		var y := world_y(i / cols)
-		if U.dist2(x, y, px, py) > r2:
-			continue
-		acc.sx += x * w
-		acc.sy += y * w
-		acc.sw += w
-		acc.n += 1
-
-## Up to `n` burning cells within range, for things to rise off. Each
-## entry: x, y, z (its floor), h (how tall what is burning is), t (how
-## far through), tree.
-func emitters(px: float, py: float, range: float, n: int) -> Array:
-	var out := []
-	var len := active.size()
-	if len == 0:
-		return out
-	var r2 := range * range
-	var k := (U.p_random() * 256 + U.p_random()) % len
-	var tries := mini(len, n * 6)
-	for m in tries:
-		if out.size() >= n:
-			break
-		var i := active[(k + m * 7919) % len]
-		var t := prog[i] / 255.0
-		if t < 0.1 or t > 0.92:
-			continue
-		var x := world_x(i % cols)
-		var y := world_y(i / cols)
-		if U.dist2(x, y, px, py) > r2:
-			continue
-		var ti := cell_tree[i]
-		var h: float = float(KINDS[trees.kind[ti]].h) * trees.scale[ti] if ti >= 0 else 30.0
-		out.append({"x": trees.x[ti] if ti >= 0 else x, "y": trees.y[ti] if ti >= 0 else y, "z": trees.z[ti] if ti >= 0 else 0.0, "h": h, "t": t, "tree": ti >= 0})
-	return out

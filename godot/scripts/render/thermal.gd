@@ -164,12 +164,6 @@ func _heat() -> void:
 			for m in v.mats:
 				if m is ShaderMaterial:
 					m.set_shader_parameter("warmth", w)
-	var F = game.get("fire")
-	if F != null:
-		var at: Vector3 = F.fire_light_pos
-		var g := U.v3(at.x, at.y, at.z)
-		RenderingServer.global_shader_parameter_set("thermal_fire", Vector4(g.x, g.y, g.z, float(F.fire_light)))
-		RenderingServer.global_shader_parameter_set("thermal_fire_range", float(F.fire_light_range))
 
 # ------------------------------------------------------------------
 # The glass

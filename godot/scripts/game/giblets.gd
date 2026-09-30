@@ -452,8 +452,6 @@ func _land(at: Vector3, kind: int, n: Vector3, vx: float, vy: float) -> void:
 		D.blood(at, n, Vector3(randf() - 0.5, randf() - 0.5, 0.0), 12.0 + randf() * 16.0)
 	if n == UP and U.p_random() < GIB.splatChance:
 		splat(at.x, at.y, at.z, 24.0 + randf() * 16.0)
-	if LIGHT_FLOOR and kind == K_BURN and n == UP and game.get("fire") != null:
-		game.fire.ignite(at.x, at.y, LAND_HEAT, 16.0, at.z)
 
 ## And a cold one, which is the same minus every single thing that was
 ## warm about it: ice does not bleed, it leaves the cold coming off it.

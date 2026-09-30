@@ -14,7 +14,6 @@ run() {
 }
 "$GODOT" --headless --editor --quit >/dev/null 2>&1   # register the class names
 run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
-run fire    --script res://godot/tests/fire_test.gd
 run forest  --script res://godot/tests/forest_test.gd -- 7
 run jesse   --script res://godot/tests/jesse_dump.gd -- /tmp/mewd-jesse.json 1 7
 run sprawl  --script res://godot/tests/sprawl_dump.gd

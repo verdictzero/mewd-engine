@@ -269,7 +269,6 @@ func detonate(at: Vector3, direct = null) -> void:
 	var under: Level.Sector = game.level.span_at(at.x, at.y, at.z)
 	if under and at.z - under.floor < 96.0:
 		game.decals.hole(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1), true)
-	game.fire.ignite(at.x, at.y, NUKE.heat, NUKE.heatRadius, at.z)
 	game.scare(at.x, at.y, 1600.0)
 	game.noise(at, 3000.0)
 	var R: float = NUKE.radius

@@ -285,10 +285,6 @@ func ignite(tics := CATCH_TICS) -> void:
 func catch_fire() -> void:
 	var g = game()
 	g.play_sound("ignite", self)
-	# A TANK OF FUEL GOES INTO THE TARMAC: a car standing in a pool of
-	# fire, which is also how the fire reaches the next bay along
-	if g.fire != null:
-		g.fire.ignite(x, y, FUEL, 70.0)
 	if not flame_at.is_empty():
 		return
 	for t in [-0.22, 0.2]:
@@ -313,7 +309,6 @@ func _flames() -> void:
 			"frame": float(U.p_random() % fx.body_flames.frames), "frameRate": 0.6,
 			"drag": 0.95, "gravity": 0.02,
 		})
-	fx.glow_at(x, y, 1.2)
 
 func burn_tic() -> void:
 	burning -= 1
@@ -327,8 +322,6 @@ func burn_tic() -> void:
 		return
 	burn_tick = 0
 	var g = game()
-	if g.fire != null:
-		g.fire.ignite(x, y, 40.0)
 	damage(BURN_DAMAGE, null, {"fire": true})
 
 # ------------------------------------------------------------------
@@ -363,9 +356,6 @@ func char_tic() -> void:
 		g.fx.ember(x, y, cz + h * 0.3, 1 + int(k * 2.5), 0.5 + k)
 		if char_tick % 3 == 1:
 			g.fx.puff(x, y, cz + h * 0.5, 22.0 + 18.0 * k, 160)
-		g.fx.glow_at(x, y, 0.8 + 1.6 * k)
-	if char_tick % 10 == 0 and g.fire != null:
-		g.fire.ignite(x, y, 40.0)
 	if char_tick % 24 == 0:
 		g.play_sound("burn", self)
 	if k >= 1.0:
@@ -452,8 +442,6 @@ func big_boom() -> void:
 func tic() -> void:
 	var g = game()
 	if flash > 0:
-		if g.fx != null:
-			g.fx.glow_at(x, y, 6.0 * (float(flash) / FINAL_FLASH))
 		flash -= 1
 	if state == "charring":
 		char_tic()
@@ -512,8 +500,6 @@ func smoulder_tic() -> void:
 			g.fx.ember(x, y, cz, 1, 0.4 + 0.6 * k)
 		if tick % 11 == 0:
 			g.fx.puff(x, y, cz + 10.0, 26.0 + 16.0 * k, 190)
-	if tick % 70 == 0 and k > 0.35 and g.fire != null:
-		g.fire.ignite(x, y, 90.0, 40.0)
 
 ## The light bar goes dark and stops flashing, for good.
 func lights_out() -> void:
@@ -549,8 +535,6 @@ func crash(low: float) -> void:
 	# burnt, from here on — and a burnt red van is still a red van
 	char = WRECK_CHAR
 	relight(WRECK_LIT)
-	if g.fire != null:
-		g.fire.ignite(x, y, FUEL, 80.0)
 
 func update_sector() -> void:
 	var s: Level.Sector = game().level.sector_at(x, y)

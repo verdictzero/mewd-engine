@@ -7,7 +7,7 @@
 ## what it does to a person is hold them rather than kill them. A jet of
 ## gas WASHES OVER whoever it passes and carries on to the shelf behind,
 ## so a queue freezes as a queue and the fire behind it goes out too.
-## WHAT IT CANNOT DO IS UNDO ANYTHING: burnt is burnt (FireSystem.douse).
+## WHAT IT CANNOT DO IS UNDO ANYTHING: burnt is burnt.
 class_name FrostStream
 extends RefCounted
 
@@ -88,9 +88,5 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 
 func _land(x: float, y: float, z: float) -> void:
 	hits += 1
-	if game.fire != null:
-		doused += game.fire.douse(x, y, JET.cool, JET.coolRadius, z)
-	if game.forest != null and game.forest.has_method("douse"):
-		game.forest.douse(x, y, JET.treeRadius)
 	if game.fx != null:
 		game.fx.chill_splash(x, y, z)
