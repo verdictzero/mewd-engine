@@ -23,7 +23,8 @@ var sound: Sound
 var music: Music
 var pause_layer: CanvasLayer
 var pause: PauseMenu
-var fps_label: Label
+## the performance overlay (ui/perf.gd): FRAME RATE in the pause menu
+var fps_label: PerfOverlay
 var touch_layer: CanvasLayer
 var touch: TouchControls
 var rotate_notice: RotateNotice
@@ -58,8 +59,7 @@ func _ready() -> void:
 	pause_layer.add_child(pause)
 	pause.resumed.connect(resume)
 	pause.quit_to_title.connect(quit_to_title)
-	fps_label = Label.new()
-	fps_label.position = Vector2(12, 680)
+	fps_label = PerfOverlay.new()
 	fps_label.visible = false
 	hud_layer.add_child(fps_label)
 	# a phone held upright is told to turn; above everything
@@ -338,13 +338,8 @@ func _process(_dt: float) -> void:
 			touch.pause_pulse = false
 			toggle_pause()
 	if fps_label.visible:
-		fps_label.text = "%d FPS" % Engine.get_frames_per_second()
-		# and where the time goes, from the game's own clock (Game.prof_text)
-		if game != null:
-			game._prof_on = true
-			var t: String = game.prof_text()
-			if t != "":
-				fps_label.text += "   " + t
+		fps_label.game = game
+		fps_label.lofi = lofi
 	var shot := ""
 	var at := 20
 	for a in OS.get_cmdline_user_args():

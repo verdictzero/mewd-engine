@@ -72,8 +72,10 @@ A fresh clone should be imported once before a headless run:
     --join=HOST[:PORT]    join one; --name=NAME
 
 The web export is `sh tools/build-web.sh [outdir]`, with Godot's web
-export template installed. There is only a Web preset; a desktop
-export is the editor's usual Project > Export.
+export template installed. The Android APK (arm64, for a handheld like
+the Anbernic RG557 or a phone) is `sh tools/build-android.sh`, with the
+Android templates, the SDK's build tools and Java; see GODOT.txt. A
+desktop export is the editor's usual Project > Export.
 
 THE CLASSIC BUILD has no install and no build step: open index.html,
 or serve the folder (`node tools/server.mjs` serves it and hosts a
@@ -178,7 +180,9 @@ THE PAUSE MENU keeps its settings in user://prefs.cfg:
     PICTURE    render size, pixel rows, pixel aspect, palette snap
     LEVELS     brightness, contrast, gamma
     WORLD      time of night (22:00 to 08:00), weather
-    DEBUG      infinite ammo, invincible, frame rate and profile
+    DEBUG      infinite ammo, invincible, and the performance overlay
+               (frame rate and time, draw calls, where the time goes,
+               and the device's renderer, GPU, CPU and OS), on by default
 
 
 NETWORK PLAY
@@ -271,6 +275,7 @@ TOOLS
 
     tools/godot-test.sh        the Godot build's test suites
     tools/build-web.sh         export the Godot build for the web
+    tools/build-android.sh     export the Android APK
     tools/build-site.sh        assemble the classic build into public/
     tools/godot-data.mjs       write godot/data/ from the classic
                                build's tables (palette, LUT, textures)

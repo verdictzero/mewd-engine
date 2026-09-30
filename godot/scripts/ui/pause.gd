@@ -15,7 +15,7 @@ signal resumed
 signal quit_to_title
 
 const PREFS := "user://prefs.cfg"
-const PREF_VERSION := 13
+const PREF_VERSION := 14
 
 ## [key, name, page, ladder of [value, label]]
 const DIALS := [
@@ -37,7 +37,7 @@ const DIALS := [
 ]
 const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": -1, "pixels": 320, "pixar": 0.66667,
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
-	"debug": true, "godmode": true, "fps": false}
+	"debug": true, "godmode": true, "fps": true}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]
 
 var prefs := {}

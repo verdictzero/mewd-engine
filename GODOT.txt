@@ -513,6 +513,27 @@ that), and the editor's "Back" and a failed join come back to it. At
 the bottom of the menu, DOWNLOAD ZIP: GitHub's zip of the main branch,
 the whole thing (Title.ZIP_URL).
 
+THE ANDROID BUILD (an APK)
+
+  tools/build-android.sh [out.apk] (default build/android/mewd.apk):
+  export_presets.cfg's "Android" preset — arm64, the Mobile renderer on
+  Vulkan, landscape either way round, immersive, the network permission
+  for a match — side-loadable on an Anbernic RG557 or a phone. Needs
+  Godot 4.3 with its Android export templates, the Android SDK's build
+  tools (export/android/android_sdk_path in the editor's settings) and
+  Java. With MEWD_KEYSTORE, MEWD_KEY_ALIAS and MEWD_KEY_PASS it is a
+  release build signed with that key; without, a debug build signed
+  with the editor's debug key. Textures are imported ETC2/ASTC as well
+  for it (project.godot).
+
+THE PERFORMANCE OVERLAY (ui/perf.gd): FRAME RATE on the pause menu's
+DEBUG page, on by default. Frames a second, the frame's time and the
+last second's best and worst; draw calls, objects, primitives and video
+memory; where the game's time goes (Game.prof_text); real decals and
+how many were laid as quads; the window, the grid the world is drawn at
+and the refresh rate; and what it is running on — the renderer and its
+API, the GPU, the CPU and its cores, the OS and the device.
+
 THE WEB BUILD (the site)
 
   The GitHub Pages site is this, exported for the web: Godot 4.3's Web
