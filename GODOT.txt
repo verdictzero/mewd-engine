@@ -113,6 +113,12 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   not read one back); and every 3D viewport whose picture is read as
   numbers (the world, the gun, the scopes' feeds, the editor's 3D view)
   is HDR under Mobile (U.raw_out), which is what stops the encode.
+  And the gun is not laid over the room by its alpha under Mobile: a
+  Mobile 3D target keeps two bits of alpha, and on a phone's Adreno
+  whole pieces of a solid gun came out as holes. The room's picture is
+  drawn in the gun's own world instead, a quad at the far plane
+  (gun_room.gdshader; Lofi.gun_on_room), and the gun onto it by the
+  depth test; the filter reads that one picture.
 
   REAL DECALS (render/real_decals.gd; Mobile only). Blood — spatters,
   pools, the older splash — scorches, the flamer's hot spots and the

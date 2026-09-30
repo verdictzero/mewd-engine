@@ -30,6 +30,14 @@ var filter: SubViewport
 var filter_rect: ColorRect
 var rect: TextureRect
 var mat: ShaderMaterial
+## THE GUN OVER THE ROOM, UNDER MOBILE: the room's picture is drawn in
+## the gun's own world first, behind everything (gun_room.gdshader), and
+## the gun straight onto it, so the filter reads one picture.
+## Compatibility composites the two by the gun's alpha instead — which
+## Mobile does not keep: its 3D targets hold two bits of alpha, and on a
+## phone's GPU (an Adreno) whole pieces of a solid gun came out as holes
+## with the room showing through.
+var gun_on_room := false
 var render_rows := RENDER
 var pixel_rows := PIXELS
 var pixel_aspect := PIXEL_ASPECT
@@ -51,6 +59,23 @@ func _init() -> void:
 	gun.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	gun.msaa_3d = Viewport.MSAA_DISABLED
 	add_child(gun)
+	gun_on_room = RenderingServer.get_rendering_device() != null
+	if gun_on_room:
+		gun.transparent_bg = false
+		# the room: a quad over the whole view, put at the far plane by its
+		# own vertex shader, in the gun's world — so the gun, nearer, is
+		# drawn over it by the depth test, and its glass blends onto it
+		var q := QuadMesh.new()
+		q.size = Vector2(2, 2)
+		var rm := ShaderMaterial.new()
+		rm.shader = preload("res://godot/shaders/gun_room.gdshader")
+		q.material = rm
+		var room := MeshInstance3D.new()
+		room.name = "Room"
+		room.mesh = q
+		room.extra_cull_margin = 16384.0
+		room.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gun.add_child(room)
 	filter = SubViewport.new()
 	filter.name = "Filter"
 	filter.disable_3d = true
@@ -78,6 +103,9 @@ func _ready() -> void:
 	rect.texture = filter.get_texture()
 	mat.set_shader_parameter("world_tex", U.col(world.get_texture()))
 	mat.set_shader_parameter("gun_tex", U.col(gun.get_texture()))
+	mat.set_shader_parameter("gun_on_room", gun_on_room)
+	if gun_on_room:
+		((gun.get_node("Room") as MeshInstance3D).mesh.material as ShaderMaterial).set_shader_parameter("room", world.get_texture())
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 

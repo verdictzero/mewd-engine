@@ -28,6 +28,8 @@ varying float sky;
 varying float fullbright;
 varying float warm;
 varying float frozen;
+// how frozen, 0..1 (Standees: the fraction of the cell number)
+varying float frost;
 varying float alight;
 
 void vertex() {
@@ -65,12 +67,23 @@ void vertex() {
 	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
 	depth = -VERTEX.z;
 	float u = mirror > 0.5 ? 1.0 - UV.x : UV.x;
-	UV = vec2((cd.x + u) / cells, UV.y);
+	float cell_i = floor(cd.x + 0.001);
+	frost = clamp((cd.x - cell_i) / 0.9, 0.0, 1.0);
+	UV = vec2((cell_i + u) / cells, UV.y);
 }
 
 void fragment() {
 	vec4 c = texture(strip, UV);
 	if (c.a < 0.5) discard;
+	// FROZEN: a colour map and not a tint (js/material.js FROST) — the
+	// drawing's luminance kept and run up a ramp from a shadowed blue to a
+	// pale lit one, so every coat comes out the same ice at its own
+	// brightness; mixed in as the frost builds
+	if (frost > 0.0) {
+		float lum = dot(c.rgb, vec3(0.30, 0.59, 0.11));
+		vec3 ice = mix(vec3(0.09, 0.17, 0.31), vec3(0.74, 0.93, 1.05), pow(lum, 0.62));
+		c.rgb = mix(c.rgb, ice, frost);
+	}
 	float l = mix(world_band(light, depth, sky), 1.0, fullbright);
 	// the map's ambient light and fog too, but not on what is its own light
 	ALBEDO = world_fog(world_air(c.rgb * world_lit(l) - c.rgb * ambient_light.rgb * fullbright, depth), depth * (1.0 - fullbright));

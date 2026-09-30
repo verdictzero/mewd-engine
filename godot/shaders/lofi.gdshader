@@ -17,6 +17,8 @@ uniform sampler2D lut : filter_nearest;
 // are drawn into the buffer before the post pass)
 uniform sampler2D world_tex : filter_nearest;
 uniform sampler2D gun_tex : filter_nearest;
+// under Mobile the gun is drawn onto the room already (Lofi.gun_on_room)
+uniform bool gun_on_room = false;
 uniform vec2 grid_size = vec2(480.0, 320.0);
 uniform vec2 taps = vec2(2.0, 3.0);
 uniform float dither = 1.0;
@@ -52,7 +54,7 @@ void fragment() {
 			if (t.x < taps.x && t.y < taps.y) {
 				vec2 at = uv0 + (t + 0.5) / taps * span;
 				vec4 g = texture(gun_tex, at);
-				sum += mix(texture(world_tex, at).rgb, g.rgb, g.a);
+				sum += gun_on_room ? g.rgb : mix(texture(world_tex, at).rgb, g.rgb, g.a);
 				n += 1.0;
 			}
 		}

@@ -239,7 +239,10 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		rows[i] = 1.0; rows[i + 1] = 0.0; rows[i + 2] = 0.0; rows[i + 3] = a.x
 		rows[i + 4] = 0.0; rows[i + 5] = 1.0; rows[i + 6] = 0.0; rows[i + 7] = a.z
 		rows[i + 8] = 0.0; rows[i + 9] = 0.0; rows[i + 10] = 1.0; rows[i + 11] = -a.y
-		rows[i + 12] = float(c[1]); rows[i + 13] = light; rows[i + 14] = sky; rows[i + 15] = flags
+		# the cell, and HOW FROZEN in its fraction (standee.gdshader's ice
+		# map): frost building up to solid, 0.9 at most so the cell stays
+		var ice: float = 1.0 if a.frozen else clampf(a.frost / Actor.FREEZE_AT, 0.0, 1.0)
+		rows[i + 12] = float(c[1]) + ice * 0.9; rows[i + 13] = light; rows[i + 14] = sky; rows[i + 15] = flags
 		s.dirty = true
 		written += 1
 	# the gone and the far: their rows scaled away
