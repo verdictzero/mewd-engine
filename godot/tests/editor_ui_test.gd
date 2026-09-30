@@ -352,13 +352,22 @@ func run() -> void:
 	ok(v3.key(e3) and not v3.visual, "Escape leaves it")
 	ok(v3.level_node != null and v3.level_node.get_child_count() > 0, "the 3D view built the level (%d meshes)" % (v3.level_node.get_child_count() if v3.level_node else 0))
 
-	# PLAY, AND BACK
+	# PLAY, AND BACK — from where the 3D camera stands, looking its way
 	var sectors: int = ed.doc.sectors.size()
+	var start_was = null
+	for t in ed.doc.things:
+		if t.type == "START":
+			start_was = Vector2(t.x, t.y)
+	v3.cam = {"x": 900.0, "y": 770.0, "z": 41.0, "yaw": 1.0, "pitch": -0.2}
 	ed.play()
 	await frames(10)
 	ok(main.game != null and main.editor == null, "PLAY starts the game on the map")
 	if main.game != null:
 		ok(main.game.level.sectors.size() >= sectors, "the game built the edited map (%d sectors)" % main.game.level.sectors.size())
+		var pl = main.game.player
+		ok(absf(pl.x - 900.0) < 1.0 and absf(pl.y - 770.0) < 1.0 and absf(pl.angle - 1.0) < 1e-3 and absf(pl.pitch + 0.2) < 1e-3,
+			"and from where the 3D camera stood, looking its way (%.0f, %.0f, %.2f, %.2f)" % [pl.x, pl.y, pl.angle, pl.pitch])
+
 	var f2 := InputEventKey.new()
 	f2.keycode = KEY_F2
 	f2.pressed = true
@@ -366,6 +375,12 @@ func run() -> void:
 	await frames(10)
 	main = current_scene
 	ok(main != null and main.editor != null, "F2 comes back to the editor")
+	if main != null and main.editor != null:
+		var start_now = null
+		for t in main.editor.doc.things:
+			if t.type == "START":
+				start_now = Vector2(t.x, t.y)
+		ok(start_now == start_was, "and the map's own START is where it was (the game got a copy)")
 	if main != null and main.editor != null:
 		ok(main.editor.doc.sectors.size() == sectors, "on the same map (%d sectors)" % main.editor.doc.sectors.size())
 	# BACK TO THE TITLE (the MEWD main menu), and MAP EDITOR again

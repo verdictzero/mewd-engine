@@ -555,7 +555,37 @@ func file_save() -> void:
 func play() -> void:
 	autosave()
 	play_doc = EdDoc.clone(doc)
+	_play_from_here(play_doc)
 	play_requested.emit(play_doc)
+
+## PLAY FROM HERE, at the user's request: with the 3D view on screen,
+## the game starts where its camera stands, looking the way it looks,
+## on the layer being edited — in the copy handed over, so the map's
+## own START is untouched. With the camera over no sector (or only the
+## plan on screen), the START as drawn.
+func _play_from_here(d: Dictionary) -> void:
+	if view3d == null or view3d.cam == null or layout == "only2d":
+		return
+	var c = view3d.cam
+	if sector_at(c.x, c.y) == null:
+		return
+	var start = null
+	for t in d.things:
+		if t.type == "START":
+			start = t
+			break
+	if start == null:
+		start = {"id": EdDoc.take_id(d), "type": "START", "x": 0.0, "y": 0.0, "angle": 0.0}
+		d.things.append(start)
+	start.x = c.x
+	start.y = c.y
+	start.angle = c.yaw
+	start["pitch"] = c.pitch
+	if layer() != 0:
+		start["layer"] = layer()
+	else:
+		start.erase("layer")
+	say("playing from here")
 
 # ---------------------------------------------------------------------
 # selection

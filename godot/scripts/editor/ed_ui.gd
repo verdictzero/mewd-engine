@@ -188,7 +188,7 @@ func _build_top() -> void:
 			"Arrows nudge a grid step (1 with snap off), Shift ×4", "Tab swaps the big view and the inset",
 			"3D: hold right mouse to look, WASD QE fly", "3D: wheel raises the floor/ceiling under it",
 			"3D: click a texture to paint the pick", "3D: Ctrl+C copies a texture, Ctrl+V pastes",
-			"3D: B toggles fullbright, H the grid, F goes to start", "F5 plays the map · F2 in the game comes back"]:
+			"3D: B toggles fullbright, H the grid, F goes to start", "F5 plays the map from where you stand in 3D · F2 in the game comes back"]:
 		help.append([h, "", Callable()])
 	top.add_child(_menu("Help", help))
 	top.add_child(EdStyle.hsep())

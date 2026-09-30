@@ -203,6 +203,8 @@ func start_map(doc: Dictionary) -> void:
 	if start == null:
 		start = {"x": level.bounds.get_center().x, "y": level.bounds.get_center().y, "angle": 0.0}
 	player = Player.new(self, float(start.x), float(start.y), float(start.angle), start.get("z"))
+	# (a test run from the editor starts looking the way its camera did)
+	player.pitch = clampf(float(start.get("pitch", 0.0)), -1.5, 1.5)
 	players = [player]
 	if _start_weapon != "":
 		player.weapon = _start_weapon

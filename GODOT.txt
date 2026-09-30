@@ -316,7 +316,11 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
   layers, undo and redo, the keyboard — see the Help menu, and the
   header of each file. PLAY (F5) hands the document to the game (the
   map's own textures drawn for it by ed_texcompose.gd into TexBank),
-  and F2 comes back to it.
+  and F2 comes back to it. PLAY FROM HERE, at the user's request: with
+  the 3D view on screen you start where its camera stands, looking the
+  way it looks, on the layer you are editing (the START is moved in the
+  copy the game gets, never in the map); with only the plan on screen,
+  or the camera over no room, the START as drawn.
 
     ed_doc.gd       the document: the web build's JSON (Vector2 vertices
                     in memory, [x, y] on disk), undo, the tidy after an
