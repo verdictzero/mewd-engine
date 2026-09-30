@@ -2,13 +2,24 @@
 ##
 ## A HOLE where it lands on a wall, a floor or a ceiling — a hot one for
 ## the minigun, whose rim glows and cools — and BLOOD up the wall behind
-## whoever it went through. Pools, not a list: the hole pool is 400 at
+## whoever it went through. And SPOT HEATING for the flamethrower
+## (js/decals.js HEAT): where the stream lands the surface itself glows,
+## a spot fed by every flame that lands on it and cooling in six
+## seconds; a spot that got properly hot leaves a SCORCH, a dark blot,
+## for good. Pools, not a list: the hole pool is 400 at
 ## the user's request (a hundred, four times over) and blood 480; when a
 ## pool is full the oldest goes. One MultiMesh a pool.
 class_name Decals
 extends Node3D
 
-const POOLS := {"hole": 400, "blood": 480}
+const POOLS := {"hole": 400, "blood": 480, "heat": 100}
+## the spots: fed HEAT.per a landing, merged within `merge` of one
+## already there, cooling `cool` a tic; a peak over `scorch_at` leaves
+## a scorch of SCORCH_SIZE
+const HEAT := {"size": 38.0, "per": 0.028, "cool": 1.0 / (6.0 * 35.0), "merge": 26.0, "scorch_at": 0.25}
+const SCORCH_SIZE := 46.0
+const KIND_SCORCH := 3.0
+const KIND_HEAT := 4.0
 const HOLE_SIZE := [8.0, 13.0]
 const HOT_SCALE := 1.35
 const BLOOD_REACH := 260.0
@@ -33,6 +44,17 @@ var sear_mat: ShaderMaterial
 ## counts, for the tests
 var sears := 0
 var slags := 0
+var scorches := 0
+## the heat spots, by slot in the heat pool
+var _hx := PackedFloat32Array()
+var _hy := PackedFloat32Array()
+var _hz := PackedFloat32Array()
+var _hn: Array[Vector3] = []
+var _hs := PackedFloat32Array()
+var _hpeak := PackedFloat32Array()
+var _hseed := PackedFloat32Array()
+var _hlight := PackedFloat32Array()
+var _hlive := 0
 var _t0 := Time.get_ticks_msec()
 
 func _ready() -> void:
@@ -56,6 +78,12 @@ func _ready() -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 		pools[k] = p
+	var hn: int = POOLS.heat
+	for arr in [_hx, _hy, _hz, _hs, _hpeak, _hseed, _hlight]:
+		arr.resize(hn)
+		arr.fill(0.0)
+	_hn.resize(hn)
+	_hn.fill(Vector3.ZERO)
 	# the sears, on their own material
 	sear_mat = ShaderMaterial.new()
 	sear_mat.shader = preload("res://godot/shaders/sear_decal.gdshader")
@@ -87,6 +115,69 @@ func _process(_dt: float) -> void:
 
 func _now() -> float:
 	return (Time.get_ticks_msec() - _t0) / 1000.0
+
+## A flame has landed on a surface: the spot there heats.
+func heat(at: Vector3, normal: Vector3) -> void:
+	var p: Pool = pools["heat"]
+	var n := U.v3(normal.x, normal.y, normal.z).normalized()
+	var best := -1
+	var best_d := HEAT.merge * HEAT.merge
+	for i in p.cap:
+		if _hs[i] <= 0.0 or _hn[i].dot(n) < 0.9:
+			continue
+		var d := U.dist2(_hx[i], _hy[i], at.x, at.y) + (_hz[i] - at.z) * (_hz[i] - at.z)
+		if d < best_d:
+			best_d = d
+			best = i
+	if best < 0:
+		best = p.next
+		p.next = (p.next + 1) % p.cap
+		if _hs[best] > 0.0:
+			_expire(best)
+		_hx[best] = at.x
+		_hy[best] = at.y
+		_hz[best] = at.z
+		_hn[best] = n
+		_hs[best] = 0.0
+		_hpeak[best] = 0.0
+		_hseed[best] = U.p_random() / 255.0
+		_hlight[best] = _light_at(at)
+		_hlive += 1
+		var pos := U.v3(at.x, at.y, at.z) + n * 0.7
+		var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
+		var basis := Basis.looking_at(-n, up).rotated(n, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
+		p.mm.set_instance_transform(best, Transform3D(basis, pos))
+		p.mm.visible_instance_count = p.cap
+	_hs[best] = minf(1.0, _hs[best] + HEAT.per)
+	_hpeak[best] = maxf(_hpeak[best], _hs[best])
+	p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
+
+## Once a tic: every spot cools, and one gone cold leaves its scorch.
+func tic() -> void:
+	if _hlive <= 0:
+		return
+	var p: Pool = pools["heat"]
+	for i in p.cap:
+		if _hs[i] <= 0.0:
+			continue
+		_hs[i] -= HEAT.cool
+		if _hs[i] <= 0.0:
+			_expire(i)
+		else:
+			p.mm.set_instance_custom_data(i, Color(KIND_HEAT, _hseed[i], _hs[i], _hlight[i]))
+
+## a spot that has ended: hidden, and a scorch under it if it got hot
+func _expire(i: int) -> void:
+	var p: Pool = pools["heat"]
+	_hlive -= 1
+	var peak := _hpeak[i]
+	_hs[i] = 0.0
+	_hpeak[i] = 0.0
+	p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+	if peak > HEAT.scorch_at:
+		var n := _hn[i]
+		_put("hole", Vector3(_hx[i], _hy[i], _hz[i]), Vector3(n.x, -n.z, n.y), SCORCH_SIZE * (0.7 + 0.5 * peak), KIND_SCORCH, _hlight[i])
+		scorches += 1
 
 ## Which way a wall faces the side a shot came from, in map space.
 static func wall_normal(l: Level.Line, ox: float, oy: float) -> Vector3:

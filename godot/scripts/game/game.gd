@@ -651,6 +651,8 @@ func tic() -> void:
 	_prof_add("tic.actors", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.tic()
+	if decals != null:
+		decals.tic()
 	forest.wind = weather.wind()
 	rain.tic()
 	flame.tic()

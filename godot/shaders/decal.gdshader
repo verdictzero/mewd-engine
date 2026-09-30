@@ -1,8 +1,10 @@
 // MEWD — what lies on the world (js/decals.js): holes, heat, blood.
 // Each decal is a quad laid on a surface; INSTANCE_CUSTOM carries
-//   x  the kind: 0 a bullet hole, 1 a HOT one (the minigun's), 2 blood
+//   x  the kind: 0 a bullet hole, 1 a HOT one (the minigun's), 2 blood,
+//      3 a SCORCH (what a hot spot leaves), 4 HEAT (a spot the flame is
+//      on: the surface itself glowing)
 //   y  a seed, for the shape
-//   z  age in seconds, for the heat to cool
+//   z  age in seconds, for the heat to cool — or, for HEAT, how hot 0..1
 //   w  the light of the surface under it
 // Drawn procedurally, then snapped with everything else by the post pass.
 shader_type spatial;
@@ -21,6 +23,23 @@ void vertex() {
 }
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+float dfbm(vec2 p) {
+	return 0.55 * vnoise(p) + 0.3 * vnoise(p * 2.1 + 3.7) + 0.15 * vnoise(p * 4.3 + 9.1);
+}
+// a ragged edge: the radius the blot reaches, round `ang`
+float rag(float ang, float seed, float amt) {
+	return 1.0 - amt * (0.6 * sin(ang * 3.0 + seed * 20.0) + 0.4 * sin(ang * 7.0 + seed * 9.0)) * 0.5 - amt * 0.3;
+}
+vec3 hot_ramp(float h) {
+	return h < 0.5 ? mix(vec3(0.55, 0.03, 0.0), vec3(1.0, 0.36, 0.05), h * 2.0)
+		: mix(vec3(1.0, 0.36, 0.05), vec3(1.0, 0.92, 0.62), (h - 0.5) * 2.0);
+}
 
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
@@ -28,6 +47,7 @@ void fragment() {
 	float kind = cd.x;
 	float seed = cd.y;
 	float a = 0.0;
+	float glow = 0.0;
 	vec3 col = vec3(0.0);
 	float lit = world_band(cd.w, depth, 0.0);
 	if (kind < 1.5) {
@@ -46,6 +66,28 @@ void fragment() {
 			col += vec3(1.0, 0.45, 0.08) * ring * glow * 1.6;
 			a = max(a, ring * glow);
 		}
+	} else if (kind > 2.5 && kind < 3.5) {
+		// A SCORCH: what a hot spot leaves. Soft and dark, mottled, and
+		// thinning out to a ragged edge; the darkest part is the middle.
+		float ang = atan(p.y, p.x);
+		float R = rag(ang, seed, 0.22);
+		float rr = r / R;
+		float m = dfbm(p * 4.0 + seed * 13.0);
+		a = (1.0 - smoothstep(0.25, 1.0, rr)) * (0.55 + 0.45 * m) * 0.95;
+		col = mix(vec3(0.035, 0.03, 0.028), vec3(0.12, 0.09, 0.07), m * rr) * lit;
+	} else if (kind > 3.5) {
+		// HEAT: the surface itself glowing where the stream sits, banded
+		// like the fire's own ramp and swimming, its own light
+		float ang = atan(p.y, p.x);
+		float strength = cd.z;
+		float R = rag(ang + now * 0.3, seed, 0.2);
+		float rr = r / R;
+		float m = dfbm(p * 5.0 + vec2(now * 0.7, -now * 0.4) + seed * 5.0);
+		float h = strength * (1.0 - smoothstep(0.1, 1.0, rr)) * (0.7 + 0.5 * m);
+		h = floor(h * 8.0 + 0.5) / 8.0;
+		a = clamp(h * 1.6, 0.0, 1.0);
+		col = hot_ramp(clamp(h, 0.0, 1.0)) * (0.6 + 0.8 * h);
+		glow = h;
 	} else {
 		// blood: a splash of blobs, dark red, with drops round it
 		float blobs = 0.0;
@@ -59,7 +101,10 @@ void fragment() {
 		col = vec3(0.32, 0.02, 0.02) * lit;
 	}
 	if (a < 0.5) discard;
-	ALBEDO = world_air(col, depth);
-	// the thermal sight's feed: how warm the mark is (a hot rim is)
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+	// (a scorch is soft; a hot spot is its own light and takes no air)
+	if (kind > 2.5 && kind < 3.5) ALPHA = a;
+	ALBEDO = glow > 0.0 ? col : world_air(col, depth);
+	// the thermal sight's feed: how warm the mark is (a hot rim is, a hot spot more)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = glow > 0.0 ? thermal_out(clamp(0.6 + 0.4 * glow, 0.0, 1.0))
+		: thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
 }

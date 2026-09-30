@@ -93,6 +93,13 @@ func _flamer(p, run: Vector2) -> void:
 	var y0 := v.y
 	var n := _hold("FLAMER", 60, func(): return v.burning > 0)
 	check(v.burning > 0 and v.torch > 0, "FLAMER: the shopper is alight after %d tics (torch %d)" % [n, v.torch])
+	# and down the clear run, where the stream falls to the floor: the
+	# floor heats where it lands (render/decals.gd heat)
+	p.angle = run.x
+	p.pitch = -0.15
+	_hold("FLAMER", 60, func(): return game.decals._hlive > 0)
+	game._autofire = false
+	check(game.decals._hlive > 0, "FLAMER: the floor the stream lands on is heating (%d spots)" % game.decals._hlive)
 	_settle(40)
 	var moved := sqrt(U.dist2(v.x, v.y, x0, y0))
 	check(moved > 30.0 or v.removed, "FLAMER: and ran (%d units) or already went off" % moved)
@@ -290,12 +297,12 @@ func _potato(p, run: Vector2) -> void:
 	game._autofire = false
 	check(pc.fired > fired0, "the trigger fires a potato (%d fired)" % (pc.fired - fired0))
 	check(pc.blasts == 1 and v.dead, "it flies to the shopper and goes off on them (blasts %d, dead %s)" % [pc.blasts, v.dead])
-	check(not pc.nukes.is_empty(), "a nuke: the fireball, the column, the cap, the ring")
-	var alive := 0
+	check(game.missiles.blasts >= 1 and not game.missiles.booms.is_empty(), "a rocket's blast: the launcher's own boom")
+	check(pc.ribbons.size() == 1 and not pc.ribbons[0].live and pc.ribbons[0].pts.size() > 2,
+		"its ribbon is left behind (%d points), being reeled in" % pc.ribbons[0].pts.size())
 	for i in 40:
 		game.tic()
-	alive = pc.trail.count + pc.sparks.count
-	check(alive > 0, "and its rainbow sparks (%d alight)" % alive)
+	check(pc.ribbons.is_empty(), "and gone a second later")
 	# AT A WALL: it bounces off, nobody there
 	for i in 400:
 		game.tic()
@@ -316,8 +323,8 @@ func _potato(p, run: Vector2) -> void:
 			went = true
 			break
 	check(bounced, "down the clear run, it bounces off what it meets (%d bounces)" % (pc.bounces - b0))
-	check(went and game.tics - t0 <= PotatoCannon.SHOT.fuse + 2, "and goes off by itself in the end (%d tics)" % (game.tics - t0))
-	check(p.health > 0, "and the one who fired it lives (their own nuke is a share)")
+	check(went and game.tics - t0 <= PotatoCannon.SHOT.fuse + 2, "and goes off after its bounces (%d tics)" % (game.tics - t0))
+	check(p.health > 0, "and the one who fired it lives (their own blast is a share)")
 	# THE GREEN THERMAL SIGHT: the cannon in hand holds it, Z steps it
 	var gt: ThermalScope = game.green_thermal
 	p.weapon = "POTATO"

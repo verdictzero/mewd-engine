@@ -230,7 +230,9 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
                                   shaders/thermal_screen.gdshader
     js/weapon3d.js                render/weapon3d.gd, shaders/gun.gdshader
     js/people.js (gore), effects  game/giblets.gd, game/effects.gd
-    js/decals.js                  render/decals.gd, render/gore_decals.gd
+    js/decals.js                  render/decals.gd (holes, blood, the flamer's
+                                  spot heating and scorches, the lance's sears),
+                                  render/gore_decals.gd
     js/tracers.js                 render/tracers.gd
     js/particles.js               render/particles.gd
     js/standees.js                render/standees.gd

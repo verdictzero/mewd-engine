@@ -44,9 +44,9 @@ const GUNS := {
 	# the same unlit gun shader as every gun, its metal given a made-up
 	# sheen
 	"POTATO": {"url": "potato_cannon.glb", "fit": GUN_LENGTH * 1.0, "out": 3.6, "pos": [0.26, -0.12, 0], "rot": [0.04, 0.05, -0.04], "tint": [1, 1, 1],
-		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true, "mirror": true,
-		# mirrored left to right (the file has the sight on the other side),
-		# and pointed as every other gun is: muzzle at the file's +Z, the
+		"display": {"material": "dynamicDisplaySurfaceMat"}, "glass": "Glass", "pbr": true, "mirror": false,
+		# as the file has it left to right (the user asked for it flipped
+		# back), and pointed as every other gun is: muzzle at the file's +Z, the
 		# sight's screen facing -Z, back at the eye (its normals say so) —
 		# straight down the view; raised, the screen is straight ahead a
 		# hand's breadth off

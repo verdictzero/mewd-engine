@@ -110,10 +110,13 @@ func _collide(i: int, nx: float, ny: float, nz: float) -> bool:
 		return true
 	return false
 
-func _land(x: float, y: float, z: float, _surface: Vector3) -> void:
+func _land(x: float, y: float, z: float, surface: Vector3) -> void:
 	hits += 1
 	if game.fx != null:
 		game.fx.splash(x, y, z)
+	# and the spot heats (js/decals.js SPOT HEATING); a tree is not a surface
+	if surface != Vector3.ZERO and game.get("decals") != null:
+		game.decals.heat(Vector3(x, y, z), surface)
 
 func _burn_actor(a, x: float, y: float, z: float) -> void:
 	if a.flammable:
