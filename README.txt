@@ -31,6 +31,8 @@ PLAY IT
   https://verdictzero.github.io/mewd-engine/classic/    the classic build
   https://github.com/verdictzero/mewd-engine/releases/tag/android
                                                         the Android APK
+  https://github.com/verdictzero/mewd-engine/releases/tag/linux
+                                                        Linux x86_64 (Ubuntu)
 
 The site opens on the MEWD title. NEW GAME is a fresh maze; MAP EDITOR
 is the editor; DOWNLOAD ZIP is the repository. The classic build opens
@@ -76,8 +78,11 @@ A fresh clone should be imported once before a headless run:
 The web export is `sh tools/build-web.sh [outdir]`, with Godot's web
 export template installed. The Android APK (arm64, for a handheld like
 the Anbernic RG557 or a phone) is `sh tools/build-android.sh`, with the
-Android templates, the SDK's build tools and Java; see GODOT.txt. A
-desktop export is the editor's usual Project > Export.
+Android templates, the SDK's build tools and Java; see GODOT.txt. The
+Linux build is `sh tools/build-linux.sh`. It is one x86_64 file with
+the game packed inside, needs Vulkan, and runs on Ubuntu 20.04 or
+later: chmod +x mewd.x86_64 and run it. The script fetches its
+templates itself.
 
 THE CLASSIC BUILD has no install and no build step: open index.html,
 or serve the folder (`node tools/server.mjs` serves it and hosts a
@@ -293,6 +298,8 @@ TOOLS
     tools/godot-test.sh        the Godot build's test suites
     tools/build-web.sh         export the Godot build for the web
     tools/build-android.sh     export the Android APK
+    tools/build-linux.sh       export the Linux x86_64 build (the linux
+                               workflow puts it up as a release)
     tools/ci-android.sh        the same on a clean machine (the android
                                workflow, which puts it up as a release)
     tools/build-site.sh        assemble the classic build into public/

@@ -1,0 +1,48 @@
+# MEWD — the Linux x86_64 build (tools/build-linux.sh). It is built on
+# every push to main or the Godot branch, or by hand from the Actions
+# tab, and put up as the one rolling release "linux": a single file with
+# the game packed inside. It is too big to hand over any other way.
+name: linux build
+
+on:
+  push:
+    branches: [main, claude/godot-rewrite]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot 4.3
+        run: |
+          curl -sSL -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          mkdir -p "$HOME/bin"
+          unzip -q -o /tmp/godot.zip -d /tmp/godot
+          mv /tmp/godot/Godot_v4.3-stable_linux.x86_64 "$HOME/bin/godot"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.3.stable
+          key: godot-4.3-linux-templates
+      - name: build
+        run: sh tools/build-linux.sh build/linux/mewd.x86_64
+      - name: the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          cp build/linux/mewd.x86_64 "build/linux/mewd-$SHORT.x86_64"
+          tar -C build/linux -czf "build/linux/mewd-$SHORT-linux.tar.gz" "mewd-$SHORT.x86_64"
+          gh release delete linux --yes --cleanup-tag || true
+          gh release create linux "build/linux/mewd-$SHORT.x86_64" "build/linux/mewd-$SHORT-linux.tar.gz" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "MEWD for Linux ($SHORT, ${GITHUB_REF_NAME})" \
+            --notes "The latest Linux build, x86_64, for Ubuntu 20.04 or later. It uses the Mobile renderer on Vulkan, so it needs a Vulkan driver (mesa's, or NVIDIA's). Built from ${GITHUB_REF_NAME} at $SHORT. To run it: chmod +x mewd-$SHORT.x86_64 && ./mewd-$SHORT.x86_64 (the .tar.gz keeps the executable bit). --edit opens the map editor."
