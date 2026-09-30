@@ -7,3 +7,6 @@ node_modules
 
 # the web export (tools/build-web.sh)
 build/
+
+# the web export template GitLab CI caches (.gitlab-ci.yml)
+.godot-templates/
