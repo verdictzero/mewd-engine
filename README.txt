@@ -29,6 +29,8 @@ PLAY IT
 
   https://verdictzero.github.io/mewd-engine/            the Godot build
   https://verdictzero.github.io/mewd-engine/classic/    the classic build
+  https://github.com/verdictzero/mewd-engine/releases/tag/android
+                                                        the Android APK
 
 The site opens on the MEWD title. NEW GAME is a fresh maze; MAP EDITOR
 is the editor; DOWNLOAD ZIP is the repository. The classic build opens
@@ -276,6 +278,8 @@ TOOLS
     tools/godot-test.sh        the Godot build's test suites
     tools/build-web.sh         export the Godot build for the web
     tools/build-android.sh     export the Android APK
+    tools/ci-android.sh        the same on a clean machine (the android
+                               workflow, which puts it up as a release)
     tools/build-site.sh        assemble the classic build into public/
     tools/godot-data.mjs       write godot/data/ from the classic
                                build's tables (palette, LUT, textures)

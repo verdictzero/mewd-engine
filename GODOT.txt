@@ -525,6 +525,11 @@ THE ANDROID BUILD (an APK)
   release build signed with that key; without, a debug build signed
   with the editor's debug key. Textures are imported ETC2/ASTC as well
   for it (project.godot).
+  On GitHub, .github/workflows/android.yml builds it on every push to
+  main or the Godot branch (tools/ci-android.sh sets up a clean runner)
+  and puts it up as the rolling release "android". Repository secrets
+  MEWD_KEYSTORE_B64, MEWD_KEY_ALIAS and MEWD_KEY_PASS give it a steady
+  key; without them each build is signed with a new one.
 
 THE PERFORMANCE OVERLAY (ui/perf.gd): FRAME RATE on the pause menu's
 DEBUG page, on by default. Frames a second, the frame's time and the

@@ -1,0 +1,63 @@
+# MEWD — the Android APK (tools/ci-android.sh), built on every push to
+# main or the Godot branch (or by hand, from the Actions tab), and put
+# up as the one rolling release "android" — a page a phone or a
+# handheld (an Anbernic RG557) can download it from directly. The APK
+# is too big to hand over any other way.
+#
+# Signed with the key in the repository secrets MEWD_KEYSTORE_B64 (a
+# base64 keystore), MEWD_KEY_ALIAS and MEWD_KEY_PASS when they are set,
+# so every build installs over the last; without them each build has a
+# new key and the old install must be removed first.
+name: android apk
+
+on:
+  push:
+    branches: [main, claude/godot-rewrite]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - name: the SDK's build tools
+        run: sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+      - name: Godot 4.3
+        run: |
+          curl -sSL -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          mkdir -p "$HOME/bin"
+          unzip -q -o /tmp/godot.zip -d /tmp/godot
+          mv /tmp/godot/Godot_v4.3-stable_linux.x86_64 "$HOME/bin/godot"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      # the Android templates out of the 1 GB archive, kept between runs
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.3.stable
+          key: godot-4.3-android-templates
+      - name: build the APK
+        env:
+          MEWD_KEYSTORE_B64: ${{ secrets.MEWD_KEYSTORE_B64 }}
+          MEWD_KEY_ALIAS: ${{ secrets.MEWD_KEY_ALIAS }}
+          MEWD_KEY_PASS: ${{ secrets.MEWD_KEY_PASS }}
+        run: sh tools/ci-android.sh build/android/mewd.apk
+      - name: the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          cp build/android/mewd.apk "build/android/mewd-$SHORT.apk"
+          gh release delete android --yes --cleanup-tag || true
+          gh release create android "build/android/mewd-$SHORT.apk" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "MEWD for Android ($SHORT, ${GITHUB_REF_NAME})" \
+            --notes "The latest APK: arm64, the Mobile renderer on Vulkan, for an Anbernic RG557 or a phone. Built from ${GITHUB_REF_NAME} at $SHORT. Side-load it; if it will not install over an older one, uninstall that first (see .github/workflows/android.yml on signing)."
