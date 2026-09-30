@@ -27,6 +27,8 @@ run editor  --script res://godot/tests/editor_test.gd
 run editorui --script res://godot/tests/editor_ui_test.gd -- --edit
 # ROOM OVER ROOM: a map in the editor's layers, compiled whole and played
 # (godot/tests/layers_test.gd on THE ANNEXE, godot/scripts/maps/layers.gd)
+# the dead are gone: removed, and their sprites with them (godot/tests/death_test.gd)
+run death   --script res://godot/tests/death_test.gd
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
 run layers  --script res://godot/tests/layers_test.gd -- --map=layers

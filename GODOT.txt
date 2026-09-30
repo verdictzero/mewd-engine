@@ -223,6 +223,13 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   user's request: no fuel grid, no burn meter, no haze, no wood catching,
   no brigade. People and cars still catch and burn (Actor.ignite,
   Effects.body_fire) — that is the fire the game keeps.
+  THE DEAD DO NOT STAY, at the user's request: a shopper goes the
+  moment they die (in pieces, in ice or in ash), and a trooper plays
+  the fall, lies two seconds (States.CORPSE_TICS) and is gone; the
+  blood on the floor stays. The sprite goes with the actor: a row let
+  go in the crowd's MultiMesh is zeroed, and standee.gdshader scales
+  the card by that row's scale (it builds the card itself, so without
+  that the last frame of the dead was drawn where they fell).
 
   THE DATA the port reads from the web build's own tables is written by
   `node tools/godot-data.mjs`: the texture list (godot/data/
@@ -508,6 +515,8 @@ TESTS
   down, fire under it not going up; and over a loopback network the
   snapshot's height and the client's bodies on the right storey). The
   editor's test holds its map in layers to the web build's build of it.
+  The dead (godot/tests/death_test.gd): shot, struck frozen, burnt to
+  ash, shot down and blown apart, each removed and its sprite let go.
   The pad (godot/tests/pad_test.gd): the bindings answering to every
   device, the standard layout as a mapping, the menus' reading of it.
   A shell with xvfb can also render pictures with --shot.

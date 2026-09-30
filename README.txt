@@ -155,7 +155,9 @@ THE PEOPLE. Shoppers watch, flee and panic contagiously; they burn,
 freeze, thaw and come apart. The SWAT arrive in vans and chase with
 Doom's chase, then the army in hover APCs; on a map with stairs and
 doors they find the way (A* over the level's rooms). A rocket takes
-people apart; blood goes up the walls; every impact is a decal.
+people apart; blood goes up the walls; every impact is a decal. The
+dead do not stay: a shopper goes at once, a trooper after two seconds
+on the floor, and the blood is what is left.
 
 THE PICTURE. The world is drawn at the chunky grid's own size (320
 rows of 2:3 pixels by default), Bayer-dithered one step and snapped to
@@ -289,6 +291,7 @@ runs every headless suite in turn and exits non-zero if any fails:
                host with two clients
     editor     the editor's edits and files against the classic editor
     editorui   the editor driven by input events, into the game and back
+    death      the dead removed, and their sprites with them
     pad        the pad's bindings on every device, the menus' reading
     layers     room over room on THE ANNEXE
 

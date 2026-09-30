@@ -10,6 +10,8 @@
 class_name States
 
 const TICRATE := 35
+## how long a trooper's body lies before it is gone (two seconds)
+const CORPSE_TICS := 70
 
 static var STATES := {}
 static var ACTORS := {}
@@ -140,11 +142,14 @@ static func _troop(key: String, sprite: String, attack: String) -> void:
 	for i in down.size():
 		var d: Array = down[i]
 		_s(N.call("DIE%d" % (i + 1)), sprite, d[0], d[1], d[2], N.call("DEAD") if i == down.size() - 1 else N.call("DIE%d" % (i + 2)))
-	_s(N.call("DEAD"), sprite, "N", -1, null, null)
+	# THE DEAD DO NOT STAY, at the user's request: a body lies CORPSE_TICS
+	# and is gone (a null next removes the actor; the pool of blood under
+	# it is a decal and stays)
+	_s(N.call("DEAD"), sprite, "N", CORPSE_TICS, null, null)
 	var gib := "OPQRSTUVW"
 	for i in gib.length():
 		var last := i == gib.length() - 1
 		var act = "A_XScream" if i == 0 else ("A_Fall" if i == 1 else null)
-		_s(N.call("XDIE%d" % (i + 1)), sprite, gib[i], -1 if last else 5, act, null if last else N.call("XDIE%d" % (i + 2)))
+		_s(N.call("XDIE%d" % (i + 1)), sprite, gib[i], CORPSE_TICS if last else 5, act, null if last else N.call("XDIE%d" % (i + 2)))
 	_s(N.call("FROZE"), sprite, "G", -1, null, N.call("FROZE"))
 	_s(N.call("BORE"), sprite, "G", -1, null, N.call("BORE"))

@@ -55,7 +55,13 @@ void vertex() {
 	// the eye's right, flattened: the card turns about Y only
 	vec3 right = INV_VIEW_MATRIX[0].xyz;
 	right = normalize(vec3(right.x, 0.0, right.z));
-	vec3 world = feet + right * VERTEX.x * cell.x + vec3(0.0, VERTEX.y * cell.y, 0.0);
+	// A ROW LET GO (Standees._drop: whoever it drew is gone) has its
+	// scale zeroed, and the card is built here rather than by the matrix,
+	// so the scale is read here too: zero, and the card is a point that
+	// draws nothing. Without it the last frame of the dead stayed standing
+	// where they fell until the slot was wanted again.
+	float shown = length(MODEL_MATRIX[1].xyz);
+	vec3 world = feet + (right * VERTEX.x * cell.x + vec3(0.0, VERTEX.y * cell.y, 0.0)) * shown;
 	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
 	depth = -VERTEX.z;
 	float u = mirror > 0.5 ? 1.0 - UV.x : UV.x;
