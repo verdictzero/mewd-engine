@@ -125,18 +125,20 @@ func _menu(label: String, items: Array) -> MenuButton:
 
 func _build_top() -> void:
 	var bar := PanelContainer.new()
-	bar.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(8, 4, 8, 4)))
+	bar.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(4, 2, 4, 2)))
 	add_child(bar)
 	var line := ColorRect.new()
 	line.color = EdStyle.LINE
 	line.custom_minimum_size.y = 1
 	add_child(line)
 	top = HFlowContainer.new()
-	top.add_theme_constant_override("h_separation", 6)
-	top.add_theme_constant_override("v_separation", 4)
+	top.add_theme_constant_override("h_separation", 4)
+	top.add_theme_constant_override("v_separation", 2)
 	bar.add_child(top)
-	var brand := EdStyle.label("MEWD Editor", EdStyle.ACCENT, 12, EdStyle.bold(true))
-	brand.custom_minimum_size.y = 26
+	var brand := EdStyle.label("MEWD", EdStyle.ACCENT, 11, EdStyle.bold(true))
+	brand.tooltip_text = "MEWD Editor"
+	brand.mouse_filter = Control.MOUSE_FILTER_PASS
+	brand.custom_minimum_size.y = 22
 	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	top.add_child(brand)
 	top.add_child(_menu("File", [
@@ -202,7 +204,7 @@ func _build_top() -> void:
 	for k in EdOps.SHAPES:
 		shapes.append([k, EdOps.SHAPES[k].name])
 	shape_sel = EdStyle.option(shapes, ed.shape, func(v): ed.set_shape(v), "The shape a drag draws in Shape mode (R)")
-	shape_sel.custom_minimum_size.x = 104
+	shape_sel.custom_minimum_size.x = 90
 	top.add_child(shape_sel)
 	var on_sides := func(v):
 		var n := int(round(v))
@@ -211,7 +213,7 @@ func _build_top() -> void:
 		else:
 			refresh_bar()
 	sides_in = EdStyle.num(ed.shape_sides if ed.shape_sides != null else 4, on_sides, 1.0, "Sides of a round shape, or a star's points")
-	sides_in.custom_minimum_size.x = 56
+	sides_in.custom_minimum_size.x = 48
 	top.add_child(sides_in)
 	top.add_child(EdStyle.hsep())
 	grid_sel = OptionButton.new()
@@ -219,36 +221,39 @@ func _build_top() -> void:
 	grid_sel.tooltip_text = "Grid size  [ ]  — Custom… for any size"
 	grid_sel.item_selected.connect(_grid_picked)
 	top.add_child(grid_sel)
-	snap_btn = EdStyle.button("Snap on", func(): ed.set_snap(), "G", "Snap to grid (G)")
+	snap_btn = EdStyle.button("Snap", func(): ed.set_snap(), "G", "Snap to grid (G)")
 	top.add_child(snap_btn)
 	top.add_child(EdStyle.hsep())
 	var layers := HBoxContainer.new()
 	layers.add_theme_constant_override("separation", 2)
-	layers.add_child(EdStyle.button("▼", func(): ed.set_layer(ed.layer() - 1), "", "Layer down (Alt+PgDn)"))
-	layer_lbl = EdStyle.label("Layer 0", Color("#cfd6e0"), 12, EdStyle.bold(true))
-	layer_lbl.custom_minimum_size.x = 64
+	layers.add_child(EdStyle.small_button("▼", func(): ed.set_layer(ed.layer() - 1), "Layer down (Alt+PgDn)"))
+	layer_lbl = EdStyle.label("Layer 0", Color("#cfd6e0"), 11, EdStyle.bold(true))
 	layer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	layer_lbl.tooltip_text = "The layer being edited: 0 is the ground, 1 the storey on it, and so on. Alt+PgUp / Alt+PgDn"
 	layer_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
 	layers.add_child(layer_lbl)
-	layers.add_child(EdStyle.button("▲", func(): ed.set_layer(ed.layer() + 1), "", "Layer up (Alt+PgUp)"))
+	layers.add_child(EdStyle.small_button("▲", func(): ed.set_layer(ed.layer() + 1), "Layer up (Alt+PgUp)"))
 	top.add_child(layers)
 	top.add_child(EdStyle.hsep())
 	var on_tabs := func():
 		ed.tabs_hidden = not ed.tabs_hidden
 		ed.save_prefs()
 		refresh_bar()
-	tabs_btn = EdStyle.button("Tabs", on_tabs, "", "Show or hide the left panel: textures, things, scatter, map")
+	tabs_btn = EdStyle.button("☰", on_tabs, "", "Show or hide the left panel: textures, things, scatter, map")
 	top.add_child(tabs_btn)
+	# the layouts, a segmented row of four
+	var lay := HBoxContainer.new()
+	lay.add_theme_constant_override("separation", 0)
 	layout_btns = {
-		"combined": EdStyle.button("Combined", func(): ed.set_layout("combined2d" if ed.layout == "combined" else "combined"), "", "Both at once: 3D with the plan inset (Tab swaps them)"),
-		"split": EdStyle.button("Split", func(): ed.set_layout("split"), "", "Side by side"),
+		"combined": EdStyle.button("▣", func(): ed.set_layout("combined2d" if ed.layout == "combined" else "combined"), "", "Both at once: 3D with the plan inset (Tab swaps them)"),
+		"split": EdStyle.button("◫", func(): ed.set_layout("split"), "", "Split: side by side"),
 		"only2d": EdStyle.button("2D", func(): ed.set_layout("only2d"), "", "2D only (Tab)"),
 		"only3d": EdStyle.button("3D", func(): ed.set_layout("only3d"), "", "3D only (Tab)"),
 	}
 	for k in ["combined", "split", "only2d", "only3d"]:
-		top.add_child(layout_btns[k])
+		lay.add_child(layout_btns[k])
+	top.add_child(lay)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(spacer)
@@ -292,7 +297,7 @@ func refresh_bar() -> void:
 	if ed.shape_sides != null:
 		sides_in.set_value_no_signal(float(ed.shape_sides))
 	EdStyle.set_on(snap_btn, ed.snap)
-	EdStyle.set_text(snap_btn, "Snap on" if ed.snap else "Snap off")
+	EdStyle.set_text(snap_btn, "Snap" if ed.snap else "No snap")
 	EdStyle.set_on(tabs_btn, not ed.tabs_hidden)
 	if side != null:
 		side.visible = not ed.tabs_hidden
@@ -318,7 +323,7 @@ func _build_main() -> void:
 	main.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(main)
 	side = PanelContainer.new()
-	side.custom_minimum_size.x = 280
+	side.custom_minimum_size.x = 248
 	side.add_theme_stylebox_override("panel", _side_box(false))
 	main.add_child(side)
 	views = Control.new()
@@ -333,7 +338,7 @@ func _build_main() -> void:
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	views.add_child(vb)
 	insp_side = PanelContainer.new()
-	insp_side.custom_minimum_size.x = 300
+	insp_side.custom_minimum_size.x = 272
 	insp_side.add_theme_stylebox_override("panel", _side_box(true))
 	main.add_child(insp_side)
 	# the views, each in a wrap with its tag, its help and its swap button
@@ -520,8 +525,8 @@ func _rich(color := EdStyle.DIM) -> RichTextLabel:
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_theme_font_override("normal_font", EdStyle.mono())
 	r.add_theme_font_override("bold_font", EdStyle.bold(true))
-	r.add_theme_font_size_override("normal_font_size", 11)
-	r.add_theme_font_size_override("bold_font_size", 11)
+	r.add_theme_font_size_override("normal_font_size", 10)
+	r.add_theme_font_size_override("bold_font_size", 10)
 	r.add_theme_color_override("default_color", color)
 	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return r
@@ -532,17 +537,17 @@ func _build_status() -> void:
 	line.custom_minimum_size.y = 1
 	add_child(line)
 	var p := PanelContainer.new()
-	p.custom_minimum_size.y = 24
-	p.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(10, 0, 10, 0)))
+	p.custom_minimum_size.y = 20
+	p.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(8, 0, 8, 0)))
 	add_child(p)
 	status_bar = HBoxContainer.new()
-	status_bar.add_theme_constant_override("separation", 14)
+	status_bar.add_theme_constant_override("separation", 10)
 	status_bar.clip_contents = true
 	p.add_child(status_bar)
 	for k in ["mode", "grid", "pos", "sel", "info", "probs"]:
 		st[k] = _rich(EdStyle.TEXT if k == "info" else EdStyle.DIM)
 		status_bar.add_child(st[k])
-	var msg := EdStyle.label("", EdStyle.ACCENT, 11, EdStyle.mono())
+	var msg := EdStyle.label("", EdStyle.ACCENT, 10, EdStyle.mono())
 	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	msg.clip_text = true
 	msg.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

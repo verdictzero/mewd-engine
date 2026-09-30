@@ -53,13 +53,13 @@ func build() -> void:
 	var iv := VBoxContainer.new()
 	iv.add_theme_constant_override("separation", 0)
 	ui.insp_side.add_child(iv)
-	var head := EdStyle.label("Inspector", Color.WHITE, 11)
-	head.custom_minimum_size.y = 30
+	var head := EdStyle.label("INSPECTOR", EdStyle.DIM, 9, EdStyle.bold(true))
+	head.custom_minimum_size.y = 22
 	head.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var hb := PanelContainer.new()
-	var hs := EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(10, 0, 10, 0))
+	var hs := EdStyle.box(EdStyle.PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(8, 0, 8, 0))
 	hs.border_color = EdStyle.ACCENT
-	hs.border_width_bottom = 2
+	hs.border_width_bottom = 1
 	hb.add_theme_stylebox_override("panel", hs)
 	hb.add_child(head)
 	iv.add_child(hb)
@@ -80,8 +80,8 @@ func build() -> void:
 		b.text = pair[1]
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 30
-		b.add_theme_font_size_override("font_size", 11)
+		b.custom_minimum_size.y = 22
+		b.add_theme_font_size_override("font_size", 10)
 		b.pressed.connect(func(): show_tab(k))
 		tab_btns[k] = b
 		tabs.add_child(b)
@@ -132,11 +132,11 @@ func _scroll() -> ScrollContainer:
 func _pane_box(sc: ScrollContainer) -> VBoxContainer:
 	var m := MarginContainer.new()
 	for side in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side, 10)
+		m.add_theme_constant_override("margin_" + side, 8)
 	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(m)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 5)
+	v.add_theme_constant_override("separation", 3)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	m.add_child(v)
 	return v
@@ -177,7 +177,7 @@ func show_tab(t: String) -> void:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0, 0, 0, 0)
 		sb.border_color = EdStyle.ACCENT if on else Color(0, 0, 0, 0)
-		sb.border_width_bottom = 2
+		sb.border_width_bottom = 1
 		for st in ["normal", "hover", "pressed", "hover_pressed"]:
 			b.add_theme_stylebox_override(st, sb)
 		b.add_theme_color_override("font_color", Color.WHITE if on else EdStyle.DIM)
@@ -309,7 +309,7 @@ func thumb(name) -> Texture2D:
 	_thumbs[n] = t
 	return t
 
-func swatch(name, size := 22) -> Control:
+func swatch(name, size := 18) -> Control:
 	var r := TextureRect.new()
 	r.texture = thumb(name)
 	r.custom_minimum_size = Vector2(size, size)
@@ -323,8 +323,8 @@ func swatch(name, size := 22) -> Control:
 func tex_field(value, field: String, label: String, allow_none := false) -> Control:
 	var p := PanelContainer.new()
 	var picking_this: bool = picking != null and picking.field == field
-	p.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.FIELD, EdStyle.ACCENT2 if picking_this else EdStyle.LINE, 4, 1, Vector4(2, 2, 2, 2)))
-	p.custom_minimum_size.y = 28
+	p.add_theme_stylebox_override("panel", EdStyle.box(EdStyle.FIELD, EdStyle.ACCENT2 if picking_this else EdStyle.LINE, 3, 1, Vector4(2, 1, 2, 1)))
+	p.custom_minimum_size.y = 22
 	p.tooltip_text = "click to pick from the browser"
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	var hb := HBoxContainer.new()
@@ -334,7 +334,7 @@ func tex_field(value, field: String, label: String, allow_none := false) -> Cont
 	var v := "" if value == null else str(value)
 	# (empty: a fill in an opening is nothing there; a skin is the room's walls)
 	var empty := "— nothing —" if field.ends_with("midTex") or field == "@loop.mid" else "— same as wall —"
-	var l := EdStyle.label(v if v != "" else (empty if allow_none else "—"), EdStyle.TEXT, 11, EdStyle.mono())
+	var l := EdStyle.label(v if v != "" else (empty if allow_none else "—"), EdStyle.TEXT, 10, EdStyle.mono())
 	l.clip_text = true
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(l)
@@ -390,9 +390,9 @@ func seg(opts: Array) -> Control:
 	for o in opts:
 		var b := EdStyle.button(o[0], o[2], "", o[3] if o.size() > 3 else "")
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 26
-		b.add_theme_font_size_override("font_size", 11)
-		var sb := EdStyle.box(Color("#17301f") if o[1] else EdStyle.FIELD, EdStyle.ACCENT if o[1] else EdStyle.LINE, 4, 1, Vector4(4, 2, 4, 2))
+		b.custom_minimum_size.y = 20
+		b.add_theme_font_size_override("font_size", 10)
+		var sb := EdStyle.box(Color("#17301f") if o[1] else EdStyle.FIELD, EdStyle.ACCENT if o[1] else EdStyle.LINE, 3, 1, Vector4(4, 1, 4, 1))
 		b.add_theme_stylebox_override("normal", sb)
 		if o[1]:
 			b.add_theme_color_override("font_color", Color.WHITE)
@@ -405,7 +405,7 @@ func bright_row(value: float, lo: float, hi: float, step: float, onset: Callable
 	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(sl)
 	var n := EdStyle.num(value, onset, num_step)
-	n.custom_minimum_size.x = 64
+	n.custom_minimum_size.x = 56
 	n.size_flags_horizontal = Control.SIZE_SHRINK_END
 	hb.add_child(n)
 	return hb
@@ -591,7 +591,7 @@ func _steps_block(s: Dictionary) -> Array:
 		EdStyle.row("How many", [EdStyle.num(o.count if o.count else "", func(v): o.count = maxi(0, roundi(v)), 1, "Blank or 0: as many as the step height makes")]),
 		EdStyle.row("Middle at" if rings else "Climb to", [EdStyle.num(o.to, func(v): o.to = v, 8,
 			"The height of the middle ring: above the floor for a mound, below it for a caldera (blank: 128 up)" if rings else "Blank: the highest sector next to it")]),
-		EdStyle.row("Keep head-room", [EdStyle.check(o.headroom, func(v): o.headroom = v)]),
+		EdStyle.row("Headroom", [EdStyle.check(o.headroom, func(v): o.headroom = v)]),
 		EdStyle.flow([_primary("Make rings" if rings else "Make stairs", make),
 			EdStyle.small_button("Auto height", func(): o.to = ""; render_insp(), "Back to working it out from the neighbours") if not (o.to is String) else null]),
 		EdStyle.note(("Rings from this floor (%s) to the middle. Up for a mound or a cliff in terraces, down for a caldera." % EdUI.coord(EdDoc.num(s.get("floor"), 0))) if rings

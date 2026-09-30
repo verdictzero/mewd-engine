@@ -60,13 +60,14 @@ static func theme() -> Theme:
 		return _theme
 	var t := Theme.new()
 	t.default_font = sans()
-	t.default_font_size = 12
+	# COMPACT, at the user's request: 11 px, tight pads, close rows
+	t.default_font_size = 11
 	for c in ["Label", "Button", "LineEdit", "OptionButton", "CheckBox", "PopupMenu", "SpinBox", "ItemList", "TooltipLabel", "RichTextLabel"]:
 		t.set_color("font_color", c, TEXT)
 	# buttons: .ed-btn
-	var n := box(PANEL2, LINE, 4, 1, Vector4(9, 3, 9, 3))
-	var hv := box(Color("#212831"), Color("#3c4753"), 4, 1, Vector4(9, 3, 9, 3))
-	var pr := box(Color("#17301f"), ACCENT, 4, 1, Vector4(9, 3, 9, 3))
+	var n := box(PANEL2, LINE, 3, 1, Vector4(7, 1, 7, 1))
+	var hv := box(Color("#212831"), Color("#3c4753"), 3, 1, Vector4(7, 1, 7, 1))
+	var pr := box(Color("#17301f"), ACCENT, 3, 1, Vector4(7, 1, 7, 1))
 	for c in ["Button", "OptionButton"]:
 		t.set_stylebox("normal", c, n)
 		t.set_stylebox("hover", c, hv)
@@ -79,8 +80,8 @@ static func theme() -> Theme:
 		t.set_color("font_hover_pressed_color", c, Color.WHITE)
 		t.set_color("font_focus_color", c, TEXT)
 	# fields: .ed-row input
-	var fld := box(FIELD, LINE, 4, 1, Vector4(6, 2, 6, 2))
-	var fldf := box(FIELD, ACCENT, 4, 1, Vector4(6, 2, 6, 2))
+	var fld := box(FIELD, LINE, 3, 1, Vector4(5, 1, 5, 1))
+	var fldf := box(FIELD, ACCENT, 3, 1, Vector4(5, 1, 5, 1))
 	t.set_stylebox("normal", "LineEdit", fld)
 	t.set_stylebox("focus", "LineEdit", fldf)
 	t.set_stylebox("read_only", "LineEdit", fld)
@@ -90,18 +91,18 @@ static func theme() -> Theme:
 	t.set_stylebox("hover", "PopupMenu", box(Color("#26303a"), Color(0, 0, 0, 0), 4))
 	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
 	t.set_color("font_accelerator_color", "PopupMenu", DIM)
-	t.set_constant("v_separation", "PopupMenu", 6)
+	t.set_constant("v_separation", "PopupMenu", 4)
 	t.set_stylebox("separator", "PopupMenu", box(LINE, Color(0, 0, 0, 0), 0, 0, Vector4(0, 0, 0, 0)))
 	t.set_stylebox("panel", "TooltipPanel", box(PANEL2, LINE, 4, 1, Vector4(6, 4, 6, 4)))
 	t.set_color("font_color", "TooltipLabel", TEXT)
 	t.set_stylebox("panel", "PanelContainer", box(PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(0, 0, 0, 0)))
 	t.set_stylebox("panel", "Panel", box(PANEL, Color(0, 0, 0, 0), 0, 0, Vector4(0, 0, 0, 0)))
-	t.set_constant("separation", "HBoxContainer", 6)
-	t.set_constant("separation", "VBoxContainer", 5)
-	t.set_constant("h_separation", "HFlowContainer", 6)
-	t.set_constant("v_separation", "HFlowContainer", 6)
-	t.set_constant("h_separation", "GridContainer", 6)
-	t.set_constant("v_separation", "GridContainer", 6)
+	t.set_constant("separation", "HBoxContainer", 4)
+	t.set_constant("separation", "VBoxContainer", 3)
+	t.set_constant("h_separation", "HFlowContainer", 4)
+	t.set_constant("v_separation", "HFlowContainer", 4)
+	t.set_constant("h_separation", "GridContainer", 4)
+	t.set_constant("v_separation", "GridContainer", 4)
 	t.set_color("font_color", "CheckBox", TEXT)
 	t.set_icon("unchecked", "CheckBox", _check_icon(false))
 	t.set_icon("checked", "CheckBox", _check_icon(true))
@@ -150,7 +151,7 @@ static func _check_icon(on: bool) -> ImageTexture:
 # builders
 # ---------------------------------------------------------------------
 
-static func label(text: String, color := TEXT, size := 12, font: Font = null) -> Label:
+static func label(text: String, color := TEXT, size := 11, font: Font = null) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_color_override("font_color", color)
@@ -162,7 +163,7 @@ static func label(text: String, color := TEXT, size := 12, font: Font = null) ->
 
 ## A note: .ed-note — dim, wrapping.
 static func note(text: String) -> Label:
-	var l := label(text, DIM, 12)
+	var l := label(text, DIM, 10)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 60
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -170,23 +171,23 @@ static func note(text: String) -> Label:
 
 ## A heading: .ed-insp h4 — small capitals in the mono face.
 static func h4(text: String) -> Label:
-	var l := label(text.to_upper(), DIM, 10, bold(true))
+	var l := label(text.to_upper(), DIM, 9, bold(true))
 	l.add_theme_constant_override("line_spacing", 0)
 	var m := l
-	m.custom_minimum_size.y = 22
+	m.custom_minimum_size.y = 18
 	m.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	return m
 
 ## .ed-insp h3: white, and what is selected on the right.
 static func h3(text: String, small := "") -> Control:
 	var hb := HBoxContainer.new()
-	var a := label(text, Color.WHITE, 12, bold())
+	var a := label(text, Color.WHITE, 11, bold())
 	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	a.custom_minimum_size.x = 60
 	hb.add_child(a)
 	if small != "":
-		hb.add_child(label(small, DIM, 12))
+		hb.add_child(label(small, DIM, 10))
 	return hb
 
 ## .ed-btn, with its key in a <kbd>.
@@ -197,13 +198,13 @@ static func button(text: String, cb: Callable = Callable(), kbd := "", tip := ""
 		# the key in a <kbd>: dim, small, mono, after the name
 		b.text = ""
 		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 5)
+		hb.add_theme_constant_override("separation", 3)
 		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		hb.alignment = BoxContainer.ALIGNMENT_CENTER
-		var t := label(text, TEXT, 12)
+		var t := label(text, TEXT, 11)
 		t.name = "Text"
-		var k := label(kbd, DIM, 10, mono())
+		var k := label(kbd, DIM, 9, mono())
 		k.name = "Kbd"
 		k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -212,21 +213,21 @@ static func button(text: String, cb: Callable = Callable(), kbd := "", tip := ""
 		hb.add_child(t)
 		hb.add_child(k)
 		b.add_child(hb)
-		var fit := func() -> void: b.custom_minimum_size = Vector2(hb.get_combined_minimum_size().x + 18, 26)
+		var fit := func() -> void: b.custom_minimum_size = Vector2(hb.get_combined_minimum_size().x + 12, 22)
 		hb.minimum_size_changed.connect(fit)
 		b.ready.connect(fit)
 		b.set_meta("text_label", t)
 	b.focus_mode = Control.FOCUS_NONE
 	b.tooltip_text = tip
-	b.add_theme_font_size_override("font_size", 12)
+	b.add_theme_font_size_override("font_size", 11)
 	if cb.is_valid():
 		b.pressed.connect(cb)
 	return b
 
 static func small_button(text: String, cb: Callable = Callable(), tip := "") -> Button:
 	var b := button(text, cb, "", tip)
-	b.add_theme_font_size_override("font_size", 11)
-	var sb := box(PANEL2, LINE, 4, 1, Vector4(8, 2, 8, 2))
+	b.add_theme_font_size_override("font_size", 10)
+	var sb := box(PANEL2, LINE, 3, 1, Vector4(6, 1, 6, 1))
 	b.add_theme_stylebox_override("normal", sb)
 	return b
 
@@ -234,7 +235,7 @@ static func small_button(text: String, cb: Callable = Callable(), tip := "") -> 
 static func set_on(b: Button, on: bool) -> void:
 	var t = (b.get_meta("text_label") if b.has_meta("text_label") else null)
 	if on:
-		b.add_theme_stylebox_override("normal", box(Color("#17301f"), ACCENT, 4, 1, Vector4(9, 3, 9, 3)))
+		b.add_theme_stylebox_override("normal", box(Color("#17301f"), ACCENT, 3, 1, Vector4(7, 1, 7, 1)))
 		b.add_theme_color_override("font_color", Color.WHITE)
 		if t != null:
 			t.add_theme_color_override("font_color", Color.WHITE)
@@ -250,7 +251,7 @@ static func set_text(b: Button, text: String) -> void:
 	if t != null:
 		t.text = text
 		var hb: Control = t.get_parent()
-		b.custom_minimum_size.x = hb.get_combined_minimum_size().x + 18
+		b.custom_minimum_size.x = hb.get_combined_minimum_size().x + 14
 	else:
 		b.text = text
 
@@ -260,17 +261,17 @@ static func play_button(text: String, cb: Callable, kbd := "") -> Button:
 	var t = (b.get_meta("text_label") if b.has_meta("text_label") else null)
 	if t != null:
 		t.add_theme_color_override("font_color", Color("#bff5d2"))
-	b.add_theme_stylebox_override("normal", box(Color("#163322"), Color("#2f7d4d"), 4, 1, Vector4(9, 3, 9, 3)))
-	b.add_theme_stylebox_override("hover", box(Color("#1c4029"), Color("#2f7d4d"), 4, 1, Vector4(9, 3, 9, 3)))
+	b.add_theme_stylebox_override("normal", box(Color("#163322"), Color("#2f7d4d"), 3, 1, Vector4(8, 1, 8, 1)))
+	b.add_theme_stylebox_override("hover", box(Color("#1c4029"), Color("#2f7d4d"), 3, 1, Vector4(8, 1, 8, 1)))
 	b.add_theme_color_override("font_color", Color("#bff5d2"))
 	return b
 
 ## A labelled row: .ed-row — a 92-pixel label, then the field(s).
 static func row(text: String, fields: Array) -> Control:
 	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 6)
-	var l := label(text, DIM, 12)
-	l.custom_minimum_size.x = 92
+	hb.add_theme_constant_override("separation", 5)
+	var l := label(text, DIM, 10)
+	l.custom_minimum_size.x = 78
 	l.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -300,8 +301,8 @@ static func num(value, onset: Callable, step := 1.0, tip := "") -> SpinBox:
 		s.ready.connect(func(): s.get_line_edit().text = "")
 	else:
 		s.set_value_no_signal(float(value))
-	s.custom_minimum_size = Vector2(40, 24)
-	s.get_line_edit().add_theme_font_size_override("font_size", 12)
+	s.custom_minimum_size = Vector2(40, 20)
+	s.get_line_edit().add_theme_font_size_override("font_size", 11)
 	s.value_changed.connect(func(v): onset.call(v))
 	s.get_line_edit().text_submitted.connect(func(_t): s.get_line_edit().release_focus())
 	return s
@@ -309,7 +310,7 @@ static func num(value, onset: Callable, step := 1.0, tip := "") -> SpinBox:
 static func text_field(value, onset: Callable) -> LineEdit:
 	var e := LineEdit.new()
 	e.text = str(value) if value != null else ""
-	e.custom_minimum_size = Vector2(40, 24)
+	e.custom_minimum_size = Vector2(40, 20)
 	e.text_submitted.connect(func(t): onset.call(t); e.release_focus())
 	e.focus_exited.connect(func(): if e.text != (str(value) if value != null else ""): onset.call(e.text))
 	return e
@@ -330,7 +331,7 @@ static func option(items: Array, selected, onset: Callable, tip := "") -> Option
 	o.tooltip_text = tip
 	o.fit_to_longest_item = false
 	o.clip_text = true
-	o.custom_minimum_size = Vector2(40, 24)
+	o.custom_minimum_size = Vector2(40, 20)
 	var vals := []
 	for it in items:
 		o.add_item(str(it[1]))
@@ -349,7 +350,7 @@ static func slider(value: float, lo: float, hi: float, step: float, onset: Calla
 	s.set_value_no_signal(value)
 	s.tooltip_text = tip
 	s.focus_mode = Control.FOCUS_NONE
-	s.custom_minimum_size = Vector2(60, 20)
+	s.custom_minimum_size = Vector2(60, 16)
 	s.drag_ended.connect(func(changed): if changed: onset.call(s.value))
 	return s
 
@@ -358,21 +359,21 @@ static func color_pick(value, onset: Callable) -> ColorPickerButton:
 	c.color = EdDoc.col(value, Color.WHITE)
 	c.edit_alpha = false
 	c.focus_mode = Control.FOCUS_NONE
-	c.custom_minimum_size = Vector2(40, 24)
+	c.custom_minimum_size = Vector2(40, 20)
 	c.popup_closed.connect(func(): onset.call("#" + c.color.to_html(false)))
 	return c
 
 static func hsep() -> Control:
 	var c := ColorRect.new()
 	c.color = LINE
-	c.custom_minimum_size = Vector2(1, 20)
+	c.custom_minimum_size = Vector2(1, 16)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
 
 static func flow(children: Array) -> HFlowContainer:
 	var f := HFlowContainer.new()
-	f.add_theme_constant_override("h_separation", 6)
-	f.add_theme_constant_override("v_separation", 6)
+	f.add_theme_constant_override("h_separation", 4)
+	f.add_theme_constant_override("v_separation", 4)
 	for c in children:
 		if c != null:
 			f.add_child(c)
