@@ -362,28 +362,8 @@ func _bind_keys() -> void:
 	var rb := InputEventMouseButton.new()
 	rb.button_index = MOUSE_BUTTON_RIGHT
 	InputMap.action_add_event("zoom", rb)
-	# THE PAD, the web build's standard mapping (js/input.js): the left
-	# stick walks, the right looks, the right trigger fires, the left
-	# jumps, A uses, the shoulders cycle the guns, a stick click runs,
-	# Start or Back pauses
-	var pad := {"use": [JOY_BUTTON_A], "run": [JOY_BUTTON_LEFT_STICK, JOY_BUTTON_RIGHT_STICK],
-		"pause": [JOY_BUTTON_START, JOY_BUTTON_BACK], "prev_weapon": [JOY_BUTTON_LEFT_SHOULDER],
-		"next_weapon": [JOY_BUTTON_RIGHT_SHOULDER]}
-	for action in pad:
-		if not InputMap.has_action(action):
-			InputMap.add_action(action)
-		for b in pad[action]:
-			var ev := InputEventJoypadButton.new()
-			ev.button_index = b
-			InputMap.action_add_event(action, ev)
-	for pair in [["attack", JOY_AXIS_TRIGGER_RIGHT, 1.0], ["jump", JOY_AXIS_TRIGGER_LEFT, 1.0],
-			["fwd", JOY_AXIS_LEFT_Y, -1.0], ["back", JOY_AXIS_LEFT_Y, 1.0],
-			["left", JOY_AXIS_LEFT_X, -1.0], ["right", JOY_AXIS_LEFT_X, 1.0]]:
-		var ev := InputEventJoypadMotion.new()
-		ev.axis = pair[1]
-		ev.axis_value = pair[2]
-		InputMap.action_add_event(pair[0], ev)
-		InputMap.action_set_deadzone(pair[0], 0.18)
+	# THE PAD: every binding for every device (Pad.bind)
+	Pad.bind()
 
 ## input, handed down by Main: a SubViewport outside a container is
 ## sent none of its own
@@ -423,9 +403,7 @@ func _process(dt: float) -> void:
 	# the look, every frame
 	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.6 * dt
 	# the right stick: 3.2 radians a second across, 2.2 up and down
-	var rs := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
-	if rs.length() < 0.18:
-		rs = Vector2()
+	var rs := Pad.right_stick()
 	var pad_look := Vector2(rs.x * 3.2, rs.y * 2.2 * (-1.0 if invert else 1.0)) * dt * look_sens
 	if touch != null and touch.visible:
 		touch.sens = look_sens

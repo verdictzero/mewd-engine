@@ -60,6 +60,18 @@ RUNNING IT
   the lance's scope or the launcher's thermal sight up and step its zoom
   (AIM and ZOOM on the phone), 1-7 or the wheel for the guns,
   Esc or P to pause. On the title, up/down and Enter, or the mouse.
+  A PAD, ANY PAD (godot/scripts/pad.gd): the one built into a handheld
+  (an Anbernic RG557), a USB or Bluetooth controller, or both at once —
+  every binding is for every device, not device 0, and a pad the engine
+  has no mapping for is given the standard layout on arrival. Left
+  stick or D-pad walks, right stick looks, R2 fires, L2 or X jumps, A
+  uses, B steps the scope, the bumpers cycle the guns (Y goes forward),
+  a stick pressed in runs, Start or Select pauses. In the menus the
+  D-pad or a stick moves, A takes, B goes back, the bumpers turn the
+  pause menu's pages; at the terminal A is Enter and B Backspace. A pad
+  in use takes the phone's thumb controls off the picture; a finger on
+  the glass brings them back. (On the web the browser tells the game
+  about a pad only after its first press.)
   F2 in the game opens the map editor on the map last edited (a test
   run from the editor has an "◀ EDITOR F2" button too).
 
@@ -496,6 +508,8 @@ TESTS
   down, fire under it not going up; and over a loopback network the
   snapshot's height and the client's bodies on the right storey). The
   editor's test holds its map in layers to the web build's build of it.
+  The pad (godot/tests/pad_test.gd): the bindings answering to every
+  device, the standard layout as a mapping, the menus' reading of it.
   A shell with xvfb can also render pictures with --shot.
 
   CROSS-PLAY, by hand (needs node, and Playwright for the second):

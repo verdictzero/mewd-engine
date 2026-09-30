@@ -241,9 +241,19 @@ func _close() -> void:
 	await fade.finished
 
 func _unhandled_input(event: InputEvent) -> void:
-	if done or not (event is InputEventKey) or not event.pressed:
+	if done:
 		return
-	var k: int = event.keycode
+	# the pad: A is Enter, B is Backspace, up and down walk the history
+	var k: int = KEY_NONE
+	match Pad.nav(event):
+		"ok", "start": k = KEY_ENTER
+		"back": k = KEY_BACKSPACE
+		"up": k = KEY_UP
+		"down": k = KEY_DOWN
+	if k == KEY_NONE:
+		if not (event is InputEventKey) or not event.pressed:
+			return
+		k = event.keycode
 	get_viewport().set_input_as_handled()
 	if k == KEY_ENTER or k == KEY_KP_ENTER:
 		_sfx("click")
@@ -258,7 +268,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		hist = clampi(hist + (-1 if k == KEY_UP else 1), 0, history.size())
 		entry = history[hist] if hist < history.size() else ""
-	elif event.unicode >= 32 and event.unicode < 127:
+	elif event is InputEventKey and event.unicode >= 32 and event.unicode < 127:
 		_sfx("click")
 		entry += char(event.unicode)
 	if not busy:

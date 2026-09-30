@@ -191,6 +191,7 @@ func show_title() -> void:
 	title.new_game.connect(start_game)
 	title.open_editor.connect(_title_to_editor)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Pad.watch()
 
 ## MAP EDITOR, from the title: the title and its forest put away, and
 ## the editor's "Back" comes back to the title rather than the terminal
@@ -331,7 +332,8 @@ func _process(_dt: float) -> void:
 		_frames += 1
 	_quit_after()
 	if touch != null:
-		touch.visible = game != null and not pause.visible
+		# and off the picture while a pad is in charge (Pad.held)
+		touch.visible = game != null and not pause.visible and not Pad.held
 		if touch.pause_pulse:
 			touch.pause_pulse = false
 			toggle_pause()
@@ -430,6 +432,15 @@ func quit_to_title() -> void:
 	if game != null and game.net != null:
 		game.net.close()
 	get_tree().reload_current_scene()
+
+## WHO IS IN CHARGE, decided before anything else sees the event: a
+## pad's press or push takes the controls, a finger on the glass takes
+## them back (js/input.js setPadHeld)
+func _input(event: InputEvent) -> void:
+	if Pad.is_pad(event):
+		Pad.held = true
+	elif event is InputEventScreenTouch or event is InputEventScreenDrag:
+		Pad.held = false
 
 func _unhandled_input(event: InputEvent) -> void:
 	if game != null and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:

@@ -46,6 +46,12 @@ var font: Font
 var tabs: Array[Button] = []
 var grid: GridContainer
 var tiles := {}
+## THE PAD'S CURSOR: which tile of the page (0..), or the footer past
+## them (RESUME, QUIT TO TITLE); -1 until the pad moves. The D-pad or a
+## stick moves it, A steps the tile (B steps it back on a tile), the
+## bumpers turn the page, Start or B on the footer resumes.
+var cursor := -1
+var _foot: Array[Button] = []
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -103,7 +109,9 @@ func _ready() -> void:
 	var quit := _button("QUIT TO TITLE", 14)
 	quit.pressed.connect(func(): quit_to_title.emit())
 	foot.add_child(quit)
+	_foot = [resume, quit]
 	show_page(1)
+	visibility_changed.connect(func(): if visible: _cursor_to(-1))
 
 func _label(t: String, size: int, c: Color) -> Label:
 	var l := Label.new()
@@ -140,6 +148,97 @@ func show_page(n: int) -> void:
 	for d in DIALS:
 		tiles[d[0]].visible = d[2] == n
 	_refresh()
+	_cursor_to(cursor if cursor < 0 else 0)
+
+## the page's tiles, in order, then the footer
+func _stops() -> Array:
+	var out := []
+	for d in DIALS:
+		if d[2] == page:
+			out.append(d[0])
+	return out
+
+func _cursor_to(i: int) -> void:
+	var n := _stops().size() + _foot.size()
+	cursor = -1 if i < 0 else ((i + n) % n)
+	var stops := _stops()
+	for j in stops.size():
+		_mark(tiles[stops[j]], cursor == j)
+	for j in _foot.size():
+		_mark(_foot[j], cursor == stops.size() + j)
+
+func _mark(b: Button, on: bool) -> void:
+	var sb: StyleBox = b.get_theme_stylebox("normal")
+	if on:
+		var hi := sb.duplicate()
+		hi.border_color = Color("#e0442c")
+		hi.set_border_width_all(3)
+		b.add_theme_stylebox_override("focus", hi)
+		b.add_theme_stylebox_override("normal", hi)
+		b.set_meta("plain", sb)
+	elif b.has_meta("plain"):
+		b.add_theme_stylebox_override("normal", b.get_meta("plain"))
+		b.add_theme_stylebox_override("focus", b.get_meta("plain"))
+		b.remove_meta("plain")
+
+## the pad (Pad.nav): moves the cursor over the page's three-wide grid
+## and the footer, steps the tile under it, turns the page
+func pad_nav(what: String) -> bool:
+	var stops := _stops()
+	var n := stops.size()
+	match what:
+		"prev", "next":
+			show_page(((page - 1 + (1 if what == "next" else -1) + PAGES.size()) % PAGES.size()) + 1)
+			return true
+		"start":
+			resumed.emit()
+			return true
+		"up", "down", "left", "right":
+			if cursor < 0:
+				_cursor_to(0)
+				return true
+			var c := cursor
+			if c < n:
+				match what:
+					"left": c = c - 1 if c % 3 > 0 else c
+					"right": c = c + 1 if c % 3 < 2 and c + 1 < n else c
+					"up": c = c - 3 if c >= 3 else c
+					"down": c = c + 3 if c + 3 < n else n      # the footer
+			else:
+				match what:
+					"left": c = n
+					"right": c = n + 1
+					"up": c = n - 1
+					"down": c = c
+			_cursor_to(c)
+			return true
+		"ok", "back":
+			if cursor < 0:
+				if what == "back":
+					resumed.emit()
+				else:
+					_cursor_to(0)
+				return true
+			if cursor < n:
+				_step(stops[cursor], 1 if what == "ok" else -1)
+			elif what == "back":
+				resumed.emit()
+			elif cursor == n:
+				resumed.emit()
+			else:
+				quit_to_title.emit()
+			return true
+	return false
+
+func _step(key: String, step: int) -> void:
+	for d in DIALS:
+		if d[0] == key:
+			var ladder: Array = d[3]
+			var i := (_index_of(d) + step + ladder.size()) % ladder.size()
+			prefs[key] = ladder[i][0]
+	save_prefs()
+	_refresh()
+	get_parent().get_parent().apply_prefs(prefs)
 
 func _index_of(d: Array) -> int:
 	var v = prefs.get(d[0], DEFAULTS[d[0]])
@@ -162,14 +261,7 @@ func _tile_input(e: InputEvent, key: String) -> void:
 	var step := 1 if e.button_index == MOUSE_BUTTON_LEFT else (-1 if e.button_index == MOUSE_BUTTON_RIGHT else 0)
 	if step == 0:
 		return
-	for d in DIALS:
-		if d[0] == key:
-			var ladder: Array = d[3]
-			var i := (_index_of(d) + step + ladder.size()) % ladder.size()
-			prefs[key] = ladder[i][0]
-	save_prefs()
-	_refresh()
-	get_parent().get_parent().apply_prefs(prefs)
+	_step(key, step)
 
 func load_prefs() -> void:
 	prefs = DEFAULTS.duplicate()
@@ -186,7 +278,12 @@ func save_prefs() -> void:
 	cf.save(PREFS)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not (event is InputEventKey) or not event.pressed:
+	if not visible:
+		return
+	if pad_nav(Pad.nav(event)):
+		get_viewport().set_input_as_handled()
+		return
+	if not (event is InputEventKey) or not event.pressed:
 		return
 	var k: int = event.physical_keycode
 	if k >= KEY_1 and k <= KEY_5:

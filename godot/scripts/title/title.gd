@@ -226,15 +226,23 @@ func _process(dt: float) -> void:
 	_place_shadows()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not (event is InputEventKey) or not event.pressed:
+	if not visible:
 		return
-	match event.physical_keycode:
-		KEY_UP, KEY_W:
-			mark(at - 1)
-		KEY_DOWN, KEY_S:
-			mark(at + 1)
-		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-			take(at)
+	# the pad: up and down, and A or Start takes (Pad.nav)
+	match Pad.nav(event):
+		"up": mark(at - 1)
+		"down": mark(at + 1)
+		"ok", "start": take(at)
 		_:
-			return
+			if not (event is InputEventKey) or not event.pressed:
+				return
+			match event.physical_keycode:
+				KEY_UP, KEY_W:
+					mark(at - 1)
+				KEY_DOWN, KEY_S:
+					mark(at + 1)
+				KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+					take(at)
+				_:
+					return
 	get_viewport().set_input_as_handled()
