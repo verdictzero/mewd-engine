@@ -25,11 +25,17 @@ window/stretch/aspect="expand"
 
 [rendering]
 
-; the same renderer everywhere, the web build's: everything is drawn
-; unlit, so Forward+'s clustered lights and sky radiance buy nothing
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+; MOBILE, at the user's request, for real decals (Decal nodes, which
+; Compatibility has not got): on the desktop and on Android alike.
+; Everything is drawn unlit, so Forward+'s clustered lights and sky
+; radiance would buy nothing. The web is always Compatibility (Godot's
+; rule), and there the decals are the quads they were (Decals.real).
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+renderer/rendering_method.web="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=true
+; real decals (RealDecals) are chunky pixels like everything else
+textures/decals/filter=0
 textures/default_filters/anisotropic_filtering_level=0
 
 textures/canvas_textures/default_texture_filter=0

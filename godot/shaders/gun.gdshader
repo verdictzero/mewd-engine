@@ -12,9 +12,9 @@
 shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_opaque;
 
-uniform sampler2D map : source_color, filter_nearest_mipmap, repeat_enable;
+uniform sampler2D map : filter_nearest_mipmap, repeat_enable;
 uniform bool has_map = true;
-uniform vec4 base : source_color = vec4(0.6, 0.6, 0.6, 1.0);
+uniform vec4 base = vec4(0.6, 0.6, 0.6, 1.0);
 uniform float dim = 1.0;
 uniform float glow = 0.0;
 uniform vec3 tint = vec3(1.0);

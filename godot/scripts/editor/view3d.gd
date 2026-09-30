@@ -88,6 +88,7 @@ func _ready() -> void:
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(svc)
 	vp = SubViewport.new()
+	U.raw_out(vp)
 	vp.own_world_3d = true
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -164,7 +165,7 @@ func _reset_light() -> void:
 	var set := {"sky_light": 0.85, "global_light": 1.0, "light_falloff": 1400.0, "min_light": 0.12, "air_near": 1200.0, "air_far": 14000.0,
 		"beam_level": 0.0, "thermal_view": Vector2.ZERO}
 	for k in set:
-		RenderingServer.global_shader_parameter_set(k, set[k])
+		U.gset(k, set[k])
 	if fullbright:
 		set_fullbright(true, false)
 
@@ -287,9 +288,9 @@ func to_start() -> void:
 
 func set_fullbright(on: bool, say := true) -> void:
 	fullbright = on
-	RenderingServer.global_shader_parameter_set("min_light", 1.0 if on else 0.12)
-	RenderingServer.global_shader_parameter_set("light_falloff", 1e9 if on else 1400.0)
-	RenderingServer.global_shader_parameter_set("global_light", 1.4 if on else 1.0)
+	U.gset("min_light", 1.0 if on else 0.12)
+	U.gset("light_falloff", 1e9 if on else 1400.0)
+	U.gset("global_light", 1.4 if on else 1.0)
 	if say:
 		ed.say("fullbright %s" % ("on" if on else "off"))
 
@@ -345,10 +346,10 @@ func _make_sky(w: Dictionary) -> void:
 		var tex: Texture2D = load(path)
 		var sm := ShaderMaterial.new()
 		sm.shader = preload("res://godot/shaders/skybox.gdshader")
-		sm.set_shader_parameter("panorama", tex)
+		sm.set_shader_parameter("panorama", U.col(tex))
 		sky.sky_material = sm
-		RenderingServer.global_shader_parameter_set("air_sky", tex)
-		RenderingServer.global_shader_parameter_set("air_sky_on", 1.0)
+		U.gset("air_sky", tex)
+		U.gset("air_sky_on", 1.0)
 	else:
 		var skin: Dictionary = {"horizon": "#1d9a48", "mid": "#06301a", "zenith": "#000000", "ground": "#05180c"}
 		if w.get("sky") is Dictionary:
@@ -358,10 +359,10 @@ func _make_sky(w: Dictionary) -> void:
 		sh.code = PAINTED_SKY
 		sm.shader = sh
 		for k in ["horizon", "mid", "zenith", "ground"]:
-			sm.set_shader_parameter(k, EdDoc.col(skin[k], Color.BLACK))
+			sm.set_shader_parameter(k, U.col(EdDoc.col(skin[k], Color.BLACK)))
 		sky.sky_material = sm
-		RenderingServer.global_shader_parameter_set("air_sky_on", 0.0)
-		RenderingServer.global_shader_parameter_set("air_color", EdDoc.col(skin.horizon, Color.GRAY).srgb_to_linear())
+		U.gset("air_sky_on", 0.0)
+		U.gset("air_color", EdDoc.col(skin.horizon, Color.GRAY).srgb_to_linear())
 	e.background_mode = Environment.BG_SKY
 	e.sky = sky
 	e.tonemap_mode = Environment.TONE_MAPPER_LINEAR
@@ -460,7 +461,7 @@ func build_sprites() -> void:
 		mi.multimesh = mm
 		var mat := ShaderMaterial.new()
 		mat.shader = _bb_shader
-		mat.set_shader_parameter("tex", tex)
+		mat.set_shader_parameter("tex", U.col(tex))
 		mi.material_override = mat
 		mi.extra_cull_margin = 16384
 		sprites.add_child(mi)
@@ -1460,14 +1461,14 @@ func _place_grid() -> void:
 	grid.position = gv(cam.x, cam.y, z + 0.75)
 	grid.scale = Vector3(R, 1, R)
 	var mat: ShaderMaterial = grid.material_override
-	mat.set_shader_parameter("step", step)
-	mat.set_shader_parameter("major", step * (4.0 if step >= 256 else 8.0))
+	mat.set_shader_parameter("step", U.col(step))
+	mat.set_shader_parameter("major", U.col(step * (4.0 if step >= 256 else 8.0)))
 	if at != null:
-		mat.set_shader_parameter("focus", Vector2(at.x, -at.y))
-		mat.set_shader_parameter("reach", maxf(maxf(step * 48, 1536), up * 12))
+		mat.set_shader_parameter("focus", U.col(Vector2(at.x, -at.y)))
+		mat.set_shader_parameter("reach", U.col(maxf(maxf(step * 48, 1536), up * 12)))
 	else:
-		mat.set_shader_parameter("focus", Vector2(cam.x, -cam.y))
-		mat.set_shader_parameter("reach", maxf(maxf(step * 64, 4096), up * 30))
+		mat.set_shader_parameter("focus", U.col(Vector2(cam.x, -cam.y)))
+		mat.set_shader_parameter("reach", U.col(maxf(maxf(step * 64, 4096), up * 30)))
 	gizmo.queue_redraw()
 
 ## THE GIZMO: X, Y and Z as the camera sees them.
@@ -1558,7 +1559,7 @@ func _process(dt: float) -> void:
 const BILLBOARD := """
 shader_type spatial;
 render_mode unshaded, cull_disabled;
-uniform sampler2D tex : source_color, filter_nearest_mipmap;
+uniform sampler2D tex : filter_nearest_mipmap;
 void vertex() {
 	vec3 base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float sx = length(MODEL_MATRIX[0].xyz);
@@ -1576,10 +1577,10 @@ void fragment() {
 
 const PAINTED_SKY := """
 shader_type sky;
-uniform vec4 horizon : source_color;
-uniform vec4 mid : source_color;
-uniform vec4 zenith : source_color;
-uniform vec4 ground : source_color;
+uniform vec4 horizon;
+uniform vec4 mid;
+uniform vec4 zenith;
+uniform vec4 ground;
 void sky() {
 	float y = EYEDIR.y;
 	vec3 c;

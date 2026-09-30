@@ -57,7 +57,7 @@ func _init(g) -> void:
 func _ready() -> void:
 	trail = Particles.new({"max": TRAIL.max, "map": Effects.atlases().smoke, "frames": Effects.SMOKE_PUFFS,
 		"blend": "mix", "fullbright": false, "near_shrink": 90.0})
-	trail.mat.set_shader_parameter("light", TRAIL.light)
+	trail.mat.set_shader_parameter("light", U.col(TRAIL.light))
 	add_child(trail)
 	var box := AABB(Vector3(-1e6, -1e5, -1e6), Vector3(2e6, 2e5, 2e6))
 	for pair in [[im, false], [im_top, true]]:
@@ -88,9 +88,9 @@ func _ready() -> void:
 	var sh := Shader.new()
 	sh.code = preload("res://godot/shaders/particle.gdshader").code.replace("render_mode unshaded,", "render_mode unshaded, blend_add,")
 	bm.shader = sh
-	bm.set_shader_parameter("map", Effects.atlases().fireball)
-	bm.set_shader_parameter("has_map", true)
-	bm.set_shader_parameter("frames", float(Effects.FIREBALLS))
+	bm.set_shader_parameter("map", U.col(Effects.atlases().fireball))
+	bm.set_shader_parameter("has_map", U.col(true))
+	bm.set_shader_parameter("frames", U.col(float(Effects.FIREBALLS)))
 	q.material = bm
 	boom_mm.mesh = q
 	boom_mm.instance_count = 16

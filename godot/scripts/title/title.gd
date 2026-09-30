@@ -111,10 +111,10 @@ func attach_shade(into: Control) -> void:
 		r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://godot/shaders/logo_shadow.gdshader")
-		m.set_shader_parameter("blur", p[3])
-		m.set_shader_parameter("spread", p[4])
-		m.set_shader_parameter("strength", p[5])
-		m.set_shader_parameter("grow", p[0])
+		m.set_shader_parameter("blur", U.col(p[3]))
+		m.set_shader_parameter("spread", U.col(p[4]))
+		m.set_shader_parameter("strength", U.col(p[5]))
+		m.set_shader_parameter("grow", U.col(p[0]))
 		r.material = m
 		shade.add_child(r)
 		shadows.append([r, p[0], p[1], p[2]])

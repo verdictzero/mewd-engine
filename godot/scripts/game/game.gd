@@ -72,6 +72,8 @@ var arc: ArcSystem
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
+## Godot's own decals, under Mobile (render/real_decals.gd); null on the web
+var real_decals: RealDecals
 var fx: Effects
 var giblets: Giblets
 var beam: BeamSystem
@@ -186,7 +188,11 @@ func start_map(doc: Dictionary) -> void:
 	lamps = Lamps.new(level)
 	add_child(lamps)
 	bank = TexBank.new()
-	var geo := MapGeo.new(bank).build(level)
+	var mg := MapGeo.new(bank)
+	# real decals want the world in tiles (RealDecals: eight a mesh)
+	if RealDecals.on():
+		mg.tile = RealDecals.TILE
+	var geo := mg.build(level)
 	add_child(geo)
 	# the way from room to room, for the troops (game/nav.gd)
 	nav = Nav.new(level)
@@ -233,6 +239,12 @@ func start_map(doc: Dictionary) -> void:
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
 	add_child(gore_decals)
+	if RealDecals.on():
+		real_decals = RealDecals.new(self)
+		add_child(real_decals)
+		real_decals.register(geo)
+		decals.real = real_decals
+		gore_decals.real = real_decals
 	fx = Effects.new(self)
 	add_child(fx)
 	giblets = Giblets.new(self)
@@ -277,13 +289,13 @@ func _make_sky(name: String) -> void:
 		# over it (godot/shaders/skybox.gdshader, js/sky.js)
 		var sm := ShaderMaterial.new()
 		sm.shader = preload("res://godot/shaders/skybox.gdshader")
-		sm.set_shader_parameter("panorama", tex)
+		sm.set_shader_parameter("panorama", U.col(tex))
 		var ml: Dictionary = level.map_light
 		var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
 		var amb: Color = ml.get("ambient", Color.BLACK)
-		sm.set_shader_parameter("fog_default", Vector4(fog.r, fog.g, fog.b, fog.a))
-		sm.set_shader_parameter("ambient", Vector3(amb.r, amb.g, amb.b))
-		sm.set_shader_parameter("fog_ambient", float(ml.get("fogAmbient", 1.0)))
+		sm.set_shader_parameter("fog_default", U.col(Vector4(fog.r, fog.g, fog.b, fog.a)))
+		sm.set_shader_parameter("ambient", U.col(Vector3(amb.r, amb.g, amb.b)))
+		sm.set_shader_parameter("fog_ambient", U.col(float(ml.get("fogAmbient", 1.0))))
 		sky.sky_material = sm
 		skybox_mat = sm
 		# the air fades to the sky's horizon texel (worldShade's `air`): the
@@ -299,14 +311,14 @@ func _make_sky(name: String) -> void:
 			var h := maxi(0, img.get_height() / 2 - 1)
 			for i in 64:
 				c += img.get_pixel(i * img.get_width() / 64, h).srgb_to_linear()
-			RenderingServer.global_shader_parameter_set("air_color", c / 64.0)
+			U.gset("air_color", c / 64.0)
 		# and the level's own surfaces take it in their own azimuth
 		# (world_air_at in world_light.gdshaderinc)
-		RenderingServer.global_shader_parameter_set("air_sky", tex)
-		RenderingServer.global_shader_parameter_set("air_sky_on", 1.0)
+		U.gset("air_sky", tex)
+		U.gset("air_sky_on", 1.0)
 	else:
 		var sm := ShaderMaterial.new()
-		RenderingServer.global_shader_parameter_set("air_sky_on", 0.0)
+		U.gset("air_sky_on", 0.0)
 		sm.shader = preload("res://godot/shaders/sky.gdshader")
 		sky.sky_material = sm
 		weather.sky_mat = sm
@@ -338,8 +350,8 @@ func _skybox_fog() -> void:
 		return
 	var open: bool = s.outdoor or s.ceil_tex == "SKY"
 	var top: float = s.floor + 320.0 if open else s.ceil
-	skybox_mat.set_shader_parameter("fog_top", top - camera.position.y)
-	skybox_mat.set_shader_parameter("fog_fade", 128.0 if open else 1.0)
+	skybox_mat.set_shader_parameter("fog_top", U.col(top - camera.position.y))
+	skybox_mat.set_shader_parameter("fog_fade", U.col(128.0 if open else 1.0))
 
 func _bind_keys() -> void:
 	var keys := {
@@ -631,6 +643,8 @@ func tic() -> void:
 	tracers.tic()
 	if decals != null:
 		decals.tic()
+	if real_decals != null:
+		real_decals.tic()
 	forest.wind = weather.wind()
 	rain.tic()
 	flame.tic()

@@ -125,7 +125,7 @@ func _init(g) -> void:
 	# salvo of four through a queue is four of those at once.
 	chunks = Particles.new({"max": 720, "map": art, "frames": GIBLETS, "blend": "mix", "fullbright": false,
 		"near_shrink": 80.0, "order": 13})
-	chunks.mat.set_shader_parameter("light", 0.9)
+	chunks.mat.set_shader_parameter("light", U.col(0.9))
 	chunk_kind.resize(chunks.max)
 	# And the fire coming off them: the same fireballs the gun fires,
 	# small, additive, gone in a third of a second, which is what turns
@@ -139,7 +139,7 @@ func _init(g) -> void:
 	# with a different tic.
 	shards = Particles.new({"max": 200, "map": art, "frames": GIBLETS, "blend": "mix", "fullbright": false,
 		"near_shrink": 80.0, "order": 13})
-	shards.mat.set_shader_parameter("light", 1.0)
+	shards.mat.set_shader_parameter("light", U.col(1.0))
 	for p in [chunks, shards, trail]:
 		add_child(p)
 	_make_ash_batch()
@@ -485,9 +485,9 @@ func _make_ash_batch() -> void:
 	quad.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/standee.gdshader")
-	mat.set_shader_parameter("strip", ImageTexture.create_from_image(bake_ash_strip()))
-	mat.set_shader_parameter("cells", float(ASHES))
-	mat.set_shader_parameter("cell", ASH_CELL)
+	mat.set_shader_parameter("strip", U.col(ImageTexture.create_from_image(bake_ash_strip())))
+	mat.set_shader_parameter("cells", U.col(float(ASHES)))
+	mat.set_shader_parameter("cell", U.col(ASH_CELL))
 	quad.surface_set_material(0, mat)
 	_ash_mm = MultiMesh.new()
 	_ash_mm.transform_format = MultiMesh.TRANSFORM_3D

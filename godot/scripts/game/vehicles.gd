@@ -143,10 +143,10 @@ class Chunk:
 		node.mesh = def.chunk_mesh(lo, hi)
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var m := def.chunk_material()
-		m.set_shader_parameter("light", float(o.light) * 0.7)
-		m.set_shader_parameter("sky", o.sky)
-		m.set_shader_parameter("charred", Vehicle.CHUNK_CHAR)
-		m.set_shader_parameter("paint", o.paint)
+		m.set_shader_parameter("light", U.col(float(o.light) * 0.7))
+		m.set_shader_parameter("sky", U.col(o.sky))
+		m.set_shader_parameter("charred", U.col(Vehicle.CHUNK_CHAR))
+		m.set_shader_parameter("paint", U.col(o.paint))
 		node.material_override = m
 		fleet.add_child(node)
 		place()

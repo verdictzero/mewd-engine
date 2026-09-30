@@ -241,11 +241,11 @@ func _build(root: Node) -> void:
 			if role != "lamp":
 				var sm := ShaderMaterial.new()
 				sm.shader = VEHICLE_SHADER
-				sm.set_shader_parameter("has_map", tex != null)
+				sm.set_shader_parameter("has_map", U.col(tex != null))
 				if tex != null:
-					sm.set_shader_parameter("map", tex)
-				sm.set_shader_parameter("base", colour)
-				sm.set_shader_parameter("centre", local_centre)
+					sm.set_shader_parameter("map", U.col(tex))
+				sm.set_shader_parameter("base", U.col(colour))
+				sm.set_shader_parameter("centre", U.col(local_centre))
 				part.mats.append(sm)
 			if idx == null or (idx as PackedInt32Array).is_empty():
 				idx = PackedInt32Array(range(verts.size()))
@@ -377,9 +377,9 @@ func build(origin: Vector3, phase := 0.0) -> Dictionary:
 		var lm := ShaderMaterial.new()
 		lm.shader = LAMP_SHADER
 		var col: Dictionary = LAMP_COLOURS.get(lamp, LAMP_COLOURS.police)
-		lm.set_shader_parameter("left_lens", col.left)
-		lm.set_shader_parameter("right_lens", col.right)
-		lm.set_shader_parameter("phase", phase)
+		lm.set_shader_parameter("left_lens", U.col(col.left))
+		lm.set_shader_parameter("right_lens", U.col(col.right))
+		lm.set_shader_parameter("phase", U.col(phase))
 		var li := MeshInstance3D.new()
 		li.mesh = am
 		li.material_override = lm
@@ -476,10 +476,10 @@ func chunk_mesh(lo: Vector3, hi: Vector3) -> ArrayMesh:
 func chunk_material() -> ShaderMaterial:
 	var sm := ShaderMaterial.new()
 	sm.shader = VEHICLE_SHADER
-	sm.set_shader_parameter("has_map", texture != null)
+	sm.set_shader_parameter("has_map", U.col(texture != null))
 	if texture != null:
 		# decoded to linear, as the web build's fetch is (TexBank.decoded)
-		sm.set_shader_parameter("map", TexBank.decoded(texture))
-	sm.set_shader_parameter("vertex_ink", true)
-	sm.set_shader_parameter("outward", false)   # the normals are already outward
+		sm.set_shader_parameter("map", U.col(TexBank.decoded(texture)))
+	sm.set_shader_parameter("vertex_ink", U.col(true))
+	sm.set_shader_parameter("outward", U.col(false))   # the normals are already outward
 	return sm

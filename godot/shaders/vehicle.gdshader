@@ -25,10 +25,10 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D map : source_color, filter_nearest_mipmap, repeat_enable;
+uniform sampler2D map : filter_nearest_mipmap, repeat_enable;
 uniform bool has_map = true;
 // a surface with no picture IS this colour (glTF's baseColorFactor)
-uniform vec4 base : source_color = vec4(1.0);
+uniform vec4 base = vec4(1.0);
 // the chunks carry their colour per vertex instead: COLOR.a = 1 means
 // "this is the colour", 0 means "there is a picture" (the INK attribute)
 uniform bool vertex_ink = false;

@@ -277,7 +277,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
-	(crt.material as ShaderMaterial).set_shader_parameter("time", _t)
+	(crt.material as ShaderMaterial).set_shader_parameter("time", U.col(_t))
 	var b := fmod(_t, 1.1) < 0.55
 	if b != _blink:
 		_blink = b

@@ -11,15 +11,15 @@
 // the post pass's here, as for everything else.
 shader_type sky;
 
-uniform vec3 zenith : source_color;
-uniform vec3 horizon : source_color;
-uniform vec3 ground : source_color;
-uniform vec3 mid : source_color;
+uniform vec3 zenith;
+uniform vec3 horizon;
+uniform vec3 ground;
+uniform vec3 mid;
 uniform float mid_amt = 0.0;
 uniform float mid_pow = 1.0;
 uniform vec3 sun_dir = vec3(1.0, 0.0, 0.0);
-uniform vec3 sun_col : source_color;
-uniform vec3 glow : source_color;
+uniform vec3 sun_col;
+uniform vec3 glow;
 uniform float glow_amt = 0.0;
 uniform float sun_up = 0.0;
 uniform vec3 moon_dir = vec3(0.0, 1.0, 0.0);

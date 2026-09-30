@@ -28,7 +28,7 @@ func _init(g) -> void:
 	game = g
 	particles = Particles.new({"max": 380, "map": Effects.atlases().smoke, "frames": Effects.SMOKE_PUFFS,
 		"blend": "mix", "fullbright": false, "near_shrink": 40.0})
-	particles.mat.set_shader_parameter("light", 0.95)
+	particles.mat.set_shader_parameter("light", U.col(0.95))
 
 func fire(origin: Vector3, angle: float, pitch: float) -> void:
 	firing = 3

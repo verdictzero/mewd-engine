@@ -37,12 +37,14 @@ var pixel_aspect := PIXEL_ASPECT
 func _init() -> void:
 	layer = 0
 	world = SubViewport.new()
+	U.raw_out(world)
 	world.name = "World"
 	world.own_world_3d = true
 	world.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	world.msaa_3d = Viewport.MSAA_DISABLED
 	add_child(world)
 	gun = SubViewport.new()
+	U.raw_out(gun)
 	gun.name = "Gun"
 	gun.own_world_3d = true
 	gun.transparent_bg = true
@@ -58,7 +60,7 @@ func _init() -> void:
 	filter_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	mat = ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/lofi.gdshader")
-	mat.set_shader_parameter("lut", preload("res://godot/data/palette_lut.png"))
+	mat.set_shader_parameter("lut", U.col(preload("res://godot/data/palette_lut.png")))
 	filter_rect.material = mat
 	filter.add_child(filter_rect)
 	rect = TextureRect.new()
@@ -74,8 +76,8 @@ func _init() -> void:
 
 func _ready() -> void:
 	rect.texture = filter.get_texture()
-	mat.set_shader_parameter("world_tex", world.get_texture())
-	mat.set_shader_parameter("gun_tex", gun.get_texture())
+	mat.set_shader_parameter("world_tex", U.col(world.get_texture()))
+	mat.set_shader_parameter("gun_tex", U.col(gun.get_texture()))
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 
@@ -105,29 +107,29 @@ func _resize() -> void:
 	var grid := Vector2i(maxi(1, roundi(cols)), maxi(1, roundi(rows)))
 	filter.size = grid
 	filter_rect.size = Vector2(grid)
-	mat.set_shader_parameter("grid_size", Vector2(grid))
+	mat.set_shader_parameter("grid_size", U.col(Vector2(grid)))
 	# how many buffer pixels one chunky pixel covers, 1..4 each way
 	var tx := clampf(roundf(buf.x / float(grid.x)), 1.0, 4.0)
 	var ty := clampf(roundf(buf.y / float(grid.y)), 1.0, 4.0)
-	mat.set_shader_parameter("taps", Vector2(tx, ty))
+	mat.set_shader_parameter("taps", U.col(Vector2(tx, ty)))
 
 ## brightness, contrast, gamma — applied before the dither and the snap,
 ## so a brighter picture is still made of the palette's colours
 func set_picture(bright: float, contrast: float, gamma: float) -> void:
-	mat.set_shader_parameter("picture", Vector3(bright, contrast, gamma))
+	mat.set_shader_parameter("picture", U.col(Vector3(bright, contrast, gamma)))
 
 ## THE PALETTE GIVES WAY, by k (0..1): the potato cannon's nuke is too
 ## bright for it, and every colour it burns through gets onto the glass
 ## (game/potatoes.gd). 0 puts the snap back as it was.
 func set_unsnap(k: float) -> void:
-	mat.set_shader_parameter("snap", _snap * (1.0 - clampf(k, 0.0, 1.0)))
+	mat.set_shader_parameter("snap", U.col(_snap * (1.0 - clampf(k, 0.0, 1.0))))
 
 func set_tint(c: Color) -> void:
-	mat.set_shader_parameter("tint", Vector3(c.r, c.g, c.b))
+	mat.set_shader_parameter("tint", U.col(Vector3(c.r, c.g, c.b)))
 
 ## the filter on or off: off, the buffer is shown as it is
 var _snap := 1.0
 func set_filtered(on: bool) -> void:
 	_snap = 1.0 if on else 0.0
-	mat.set_shader_parameter("snap", _snap)
-	mat.set_shader_parameter("dither", 1.0 if on else 0.0)
+	mat.set_shader_parameter("snap", U.col(_snap))
+	mat.set_shader_parameter("dither", U.col(1.0 if on else 0.0))

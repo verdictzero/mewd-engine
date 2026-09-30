@@ -124,9 +124,9 @@ func _material(kind: String, tint: float, sway := 0.0) -> ShaderMaterial:
 	if not materials.has(key):
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://godot/shaders/title_plant.gdshader")
-		m.set_shader_parameter("map", _tex(kind))
-		m.set_shader_parameter("tint", tint)
-		m.set_shader_parameter("sway", sway)
+		m.set_shader_parameter("map", U.col(_tex(kind)))
+		m.set_shader_parameter("tint", U.col(tint))
+		m.set_shader_parameter("sway", U.col(sway))
 		materials[key] = m
 	return materials[key]
 
@@ -141,9 +141,9 @@ func _flat(tex: Texture2D, tint: float, cut := false, behind := false) -> Shader
 		m.shader = sh
 	else:
 		m.shader = preload("res://godot/shaders/title_plant.gdshader")
-	m.set_shader_parameter("map", tex)
-	m.set_shader_parameter("tint", tint)
-	m.set_shader_parameter("cutout", cut)
+	m.set_shader_parameter("map", U.col(tex))
+	m.set_shader_parameter("tint", U.col(tint))
+	m.set_shader_parameter("cutout", U.col(cut))
 	return m
 
 func _build() -> void:
@@ -155,7 +155,7 @@ func _build() -> void:
 	sky.mesh = sq
 	sky_mat = _flat(sky_tex, 1.1, false, true)
 	sky_mat.render_priority = -2
-	sky_mat.set_shader_parameter("uv_scale", Vector2(0.5, 0.5))
+	sky_mat.set_shader_parameter("uv_scale", U.col(Vector2(0.5, 0.5)))
 	sky.material_override = sky_mat
 	add_child(sky)
 	# THE GROUND: GRASS5, a strip that rides with the eye and slides its picture
@@ -164,7 +164,7 @@ func _build() -> void:
 	gp.size = Vector2(600, 300)
 	ground.mesh = gp
 	ground_mat = _flat(load("res://assets/textures/GRASS5.png"), 0.55, false, true)
-	ground_mat.set_shader_parameter("uv_scale", Vector2(600.0 / GROUND_TILE, 300.0 / GROUND_TILE))
+	ground_mat.set_shader_parameter("uv_scale", U.col(Vector2(600.0 / GROUND_TILE, 300.0 / GROUND_TILE)))
 	ground_mat.render_priority = -1
 	ground.material_override = ground_mat
 	ground.position = Vector3(0, 0, -150)
@@ -212,7 +212,7 @@ func _process(dt: float) -> void:
 	_time += dt
 	camera.position.x = x
 	for m in materials.values():
-		m.set_shader_parameter("wind_time", _time)
+		m.set_shader_parameter("wind_time", U.col(_time))
 	for row in rows:
 		var w: float = row.def.wrap
 		var lo := x - w / 2.0
@@ -227,7 +227,7 @@ func _process(dt: float) -> void:
 	var hh := d * tan(deg_to_rad(FOV / 2.0))
 	sky.position = Vector3(x, EYE_Y + hh * 0.35, -d)
 	sky.scale = Vector3(hh * 2.0 * aspect * 1.05, hh * 2.0 * 0.95, 1)
-	sky_mat.set_shader_parameter("uv_offset", Vector2(fmod(x * 0.0006, 1.0), 0.0))
+	sky_mat.set_shader_parameter("uv_offset", U.col(Vector2(fmod(x * 0.0006, 1.0), 0.0)))
 	ground.position.x = x
 	band.position.x = x
-	ground_mat.set_shader_parameter("uv_offset", Vector2(fmod(x / GROUND_TILE, 1.0), 0.0))
+	ground_mat.set_shader_parameter("uv_offset", U.col(Vector2(fmod(x / GROUND_TILE, 1.0), 0.0)))

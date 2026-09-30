@@ -189,7 +189,7 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			if scope != null and def.has("display") and nm == def.display.material:
 				mi.set_surface_override_material(i, scope.screen_material())
 				if def.get("mirror", false):
-					scope.screen_material().set_shader_parameter("flip_x", true)
+					scope.screen_material().set_shader_parameter("flip_x", U.col(true))
 				# THE PICTURE IS LAID ACROSS THE PANEL'S OWN BOX, measured off
 				# the geometry the file shipped: the mesh is planar, so x and
 				# y across it ARE the screen's two axes
@@ -214,8 +214,8 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				var rm := ShaderMaterial.new()
 				rm.shader = preload("res://godot/shaders/rainbow_screen.gdshader")
 				if src is BaseMaterial3D and (src as BaseMaterial3D).albedo_texture != null:
-					rm.set_shader_parameter("map", (src as BaseMaterial3D).albedo_texture)
-					rm.set_shader_parameter("has_map", true)
+					rm.set_shader_parameter("map", U.col((src as BaseMaterial3D).albedo_texture))
+					rm.set_shader_parameter("has_map", U.col(true))
 				mi.set_surface_override_material(i, rm)
 				continue
 			if scope != null and def.has("optics") and nm == def.optics.material:
@@ -224,22 +224,22 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			var m := ShaderMaterial.new()
 			m.shader = preload("res://godot/shaders/gun.gdshader")
 			var t := Vector3(def.tint[0], def.tint[1], def.tint[2])
-			m.set_shader_parameter("tint", t)
+			m.set_shader_parameter("tint", U.col(t))
 			if src is BaseMaterial3D:
 				var bm: BaseMaterial3D = src
-				m.set_shader_parameter("has_map", bm.albedo_texture != null)
+				m.set_shader_parameter("has_map", U.col(bm.albedo_texture != null))
 				if bm.albedo_texture:
-					m.set_shader_parameter("map", bm.albedo_texture)
-				m.set_shader_parameter("base", bm.albedo_color)
+					m.set_shader_parameter("map", U.col(bm.albedo_texture))
+				m.set_shader_parameter("base", U.col(bm.albedo_color))
 
 				if def.has("heat") and bm.resource_name == def.heat:
-					m.set_shader_parameter("heats", true)
+					m.set_shader_parameter("heats", U.col(true))
 				# A GUN IN ITS OWN COLOURS ("pbr": chrome, gold, red lacquer,
 				# the shamrock decal) is still unlit, like everything: its
 				# metal gets a made-up sky to shine in (gun.gdshader `metal`),
 				# not a light
 				if def.get("pbr", false):
-					m.set_shader_parameter("metal", bm.metallic)
+					m.set_shader_parameter("metal", U.col(bm.metallic))
 			mi.set_surface_override_material(i, m)
 			mats.append(m)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -328,6 +328,6 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 		spin_angle += p.spin * def.spin * TAU * dt
 		G.spinner.rotation.z = spin_angle
 	for m in G.mats:
-		m.set_shader_parameter("dim", light)
-		m.set_shader_parameter("glow", kick)
-		m.set_shader_parameter("heat", p.heat)
+		m.set_shader_parameter("dim", U.col(light))
+		m.set_shader_parameter("glow", U.col(kick))
+		m.set_shader_parameter("heat", U.col(p.heat))

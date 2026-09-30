@@ -11,7 +11,7 @@ render_mode unshaded, cull_disabled, depth_draw_never, skip_vertex_transform;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D map : source_color, filter_nearest;
+uniform sampler2D map : filter_nearest;
 uniform bool has_map = false;
 uniform float frames = 8.0;
 uniform float near_shrink = 0.0;

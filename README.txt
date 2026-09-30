@@ -159,6 +159,12 @@ people apart; blood goes up the walls; every impact is a decal. The
 dead do not stay: a shopper goes at once, a trooper after two seconds
 on the floor, and the blood is what is left.
 
+THE RENDERER is Mobile on the desktop and on Android, for real decals:
+blood that wraps a corner, pools that run over a step, scorches and the
+lance's sears painted across whatever they land on. The web is always
+Compatibility, and there the marks are the flat quads they were. Both
+draw the same picture otherwise. Bullet holes are quads everywhere.
+
 THE PICTURE. The world is drawn at the chunky grid's own size (320
 rows of 2:3 pixels by default), Bayer-dithered one step and snapped to
 an earth palette, then blown up nearest-neighbour, so a 4K window costs
@@ -291,6 +297,7 @@ runs every headless suite in turn and exits non-zero if any fails:
                host with two clients
     editor     the editor's edits and files against the classic editor
     editorui   the editor driven by input events, into the game and back
+    decals     real decals: the tiles, eight a mesh, the rest quads
     death      the dead removed, and their sprites with them
     pad        the pad's bindings on every device, the menus' reading
     layers     room over room on THE ANNEXE
@@ -336,6 +343,9 @@ WHAT IS NOT DONE
   only the SWAT and the army fight back
   a match shares the players and nothing else: crates and cars are
     each machine's own
+  a real decal is lit by the light where it is, not per pixel, and the
+    thermal sight does not see them; past eight on one tile's mesh the
+    rest are flat quads
   the pad's standard-layout fallback is a guess for a controller the
     engine does not know; a strange one may need a mapping of its own
 

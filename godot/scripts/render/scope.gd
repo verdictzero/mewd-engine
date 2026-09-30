@@ -102,6 +102,7 @@ func _init(opts := {}) -> void:
 	# the feed: a target and a camera to fill it, drawing the world this
 	# node is in
 	feed = SubViewport.new()
+	U.raw_out(feed)
 	feed.name = "Feed"
 	feed.size = px
 	feed.msaa_3d = Viewport.MSAA_DISABLED
@@ -189,10 +190,10 @@ func screen_material() -> ShaderMaterial:
 	if screen == null:
 		screen = ShaderMaterial.new()
 		screen.shader = preload("res://godot/shaders/scope_screen.gdshader")
-		screen.set_shader_parameter("feed", feed.get_texture())
-		screen.set_shader_parameter("panel", panel.get_texture())
-		screen.set_shader_parameter("has_panel", true)
-		screen.set_shader_parameter("tint", PHOSPHOR)
+		screen.set_shader_parameter("feed", U.col(feed.get_texture()))
+		screen.set_shader_parameter("panel", U.col(panel.get_texture()))
+		screen.set_shader_parameter("has_panel", U.col(true))
+		screen.set_shader_parameter("tint", U.col(PHOSPHOR))
 	return screen
 
 ## The lens.
@@ -200,14 +201,14 @@ func optics_material(base := [0.34, 0.80, 0.0]) -> ShaderMaterial:
 	if optic == null:
 		optic = ShaderMaterial.new()
 		optic.shader = preload("res://godot/shaders/scope_optic.gdshader")
-		optic.set_shader_parameter("base", Vector3(base[0], base[1], base[2]))
+		optic.set_shader_parameter("base", U.col(Vector3(base[0], base[1], base[2])))
 	return optic
 
 ## The panel's own bounding box in the mesh's units, measured off the
 ## geometry at load time, so a re-export that moves the panel moves the
 ## picture with it. `mn` and `sz` are x, y.
 func set_panel_box(mn: Vector2, sz: Vector2) -> void:
-	screen_material().set_shader_parameter("box", Vector4(mn.x, mn.y, 1.0 / maxf(sz.x, 1e-6), 1.0 / maxf(sz.y, 1e-6)))
+	screen_material().set_shader_parameter("box", U.col(Vector4(mn.x, mn.y, 1.0 / maxf(sz.x, 1e-6), 1.0 / maxf(sz.y, 1e-6))))
 
 ## Where the three stage marks fall on the charge ring, set once by
 ## whoever owns the numbers (Player.stage_marks), so they cannot disagree.
@@ -248,14 +249,14 @@ func update(p, t: int) -> bool:
 	var firing: bool = p != null and p.beam_tics > 0
 	var charge: float = p.charge_fraction() if p != null else 0.0
 	if screen != null:
-		screen.set_shader_parameter("tics", float(t))
-		screen.set_shader_parameter("on", 1.0 if held else 0.0)
+		screen.set_shader_parameter("tics", U.col(float(t)))
+		screen.set_shader_parameter("on", U.col(1.0 if held else 0.0))
 		# A HARD BURST OF STATIC WHILE THE BEAM IS OUT, and nothing the rest
 		# of the time: a scope you cannot read between shots is not a scope
-		screen.set_shader_parameter("noise", 0.52 if firing else 0.0)
+		screen.set_shader_parameter("noise", U.col(0.52 if firing else 0.0))
 	if optic != null:
-		optic.set_shader_parameter("tics", float(t))
-		optic.set_shader_parameter("charge", maxf(charge, 1.0 if firing else 0.0))
+		optic.set_shader_parameter("tics", U.col(float(t)))
+		optic.set_shader_parameter("charge", U.col(maxf(charge, 1.0 if firing else 0.0)))
 	var stage: int = p.charge_stage() if p != null else 0
 	var cell := 0.0
 	if p != null:

@@ -185,10 +185,10 @@ func body_z() -> float:
 ## The shader's view of it: the sector's light and sky, the char, the paint.
 func relight(lit_mul := 1.0) -> void:
 	for m in mats:
-		m.set_shader_parameter("light", light * lit_mul)
-		m.set_shader_parameter("sky", sky)
-		m.set_shader_parameter("charred", char)
-		m.set_shader_parameter("paint", paint)
+		m.set_shader_parameter("light", U.col(light * lit_mul))
+		m.set_shader_parameter("sky", U.col(sky))
+		m.set_shader_parameter("charred", U.col(char))
+		m.set_shader_parameter("paint", U.col(paint))
 
 ## Doom's cylinders, three in a row. They carry a pointer back here,
 ## which is what makes a shot at any third of a van damage the van.
@@ -504,7 +504,7 @@ func smoulder_tic() -> void:
 ## The light bar goes dark and stops flashing, for good.
 func lights_out() -> void:
 	if lamp != null:
-		(lamp.material_override as ShaderMaterial).set_shader_parameter("dark", true)
+		(lamp.material_override as ShaderMaterial).set_shader_parameter("dark", U.col(true))
 
 ## The wheels, turned through as far as it has just rolled.
 func roll(step: float) -> void:

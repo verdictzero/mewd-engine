@@ -88,7 +88,8 @@ func _init(g = null, is_green := false) -> void:
 	game = g
 	feed.name = "ThermalFeed"
 	# the brackets the world draws over the locks are not seen by the sensor
-	camera.cull_mask = camera.cull_mask & ~MissileSystem.RETICLE_LAYER
+	# (and no real decals: the heat picture is of surfaces, not their paint)
+	camera.cull_mask = camera.cull_mask & ~MissileSystem.RETICLE_LAYER & ~RealDecals.DECAL_LAYER
 	# and the sky is cold: this camera's own background, nothing else's
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
@@ -97,16 +98,18 @@ func _init(g = null, is_green := false) -> void:
 	camera.environment = env
 
 func _exit_tree() -> void:
-	RenderingServer.global_shader_parameter_set("thermal_view", Vector2.ZERO)
+	U.gset("thermal_view", Vector2.ZERO)
 	_view_set = Vector2.ZERO
 	_told = Vector2.ZERO
 	if _holder == self:
 		_holder = null
 
-## WHETHER A SUBVIEWPORT HOLDS WHAT THE SHADER WROTE: the Compatibility
-## renderer (no RenderingDevice) does, Forward+ sRGB-encodes on the way in
+## WHETHER A SUBVIEWPORT HOLDS WHAT THE SHADER WROTE: always, now. The
+## Compatibility renderer does of itself; under Mobile (or Forward+) the
+## 3D viewports read as numbers are made HDR (U.raw_out), which is what
+## stops the sRGB encode on the way out.
 static func raw_targets() -> bool:
-	return RenderingServer.get_rendering_device() == null
+	return true
 
 ## the feed's size, which is what the world's shaders compare VIEWPORT_SIZE to
 func feed_size() -> Vector2:
@@ -117,10 +120,10 @@ func screen_material() -> ShaderMaterial:
 	if screen == null:
 		screen = ShaderMaterial.new()
 		screen.shader = preload("res://godot/shaders/thermal_screen.gdshader")
-		screen.set_shader_parameter("feed", feed.get_texture())
-		screen.set_shader_parameter("panel", panel.get_texture())
-		screen.set_shader_parameter("raw", raw_targets())
-		screen.set_shader_parameter("green", green)
+		screen.set_shader_parameter("feed", U.col(feed.get_texture()))
+		screen.set_shader_parameter("panel", U.col(panel.get_texture()))
+		screen.set_shader_parameter("raw", U.col(raw_targets()))
+		screen.set_shader_parameter("green", U.col(green))
 	return screen
 
 # ------------------------------------------------------------------
@@ -140,8 +143,8 @@ func render(world_camera: Camera3D) -> bool:
 	var want := feed_size() if _holder != null else Vector2.ZERO
 	if want != _told:
 		_told = want
-		RenderingServer.global_shader_parameter_set("thermal_view", want)
-		RenderingServer.global_shader_parameter_set("thermal_raw", 1.0 if raw_targets() else 0.0)
+		U.gset("thermal_view", want)
+		U.gset("thermal_raw", 1.0 if raw_targets() else 0.0)
 	var drew := super.render(world_camera)
 	if drew:
 		_heat()
@@ -163,7 +166,7 @@ func _heat() -> void:
 			_warmth[v] = w
 			for m in v.mats:
 				if m is ShaderMaterial:
-					m.set_shader_parameter("warmth", w)
+					m.set_shader_parameter("warmth", U.col(w))
 
 # ------------------------------------------------------------------
 # The glass
@@ -172,11 +175,11 @@ func _heat() -> void:
 func update(p, t: int) -> bool:
 	tics = t
 	if screen != null:
-		screen.set_shader_parameter("tics", float(t))
-		screen.set_shader_parameter("on", 1.0 if held else 0.0)
+		screen.set_shader_parameter("tics", U.col(float(t)))
+		screen.set_shader_parameter("on", U.col(1.0 if held else 0.0))
 		# THE MOTOR BLINDS IT while a missile leaves the tube
 		var launching: bool = p != null and p.weapon == ("POTATO" if green else "LAUNCHER") and p.firing()
-		screen.set_shader_parameter("noise", 0.8 if launching else 0.0)
+		screen.set_shader_parameter("noise", U.col(0.8 if launching else 0.0))
 	var M = game.get("missiles") if game != null and not green else null
 	var marks := _marks(M)
 	var loaded := 0

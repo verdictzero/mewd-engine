@@ -79,7 +79,7 @@ func _init(g, body_atlas: Dictionary = {}) -> void:
 	# goes where the wind takes it.
 	smoke = Particles.new({"max": 360, "map": at.smoke, "frames": SMOKE_PUFFS, "blend": "mix", "fullbright": false,
 		"near_shrink": 90.0, "order": 14})
-	smoke.mat.set_shader_parameter("light", 0.55)
+	smoke.mat.set_shader_parameter("light", U.col(0.55))
 	# THE FIRE PEOPLE CARRY. Its own pool and not the store's, because the
 	# store's flames are PARKED on hot cells; these are spawned at the
 	# body and left where they were spawned, and the difference is the
@@ -94,7 +94,7 @@ func _init(g, body_atlas: Dictionary = {}) -> void:
 	# drawn dark red and shaded by the room, and they FALL.
 	gore = Particles.new({"max": 700, "map": at.smoke, "frames": SMOKE_PUFFS, "blend": "mix", "fullbright": false,
 		"near_shrink": 60.0, "order": 14})
-	gore.mat.set_shader_parameter("light", 0.7)
+	gore.mat.set_shader_parameter("light", U.col(0.7))
 	gore_kind.resize(gore.max)
 	for p in [embers, smoke, body_flames, gore]:
 		add_child(p)

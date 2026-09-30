@@ -96,8 +96,8 @@ func material(name: String) -> ShaderMaterial:
 	if not _mat.has(name):
 		var m := ShaderMaterial.new()
 		m.shader = shader
-		m.set_shader_parameter("tex", texture(name))
-		m.set_shader_parameter("masked", masked(name))
+		m.set_shader_parameter("tex", U.col(texture(name)))
+		m.set_shader_parameter("masked", U.col(masked(name)))
 		_mat[name] = m
 	return _mat[name]
 
@@ -111,12 +111,12 @@ func material_tinted(name: String) -> ShaderMaterial:
 	if not _tmat.has(name):
 		var m := ShaderMaterial.new()
 		m.shader = tint_shader
-		m.set_shader_parameter("tex", texture(name))
-		m.set_shader_parameter("masked", masked(name))
+		m.set_shader_parameter("tex", U.col(texture(name)))
+		m.set_shader_parameter("masked", U.col(masked(name)))
 		var smooth: bool = OWN.has(name) and OWN[name][4]
-		m.set_shader_parameter("use_smooth", smooth)
+		m.set_shader_parameter("use_smooth", U.col(smooth))
 		if smooth:
-			m.set_shader_parameter("tex_smooth", texture(name))
+			m.set_shader_parameter("tex_smooth", U.col(texture(name)))
 		_tmat[name] = m
 	return _tmat[name]
 
@@ -127,9 +127,9 @@ func set_map_light(ml: Dictionary) -> void:
 	for m in _tmat.values():
 		var a: Color = ml.get("ambient", Color.BLACK)
 		var f: Color = ml.get("fog", Color(0, 0, 0, 0))
-		m.set_shader_parameter("ambient", Vector3(a.r, a.g, a.b))
-		m.set_shader_parameter("fog_default", Vector4(f.r, f.g, f.b, f.a))
-		m.set_shader_parameter("fog_ambient", float(ml.get("fogAmbient", 1.0)))
+		m.set_shader_parameter("ambient", U.col(Vector3(a.r, a.g, a.b)))
+		m.set_shader_parameter("fog_default", U.col(Vector4(f.r, f.g, f.b, f.a)))
+		m.set_shader_parameter("fog_ambient", U.col(float(ml.get("fogAmbient", 1.0))))
 
 func all_materials() -> Array:
 	return _mat.values() + _tmat.values()

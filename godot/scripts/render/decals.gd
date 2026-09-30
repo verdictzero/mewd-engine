@@ -55,6 +55,10 @@ var _hpeak := PackedFloat32Array()
 var _hseed := PackedFloat32Array()
 var _hlight := PackedFloat32Array()
 var _hlive := 0
+## REAL DECALS (RealDecals, under Mobile): blood, scorches, the hot spots
+## and the sears go to them; the holes stay here
+var real: RealDecals = null
+var _hmark: Array = []
 var _t0 := Time.get_ticks_msec()
 
 func _ready() -> void:
@@ -84,10 +88,12 @@ func _ready() -> void:
 		arr.fill(0.0)
 	_hn.resize(hn)
 	_hn.fill(Vector3.ZERO)
+	_hmark.resize(hn)
+	_hmark.fill(null)
 	# the sears, on their own material
 	sear_mat = ShaderMaterial.new()
 	sear_mat.shader = preload("res://godot/shaders/sear_decal.gdshader")
-	sear_mat.set_shader_parameter("gl_depth", RenderingServer.get_rendering_device() == null)
+	sear_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
 	var squad := QuadMesh.new()
 	squad.size = Vector2(1, 1)
 	squad.material = sear_mat
@@ -109,9 +115,9 @@ func _ready() -> void:
 	pools["sear"] = sp
 
 func _process(_dt: float) -> void:
-	mat.set_shader_parameter("now", _now())
+	mat.set_shader_parameter("now", U.col(_now()))
 	if sear_mat != null:
-		sear_mat.set_shader_parameter("now", _now())
+		sear_mat.set_shader_parameter("now", U.col(_now()))
 
 func _now() -> float:
 	return (Time.get_ticks_msec() - _t0) / 1000.0
@@ -143,14 +149,19 @@ func heat(at: Vector3, normal: Vector3) -> void:
 		_hseed[best] = U.p_random() / 255.0
 		_hlight[best] = _light_at(at)
 		_hlive += 1
-		var pos := U.v3(at.x, at.y, at.z) + n * 0.7
-		var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
-		var basis := Basis.looking_at(-n, up).rotated(n, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
-		p.mm.set_instance_transform(best, Transform3D(basis, pos))
-		p.mm.visible_instance_count = p.cap
+		_hmark[best] = real.add(RealDecals.K.HEAT, at, normal, HEAT.size, Vector3.ZERO, _hlight[best]) if real != null else null
+		if _hmark[best] == null:
+			var pos := U.v3(at.x, at.y, at.z) + n * 0.7
+			var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
+			var basis := Basis.looking_at(-n, up).rotated(n, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
+			p.mm.set_instance_transform(best, Transform3D(basis, pos))
+			p.mm.visible_instance_count = p.cap
 	_hs[best] = minf(1.0, _hs[best] + HEAT.per)
 	_hpeak[best] = maxf(_hpeak[best], _hs[best])
-	p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
+	if _hmark[best] != null:
+		real.set_strength(_hmark[best], _hs[best])
+	else:
+		p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
 
 ## Once a tic: every spot cools, and one gone cold leaves its scorch.
 func tic() -> void:
@@ -163,6 +174,8 @@ func tic() -> void:
 		_hs[i] -= HEAT.cool
 		if _hs[i] <= 0.0:
 			_expire(i)
+		elif _hmark[i] != null:
+			real.set_strength(_hmark[i], _hs[i])
 		else:
 			p.mm.set_instance_custom_data(i, Color(KIND_HEAT, _hseed[i], _hs[i], _hlight[i]))
 
@@ -173,10 +186,18 @@ func _expire(i: int) -> void:
 	var peak := _hpeak[i]
 	_hs[i] = 0.0
 	_hpeak[i] = 0.0
-	p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+	if _hmark[i] != null:
+		real.remove(_hmark[i])
+		_hmark[i] = null
+	else:
+		p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
 	if peak > HEAT.scorch_at:
 		var n := _hn[i]
-		_put("hole", Vector3(_hx[i], _hy[i], _hz[i]), Vector3(n.x, -n.z, n.y), SCORCH_SIZE * (0.7 + 0.5 * peak), KIND_SCORCH, _hlight[i])
+		var at := Vector3(_hx[i], _hy[i], _hz[i])
+		var nm := Vector3(n.x, -n.z, n.y)
+		var size := SCORCH_SIZE * (0.7 + 0.5 * peak)
+		if real == null or real.add(RealDecals.K.SCORCH, at, nm, size, Vector3.ZERO, _hlight[i]) == null:
+			_put("hole", at, nm, size, KIND_SCORCH, _hlight[i])
 		scorches += 1
 
 ## Which way a wall faces the side a shot came from, in map space.
@@ -217,23 +238,32 @@ func bleed(who, at: Vector3, dir: Vector3) -> void:
 	var reach := BLOOD_REACH * (0.5 + U.p_random() / 510.0)
 	var hit: Dictionary = g.level.ray_hit_wall(at.x, at.y, at.z, at.x + d.x * reach, at.y + d.y * reach, at.z + (U.p_random() / 255.0 - 0.6) * 40.0)
 	if not hit.is_empty():
-		_put("blood", Vector3(hit.x, hit.y, hit.z), wall_normal(hit.line, at.x, at.y), 18.0 + U.p_random() / 12.0, 2.0, _light_at(at))
+		_blood(Vector3(hit.x, hit.y, hit.z), wall_normal(hit.line, at.x, at.y), 18.0 + U.p_random() / 12.0, _light_at(at))
 	elif who.sector != null:
 		# on the floor at their feet
-		_put("blood", Vector3(at.x + d.x * 20.0, at.y + d.y * 20.0, who.sector.floor), Vector3(0, 0, 1), 16.0 + U.p_random() / 16.0, 2.0, _light_at(at))
+		_blood(Vector3(at.x + d.x * 20.0, at.y + d.y * 20.0, who.sector.floor), Vector3(0, 0, 1), 16.0 + U.p_random() / 16.0, _light_at(at))
+
+func _blood(at: Vector3, n: Vector3, size: float, light: float) -> void:
+	if real == null or real.add(RealDecals.K.BLOOD, at, n, size, Vector3.ZERO, light) == null:
+		_put("blood", at, n, size, 2.0, light)
 
 ## A SEAR: where the positron lance's column landed — the crater,
 ## enormous, turned so its streaks lean the way the beam was going (`d`,
 ## map space). It glows for as long as its age says; see the SEAR branch
 ## of sear_decal.gdshader, and BeamSystem.SEAR for the size.
 func sear(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
-	_put_thrown("sear", at, normal, size * (0.9 + 0.2 * randf()), d, KIND_SEAR)
+	var big := size * (0.9 + 0.2 * randf())
+	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
+	if real == null or real.add_sear(at, normal, big, d, s.light if s else 0.8, 1.0 if s != null and s.sky > 0.5 else 0.0) == null:
+		_put_thrown("sear", at, normal, big, d, KIND_SEAR)
 	sears += 1
 
 ## And a gob of SLAG thrown out of it, landed at `at` on the same surface,
 ## thrown along `d`.
 func slag(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
-	_put_thrown("sear", at, normal, size, d, KIND_SLAG)
+	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
+	if real == null or real.add(RealDecals.K.SLAG, at, normal, size, d, s.light if s else 0.8, 1.0 if s != null and s.sky > 0.5 else 0.0) == null:
+		_put_thrown("sear", at, normal, size, d, KIND_SLAG)
 	slags += 1
 
 ## A decal turned so its +x points along `d` laid flat on the surface —

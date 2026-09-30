@@ -137,12 +137,12 @@ func apply(dt: float) -> Dictionary:
 	var f := frame
 	if sky_mat != null:
 		_push_sky(f)
-	RenderingServer.global_shader_parameter_set("air_near", f.airNear)
-	RenderingServer.global_shader_parameter_set("air_far", f.airFar)
-	RenderingServer.global_shader_parameter_set("sky_light", f.skyLight)
-	RenderingServer.global_shader_parameter_set("light_falloff", f.falloff)
-	RenderingServer.global_shader_parameter_set("min_light", f.minLight)
-	RenderingServer.global_shader_parameter_set("global_light", 1.0)
+	U.gset("air_near", f.airNear)
+	U.gset("air_far", f.airFar)
+	U.gset("sky_light", f.skyLight)
+	U.gset("light_falloff", f.falloff)
+	U.gset("min_light", f.minLight)
+	U.gset("global_light", 1.0)
 	return f
 
 func skin(f: Dictionary) -> Dictionary:
@@ -172,33 +172,33 @@ static func _dir(az: float, alt_deg: float) -> Vector3:
 func _push_sky(f: Dictionary) -> void:
 	var m := sky_mat
 	for k in ["zenith", "horizon", "ground", "glow"]:
-		m.set_shader_parameter(k, f[k])
-	m.set_shader_parameter("sun_col", f.sunCol)
-	m.set_shader_parameter("mid", f.get("mid", f.horizon))
-	m.set_shader_parameter("mid_amt", f.get("midAmt", 0.0) if f.has("mid") else 0.0)
-	m.set_shader_parameter("mid_pow", f.get("midPow", 1.0))
-	m.set_shader_parameter("sun_dir", _dir(f.sunAz, f.sunAlt))
-	m.set_shader_parameter("glow_amt", f.glowAmt)
-	m.set_shader_parameter("sun_up", clampf((f.sunAlt + 0.6) / 1.2, 0.0, 1.0))
-	m.set_shader_parameter("moon_dir", _dir(f.moonAz, f.moonAlt))
+		m.set_shader_parameter(k, U.col(f[k]))
+	m.set_shader_parameter("sun_col", U.col(f.sunCol))
+	m.set_shader_parameter("mid", U.col(f.get("mid", f.horizon)))
+	m.set_shader_parameter("mid_amt", U.col(f.get("midAmt", 0.0) if f.has("mid") else 0.0))
+	m.set_shader_parameter("mid_pow", U.col(f.get("midPow", 1.0)))
+	m.set_shader_parameter("sun_dir", U.col(_dir(f.sunAz, f.sunAlt)))
+	m.set_shader_parameter("glow_amt", U.col(f.glowAmt))
+	m.set_shader_parameter("sun_up", U.col(clampf((f.sunAlt + 0.6) / 1.2, 0.0, 1.0)))
+	m.set_shader_parameter("moon_dir", U.col(_dir(f.moonAz, f.moonAlt)))
 	var moon: float = clampf((f.moonAlt + 2.0) / 4.0, 0.0, 1.0) * (1.0 - f.cover * 0.5) * (1.0 - f.flat) if f.moonAlt > -2.0 else 0.0
-	m.set_shader_parameter("moon_amt", moon)
-	m.set_shader_parameter("town", f.town)
-	m.set_shader_parameter("stars", f.stars)
-	m.set_shader_parameter("milky", f.milky)
-	m.set_shader_parameter("daylight", f.daylight)
-	m.set_shader_parameter("cover", f.cover)
-	m.set_shader_parameter("cloud_dark", f.cloudDark)
-	m.set_shader_parameter("flatness", f.flat)
-	m.set_shader_parameter("cloud_time", cloud_time)
-	m.set_shader_parameter("wind", Vector2(f.wind.x, -f.wind.y))
+	m.set_shader_parameter("moon_amt", U.col(moon))
+	m.set_shader_parameter("town", U.col(f.town))
+	m.set_shader_parameter("stars", U.col(f.stars))
+	m.set_shader_parameter("milky", U.col(f.milky))
+	m.set_shader_parameter("daylight", U.col(f.daylight))
+	m.set_shader_parameter("cover", U.col(f.cover))
+	m.set_shader_parameter("cloud_dark", U.col(f.cloudDark))
+	m.set_shader_parameter("flatness", U.col(f.flat))
+	m.set_shader_parameter("cloud_time", U.col(cloud_time))
+	m.set_shader_parameter("wind", U.col(Vector2(f.wind.x, -f.wind.y)))
 	# and the air fades to the horizon, as the web build's does to its
 	# texel — which the bake wrote snapped to the palette and then linear
 	# (js/skyart.js, THE PAINT), so it is that colour and not the byte
 	if not _air_memo.has(f.horizon):
 		_air_memo.clear()
 		_air_memo[f.horizon] = Weather.pal_snap(f.horizon).srgb_to_linear()
-	RenderingServer.global_shader_parameter_set("air_color", _air_memo[f.horizon])
+	U.gset("air_color", _air_memo[f.horizon])
 
 var _air_memo := {}
 static var _lut: Image = null

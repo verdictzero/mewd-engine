@@ -36,6 +36,8 @@ const LIFT := 0.6
 const UP := Vector3(0, 0, 1)
 
 var game
+## REAL DECALS (RealDecals, under Mobile): the blood goes to them
+var real: RealDecals = null
 var mm: MultiMesh
 var mat: ShaderMaterial
 var next := 0
@@ -65,7 +67,7 @@ func _init(g) -> void:
 	add_child(mi)
 
 func _process(_dt: float) -> void:
-	mat.set_shader_parameter("now", _now())
+	mat.set_shader_parameter("now", U.col(_now()))
 
 ## game time, in seconds: the pools spread and dry by the tic, so a
 ## paused game does not dry them
@@ -97,6 +99,11 @@ func _light_at(x: float, y: float, z := 0.0) -> float:
 
 func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> int:
 	var b := surface_basis(n)
+	if real != null:
+		var along: Vector3 = b[0] * cos(rot) + b[1] * sin(rot)
+		if real.add(RealDecals.K.POOL if kind == KIND_POOL else RealDecals.K.SPATTER, at, n, size, along, _light_at(at.x, at.y, at.z)) != null:
+			bloods += 1
+			return -1
 	var c := cos(rot)
 	var s := sin(rot)
 	var ax: Vector3 = b[0] * c + b[1] * s

@@ -54,13 +54,13 @@ func _init(opts: Dictionary) -> void:
 		code = code.replace("render_mode unshaded,", "render_mode unshaded, blend_add,")
 	sh.code = code
 	mat.shader = sh
-	mat.set_shader_parameter("frames", float(frames))
-	mat.set_shader_parameter("near_shrink", float(opts.get("near_shrink", 0.0)))
-	mat.set_shader_parameter("fullbright", 1.0 if opts.get("fullbright", true) else 0.0)
-	mat.set_shader_parameter("soft", 1.0 if opts.get("soft", false) else 0.0)
+	mat.set_shader_parameter("frames", U.col(float(frames)))
+	mat.set_shader_parameter("near_shrink", U.col(float(opts.get("near_shrink", 0.0))))
+	mat.set_shader_parameter("fullbright", U.col(1.0 if opts.get("fullbright", true) else 0.0))
+	mat.set_shader_parameter("soft", U.col(1.0 if opts.get("soft", false) else 0.0))
 	if opts.has("map"):
-		mat.set_shader_parameter("map", opts.map)
-		mat.set_shader_parameter("has_map", true)
+		mat.set_shader_parameter("map", U.col(opts.map))
+		mat.set_shader_parameter("has_map", U.col(true))
 	var quad := QuadMesh.new()
 	quad.material = mat
 	multimesh = MultiMesh.new()

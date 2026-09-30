@@ -15,7 +15,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2DArray albedo : source_color, filter_nearest_mipmap;
+uniform sampler2DArray albedo : filter_nearest_mipmap;
 uniform float u_time = 0.0;
 // THE WIND IN THE LEAVES, at the user's request: the weather's wind as a
 // direction on the ground (Godot x, z) and a strength — see ForestView.draw

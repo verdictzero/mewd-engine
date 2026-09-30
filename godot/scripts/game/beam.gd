@@ -474,18 +474,18 @@ func tic_light(dt: float) -> void:
 		shake = maxf(0.0, shake - dt * 2.6)
 	var g := glow
 	var peak: float = LIGHT_PEAK[glow_stage - 1] if glow_stage >= 1 else 1.0
-	RenderingServer.global_shader_parameter_set("beam_level", g * g * peak)
+	U.gset("beam_level", g * g * peak)
 	if g > 0.0:
 		# game coordinates into the renderer's, the one conversion
 		# everything in this game does at its own edge
-		RenderingServer.global_shader_parameter_set("beam_pos", U.v3(lit_from.x, lit_from.y, lit_from.z))
-		RenderingServer.global_shader_parameter_set("beam_dir", U.v3(lit_dir.x, lit_dir.y, lit_dir.z))
-		RenderingServer.global_shader_parameter_set("beam_len", lit_len)
-		RenderingServer.global_shader_parameter_set("beam_range", LIGHT_RANGE[glow_stage - 1] if glow_stage >= 1 else 400.0)
+		U.gset("beam_pos", U.v3(lit_from.x, lit_from.y, lit_from.z))
+		U.gset("beam_dir", U.v3(lit_dir.x, lit_dir.y, lit_dir.z))
+		U.gset("beam_len", lit_len)
+		U.gset("beam_range", LIGHT_RANGE[glow_stage - 1] if glow_stage >= 1 else 400.0)
 		# the clock the flicker rides: fast while the beam is out, slowing
 		# as the afterglow dies, so the light settles rather than strobes
 		_seed = fmod(_seed + dt * (4.0 + 14.0 * g), 6283.0)
-		RenderingServer.global_shader_parameter_set("beam_seed", _seed)
+		U.gset("beam_seed", _seed)
 
 ## Once a frame: the light, and the column rebuilt round its axis.
 ## `time` is seconds, for the pulse and the rings.

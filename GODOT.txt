@@ -88,11 +88,59 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   — which is blown up to the window nearest-neighbour: a 4K window costs
   what a small one does. Every texture is sampled nearest, every
   surface is unlit (its light is worked out in its own shader), and the
-  renderer is Compatibility on every platform. The gun is a second
+  renderer is MOBILE on the desktop and Android, at the user's request
+  for real decals, and Compatibility on the web (Godot's rule). The
+  picture is the same under both, to within the dither: see THE TWO
+  RENDERERS. The gun is a second
   SubViewport in a world of its own, composited over the room and under
   the filter, exactly as the web build's overlay pass. The HUD, the
   title's menu and the pause menu are CanvasLayers above all of that and
   are never filtered.
+
+  THE TWO RENDERERS. The look was tuned under Compatibility, which
+  converts no colour anywhere: a texture is read as its bytes, a colour
+  handed to a shader arrives as it was given, and a 3D viewport holds
+  what the shader wrote. Mobile does all three differently — it decodes
+  a texture or uniform marked source_color, decodes ANY Color handed to
+  a material's uniform whatever its hint, and sRGB-encodes a 3D
+  viewport's picture on the way out — and the same scene came out paler
+  in every dim or fogged surface and the sky. So, for both to draw the
+  same: no shader of the game's marks anything source_color (Compat-
+  ibility ignores the hint anyway); every material uniform is set
+  through U.col, which under Mobile encodes a Color first so the decode
+  lands on the value meant (the global uniforms are left alone by both
+  renderers, and go through U.gset, which keeps a copy — Mobile will
+  not read one back); and every 3D viewport whose picture is read as
+  numbers (the world, the gun, the scopes' feeds, the editor's 3D view)
+  is HDR under Mobile (U.raw_out), which is what stops the encode.
+
+  REAL DECALS (render/real_decals.gd; Mobile only). Blood — spatters,
+  pools, the older splash — scorches, the flamer's hot spots and the
+  lance's sears and slag are Godot Decal nodes: boxes that paint any
+  surface inside them, so a spray wraps the corner it hit, a pool runs
+  over a step and a sear crosses from the wall to the floor. Bullet
+  holes stay the quads they were, for the reason below. The look is
+  the quads' own shaders', baked at load: each kind drawn by its shader
+  in a bake mode (lit at one, no air or depth test) as colour and as
+  cover — Mobile keeps two bits of alpha in a 3D target, so the cover
+  travels as a colour and a 2D pass joins them — into an atlas, six
+  variants a kind. What the shaders did over time is done to the nodes:
+  a pool's size spreads, blood's tint dries, a hot spot's strength is
+  its cover, and a sear is three decals — the scar, its heat and its
+  embers, the two glows fading at their own rates. A Decal paints an
+  unshaded surface with its own colour, so each mark's modulate is the
+  world's light where it is (world_band, off the copied globals), and
+  it fades into the air with distance. The thermal feed leaves them out.
+  EIGHT A MESH: the Mobile renderer draws at most eight decals on one
+  mesh, and the world was one mesh a texture. So with real decals on,
+  MapGeo cuts each texture's surfaces into 512-unit tiles (MapGeo.tile;
+  triangles across an edge are clipped, their UVs and colours with
+  them), and RealDecals keeps count: a mark that would be a ninth on
+  any tile mesh under it is refused, and laid as the quad it always was
+  — nothing is lost, and nothing is dropped by the renderer unseen. A
+  minigun puts dozens of holes in one spot, which is why holes stay
+  quads. The tiles are more meshes: THE MAZE 482 against 4, THE SPRAWL
+  4,732 against 121.
 
   THE LIGHT (js/material.js -> godot/shaders/world_light.gdshaderinc).
   One set of GLOBAL shader uniforms — sky_light, light_falloff,
@@ -468,7 +516,8 @@ the whole thing (Title.ZIP_URL).
 THE WEB BUILD (the site)
 
   The GitHub Pages site is this, exported for the web: Godot 4.3's Web
-  export (export_presets.cfg, "Web"), the Compatibility renderer on
+  export (export_presets.cfg, "Web"), the Compatibility renderer (the
+  web's, whatever the project's is) on
   WebGL 2, and no threads — GitHub Pages cannot send the headers a
   browser wants before it lends a page threads, so the export is the
   no-threads one, and the editor compiles in place instead of on its
@@ -515,6 +564,11 @@ TESTS
   down, fire under it not going up; and over a loopback network the
   snapshot's height and the client's bodies on the right storey). The
   editor's test holds its map in layers to the web build's build of it.
+  Real decals (godot/tests/decals_test.gd, with RealDecals.force): the
+  world cut into tiles with not a unit of surface gained or lost, never
+  a ninth mark on a tile mesh and the refused ones laid as quads, a sear
+  all three layers or none, a hot spot real and gone when it cools, the
+  caps, and the web's way untouched.
   The dead (godot/tests/death_test.gd): shot, struck frozen, burnt to
   ash, shot down and blown apart, each removed and its sprite let go.
   The pad (godot/tests/pad_test.gd): the bindings answering to every

@@ -92,6 +92,13 @@ class Batch:
 var bank: TexBank
 var batches := {}
 var tinted := false
+## TILES, for real decals (RealDecals): > 0 cuts every texture's surfaces
+## into columns this wide, each its own mesh. The Mobile renderer puts at
+## most eight decals on a mesh, and one mesh a texture for the whole map
+## would be eight decals a texture; a tile is eight to itself. A triangle
+## that crosses a tile's edge is clipped there, its UVs and colours cut
+## with it. 0 (the default, and the editor's) is one mesh a texture.
+var tile := 0.0
 var _paint = null
 var _fog := Color(0, 0, 0, -1)
 const NO_FOG := Color(0, 0, 0, -1)
@@ -131,16 +138,16 @@ func build(lv: Level) -> Node3D:
 		bank.set_map_light(lv.map_light)
 		# the map's light colour is on everything, sprites and plants too
 		if lv.map_light.has("lightColor"):
-			RenderingServer.global_shader_parameter_set("light_color", lv.map_light.lightColor)
+			U.gset("light_color", lv.map_light.lightColor)
 	# and its ambient light and default fog, on the things that are not
 	# the level's own surfaces (world_lit and world_fog in
 	# world_light.gdshaderinc) — nothing, for a level without them
 	var ml: Dictionary = lv.map_light if tinted else {}
 	var amb: Color = ml.get("ambient", Color.BLACK)
 	var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
-	RenderingServer.global_shader_parameter_set("ambient_light", Color(amb.r, amb.g, amb.b, 1.0))
-	RenderingServer.global_shader_parameter_set("map_fog", Vector4(fog.r, fog.g, fog.b, fog.a))
-	RenderingServer.global_shader_parameter_set("map_fog_ambient", float(ml.get("fogAmbient", 1.0)))
+	U.gset("ambient_light", Color(amb.r, amb.g, amb.b, 1.0))
+	U.gset("map_fog", Vector4(fog.r, fog.g, fog.b, fog.a))
+	U.gset("map_fog_ambient", float(ml.get("fogAmbient", 1.0)))
 	return root
 
 ## The batches so far, as MeshInstance3Ds under root (and emptied).
@@ -152,24 +159,111 @@ func _emit(root: Node3D) -> void:
 		var b: Batch = batches[name]
 		if b.v.is_empty():
 			continue
-		var arr := []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = b.v
-		arr[Mesh.ARRAY_TEX_UV] = b.uv
-		arr[Mesh.ARRAY_COLOR] = b.col
-		arr[Mesh.ARRAY_INDEX] = b.idx
-		if tinted:
-			arr[Mesh.ARRAY_CUSTOM0] = b.c0
-			arr[Mesh.ARRAY_CUSTOM1] = b.c1
-		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, flags)
-		mesh.surface_set_material(0, bank.material_tinted(name) if tinted else bank.material(name))
-		var mi := MeshInstance3D.new()
-		mi.name = name
-		mi.mesh = mesh
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		root.add_child(mi)
+		if tile > 0.0:
+			var parts := _tiles(b)
+			for key in parts:
+				var mi := _mesh_instance(name, parts[key], flags)
+				mi.name = "%s@%d,%d" % [name, key.x, key.y]
+				mi.set_meta("tile", key)
+				mi.layers = 1 | RealDecals.RECEIVE_LAYER
+				root.add_child(mi)
+			continue
+		root.add_child(_mesh_instance(name, b, flags))
 	batches = {}
+
+func _mesh_instance(name: String, b: Batch, flags: int) -> MeshInstance3D:
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = b.v
+	arr[Mesh.ARRAY_TEX_UV] = b.uv
+	arr[Mesh.ARRAY_COLOR] = b.col
+	arr[Mesh.ARRAY_INDEX] = b.idx
+	if tinted:
+		arr[Mesh.ARRAY_CUSTOM0] = b.c0
+		arr[Mesh.ARRAY_CUSTOM1] = b.c1
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, flags)
+	mesh.surface_set_material(0, bank.material_tinted(name) if tinted else bank.material(name))
+	var mi := MeshInstance3D.new()
+	mi.name = name
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+## One batch cut into tiles: {Vector2i(tile x, tile z): Batch}. A
+## triangle inside one tile goes over whole; one across an edge is
+## clipped to each tile it covers (Sutherland-Hodgman against the four
+## sides, every attribute carried along), and fanned back to triangles.
+func _tiles(b: Batch) -> Dictionary:
+	var out := {}
+	var T := tile
+	for t in range(0, b.idx.size(), 3):
+		var ia := b.idx[t]
+		var ib := b.idx[t + 1]
+		var ic := b.idx[t + 2]
+		var pa := b.v[ia]
+		var pb := b.v[ib]
+		var pc := b.v[ic]
+		var x0 := floori(minf(pa.x, minf(pb.x, pc.x)) / T)
+		var x1 := floori((maxf(pa.x, maxf(pb.x, pc.x)) - 1e-3) / T)
+		var z0 := floori(minf(pa.z, minf(pb.z, pc.z)) / T)
+		var z1 := floori((maxf(pa.z, maxf(pb.z, pc.z)) - 1e-3) / T)
+		x1 = maxi(x1, x0)
+		z1 = maxi(z1, z0)
+		var tri := [_vtx(b, ia), _vtx(b, ib), _vtx(b, ic)]
+		for tx in range(x0, x1 + 1):
+			for tz in range(z0, z1 + 1):
+				var poly: Array = tri
+				if x0 != x1 or z0 != z1:
+					poly = _clip(poly, 0, tx * T, 1.0)
+					poly = _clip(poly, 0, (tx + 1) * T, -1.0)
+					poly = _clip(poly, 2, tz * T, 1.0)
+					poly = _clip(poly, 2, (tz + 1) * T, -1.0)
+					if poly.size() < 3:
+						continue
+				var key := Vector2i(tx, tz)
+				if not out.has(key):
+					var nb := Batch.new()
+					nb.custom = b.custom
+					out[key] = nb
+				var ob: Batch = out[key]
+				for k in range(1, poly.size() - 1):
+					for vv in [poly[0], poly[k], poly[k + 1]]:
+						ob.idx.append(ob.v.size())
+						ob.v.append(vv[0])
+						ob.uv.append(vv[1])
+						ob.col.append(vv[2])
+						if ob.custom:
+							var c0: Color = vv[3]
+							var c1: Color = vv[4]
+							ob.c0.append_array([c0.r, c0.g, c0.b, c0.a])
+							ob.c1.append_array([c1.r, c1.g, c1.b, c1.a])
+	return out
+
+func _vtx(b: Batch, i: int) -> Array:
+	if b.custom:
+		return [b.v[i], b.uv[i], b.col[i],
+			Color(b.c0[i * 4], b.c0[i * 4 + 1], b.c0[i * 4 + 2], b.c0[i * 4 + 3]),
+			Color(b.c1[i * 4], b.c1[i * 4 + 1], b.c1[i * 4 + 2], b.c1[i * 4 + 3])]
+	return [b.v[i], b.uv[i], b.col[i], null, null]
+
+## the part of `poly` on the kept side of the plane `axis` = `k`
+## (keep: +1 keeps >= k, -1 keeps <= k)
+static func _clip(poly: Array, axis: int, k: float, keep: float) -> Array:
+	var out := []
+	var n := poly.size()
+	for i in n:
+		var a: Array = poly[i]
+		var c: Array = poly[(i + 1) % n]
+		var da: float = ((a[0] as Vector3)[axis] - k) * keep
+		var dc: float = ((c[0] as Vector3)[axis] - k) * keep
+		if da >= 0.0:
+			out.append(a)
+		if (da >= 0.0) != (dc >= 0.0):
+			var f := da / (da - dc)
+			out.append([(a[0] as Vector3).lerp(c[0], f), (a[1] as Vector2).lerp(c[1], f), (a[2] as Color).lerp(c[2], f),
+				(a[3] as Color).lerp(c[3], f) if a[3] != null else null, (a[4] as Color).lerp(c[4], f) if a[4] != null else null])
+	return out
 
 ## A DOOR (Level.Door): [the slab, under a Node3D at its hinge (a) for
 ## Doors to swing or slide, and its lintel (or null)] — the slab's

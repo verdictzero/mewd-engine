@@ -24,6 +24,19 @@ render_mode unshaded, cull_disabled, depth_draw_never, blend_premul_alpha, fog_d
 uniform float now = 0.0;
 // set by Decals off the rendering method: see the depth read below
 uniform bool gl_depth = false;
+// THE BAKE (RealDecals): >= 0 draws the mark itself, lit at 1, with no
+// air, no depth test and no discard, for a real decal's texture (the
+// sears: 0 the scar, 1 its heat, 2 its embers) — opaque, its colour
+// sRGB-encoded, or with bake_alpha its cover as grey: the Mobile
+// renderer keeps two bits of alpha in a 3D target, so the cover travels
+// as a colour and RealDecals puts the two together
+uniform float bake_part = -1.0;
+uniform bool bake_alpha = false;
+vec3 bake_out(vec3 c, float a) {
+	if (bake_alpha) return vec3(clamp(a, 0.0, 1.0));
+	c = clamp(c, 0.0, 1.0);
+	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 varying vec4 cd;
 varying float depth;
@@ -101,7 +114,7 @@ void fragment() {
 	vec3 ndc = gl_depth ? vec3(SCREEN_UV, dz) * 2.0 - 1.0 : vec3(SCREEN_UV * 2.0 - 1.0, dz);
 	vec4 vp = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
 	float scene = -vp.z / vp.w;
-	if (abs(scene - depth) > 3.0 + depth * 0.02) discard;
+	if (bake_part < 0.0 && abs(scene - depth) > 3.0 + depth * 0.02) discard;
 
 	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
 	float r = length(p);
@@ -110,7 +123,9 @@ void fragment() {
 	float seed = cd.y;
 	float age = max(0.0, now - cd.z);
 	float sky = step(1.5, cd.w);
-	float lit = world_band(cd.w - sky * 2.0, depth, sky);
+	float lit = bake_part >= 0.0 ? 1.0 : world_band(cd.w - sky * 2.0, depth, sky);
+	vec3 lc = bake_part >= 0.0 ? vec3(1.0) : light_color.rgb;
+	vec3 glow_ember = vec3(0.0);
 	vec3 col = vec3(0.0);
 	float a = 0.0;
 	vec3 glow = vec3(0.0);
@@ -167,14 +182,15 @@ void fragment() {
 		vec3 char_c = mix(vec3(0.03, 0.025, 0.02), vec3(0.10, 0.08, 0.06), dfbm(q * 12.0 + seed));
 		col = mix(char_c, glass, crater);
 		a = max(crater, max(char_z * 0.97, max(streak * 0.9, max(soot * 0.82, drops * 0.95))));
-		col = world_air(col * lit * light_color.rgb, depth);
+		col = bake_part >= 0.0 ? col : world_air(col * lit * lc, depth);
 		float cr = cracks(q, seed, 13.0) * step(0.27, rr) * (1.0 - smoothstep(0.55, 0.9, rr));
 		float n2 = dfbm(q * 8.0 + seed * 9.0);
 		float veins = (1.0 - smoothstep(0.0, 0.05, abs(n2 - 0.5))) * char_z * step(0.29, rr);
 		float flick = 0.75 + 0.25 * dnoise(q * 10.0 + vec2(now * 2.7, -now * 2.1));
+		glow_ember = hot_ramp(clamp(ember * 0.8, 0.0, 1.0)) * max(cr, veins) * ember * flick * 1.6;
 		glow = hot_ramp(clamp(0.55 + 0.45 * core, 0.0, 1.0)) * crater * (core * 2.2 + heat * 0.3 * (1.0 - rr / 0.28))
 			+ hot_ramp(clamp(heat * 1.1, 0.0, 1.0)) * rim * heat * 2.6
-			+ hot_ramp(clamp(ember * 0.8, 0.0, 1.0)) * max(cr, veins) * ember * flick * 1.6
+			+ glow_ember
 			+ hot_ramp(clamp(heat, 0.0, 1.0)) * (drops + streak * 0.35) * heat * 1.3
 			+ vec3(0.45, 1.0, 0.6) * rim * core * 0.9;
 	} else {
@@ -198,14 +214,24 @@ void fragment() {
 		float m = max(blob, drops);
 		float n = dfbm(p * 6.0 + seed * 4.0);
 		float soot = (1.0 - smoothstep(0.2, 0.8, rb)) * 0.6 * (0.5 + 0.5 * n);
-		col = world_air(mix(vec3(0.025, 0.022, 0.02), vec3(0.09, 0.08, 0.07), n) * lit * light_color.rgb, depth);
+		col = mix(vec3(0.025, 0.022, 0.02), vec3(0.09, 0.08, 0.07), n);
+		if (bake_part < 0.0) col = world_air(col * lit * lc, depth);
 		a = max(m * 0.96, soot);
 		float edge = blob * smoothstep(0.14, 0.30, rb);
 		glow = hot_ramp(clamp(heat * (0.6 + 0.5 * n), 0.0, 1.0)) * (m * 0.6 + edge * 1.2) * heat * 1.8;
 	}
+	if (bake_part >= 0.0) {
+		// 0 the scar, 1 its heat (all but the embers), 2 the embers
+		// a glow goes out as its hue at full strength, its strength the cover
+		vec3 g = bake_part < 1.5 ? glow - glow_ember : glow_ember;
+		float gm = max(g.r, max(g.g, g.b));
+		ALBEDO = bake_part < 0.5 ? bake_out(col, a) : bake_out(g / max(gm, 1e-4), gm);
+		ALPHA = 1.0;
+	} else {
 	if (a < 0.004 && dot(glow, vec3(1.0)) < 0.004) discard;
 	ALBEDO = col * a + glow;
 	ALPHA = a;
 	// the thermal sight's feed: the scar as a surface, its glow as heat
 	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0)) * a + thermal_out(thermal_glow(glow));
+	}
 }

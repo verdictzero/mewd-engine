@@ -140,8 +140,8 @@ func _mesh(b: MapGeo.Batch, tex_path: String, node_name: String) -> void:
 	var m := ShaderMaterial.new()
 	m.shader = preload("res://godot/shaders/world.gdshader")
 	# decoded to linear, as every wall's picture is (TexBank.decoded)
-	m.set_shader_parameter("tex", TexBank.decoded(load(tex_path)))
-	m.set_shader_parameter("masked", true)
+	m.set_shader_parameter("tex", U.col(TexBank.decoded(load(tex_path))))
+	m.set_shader_parameter("masked", U.col(true))
 	mesh.surface_set_material(0, m)
 	var mi := MeshInstance3D.new()
 	mi.name = node_name

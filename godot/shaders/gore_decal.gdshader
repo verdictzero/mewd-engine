@@ -13,6 +13,19 @@ render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
 #include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
+// THE BAKE (RealDecals): >= 0 draws the mark itself, lit at 1, with no
+// air, no depth test and no discard, for a real decal's texture (the
+// sears: 0 the scar, 1 its heat, 2 its embers) — opaque, its colour
+// sRGB-encoded, or with bake_alpha its cover as grey: the Mobile
+// renderer keeps two bits of alpha in a 3D target, so the cover travels
+// as a colour and RealDecals puts the two together
+uniform float bake_part = -1.0;
+uniform bool bake_alpha = false;
+vec3 bake_out(vec3 c, float a) {
+	if (bake_alpha) return vec3(clamp(a, 0.0, 1.0));
+	c = clamp(c, 0.0, 1.0);
+	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
 varying vec4 cd;
 varying float depth;
 
@@ -47,7 +60,7 @@ void fragment() {
 	float kind = cd.x;
 	float seed = cd.y * 7.31;
 	float age = now - cd.z;
-	float lit = world_band(cd.w, depth, 0.0);
+	float lit = bake_part >= 0.0 ? 1.0 : world_band(cd.w, depth, 0.0);
 	vec3 col;
 	float a;
 	if (kind < 5.5) {
@@ -99,8 +112,13 @@ void fragment() {
 		col = (c + sheen) * lit;
 		a = max(body, drips) * 0.95;
 	}
-	if (a < 0.5) discard;
-	ALBEDO = world_air(col, depth);
-	// the thermal sight's feed (thermal.gdshaderinc)
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+	if (bake_part >= 0.0) {
+		ALBEDO = bake_out(col, step(0.5, a));
+		ALPHA = 1.0;
+	} else {
+		if (a < 0.5) discard;
+		ALBEDO = world_air(col, depth);
+		// the thermal sight's feed (thermal.gdshaderinc)
+		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+	}
 }

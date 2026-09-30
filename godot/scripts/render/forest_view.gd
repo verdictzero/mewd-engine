@@ -91,7 +91,7 @@ func _build_plants() -> void:
 	ta.create_from_images(albedo)
 	mat = ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/plant.gdshader")
-	mat.set_shader_parameter("albedo", ta)
+	mat.set_shader_parameter("albedo", U.col(ta))
 	var quad := ArrayMesh.new()
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
@@ -200,8 +200,8 @@ func _build_ground() -> void:
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	_ground_mat = ShaderMaterial.new()
 	_ground_mat.shader = preload("res://godot/shaders/forest_ground.gdshader")
-	_ground_mat.set_shader_parameter("ground_map", TexBank.decoded(load("res://assets/forest/ground.png")))
-	_ground_mat.set_shader_parameter("light", WOOD_LIGHT)
+	_ground_mat.set_shader_parameter("ground_map", U.col(TexBank.decoded(load("res://assets/forest/ground.png"))))
+	_ground_mat.set_shader_parameter("light", U.col(WOOD_LIGHT))
 	mesh.surface_set_material(0, _ground_mat)
 	ground = MeshInstance3D.new()
 	ground.name = "ForestGround"
@@ -217,7 +217,7 @@ func draw(cam: Vector3, time: float) -> void:
 	if forest.cols == 0:
 		return
 	if mat:
-		mat.set_shader_parameter("u_time", time)
+		mat.set_shader_parameter("u_time", U.col(time))
 		# the wind: which way on the ground (map y is Godot -z), and how
 		# hard — a still night barely moves the leaves, a storm bends the
 		# firs; see THE WIND IN THE LEAVES in plant.gdshader
@@ -225,8 +225,8 @@ func draw(cam: Vector3, time: float) -> void:
 		var wy := forest.wind.y
 		var wl := sqrt(wx * wx + wy * wy)
 		if wl > 1e-6:
-			mat.set_shader_parameter("u_wind", Vector3(wx / wl, -wy / wl, clampf(wl / 0.4, 0.15, 2.2)))
+			mat.set_shader_parameter("u_wind", U.col(Vector3(wx / wl, -wy / wl, clampf(wl / 0.4, 0.15, 2.2))))
 		else:
-			mat.set_shader_parameter("u_wind", Vector3(1, 0, 0.15))
+			mat.set_shader_parameter("u_wind", U.col(Vector3(1, 0, 0.15)))
 	if _ground_mat:
-		_ground_mat.set_shader_parameter("u_time", time)
+		_ground_mat.set_shader_parameter("u_time", U.col(time))

@@ -8,7 +8,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
-uniform sampler2D map : source_color, filter_nearest_mipmap, repeat_enable;
+uniform sampler2D map : filter_nearest_mipmap, repeat_enable;
 uniform float tint = 1.0;
 uniform float sway = 0.0;
 uniform float wind_time = 0.0;

@@ -78,9 +78,9 @@ func _strip(key: String, path: String, cell: Vector2) -> void:
 	quad.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/standee.gdshader")
-	mat.set_shader_parameter("strip", tex)
-	mat.set_shader_parameter("cells", float(s.cells))
-	mat.set_shader_parameter("cell", cell)
+	mat.set_shader_parameter("strip", U.col(tex))
+	mat.set_shader_parameter("cells", U.col(float(s.cells)))
+	mat.set_shader_parameter("cell", U.col(cell))
 	quad.surface_set_material(0, mat)
 	s.mm = MultiMesh.new()
 	s.mm.transform_format = MultiMesh.TRANSFORM_3D

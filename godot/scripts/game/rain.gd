@@ -27,7 +27,7 @@ func _init(g) -> void:
 		img.set_pixel(4, y, Color8(168, 184, 212, roundi(a * 0.55)))
 	pool = Particles.new({"max": POOL, "map": ImageTexture.create_from_image(img), "frames": 1,
 		"blend": "mix", "fullbright": false, "near_shrink": 24.0})
-	pool.mat.set_shader_parameter("light", 0.5)
+	pool.mat.set_shader_parameter("light", U.col(0.5))
 
 func tic() -> void:
 	var rain: float = game.weather.frame.get("rain", 0.0)

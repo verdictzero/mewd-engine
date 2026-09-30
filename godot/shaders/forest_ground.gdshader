@@ -9,7 +9,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D ground_map : source_color, filter_nearest_mipmap, repeat_enable;
+uniform sampler2D ground_map : filter_nearest_mipmap, repeat_enable;
 uniform float light = 0.56;
 uniform float u_time = 0.0;
 

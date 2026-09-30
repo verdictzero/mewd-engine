@@ -13,7 +13,7 @@ render_mode unshaded, cull_disabled, blend_add, depth_draw_never, skip_vertex_tr
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D strip : source_color, filter_nearest;
+uniform sampler2D strip : filter_nearest;
 uniform float cells = 1.0;
 
 varying float depth;

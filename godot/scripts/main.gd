@@ -364,8 +364,8 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.pixel_aspect = float(p.pixar)
 	lofi._resize()
 	lofi.set_picture(float(p.bright), float(p.contrast), float(p.gamma))
-	lofi.mat.set_shader_parameter("snap", 1.0 if p.snap else 0.0)
-	lofi.mat.set_shader_parameter("dither", 1.0 if p.snap else 0.0)
+	lofi.mat.set_shader_parameter("snap", U.col(1.0 if p.snap else 0.0))
+	lofi.mat.set_shader_parameter("dither", U.col(1.0 if p.snap else 0.0))
 	music.set_volume(float(p.music))
 	fps_label.visible = bool(p.fps)
 	if game != null:
