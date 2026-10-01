@@ -325,6 +325,9 @@ TOOLS
     tools/build-android.sh     export the Android APK
     tools/build-linux.sh       export the Linux x86_64 build (the linux
                                workflow puts it up as a release)
+    tools/make-icons.py        every icon from the MEWD logo: icon.png
+                               (desktop, web, PWA) and Android's launcher
+                               and adaptive icons (godot/data/icons/)
     tools/ci-android.sh        the same on a clean machine (the android
                                workflow, which puts it up as a release)
     tools/build-site.sh        assemble the classic build into public/
