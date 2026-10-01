@@ -18,7 +18,9 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D strip : filter_nearest;
+// (nearest, and from the mip that fits when the strip has them: the crowd
+// is drawn at the artist's own resolution, Standees "SHOP")
+uniform sampler2D strip : filter_nearest_mipmap;
 uniform float cells = 1.0;
 uniform vec2 cell = vec2(40.0, 64.0);
 

@@ -56,19 +56,27 @@ var _last_tic := -1
 var written := 0
 
 func _ready() -> void:
-	_strip("SHOP", "res://assets/people/shoppers.png", Vector2(40, 64))
+	# THE CROWD AT THE ARTIST'S OWN RESOLUTION, at the user's request
+	# (tools/prep-people-hd.py: galvarius's drawings, not resampled): the
+	# same 40 x 64 units in the world, 371 x 594 pixels in the strip,
+	# mipmapped so a crowd far off does not shimmer
+	_strip("SHOP", "res://assets/people/shoppers_hd.png", Vector2(40, 64), Vector2(371, 594))
 	_strip("SWAT", "res://assets/people/swat.png", Vector2(64, 64))
 	_strip("ARMY", "res://assets/people/army.png", Vector2(64, 64))
 	_strip("BLST", "res://assets/people/blast.png", Vector2(48, 96))
 	_strip("BLUD", "res://assets/people/splat.png", Vector2(56, 20))
 	_strip("GRV", "res://godot/data/stones.png", Vector2(32, 48))
 
-func _strip(key: String, path: String, cell: Vector2) -> void:
+## `texel`: the cell in the strip's own pixels, where that is not the
+## cell in the world (one unit to the pixel) — a strip drawn finer than
+## the world, which is mipmapped
+func _strip(key: String, path: String, cell: Vector2, texel := Vector2.ZERO) -> void:
+	var fine := texel != Vector2.ZERO
 	# decoded to linear, as the web build's sprite fetch is (TexBank.decoded)
-	var tex: Texture2D = TexBank.decoded(load(path), false)
+	var tex: Texture2D = TexBank.decoded(load(path), fine)
 	var s := Strip.new()
 	s.cell = cell
-	s.cells = int(tex.get_width() / cell.x)
+	s.cells = int(tex.get_width() / (texel.x if fine else cell.x))
 	var quad := ArrayMesh.new()
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)

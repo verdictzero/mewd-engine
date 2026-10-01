@@ -13,7 +13,8 @@
 ## Asserts the counts come out as the JS's would, and prints them.
 ## Mode `fire` instead sets three of them alight close up and leaves a
 ## heap of ash, for the body fire, the embers and the smoke (default 60
-## tics).
+## tics). Mode `crowd` stands twelve of them, unharmed, down the run —
+## for the shoppers' sprites (gore_shot.gd -- out.png 1 crowd).
 extends SceneTree
 
 class StubPlayer:
@@ -112,6 +113,13 @@ func _init() -> void:
 
 	if mode == "fire":
 		_fire_scene(sx, sy, c, s, best_len)
+		return
+	if mode == "crowd":
+		for i in 12:
+			var dd: float = minf(50.0 + i * 22.0, best_len - 40.0)
+			var sd := (-1.0 if i & 1 else 1.0) * (10.0 + (i % 3) * 8.0)
+			g.spawn("SHOPPER", sx + c * dd - s * sd, sy + s * dd + c * sd, 0.0, {"variant": i})
+		_run()
 		return
 	var people: Array[Actor] = []
 	var steps := [110.0, 170.0, 230.0, 300.0, 370.0]
