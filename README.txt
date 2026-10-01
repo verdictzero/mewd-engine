@@ -165,7 +165,15 @@ THE WEAPONS, in slots 1 to 8:
 
     1  FLAMER               a stream that lights people and cars
     2  EXTINGUISHER         freezes them solid; a frozen one shatters
-    3  CEREBRAL BORE        a seeker that drills in and holds
+    3  CEREBRAL BORE        a seeker that drills in and holds; blood
+                            pours out the whole time, then the head
+                            goes, absurdly: the body torn apart twice
+                            over, brains, eyes and teeth flung up, a
+                            spray like a burst main, pools, and the neck
+                            pumping for three seconds after. Every part
+                            that lands lies about for a minute (meat, a
+                            hand, a foot, an eye, guts, ribs, a heart, a
+                            brain), and one in three of a rocket's do too
     4  MINIGUN              spins up, eats a belt, leaves holes
     5  POSITRON LANCE       a charged column with a scope; sears walls
     6  QUAD LAUNCHER        four heat-seeking rockets, a thermal sight
@@ -174,6 +182,8 @@ THE WEAPONS, in slots 1 to 8:
                             the maw with motes streaming into it
     8  IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
                             a colour-cycling nuke at the end of it
+                            (OFF FOR NOW: not in the loadout, slot 8
+                            picks nothing; player.gd `owned`)
 
 WHAT THE BIG GUNS LEAVE (godot/shaders/blast_decal.gdshader):
   - A rocket leaves a pitted crater. Its rim glows molten and cools,

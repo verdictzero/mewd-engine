@@ -848,10 +848,13 @@ func bore_tic() -> void:
 	bored -= 1
 	if bored > 0:
 		var top := z + height * 0.9
-		if (bored & 1) == 0 and game.giblets != null:
-			game.giblets.spurt(self)
-		if bored % 4 == 0 and game.fx != null:
+		# DRILLED: it pours out of them the whole time (more of it every
+		# second, at the user's request)
+		if game.giblets != null:
+			game.giblets.spurt(self, 1 + int(bored < BORE_TICS / 2))
+		if bored % 3 == 0 and game.fx != null:
 			game.fx.blood_puff(x, y, top)
+			game.fx.blood_spray(x, y, top, 0.0, 0.0, 0.6, 4, 0.9)
 		if bored % 14 == 0:
 			game.play_sound(info.get("painSound"), self)
 		return
@@ -863,7 +866,8 @@ func bore_burst() -> void:
 	bored = 0
 	if removed or dead:
 		return
+	# THE HEAD GOES, and everything else after it (Giblets.bore_explode)
 	if game.giblets != null:
-		game.giblets.spurt(self, 10)
+		game.giblets.bore_explode(self)
 	health = mini(0, int(info.get("gibHealth", 0)) - 1)
 	die(by, 100)

@@ -103,7 +103,28 @@ const UP := Vector3(0, 0, 1)
 
 ## what each chunk slot is: 0 a burning piece, 1 off a drilled head
 ## (never alight), 2 viscera off a warhead (trails blood)
-enum { K_BURN, K_SPURT, K_GORE }
+enum { K_BURN, K_SPURT, K_GORE, K_BORE }
+
+## THE REMAINS, at the user's request ("lots of random body parts lying
+## around for a while"): a piece of somebody that lands on the floor stays
+## there as the part it is (giblets.png: meat, a foot, a hand, an eye,
+## guts, ribs, a heart, a brain), standing on its little card like a
+## person does, for REMAINS_TICS, shrinking into the floor over the last
+## REMAINS_FADE, the oldest going first past REMAINS_MAX. Every piece the
+## cerebral bore throws stays; one in REMAINS_GORE_EVERY of a warhead's.
+const REMAINS_MAX := 900
+const REMAINS_TICS := 60 * 35
+const REMAINS_FADE := 4 * 35
+const REMAINS_GORE_EVERY := 3
+## THE BORE'S FINISH (bore_explode), at the user's request: "an absurd
+## amount of gore and viscera" — the head goes first and the rest after
+## it, far more of everything than a warhead throws, and the neck keeps
+## going for a while after
+const BORE_GORE := {"parts": 90, "speedMin": 3.0, "speedMax": 13.0, "riseMin": 8.0, "riseMax": 22.0,
+	"sizeMin": 10.0, "sizeMax": 22.0, "spray": 260, "pools": 5, "fountainTics": 105, "force": 2.2}
+## the head's own parts, weighted: the brain, the eyes, the teeth, then
+## any part at all
+const HEAD_PARTS := [10, 10, 10, 5, 5, 5, 4, 4, 9, 9, 6, 6, 0, 1, 2, 3, 7, 8]
 
 var game
 var chunks: Particles
@@ -131,6 +152,14 @@ var eviscerations := 0
 
 ## the heaps of ash, drawn as standees from a strip baked here: [x, y, z, variant]
 var ash_piles: Array = []
+## [x, y, z, frame, size, born (tic), mirrored, light, sky]
+var remains: Array = []
+var _rem_mm: MultiMesh
+var _rem_dirty := false
+var _rem_buf := PackedFloat32Array()
+## the necks still going: {x, y, z, tics}
+var fountains: Array = []
+var bore_finishes := 0
 var _ash_mm: MultiMesh
 var _ash_dirty := false
 
@@ -163,6 +192,7 @@ func _init(g) -> void:
 	for p in [chunks, shards, trail]:
 		add_child(p)
 	_make_ash_batch()
+	_make_remains_batch()
 
 func _fx():
 	return game.get("fx")
@@ -437,6 +467,9 @@ func splat(x: float, y: float, z: float, size := 0.0) -> int:
 
 func tic() -> void:
 	tics += 1
+	if not fountains.is_empty():
+		_fountains_tic()
+	_remains_tic()
 	if not room.is_empty():
 		_room_tic()
 	var lv: Level = game.level
@@ -455,7 +488,7 @@ func tic() -> void:
 			var wall := lv.ray_hit_wall(x, y, z, nx, ny, nz)
 			# ON THE WALL IT HIT, facing the side it came from
 			if not wall.is_empty():
-				_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i])
+				_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i], int(C.frame[i]), C.size0[i])
 				return true
 			var sec := lv.span_at(nx, ny, minf(z, nz) if floor == UNKNOWN else z)
 			floor = sec.floor if sec else 0.0
@@ -464,7 +497,7 @@ func tic() -> void:
 			chk_y[i] = ny
 			chk_z[i] = nz
 		if nz <= floor + 1.0:
-			_land(Vector3(nx, ny, floor), chunk_kind[i], UP, C.vx[i], C.vy[i])
+			_land(Vector3(nx, ny, floor), chunk_kind[i], UP, C.vx[i], C.vy[i], int(C.frame[i]), C.size0[i])
 			return true
 		return false)
 	# the flame off each piece still in the air — except the ones off a
@@ -476,7 +509,7 @@ func tic() -> void:
 				continue
 			# A PIECE OFF A WARHEAD TRAILS BLOOD, not fire: it was never
 			# alight, it was blown out of somebody
-			if chunk_kind[i] == K_GORE:
+			if chunk_kind[i] == K_GORE or chunk_kind[i] == K_BORE:
 				if fx != null and (tics + i) % GORE.trailEvery == 0 and (i & 1) == 0:
 					fx.blood_spray(C.px[i], C.py[i], C.pz[i], -C.vx[i], -C.vy[i], 0.0, 1, 0.15)
 				continue
@@ -508,18 +541,27 @@ func tic() -> void:
 
 ## A piece has come down: a mark where it hit, a pool sometimes, and
 ## NOTHING THAT CATCHES (see LIGHT_FLOOR).
-func _land(at: Vector3, kind: int, n: Vector3, vx: float, vy: float) -> void:
+func _land(at: Vector3, kind: int, n: Vector3, vx: float, vy: float, frame := 0, size := 12.0) -> void:
 	var D = _decals()
 	# A PIECE OF VISCERA off a warhead lands WET: a big spatter thrown the
 	# way it was flying, on whatever it hit, and a pool under it one time
 	# in four — not every time, or sixty pieces is sixty pools and the
 	# ring has eaten the room's walls by the time they are down.
-	if kind == K_GORE:
+	if kind == K_GORE or kind == K_BORE:
 		var sp := maxf(1e-6, Vector2(vx, vy).length())
 		if D != null:
 			D.blood(at, n, Vector3(vx / sp, vy / sp, 0.0 if n == UP else -0.4), 26.0 + randf() * 30.0)
 		if n == UP and (U.p_random() & 3) == 0:
 			splat(at.x, at.y, at.z, 28.0 + randf() * 24.0)
+		# AND THE PART ITSELF STAYS: on the floor where it fell, or slid down
+		# the wall it hit to the floor at its foot
+		if kind == K_BORE or randi() % REMAINS_GORE_EVERY == 0:
+			var p := at
+			if n != UP:
+				p = at + Vector3(n.x, n.y, 0.0) * 5.0
+				var s: Level.Sector = game.level.span_at(p.x, p.y, at.z)
+				p.z = s.floor if s else at.z
+			remain(p, frame, size)
 		return
 	# a piece that was never alight lands as blood, not as sparks
 	if kind != K_SPURT and D != null:
@@ -541,6 +583,137 @@ func draw() -> void:
 	trail.draw()
 	if _ash_dirty:
 		_draw_ash()
+	if _rem_dirty:
+		_draw_remains()
+
+# ------------------------------------------------------------------
+# THE BORE'S FINISH, and what it leaves
+# ------------------------------------------------------------------
+
+## The cerebral bore is done drilling: THE HEAD GOES, absurdly. Everything
+## a warhead does to a body (eviscerate) twice over, then the head's own
+## parts flung up and out — brains, eyes, teeth — then a spray of blood
+## like a burst main, pools round the feet, and the neck still pumping
+## for three seconds after (fountains). Every piece that lands stays
+## where it lands for a minute (remains).
+func bore_explode(a) -> void:
+	if a == null or a.get("vehicle") or a.frozen:
+		return
+	bore_finishes += 1
+	var h := _stood(a)
+	var head := Vector3(a.x, a.y, a.z + h * 0.86)
+	# the body, as a warhead would leave it — from just under the chin, so
+	# it all goes up
+	eviscerate(a, head - Vector3(0, 0, 26.0), BORE_GORE.force)
+	# THE HEAD'S OWN PARTS
+	for k in BORE_GORE.parts:
+		var ang := _r() * TAU
+		var sp: float = BORE_GORE.speedMin + _r() * (BORE_GORE.speedMax - BORE_GORE.speedMin)
+		var size: float = BORE_GORE.sizeMin + _r() * (BORE_GORE.sizeMax - BORE_GORE.sizeMin)
+		var z: float = head.z - _r() * h * 0.5
+		var vz: float = BORE_GORE.riseMin + _r() * (BORE_GORE.riseMax - BORE_GORE.riseMin)
+		var life: float = 90 + (U.p_random() % 90)
+		var c: Color = WET_GIB if (k & 1) == 0 else Color.WHITE
+		var fr := float(HEAD_PARTS[U.p_random() % HEAD_PARTS.size()]) if k < BORE_GORE.parts / 2 else float(U.p_random() % GIBLETS)
+		var i := chunks.put(a.x, a.y, z, cos(ang) * sp, sin(ang) * sp, vz, life, size, size, c, c, fr, 0.0, GORE.drag, GORE.gravity)
+		if i >= 0:
+			chunk_kind[i] = K_BORE
+			chk_x[i] = a.x
+			chk_y[i] = a.y
+			chk_z[i] = z
+			chunk_floor[i] = UNKNOWN
+	var fx = _fx()
+	if fx != null:
+		fx.blood_spray(head.x, head.y, head.z, 0.0, 0.0, 1.0, BORE_GORE.spray, 2.4)
+		for k in 10:
+			fx.blood_puff(head.x + (_r() - 0.5) * 30.0, head.y + (_r() - 0.5) * 30.0, head.z + (k - 5) * 7.0)
+	for k in BORE_GORE.pools:
+		var ang := _r() * TAU
+		var d := 20.0 + _r() * 70.0
+		splat(a.x + cos(ang) * d, a.y + sin(ang) * d, a.z, 40.0 + _r() * 50.0)
+	fountains.append({"x": a.x, "y": a.y, "z": a.z + h * 0.7, "tics": BORE_GORE.fountainTics})
+
+## The necks still going: a jet up out of each, weakening as it goes.
+func _fountains_tic() -> void:
+	var fx = _fx()
+	for i in range(fountains.size() - 1, -1, -1):
+		var f: Dictionary = fountains[i]
+		f.tics -= 1
+		if f.tics <= 0 or fx == null:
+			fountains.remove_at(i)
+			continue
+		var k: float = float(f.tics) / BORE_GORE.fountainTics
+		# a pulse, like a heart still going
+		if (tics % 6) < 3:
+			fx.blood_spray(f.x, f.y, f.z, 0.0, 0.0, 1.0, int(2 + 6 * k), 0.9 + 1.4 * k)
+		if tics % 9 == 0 and randf() < k:
+			spurt({"x": f.x, "y": f.y, "z": f.z - 40.0, "height": 48.0}, 1)
+
+## A part, left on the floor at `at`.
+func remain(at: Vector3, frame: int, size: float) -> void:
+	var s: Level.Sector = game.level.span_at(at.x, at.y, at.z)
+	remains.append([at.x, at.y, at.z + 0.5, clampi(frame, 0, GIBLETS - 1), clampf(size, 7.0, 26.0), tics,
+		randi() & 1, s.light if s else 0.7, s.sky if s else 0.0])
+	while remains.size() > REMAINS_MAX:
+		remains.pop_front()
+	_rem_dirty = true
+
+## The old ones go, and the going ones sink: every few tics.
+func _remains_tic() -> void:
+	if remains.is_empty():
+		return
+	while not remains.is_empty() and tics - int(remains[0][5]) >= REMAINS_TICS:
+		remains.pop_front()
+		_rem_dirty = true
+	if tics % 4 == 0 and tics - int(remains[0][5]) >= REMAINS_TICS - REMAINS_FADE:
+		_rem_dirty = true
+
+func _make_remains_batch() -> void:
+	var quad := ArrayMesh.new()
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3(-0.5, 0, 0), Vector3(0.5, 0, 0), Vector3(0.5, 1, 0), Vector3(-0.5, 1, 0)])
+	arr[Mesh.ARRAY_TEX_UV] = PackedVector2Array([Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)])
+	arr[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2, 0, 2, 3])
+	quad.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://godot/shaders/standee.gdshader")
+	mat.set_shader_parameter("strip", U.col(load("res://assets/people/giblets.png")))
+	mat.set_shader_parameter("cells", U.col(float(GIBLETS)))
+	mat.set_shader_parameter("cell", U.col(Vector2(16, 16)))
+	quad.surface_set_material(0, mat)
+	_rem_mm = MultiMesh.new()
+	_rem_mm.transform_format = MultiMesh.TRANSFORM_3D
+	_rem_mm.use_custom_data = true
+	_rem_mm.mesh = quad
+	_rem_mm.instance_count = REMAINS_MAX
+	_rem_mm.visible_instance_count = 0
+	_rem_buf.resize(REMAINS_MAX * 16)
+	var mi := MultiMeshInstance3D.new()
+	mi.name = "Remains"
+	mi.multimesh = _rem_mm
+	mi.custom_aabb = AABB(Vector3(-1e6, -1e5, -1e6), Vector3(2e6, 2e5, 2e6))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+## All of them in one write: the scale is the part's size (a card is
+## sixteen units, one to the pixel) and how far it has sunk.
+func _draw_remains() -> void:
+	_rem_dirty = false
+	var n := remains.size()
+	var b := _rem_buf
+	for k in n:
+		var r: Array = remains[k]
+		var left: int = REMAINS_TICS - (tics - int(r[5]))
+		var sc: float = float(r[4]) / 16.0 * clampf(float(left) / REMAINS_FADE, 0.0, 1.0)
+		var p := U.v3(r[0], r[1], r[2])
+		var o := k * 16
+		b[o] = sc; b[o + 1] = 0.0; b[o + 2] = 0.0; b[o + 3] = p.x
+		b[o + 4] = 0.0; b[o + 5] = sc; b[o + 6] = 0.0; b[o + 7] = p.y
+		b[o + 8] = 0.0; b[o + 9] = 0.0; b[o + 10] = sc; b[o + 11] = p.z
+		b[o + 12] = float(r[3]); b[o + 13] = r[7]; b[o + 14] = r[8]; b[o + 15] = float(r[6])
+	_rem_mm.buffer = b
+	_rem_mm.visible_instance_count = n
 
 func live_count() -> int:
 	return chunks.count + shards.count + trail.count

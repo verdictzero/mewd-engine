@@ -125,6 +125,15 @@ func _bore(p, run: Vector2) -> void:
 	check(v.bored > 0, "BORE: the bore arrived and is drilling after %d tics" % n)
 	_settle(90)
 	check(v.removed or v.dead, "BORE: and they went off")
+	# THE FINISH IS ABSURD (Giblets.bore_explode): the head and the rest
+	# thrown, and the parts left lying about
+	check(game.giblets.bore_finishes >= 1, "BORE: the head went (bore_explode)")
+	_settle(150)
+	check(game.giblets.remains.size() >= 20, "BORE: and the parts lie about afterwards (%d)" % game.giblets.remains.size())
+	# THE POTATO CANNON is off for now: slot 8 picks nothing
+	var was: String = p.weapon
+	p.select_slot(8)
+	check(not p.owned.get("POTATO", true) and p.pending_weapon != "POTATO" and p.weapon == was, "the potato cannon is not in the loadout")
 
 func _launcher(p, run: Vector2) -> void:
 	_settle(40)

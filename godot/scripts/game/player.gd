@@ -40,7 +40,7 @@ var guard_until := 0
 var respawn_in := 0
 ## the guns this player may pick up — every one alone; the match's
 ## loadout on a network (js/player.js `owned`)
-var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": true}
+var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": false}   # the potato cannon: off for now, at the user's request
 var x := 0.0
 var y := 0.0
 var z := 0.0
