@@ -5,68 +5,167 @@
 ## RG557, say) is not always device 0 — a controller on its USB port, or
 ## the one the browser found first, may be — so every binding here is
 ## for ALL devices (-1), and the right stick is read off whichever pad
-## is pushing it. A pad the engine has no mapping for is given the
-## standard one on arrival (the Gamepad API's layout, which is what the
-## browser and Android hand over for nearly everything), rather than
-## left as bare button numbers that land on the wrong actions.
+## is pushing it.
+##
+## ANDROID'S PAD IS ALREADY IN GODOT'S ORDER. Godot's Android code turns
+## the system's key codes (BUTTON_A, DPAD_UP, ...) into its own button
+## numbers itself, and gives a built-in pad no id, so the engine calls it
+## "unknown". The standard layout used to be put on every unknown pad, in
+## the BROWSER's button order, which scrambled an Anbernic RG557's
+## buttons a second time (Select on L1, Start on L2, the D-pad on the
+## sticks). It is now put only on a pad in a browser, where that order is
+## what arrives.
+##
+## A PAD SET UP BY HAND (PadWizard, ui/pad_wizard.gd): what each action
+## was given, button, axis and direction, or key, as it arrived, kept in
+## user://pad_map.cfg and put over the defaults on every start.
 ##
 ## THE LAYOUT, the way every shooter lays it out (js/input.js sample):
 ## the LEFT stick or the D-pad walks, the RIGHT stick looks, R2 fires,
 ## L2 (or X) jumps, A uses, B steps the scope, the bumpers cycle the
 ## guns (and Y goes forward), a stick pressed in runs, Start or Select
 ## pauses. In the menus the D-pad or a stick moves, A takes, B goes
-## back (Pad.nav).
+## back (Pad.nav), whatever they were set up as.
 class_name Pad
 
 ## the standard layout, for a pad the engine does not know (SDL's
-## words; the numbers are the Gamepad API's standard order, which
-## Android and the browsers use for an unrecognised pad too)
+## words; the numbers are the Gamepad API's standard order, which the
+## browsers use for an unrecognised pad) — in a browser only
 const STANDARD := "a:b0,b:b1,x:b2,y:b3,leftshoulder:b4,rightshoulder:b5,lefttrigger:b6,righttrigger:b7,back:b8,start:b9,leftstick:b10,rightstick:b11,dpup:b12,dpdown:b13,dpleft:b14,dpright:b15,leftx:a0,lefty:a1,rightx:a2,righty:a3"
 const DEAD := 0.18
+const MAP_FILE := "user://pad_map.cfg"
+## the actions a pad plays, in the order the wizard asks for them
+const ACTIONS := ["fwd", "back", "left", "right", "attack", "jump", "use", "zoom", "next_weapon", "prev_weapon", "run", "pause"]
+## the defaults, as the wizard's own words: b = button, a = axis and
+## its direction
+const DEFAULTS := {
+	"fwd": ["b11", "a1-"], "back": ["b12", "a1+"], "left": ["b13", "a0-"], "right": ["b14", "a0+"],
+	"attack": ["a5+"], "jump": ["b2", "a4+"], "use": ["b0"], "zoom": ["b1"],
+	"next_weapon": ["b10", "b3"], "prev_weapon": ["b9"], "run": ["b7", "b8"], "pause": ["b6", "b4"],
+}
+const LOOK_DEFAULT := {"x": 2, "sx": 1.0, "y": 3, "sy": 1.0}
 
 ## whether a pad is in charge — true from its first press or push until
 ## the next finger on the glass; the thumb controls are taken off the
 ## picture while it is (js/input.js padHeld)
 static var held := false
+## the stick that looks: its two axes, each with the way that is right
+## and down
+static var look := LOOK_DEFAULT.duplicate()
 ## the sticks' last nav direction per device, so a push is one step
 static var _nav_prev := {}
 static var _bound := false
 
-## THE BINDINGS, on top of the keys (Game._bind_keys calls this once)
+## THE BINDINGS, on top of the keys: the defaults, then what was set up
+## by hand. Once; Game._bind_keys and Main (Pad.watch) both ask.
 static func bind() -> void:
 	if _bound:
 		return
 	_bound = true
-	var buttons := {
-		"use": [JOY_BUTTON_A], "zoom": [JOY_BUTTON_B], "jump": [JOY_BUTTON_X],
-		"next_weapon": [JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_Y], "prev_weapon": [JOY_BUTTON_LEFT_SHOULDER],
-		"run": [JOY_BUTTON_LEFT_STICK, JOY_BUTTON_RIGHT_STICK],
-		"pause": [JOY_BUTTON_START, JOY_BUTTON_BACK],
-		"fwd": [JOY_BUTTON_DPAD_UP], "back": [JOY_BUTTON_DPAD_DOWN],
-		"left": [JOY_BUTTON_DPAD_LEFT], "right": [JOY_BUTTON_DPAD_RIGHT],
-	}
-	for action in buttons:
+	for action in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
-		for b in buttons[action]:
-			var ev := InputEventJoypadButton.new()
-			ev.device = -1
-			ev.button_index = b
-			InputMap.action_add_event(action, ev)
-	for pair in [["attack", JOY_AXIS_TRIGGER_RIGHT, 1.0], ["jump", JOY_AXIS_TRIGGER_LEFT, 1.0],
-			["fwd", JOY_AXIS_LEFT_Y, -1.0], ["back", JOY_AXIS_LEFT_Y, 1.0],
-			["left", JOY_AXIS_LEFT_X, -1.0], ["right", JOY_AXIS_LEFT_X, 1.0]]:
-		if not InputMap.has_action(pair[0]):
-			InputMap.add_action(pair[0])
-		var ev := InputEventJoypadMotion.new()
-		ev.device = -1
-		ev.axis = pair[1]
-		ev.axis_value = pair[2]
-		InputMap.action_add_event(pair[0], ev)
-		InputMap.action_set_deadzone(pair[0], DEAD)
+		InputMap.action_set_deadzone(action, DEAD)
+	apply(load_map())
 
-## Main calls this once: pads arriving get a mapping if they have none
+## The pad's events of an action gone (its keys and mouse stay).
+static func clear_pad(action: String) -> void:
+	for e in InputMap.action_get_events(action):
+		if e is InputEventJoypadButton or e is InputEventJoypadMotion:
+			InputMap.action_erase_event(action, e)
+
+## A map ({"actions": {action: [words]}, "look": {...}}) onto the
+## InputMap; an action it does not name keeps the default.
+static func apply(m: Dictionary) -> void:
+	var acts: Dictionary = m.get("actions", {})
+	for action in ACTIONS:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+			InputMap.action_set_deadzone(action, DEAD)
+		clear_pad(action)
+		for w in acts.get(action, DEFAULTS[action]):
+			var e := event_of(str(w))
+			if e != null:
+				InputMap.action_add_event(action, e)
+	look = LOOK_DEFAULT.duplicate()
+	var lk = m.get("look")
+	if lk is Dictionary:
+		for k in look:
+			if lk.has(k):
+				look[k] = int(lk[k]) if k in ["x", "y"] else float(lk[k])
+
+static func load_map() -> Dictionary:
+	var cf := ConfigFile.new()
+	if cf.load(MAP_FILE) != OK:
+		return {}
+	return {"actions": cf.get_value("pad", "actions", {}), "look": cf.get_value("pad", "look", {}), "name": cf.get_value("pad", "name", "")}
+
+static func save_map(m: Dictionary) -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("pad", "actions", m.get("actions", {}))
+	cf.set_value("pad", "look", m.get("look", LOOK_DEFAULT))
+	cf.set_value("pad", "name", m.get("name", ""))
+	cf.save(MAP_FILE)
+
+## Back to the defaults, and the hand-made map forgotten.
+static func reset() -> void:
+	if FileAccess.file_exists(MAP_FILE):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(MAP_FILE))
+	apply({})
+
+## "b3" (button 3), "a5+" / "a1-" (axis 5 pushed up / axis 1 pushed down),
+## "k4194320" (a key, physically) — as an event for every device
+static func event_of(w: String) -> InputEvent:
+	if w.length() < 2:
+		return null
+	match w[0]:
+		"b":
+			var e := InputEventJoypadButton.new()
+			e.device = -1
+			e.button_index = int(w.substr(1)) as JoyButton
+			return e
+		"a":
+			var e := InputEventJoypadMotion.new()
+			e.device = -1
+			e.axis = int(w.substr(1, w.length() - 2)) as JoyAxis
+			e.axis_value = -1.0 if w.ends_with("-") else 1.0
+			return e
+		"k":
+			var e := InputEventKey.new()
+			e.physical_keycode = int(w.substr(1)) as Key
+			return e
+	return null
+
+## and the other way: an event as it arrived, in those words
+static func word_of(e: InputEvent) -> String:
+	if e is InputEventJoypadButton:
+		return "b%d" % e.button_index
+	if e is InputEventJoypadMotion:
+		return "a%d%s" % [e.axis, "-" if e.axis_value < 0 else "+"]
+	if e is InputEventKey:
+		return "k%d" % (e.physical_keycode if e.physical_keycode != 0 else e.keycode)
+	return ""
+
+## what a word is, for a person
+static func say(w: String) -> String:
+	if w == "":
+		return "—"
+	match w[0]:
+		"b":
+			var names := ["A", "B", "X", "Y", "SELECT", "HOME", "START", "L3", "R3", "L1", "R1", "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT"]
+			var i := int(w.substr(1))
+			return "%s (button %d)" % [names[i], i] if i < names.size() else "BUTTON %d" % i
+		"a":
+			var i := int(w.substr(1, w.length() - 2))
+			var names := ["LEFT STICK X", "LEFT STICK Y", "RIGHT STICK X", "RIGHT STICK Y", "L2", "R2"]
+			return "%s %s (axis %d)" % [names[i] if i < names.size() else "AXIS %d" % i, "−" if w.ends_with("-") else "+", i]
+		"k":
+			return "KEY %s" % OS.get_keycode_string(int(w.substr(1)) as Key)
+	return w
+
+## Main calls this once: the bindings, and pads arriving told of
 static func watch() -> void:
+	bind()
 	if not Input.joy_connection_changed.is_connected(on_connection):
 		Input.joy_connection_changed.connect(on_connection)
 	for d in Input.get_connected_joypads():
@@ -78,17 +177,22 @@ static func on_connection(device: int, connected: bool) -> void:
 		return
 	var guid := Input.get_joy_guid(device)
 	var name := Input.get_joy_name(device)
-	if not Input.is_joy_known(device) and guid != "" and guid != "0":
+	if wants_standard(device):
 		Input.add_joy_mapping("%s,%s,%s" % [guid, name.replace(",", " ") if name != "" else "Pad", STANDARD], true)
 		print("pad %d: %s (%s) — given the standard layout" % [device, name, guid])
 	else:
 		print("pad %d: %s (%s)" % [device, name, guid])
 
-## the right stick, off whichever pad is pushing it hardest
+## only in a browser, and only for a pad it has no layout for
+static func wants_standard(device: int) -> bool:
+	var guid := Input.get_joy_guid(device)
+	return OS.has_feature("web") and not Input.is_joy_known(device) and guid != "" and guid != "0"
+
+## the look stick, off whichever pad is pushing it hardest
 static func right_stick() -> Vector2:
 	var best := Vector2()
 	for d in Input.get_connected_joypads():
-		var v := Vector2(Input.get_joy_axis(d, JOY_AXIS_RIGHT_X), Input.get_joy_axis(d, JOY_AXIS_RIGHT_Y))
+		var v := Vector2(Input.get_joy_axis(d, look.x) * look.sx, Input.get_joy_axis(d, look.y) * look.sy)
 		if v.length() > best.length():
 			best = v
 	return best if best.length() >= DEAD else Vector2()
@@ -101,13 +205,24 @@ static func is_pad(event: InputEvent) -> bool:
 		return absf(event.axis_value) >= DEAD
 	return false
 
+## the menus' words for the actions that move them
+const NAV := [["fwd", "up"], ["back", "down"], ["left", "left"], ["right", "right"], ["use", "ok"], ["zoom", "back"],
+	["pause", "start"], ["prev_weapon", "prev"], ["next_weapon", "next"]]
+
 ## THE MENUS' READING of a pad event: "up", "down", "left", "right",
 ## "ok", "back", "prev", "next" (the bumpers), "start", or "" for
-## nothing (or the stick returning to the middle)
+## nothing (or the stick returning to the middle). Read off the actions,
+## so a pad set up by hand moves the menus the way it plays.
 static func nav(event: InputEvent) -> String:
 	if event is InputEventJoypadButton:
 		if not event.pressed:
 			return ""
+		for p in NAV:
+			if InputMap.has_action(p[0]) and InputMap.event_is_action(event, p[0], true):
+				return p[1]
+		for a in ACTIONS:
+			if InputMap.has_action(a) and InputMap.event_is_action(event, a, true):
+				return ""     # it plays something else
 		match event.button_index:
 			JOY_BUTTON_DPAD_UP: return "up"
 			JOY_BUTTON_DPAD_DOWN: return "down"
@@ -121,19 +236,30 @@ static func nav(event: InputEvent) -> String:
 		return ""
 	if event is InputEventJoypadMotion:
 		var axis: int = event.axis
-		if axis > JOY_AXIS_RIGHT_Y:
+		var v: float = event.axis_value
+		var now := ""
+		var known := false
+		for p in NAV.slice(0, 4):
+			for e in InputMap.action_get_events(p[0]) if InputMap.has_action(p[0]) else []:
+				if e is InputEventJoypadMotion and e.axis == axis:
+					known = true
+					if v * signf(e.axis_value) >= 0.5:
+						now = p[1]
+		# the look stick moves the menus too
+		if axis == look.x:
+			known = true
+			if absf(v) >= 0.5:
+				now = "right" if v * look.sx > 0 else "left"
+		elif axis == look.y:
+			known = true
+			if absf(v) >= 0.5:
+				now = "down" if v * look.sy > 0 else "up"
+		if not known:
 			return ""
 		var key := "%d:%d" % [event.device, axis]
-		var was: int = _nav_prev.get(key, 0)
-		var now := 0
-		if event.axis_value <= -0.5:
-			now = -1
-		elif event.axis_value >= 0.5:
-			now = 1
+		var was: String = _nav_prev.get(key, "")
 		_nav_prev[key] = now
-		if now == 0 or now == was:
+		if now == "" or now == was:
 			return ""
-		if axis == JOY_AXIS_LEFT_X or axis == JOY_AXIS_RIGHT_X:
-			return "left" if now < 0 else "right"
-		return "up" if now < 0 else "down"
+		return now
 	return ""

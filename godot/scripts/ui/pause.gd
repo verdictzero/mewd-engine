@@ -13,6 +13,8 @@ extends Control
 
 signal resumed
 signal quit_to_title
+## SET UP PAD, in the footer: the wizard (ui/pad_wizard.gd)
+signal pad_setup
 
 const PREFS := "user://prefs.cfg"
 const PREF_VERSION := 14
@@ -109,7 +111,10 @@ func _ready() -> void:
 	var quit := _button("QUIT TO TITLE", 14)
 	quit.pressed.connect(func(): quit_to_title.emit())
 	foot.add_child(quit)
-	_foot = [resume, quit]
+	var setup := _button("SET UP PAD", 14)
+	setup.pressed.connect(func(): pad_setup.emit())
+	foot.add_child(setup)
+	_foot = [resume, quit, setup]
 	show_page(1)
 	visibility_changed.connect(func(): if visible: _cursor_to(-1))
 
@@ -206,8 +211,8 @@ func pad_nav(what: String) -> bool:
 					"down": c = c + 3 if c + 3 < n else n      # the footer
 			else:
 				match what:
-					"left": c = n
-					"right": c = n + 1
+					"left": c = maxi(n, c - 1)
+					"right": c = mini(n + _foot.size() - 1, c + 1)
 					"up": c = n - 1
 					"down": c = c
 			_cursor_to(c)
@@ -225,8 +230,10 @@ func pad_nav(what: String) -> bool:
 				resumed.emit()
 			elif cursor == n:
 				resumed.emit()
-			else:
+			elif cursor == n + 1:
 				quit_to_title.emit()
+			else:
+				pad_setup.emit()
 			return true
 	return false
 

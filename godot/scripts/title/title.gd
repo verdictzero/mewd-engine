@@ -22,9 +22,10 @@ extends Control
 
 signal new_game
 signal open_editor
+signal pad_setup
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["MAP EDITOR", "editor", true], ["OPTIONS", "options", false], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
+	["MAP EDITOR", "editor", true], ["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
 	["DOWNLOAD ZIP", "zip", true]]
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
@@ -207,6 +208,8 @@ func take(i: int) -> void:
 		new_game.emit()
 	elif ITEMS[at][1] == "editor":
 		open_editor.emit()
+	elif ITEMS[at][1] == "pad":
+		pad_setup.emit()
 	elif ITEMS[at][1] == "zip":
 		OS.shell_open(ZIP_URL)
 

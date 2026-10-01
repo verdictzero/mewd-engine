@@ -64,7 +64,8 @@ func _init() -> void:
 	ok(Pad.nav(axis(JOY_AXIS_LEFT_Y, -0.9, 2)) == "up", "nav: and again after")
 	ok(Pad.nav(axis(JOY_AXIS_RIGHT_X, 0.7, 2)) == "right", "nav: right stick right")
 	ok(Pad.nav(axis(JOY_AXIS_TRIGGER_RIGHT, 1.0, 2)) == "", "nav: a trigger is not a direction")
-	ok(Pad.nav(btn(JOY_BUTTON_Y, 0)) == "", "nav: Y is nothing")
+	ok(Pad.nav(btn(JOY_BUTTON_Y, 0)) == "next", "nav: Y, a next-gun button, is next")
+	ok(Pad.nav(btn(JOY_BUTTON_GUIDE, 0)) == "", "nav: Home is nothing")
 	# who is in charge
 	ok(Pad.is_pad(btn(JOY_BUTTON_A, 0)), "is_pad: a button")
 	ok(Pad.is_pad(axis(JOY_AXIS_LEFT_X, 0.5, 0)), "is_pad: a push")
@@ -95,6 +96,71 @@ func _init() -> void:
 	pm.pad_nav("start")
 	ok(got == ["resume"], "pause: Start resumes")
 	pm.prefs["music"] = before
+	pm.pad_nav("down")
+	pm.pad_nav("down")
+	pm.pad_nav("right")
+	pm.pad_nav("right")
+	var setups := []
+	pm.pad_setup.connect(func(): setups.append(1))
+	pm.pad_nav("ok")
+	ok(setups.size() == 1, "pause: SET UP PAD in the footer opens the wizard")
+
+	# ANDROID: the built-in pad is never given the browser's layout
+	ok(not Pad.wants_standard(0) and not OS.has_feature("web"), "off the web, no pad is given the standard (browser) layout")
+
+	# A MAP SET UP BY HAND
+	var kept = FileAccess.get_file_as_string(Pad.MAP_FILE) if FileAccess.file_exists(Pad.MAP_FILE) else null
+	Pad.apply({"actions": {"attack": ["b7"], "use": ["b2"]}, "look": {"x": 3, "sx": -1.0, "y": 4, "sy": 1.0}})
+	ok(btn(7, 0).is_action_pressed("attack") and not axis(JOY_AXIS_TRIGGER_RIGHT, 0.9, 0).is_action_pressed("attack"), "a map: fire on button 7, not R2")
+	ok(btn(2, 3).is_action_pressed("use") and not btn(JOY_BUTTON_A, 3).is_action_pressed("use"), "a map: use on button 2 only")
+	ok(btn(JOY_BUTTON_X, 0).is_action_pressed("jump"), "a map: what it does not name keeps the default")
+	ok(Pad.nav(btn(2, 0)) == "ok", "a map: the menus' OK follows USE")
+	ok(Pad.nav(btn(7, 0)) == "", "a map: a button that fires is not a menu move")
+	ok(Pad.look.x == 3 and Pad.look.sx == -1.0, "a map: the look stick")
+	ok(Pad.nav(axis(3, -0.9, 5)) == "right", "a map: the look stick moves the menus its way round")
+	ok(Pad.event_of("a4-") is InputEventJoypadMotion and Pad.event_of("a4-").axis_value < 0 and Pad.word_of(Pad.event_of("b12")) == "b12", "words and events, both ways")
+	Pad.reset()
+	ok(btn(JOY_BUTTON_A, 0).is_action_pressed("use") and Pad.look.x == JOY_AXIS_RIGHT_X, "reset: the defaults again")
+
+	# THE WIZARD, driven
+	var wz := PadWizard.new()
+	root.add_child(wz)
+	await process_frame
+	var feed := func(e: InputEvent) -> void:
+		wz._input(e)
+		for i in 30:
+			wz._process(0.05)
+	feed.call(axis(JOY_AXIS_LEFT_Y, -0.9, 0))          # forward: the stick up, back derived
+	feed.call(btn(JOY_BUTTON_DPAD_LEFT, 0))            # left: a button, so right is asked too
+	feed.call(btn(JOY_BUTTON_DPAD_RIGHT, 0))
+	feed.call(btn(JOY_BUTTON_A, 0))                    # the look wants a stick: refused
+	ok(wz.steps[wz.at][0] == "look_y", "wizard: a button for the look is refused")
+	feed.call(axis(JOY_AXIS_RIGHT_Y, 0.9, 0))          # this pad's up is +
+	feed.call(axis(JOY_AXIS_RIGHT_X, 0.9, 0))
+	feed.call(btn(7, 0))                               # fire on button 7 (L3 by default)
+	wz.skip()                                          # jump: skipped
+	for i in 30:
+		wz._process(0.05)
+	feed.call(btn(JOY_BUTTON_Y, 0))                    # use on Y
+	while not wz._done:
+		wz._left = 0.0
+		wz._process(0.05)
+		for i in 30:
+			wz._process(0.05)
+	ok(btn(7, 0).is_action_pressed("attack") and not btn(7, 0).is_action_pressed("run"), "wizard: fire on button 7, taken off RUN")
+	ok(btn(JOY_BUTTON_Y, 0).is_action_pressed("use") and not btn(JOY_BUTTON_Y, 0).is_action_pressed("next_weapon"), "wizard: use on Y, taken off NEXT GUN")
+	ok(axis(JOY_AXIS_LEFT_Y, 0.9, 0).is_action_pressed("back"), "wizard: the stick up, and down is back")
+	ok(btn(JOY_BUTTON_DPAD_RIGHT, 0).is_action_pressed("right"), "wizard: a D-pad asks its other way too")
+	ok(Pad.look.y == JOY_AXIS_RIGHT_Y and Pad.look.sy == -1.0, "wizard: this pad's look up, the right way round")
+	ok(btn(JOY_BUTTON_X, 0).is_action_pressed("jump"), "wizard: a skipped step keeps what it had")
+	ok(FileAccess.file_exists(Pad.MAP_FILE) and Pad.load_map().actions.attack == ["b7"], "wizard: saved")
+	wz._close()
+	if kept == null:
+		Pad.reset()
+	else:
+		var f := FileAccess.open(Pad.MAP_FILE, FileAccess.WRITE)
+		f.store_string(kept)
+		f.close()
 	print("pad: %d checks, %d failed" % [checks, fails])
 	print("OK" if fails == 0 else "FAIL")
 	quit(1 if fails > 0 else 0)

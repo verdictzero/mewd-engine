@@ -11,6 +11,8 @@ config/description="MEWD — Made Entirely Without Doom"
 run/main_scene="res://godot/scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.png"
+; Android's Back (a handheld's Select, often) pauses, never quits
+config/quit_on_go_back=false
 boot_splash/bg_color=Color(0.043, 0.075, 0.078, 1)
 boot_splash/image="res://godot/data/splash.png"
 boot_splash/fullsize=false

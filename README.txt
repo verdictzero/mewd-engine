@@ -106,8 +106,10 @@ Click the picture to capture the mouse; Esc gives it back.
 
 PAD. Any pad on any port: a handheld's built-in controller (the
 Anbernic RG557 and its kind), a USB or Bluetooth controller, or both at
-once. Every binding answers to every device, and a pad the engine has
-no mapping for is given the standard layout when it connects.
+once. Every binding answers to every device. In a browser, a pad the
+engine has no mapping for is given the standard layout when it
+connects. On Android the system already reports the buttons in order,
+so nothing is remapped.
 
     left stick / D-pad   move               right stick     look
     R2                   fire               L2 / X          jump
@@ -118,7 +120,18 @@ no mapping for is given the standard layout when it connects.
 In the menus the D-pad or either stick moves, A takes, B goes back,
 and L1/R1 turn the pause menu's pages; at the terminal A is Enter and
 B is Backspace. In a browser the game learns of a pad on its first
-press, so press something.
+press, so press something. Android's Back button (often a handheld's
+Select) pauses the game; it never quits.
+
+SET UP PAD, on the title or in the pause menu's footer, is a guided
+wizard for a pad whose buttons land wrong. It asks for each action in
+turn (move, look, fire, jump, use, scope, the guns, run, pause), and
+keeps whatever the pad sends: a button, a stick or a trigger, or a
+key. Waiting 10 seconds or pressing SKIP leaves a step as it was.
+DEFAULTS puts the standard layout back. The menus follow the new map
+too, so the button that is USE is also OK. Along the bottom the wizard
+shows what the pad is sending, raw, which helps tell what a strange
+pad is doing. The map is kept in user://pad_map.cfg.
 
 TOUCH (a phone, or a handheld's glass). A stick appears where the left
 thumb lands; the rest of the glass is look. FIRE, JUMP, USE and SWAP
@@ -330,7 +343,8 @@ runs every headless suite in turn and exits non-zero if any fails:
     editorui   the editor driven by input events, into the game and back
     decals     real decals: the tiles, eight a mesh, the rest quads
     death      the dead removed, and their sprites with them
-    pad        the pad's bindings on every device, the menus' reading
+    pad        the pad's bindings on every device, the menus' reading,
+               a map set up by hand, the SET UP PAD wizard driven
     layers     room over room on THE ANNEXE
     layerspane the editor's layers panel: the stack, the hierarchy, the
                eye, moving, duplicating and deleting storeys
@@ -379,8 +393,8 @@ WHAT IS NOT DONE
   a real decal is lit by the light where it is, not per pixel, and the
     thermal sight does not see them; past eight on one tile's mesh the
     rest are flat quads
-  the pad's standard-layout fallback is a guess for a controller the
-    engine does not know; a strange one may need a mapping of its own
+  the pad's standard-layout fallback (in a browser) is a guess for a
+    controller the engine does not know; SET UP PAD fixes a strange one
 
 Everything else the Godot build leaves out is listed at the end of
 GODOT.txt. The classic build's own list is at the end of HISTORY.txt.

@@ -59,6 +59,7 @@ func _ready() -> void:
 	pause_layer.add_child(pause)
 	pause.resumed.connect(resume)
 	pause.quit_to_title.connect(quit_to_title)
+	pause.pad_setup.connect(open_pad_wizard)
 	fps_label = PerfOverlay.new()
 	fps_label.visible = false
 	hud_layer.add_child(fps_label)
@@ -190,6 +191,7 @@ func show_title() -> void:
 	title.attach_shade(shade)
 	title.new_game.connect(start_game)
 	title.open_editor.connect(_title_to_editor)
+	title.pad_setup.connect(open_pad_wizard)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
 
@@ -427,6 +429,30 @@ func quit_to_title() -> void:
 	if game != null and game.net != null:
 		game.net.close()
 	get_tree().reload_current_scene()
+
+## SET UP THE PAD (ui/pad_wizard.gd), from the title or the pause menu:
+## over everything, taking every press until it is done
+var pad_wizard: PadWizard
+
+func open_pad_wizard() -> void:
+	if pad_wizard != null and is_instance_valid(pad_wizard):
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	add_child(layer)
+	pad_wizard = PadWizard.new()
+	layer.add_child(pad_wizard)
+	pad_wizard.finished.connect(func(): layer.queue_free(); pad_wizard = null)
+
+## ANDROID'S BACK (a handheld's Select is often it): never a quit
+## (application/config/quit_on_go_back is off) — the pause menu, or out
+## of it
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if pad_wizard != null and is_instance_valid(pad_wizard):
+			return
+		if game != null:
+			toggle_pause()
 
 ## WHO IS IN CHARGE, decided before anything else sees the event: a
 ## pad's press or push takes the controls, a finger on the glass takes
