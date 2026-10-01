@@ -284,13 +284,13 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   go in the crowd's MultiMesh is zeroed, and standee.gdshader scales
   the card by that row's scale (it builds the card itself, so without
   that the last frame of the dead was drawn where they fell).
-  THE CROWD AT FULL SIZE, at the user's request ("no re-sample /
-  resize them"): the shoppers are galvarius's own drawings, every pixel
-  (assets/people/shoppers_hd.png, from `python3 tools/prep-people-hd.py
-  /path/to/galvarius`), trimmed and nothing else, in cells of 371 x 594
-  — the classic 40 x 64 world units at the artist's 575 pixels to a
-  62-unit adult, so each stands as tall as before. Standees._strip takes
-  the texel cell, mipmaps the strip and lays it out by fraction; the
+  THE CROWD, SHARPER, at the user's request: the shoppers are
+  galvarius's own drawings (assets/people/shoppers_hd.png, from `python3
+  tools/prep-people-hd.py /path/to/galvarius`), trimmed and all shrunk by
+  one factor so a cell's short axis is 128 pixels: 128 x 205, the classic
+  40 x 64 world units at the artist's scale (575 pixels to a 62-unit
+  adult), so each stands as tall as before. Standees._strip takes the
+  texel cell, mipmaps the strip and lays it out by fraction; the
   classic build keeps its boxed-down shoppers.png.
 
   THE DATA the port reads from the web build's own tables is written by

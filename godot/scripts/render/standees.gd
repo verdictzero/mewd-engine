@@ -56,11 +56,11 @@ var _last_tic := -1
 var written := 0
 
 func _ready() -> void:
-	# THE CROWD AT THE ARTIST'S OWN RESOLUTION, at the user's request
-	# (tools/prep-people-hd.py: galvarius's drawings, not resampled): the
-	# same 40 x 64 units in the world, 371 x 594 pixels in the strip,
+	# THE CROWD AT 128 PIXELS ACROSS, at the user's request
+	# (tools/prep-people-hd.py: galvarius's drawings, one scale): the
+	# same 40 x 64 units in the world, 128 x 205 pixels in the strip,
 	# mipmapped so a crowd far off does not shimmer
-	_strip("SHOP", "res://assets/people/shoppers_hd.png", Vector2(40, 64), Vector2(371, 594))
+	_strip("SHOP", "res://assets/people/shoppers_hd.png", Vector2(40, 64), Vector2(128, 205))
 	_strip("SWAT", "res://assets/people/swat.png", Vector2(64, 64))
 	_strip("ARMY", "res://assets/people/army.png", Vector2(64, 64))
 	_strip("BLST", "res://assets/people/blast.png", Vector2(48, 96))

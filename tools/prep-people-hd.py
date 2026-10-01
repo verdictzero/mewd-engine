@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""MEWD — the crowd at the artist's own resolution, for the Godot build.
+"""MEWD — the crowd at 128 pixels across, for the Godot build.
 
     python3 tools/prep-people-hd.py /path/to/galvarius
 
 tools/prep-people.mjs brings the shoppers over from github.com/verdictzero
 /galvarius for the classic build, boxed down ten to one so a sprite is one
-unit to the pixel. This one, at the user's request, does NOT RESAMPLE OR
-RESIZE them: the same seventeen drawings, trimmed to their own pixels and
-nothing else, laid into equal cells exactly as prep-people lays the small
-ones (centred across, standing on the bottom), into
-assets/people/shoppers_hd.png.
+unit to the pixel. This one keeps far more of them: the same seventeen
+drawings, trimmed to their own pixels, laid into equal cells exactly as
+prep-people lays the small ones (centred across, standing on the bottom),
+into assets/people/shoppers_hd.png.
 
-The cell is the classic one (40 x 64 world units) times the artist's own
-scale, 575 pixels to a 62-unit adult: 371 x 594. So every person is the
-same size in the world as before, and the same height against every other,
-with every pixel the artist drew. The game draws the strip by fraction
+The cell is the classic one (40 x 64 world units) at the artist's own
+scale, 575 pixels to a 62-unit adult (371 x 594), then, at the user's
+request, shrunk so its short axis is SHORT = 128 pixels and the long one
+in proportion: 128 x 205. Every drawing is shrunk by that one factor
+(Lanczos), so every person is the same size in the world as before and
+the same height against every other. The game draws the strip by fraction
 (render/standees.gd, `texel`), mipmapped, so it does not shimmer far off.
 
 Needs Pillow."""
@@ -34,7 +35,10 @@ THEIR_ADULT = 575
 ADULT = 62
 CELL = (40, 64)
 K = THEIR_ADULT / ADULT
-CW, CH = round(CELL[0] * K), round(CELL[1] * K)
+FULL = (CELL[0] * K, CELL[1] * K)
+SHORT = 128
+S = SHORT / min(FULL)
+CW, CH = round(FULL[0] * S), round(FULL[1] * S)
 
 
 def trimmed(path):
@@ -42,7 +46,9 @@ def trimmed(path):
     # everything that is not (nearly) transparent, as prep-people's trim
     a = im.getchannel('A').point(lambda v: 255 if v > 8 else 0)
     box = a.getbbox()
-    return im.crop(box) if box else im
+    im = im.crop(box) if box else im
+    size = (max(1, round(im.width * S)), max(1, round(im.height * S)))
+    return im.resize(size, Image.LANCZOS)
 
 
 def main():
