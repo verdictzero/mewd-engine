@@ -311,7 +311,7 @@ static func build() -> Dictionary:
 			b.plant(kind, px, py, 1 + b.rnd() * 0.3)
 		t += 640
 
-	# ---- THE BLOCKS: a pavement each, lamps and street trees round it
+	# ---- THE BLOCKS: a pavement each, street trees round it
 	var blocks := []
 	for j in 4:
 		for i in 4:
@@ -326,10 +326,6 @@ static func build() -> Dictionary:
 			var step := 800
 			var tt := step / 2
 			while tt < BLOCK:
-				b.thing("STREETLAMP", x0 + tt, y0 + 48, {"angle": -PI / 2})
-				b.thing("STREETLAMP", x0 + tt, y1 - 48, {"angle": PI / 2})
-				b.thing("STREETLAMP", x0 + 48, y0 + tt, {"angle": PI})
-				b.thing("STREETLAMP", x1 - 48, y0 + tt, {"angle": 0.0})
 				if tt + step / 2 < BLOCK and absf(tt + step / 2.0 - BLOCK / 2.0) > 200:
 					b.plant(b.pick(STREET), x0 + tt + step / 2, y0 + 96)
 					b.plant(b.pick(STREET), x0 + tt + step / 2, y1 - 96)

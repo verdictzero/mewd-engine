@@ -303,10 +303,14 @@ func start_game() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if loading != null:
 		# the first frames of the world, under the screen: every shader it
-		# draws with compiles now rather than on the first look round
+		# draws with compiles now rather than on the first look round —
+		# and everything the level has built but not shown yet (every gun,
+		# the rockets, the sparks, the scopes) drawn too (Warmup)
+		var warm := Warmup.begin([game, lofi.gun])
 		for i in 4:
 			loading.at("WARMING UP THE SHADERS", 0.6 + 0.1 * i)
 			await RenderingServer.frame_post_draw
+		Warmup.end(warm)
 		loading.finish()
 
 static func _arg(prefix: String) -> bool:

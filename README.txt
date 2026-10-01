@@ -166,9 +166,18 @@ THE WEAPONS, in slots 1 to 8:
     4  MINIGUN              spins up, eats a belt, leaves holes
     5  POSITRON LANCE       a charged column with a scope; sears walls
     6  QUAD LAUNCHER        four heat-seeking rockets, a thermal sight
-    7  ARC MAW              a charge, then lightning that chains
+    7  ARC MAW              a charge, then lightning that chains; while
+                            it charges a ball of blue energy grows in
+                            the maw with motes streaming into it
     8  IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
                             a colour-cycling nuke at the end of it
+
+Every gun is loaded when a level is built, and the loading screen's
+warm-up draws them all once, along with every other effect the level
+has built (rockets, sparks, the scopes' feeds), so the first swap or the
+first shot never stops to compile a shader. There are no street lamps
+in the Godot build any more; a lamp in an older map is left out when
+it is built.
 
 The minigun is the network loadout. The pause menu's DEBUG page has
 INFINITE AMMO and INVINCIBLE, both on by default.
@@ -277,7 +286,7 @@ THE REPOSITORY
                                         doors, nav, weather
     godot/scripts/render/               the picture: lofi, standees,
                                         decals, particles, tracers,
-                                        the gun, scopes, HUD, lamps
+                                        the gun, scopes, HUD
     godot/scripts/net/                  the wire, host, client, match
     godot/scripts/editor/               MEWD Editor
     godot/scripts/title/, ui/           title, pause, terminal, touch

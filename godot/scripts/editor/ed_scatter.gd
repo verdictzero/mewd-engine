@@ -109,7 +109,7 @@ static func plant_sets() -> Array:
 
 ## Every type a scatter's list can name.
 static func scatter_types() -> Array:
-	var out := ["SHOPPER", "TOWNIE", "CRATE", "TROLLEY", "BOLLARD", "FUELCAN", "GRAVESTONE", "STREETLAMP"]
+	var out := ["SHOPPER", "TOWNIE", "CRATE", "TROLLEY", "BOLLARD", "FUELCAN", "GRAVESTONE"]
 	for k in plant_kinds():
 		out.append("PLANT:" + k)
 	return out

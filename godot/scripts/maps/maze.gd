@@ -175,8 +175,6 @@ static func build(seed: int = 1, cells: int = CELLS, people: int = PEOPLE) -> Di
 		var y0 := _edge(2 * p[1] + 1)
 		var x1 := _edge(2 * (p[0] + 2) + 2)
 		var y1 := _edge(2 * (p[1] + 2) + 2)
-		for c in [[x0 + 48, y0 + 48], [x1 - 48, y0 + 48], [x0 + 48, y1 - 48], [x1 - 48, y1 - 48]]:
-			thing.call("STREETLAMP", c[0], c[1])
 		thing.call("PLANT", (x0 + x1) / 2.0, (y0 + y1) / 2.0, {"kind": TREES[int(rnd.next() * TREES.size())], "scale": 1})
 	# THE CROWD
 	var floor_tiles := []

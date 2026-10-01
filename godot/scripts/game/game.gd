@@ -52,7 +52,6 @@ var blockmap := ActorGrid.new()
 var standees: Standees
 var forest: Forest
 var forest_view: ForestView
-var lamps: Lamps
 var tics := 0
 var kills := 0
 var weather := Weather.new()
@@ -185,8 +184,6 @@ func start_map(doc: Dictionary) -> void:
 	forest = Forest.new(level)
 	forest_view = ForestView.new(forest)
 	add_child(forest_view)
-	lamps = Lamps.new(level)
-	add_child(lamps)
 	bank = TexBank.new()
 	var mg := MapGeo.new(bank)
 	# real decals want the world in tiles (RealDecals: eight a mesh)
@@ -266,6 +263,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(green_thermal)
 	if weapon3d != null:
 		weapon3d.scopes["POTATO"] = green_thermal
+		# every gun now, not on its first swap (Weapon3D.preload_all)
+		weapon3d.preload_all()
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
 	camera.near = 2.0
@@ -490,9 +489,6 @@ func _process(dt: float) -> void:
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
 	_prof_add("forest_view", t0)
 	t0 = Time.get_ticks_usec()
-	lamps.draw(camera.position, Vector2(cos(player.angle), sin(player.angle)), weather.frame.get("skyLight", 0.85))
-	_prof_add("lamps", t0)
-	t0 = Time.get_ticks_usec()
 	standees.draw(actors, camera.position, tics, Vector2(cos(player.angle), sin(player.angle)) if weapon3d != null else Vector2())
 	_prof_add("standees", t0)
 	t0 = Time.get_ticks_usec()
@@ -707,7 +703,7 @@ func _place_camera(f: float) -> void:
 		camera.position += U.v3(k * 5.5 * sin(t * 53.1 + 0.3), k * 5.5 * cos(t * 44.9 + 1.9), k * 4.0 * sin(t * 61.7 + 2.6))
 
 ## The map's things that are actors, into the world.
-const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY", "STREETLAMP": "STREETLAMP",
+const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY",
 	"GRAVESTONE": "GRAVESTONE"}   # the sprawl's headstones
 
 func _spawn_things() -> void:

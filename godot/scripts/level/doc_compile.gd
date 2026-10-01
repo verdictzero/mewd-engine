@@ -45,8 +45,10 @@ const EPS := 0.5
 const GRID := 256.0
 const DEFAULT_FLOOR := "LAWN2"
 ## THING_TYPES in js/editor/doc.js: what a map may place
+## (STREET LAMPS ARE GONE, at the user's request: one in a map from
+## before, or grown by a scatter, is left out of the build)
 const THING_TYPES := ["START", "SHOPPER", "TOWNIE", "TROLLEY", "BOLLARD", "FUELCAN", "CRATE", "LAMP",
-	"STREETLAMP", "GRAVESTONE", "PLANT"]
+	"GRAVESTONE", "PLANT"]
 ## the five colours of a Doom 64 sector
 const COLOR_PARTS := ["floor", "ceil", "thing", "top", "bottom"]
 const LINEDEF_THICK := 8.0
@@ -323,6 +325,8 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	var things := []
 	var started := false
 	for t in doc.get("things", []) + scattered:
+		if t.type == "STREETLAMP":
+			continue
 		if t.type == "START":
 			if started:
 				continue

@@ -117,9 +117,12 @@ func _init() -> void:
 		roofs += 1 if s.roof_tex != "" else 0
 		holed += 1 if not s.flat_holes.is_empty() else 0
 		tinted += 1 if s.tint != null else 0
-	for c in [["sectors", lv.sectors.size(), 440], ["lines", lv.lines.size(), 2297], ["townsfolk", counts.get("TOWNIE", 0), 142],
-			["shoppers", counts.get("SHOPPER", 0), 137], ["headstones", counts.get("GRAVESTONE", 0), 103],
-			["lamps", counts.get("STREETLAMP", 0), 256], ["plants", lv.plants.size(), 2387], ["props", lv.props.size(), 520],
+	# (the crowd: the web build's 142 townsfolk and 137 shoppers stood clear
+	# of its street lamps; with the lamps gone from the port the scatter's
+	# darts land elsewhere — the same 279 people, split 135 and 144)
+	for c in [["sectors", lv.sectors.size(), 440], ["lines", lv.lines.size(), 2297], ["townsfolk", counts.get("TOWNIE", 0), 135],
+			["shoppers", counts.get("SHOPPER", 0), 144], ["crowd", counts.get("TOWNIE", 0) + counts.get("SHOPPER", 0), 279], ["headstones", counts.get("GRAVESTONE", 0), 103],
+			["lamps (gone)", counts.get("STREETLAMP", 0), 0], ["plants", lv.plants.size(), 2387], ["props", lv.props.size(), 520],
 			["problems", web_problems, 0], ["grid shoppers", shoppers, 200]]:
 		var ok: bool = c[1] == c[2]
 		print("  %s   sprawl %s: %d (the web build's %d)" % ["ok" if ok else "FAIL", c[0], c[1], c[2]])

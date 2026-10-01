@@ -8,7 +8,6 @@
                                   post pass snaps to (js/palette.js
                                   buildLutAtlas): 1024x32, blue picks
                                   the slice, red is x in it, green is y
-     godot/data/lamp_*.png        the street lamp's two tiles
      godot/data/cemfence.png      the cemetery iron (RAILING)
      godot/data/stones.png        the eight headstones, one strip
      godot/data/grid*.png         the grid's floor and wall (GRID, GRIDWALL)
@@ -51,12 +50,12 @@ function png(w, h, rgba) {
 const lut = pal.buildLutAtlas(colors);
 writeFileSync(new URL('palette_lut.png', OUT), png(lut.width, lut.height, lut.data));
 
-/* THE STREET LAMP'S TILES. They are palette-indexed run-length tiles in
-   the web build, drawn out at load; here they are PNGs the port stands
-   up as geometry (godot/scripts/render/lamps.gd). Transparent where the
-   tile says CLEAR_INDEX, the ramp palette's colour everywhere else. */
+/* THE CEMETERY IRON. A palette-indexed run-length tile in the web
+   build, drawn out at load; here a PNG. Transparent where the tile says
+   CLEAR_INDEX, the ramp palette's colour everywhere else. (The street
+   lamp's two tiles went with the street lamps.) */
 const art = await import('../js/art-data.js');
-for (const name of ['lamp_head', 'lamp_post', 'cemfence']) {
+for (const name of ['cemfence']) {
   const c = art.CUTOUTS[name];
   const bytes = Buffer.from(c.tile, 'base64');
   const rgba = new Uint8Array(c.w * c.h * 4);
@@ -109,4 +108,4 @@ function gridPix(size, bg, line, half, lineW, halfW) {
 }
 writeFileSync(new URL('grid.png', OUT), gridPix(256, [6, 11, 8], [70, 255, 140], [22, 104, 54], 20, 9));
 writeFileSync(new URL('gridwall.png', OUT), gridPix(256, [5, 9, 9], [44, 190, 130], [16, 74, 52], 16, 7));
-console.log(`texpack ${Object.keys(pack).length}, palette ${colors.length}, lut ${lut.width}x${lut.height}, lamp tiles, the cemetery iron, the headstones, the grid`);
+console.log(`texpack ${Object.keys(pack).length}, palette ${colors.length}, lut ${lut.width}x${lut.height}, the cemetery iron, the headstones, the grid`);

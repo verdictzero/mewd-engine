@@ -1,15 +1,14 @@
-## MEWD — a picture of the wood and the street lamps, for looking at
+## MEWD — a picture of the wood, for looking at
 ## without the game.
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 ##   --resolution 1280x720 --script res://godot/tests/forest_shot.gd -- out.png [mode] [seed]
 ##
-## The maze (MazeMap.build(seed), default 7) with its plaza trees and
-## lamps, seen from a plaza's corner. Modes:
+## The maze (MazeMap.build(seed), default 7) with its plaza trees, seen from a plaza's corner. Modes:
 ##   green  as built (the default)
 ##   burn   the plaza tree lit (the maze's noBurn lifted) and run to
 ##          half way — scorched, coals, the flame on it
-##   night  the sky's light pulled down so the lamps' flares come on
+##   night  the sky's light pulled down
 ##   wood   a forest floor laid over the level's south-west quarter and
 ##          planted by the scatter, one cell of it lit and run a while
 extends SceneTree
@@ -18,7 +17,6 @@ var out := "forest_shot.png"
 var mode := "green"
 var forest: Forest
 var view: ForestView
-var lamps: Lamps
 var cam: Camera3D
 var frames := 0
 var look := Vector2(1, 0)
@@ -46,12 +44,10 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	view = ForestView.new(forest)
 	root3.add_child(view)
-	lamps = Lamps.new(lv)
-	root3.add_child(lamps)
-	print("wood: %d trees, %d plants, %d layers, %d chunks; %d lamps; drawn in %d ms" % [
-		forest.tree_count(), forest.plant_count(), view.layers.size(), view.chunks.size(), lamps.count, Time.get_ticks_msec() - t0])
+	print("wood: %d trees, %d plants, %d layers, %d chunks; drawn in %d ms" % [
+		forest.tree_count(), forest.plant_count(), view.layers.size(), view.chunks.size(), Time.get_ticks_msec() - t0])
 	# the plaza tree and where to stand: back from it toward the plaza's
-	# corner, between two lamps
+	# corner
 	var tx := forest.trees.x[0]
 	var ty := forest.trees.y[0]
 	var ex := tx - 330.0
@@ -90,9 +86,8 @@ func _init() -> void:
 func _process(_dt: float) -> bool:
 	frames += 1
 	view.draw(cam.position, frames / 60.0 + 3.0)
-	var n := lamps.draw(cam.position, look, sky)
 	if frames == 1:
-		print("flames: %d, flares: %d" % [view.flames.count if view.flames else 0, n])
+		print("flames: %d" % (view.flames.count if view.flames else 0))
 	if frames == 10:
 		root.get_texture().get_image().save_png(out)
 		print("saved ", out)

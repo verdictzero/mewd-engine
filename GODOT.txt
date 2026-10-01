@@ -252,7 +252,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
       CEIL_SPREAD). A client puts each body in the storey at the height
       the host's snapshot gives (the wire is unchanged); sound falls off
       with height too.
-    - Vehicles, the wood, the street lamps, the scatters, a match's
+    - Vehicles, the wood, the scatters, a match's
       spawn pads and the plants stay on the ground (as in the web build).
 
   THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE, JESSE, THE
@@ -287,7 +287,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
 
   THE DATA the port reads from the web build's own tables is written by
   `node tools/godot-data.mjs`: the texture list (godot/data/
-  texpack.json), the palette and its LUT, and the lamp art. Everything
+  texpack.json), the palette and its LUT, and the cemetery iron. Everything
   else — the effect atlases, the ash — is baked in GDScript at
   start-up, from the same generators.
 
@@ -310,7 +310,7 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     js/particles.js               render/particles.gd
     js/standees.js                render/standees.gd
     js/forest.js                  game/forest.gd, render/forest_view.gd
-    js/lamplight.js, lamp posts   render/lamps.gd
+    js/lamplight.js, lamp posts   (gone: no street lamps in the port)
     js/responders.js, vehicles.js game/vehicles.gd, vehicle*.gd, swat_van.gd,
       car.js                        army_apc.gd
     js/weather.js                 game/weather.gd

@@ -33,7 +33,6 @@ const THING_TYPES := {
 	"FUELCAN": {"name": "Fuel can", "color": "#f44", "radius": 10},
 	"CRATE": {"name": "Crate", "color": "#c93", "radius": 20},
 	"LAMP": {"name": "Ceiling lamp", "color": "#ffe", "radius": 12},
-	"STREETLAMP": {"name": "Street lamp", "color": "#ff8", "radius": 10},
 	"GRAVESTONE": {"name": "Gravestone", "color": "#999", "radius": 14},
 	"PLANT": {"name": "Plant", "color": "#5c5", "radius": 14},
 }

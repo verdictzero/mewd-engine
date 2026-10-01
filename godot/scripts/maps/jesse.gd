@@ -558,10 +558,6 @@ func _build(seed: int, opts: Dictionary) -> Dictionary:
 		for yy in bh:
 			var p := _place(5, 2 * (by0 + yy) + 1, flip)   # clear of the tower's stair
 			spawns[team_ix].append([_jround(p.x), _jround(p.y)])
-		# lamps in the yard's corners
-		for c in [[1, Y0 + 1], [X1 - 1, Y0 + 1], [1, Y1 - 1], [X1 - 1, Y1 - 1]]:
-			var p := _place(c[0], c[1], flip)
-			_thing(d, "STREETLAMP", p.x, p.y)
 		# THE STOCK TO FORTIFY WITH: crates by every gate, fuel cans at
 		# the back
 		for g in gates:
@@ -583,11 +579,10 @@ func _build(seed: int, opts: Dictionary) -> Dictionary:
 	# the single-player start: team A's first pad, facing the maze
 	var sp: Array = spawns[0][mini(spawns[0].size() - 1, 1)]
 	_thing(d, "START", sp[0], sp[1], {"angle": 0.0})
-	# a lamp and some stock in every room
+	# some stock in every room
 	for r in rooms:
 		var x0 := _edge(2 * r.x + 1)
 		var y0 := _edge(2 * r.y + 1)
-		_thing(d, "STREETLAMP", x0 + 48, y0 + 48)
 		if _rnd() < 0.5:
 			var cx := x0 + CELL * 0.5 + _rnd() * 100
 			_thing(d, "CRATE", cx, y0 + CELL * 0.5 + _rnd() * 100)

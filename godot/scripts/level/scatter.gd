@@ -12,7 +12,7 @@ class_name Scatter
 
 const SCATTER_MAX := 4000
 const DENSITY_AREA := 1024.0 * 1024.0
-const TYPES := ["SHOPPER", "TOWNIE", "TROLLEY", "BOLLARD", "FUELCAN", "CRATE", "STREETLAMP", "GRAVESTONE"]
+const TYPES := ["SHOPPER", "TOWNIE", "TROLLEY", "BOLLARD", "FUELCAN", "CRATE", "GRAVESTONE"]
 
 ## Math.imul, as an unsigned 32-bit result.
 static func imul(a: int, b: int) -> int:

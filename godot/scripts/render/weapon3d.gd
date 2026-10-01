@@ -51,7 +51,12 @@ const GUNS := {
 		# straight down the view; raised, the screen is straight ahead a
 		# hand's breadth off
 		"aim": {"solve": {"dist": 0.16, "yaw": 6.28318, "pitch": 0.0}}},
-	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9]},
+	# THE ARC MAW'S CHARGE (js/weapon3d.js orb): a ball of blue energy hung
+	# between the prongs at `nozzle` (the model's own units), growing with
+	# the charge, a halo round it, and motes streaming in from all round —
+	# radius and reach in metres
+	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9],
+		"nozzle": [0.0, 0.0, 5.42], "orb": {"radius": 0.11, "reach": 0.26, "motes": 64}},
 }
 
 var camera: Camera3D
@@ -104,6 +109,9 @@ func _load(name: String) -> Dictionary:
 	if def.has("spin"):
 		spinner = _find_spinner(root)
 	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner, "tip": _tip(group, spinner)}
+	if def.has("orb"):
+		var nz: Array = def.get("nozzle", [0, 0, 0])
+		out["orb"] = _make_orb(inner, root.transform * Vector3(nz[0], nz[1], nz[2]), def.orb)
 	# A SOLVED AIM: the screen straight ahead of the eye, `dist` off, the
 	# gun turned `yaw` (and `pitch`) — worked out from where the screen
 	# really is in the model, not nudged by hand
@@ -273,6 +281,15 @@ func _aabb(n: Node, xf: Transform3D) -> AABB:
 		first = false
 	return out
 
+## EVERY GUN LOADED AT THE LEVEL'S START (Game.start_map), hidden, so a
+## swap never stops to read a model off the disk: once the scopes are
+## handed out (they dress the guns with screens). Main's warm-up then
+## draws them all once, under the loading screen (Warmup).
+func preload_all() -> void:
+	for n in GUNS:
+		if not guns.has(n):
+			guns[n] = _load(n)
+
 func set_weapon(name: String) -> void:
 	if name == current:
 		return
@@ -327,7 +344,109 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	if G.spinner != null:
 		spin_angle += p.spin * def.spin * TAU * dt
 		G.spinner.rotation.z = spin_angle
+	if G.has("orb"):
+		_orb_tic(G.orb, p, dt)
 	for m in G.mats:
 		m.set_shader_parameter("dim", U.col(light))
 		m.set_shader_parameter("glow", U.col(kick))
 		m.set_shader_parameter("heat", U.col(p.heat))
+
+# ---------------------------------------------------------------------
+# THE ARC MAW'S CHARGE (js/weapon3d.js makeOrb, orbTic): while the
+# trigger is held the ball grows from a spark to its full size with the
+# charge and breathes, its halo swells and brightens, and motes are born
+# on a shell round the prongs and drawn in, faster the nearer they get —
+# more of them the higher the charge. Let go, and a flash spreads from
+# the maw and fades.
+# ---------------------------------------------------------------------
+
+static var _orb_mesh: QuadMesh
+static var _orb_mat: ShaderMaterial
+
+func _orb_sprite(parent: Node3D, c: Color) -> MeshInstance3D:
+	if _orb_mesh == null:
+		_orb_mesh = QuadMesh.new()
+		_orb_mesh.size = Vector2(1, 1)
+		_orb_mat = ShaderMaterial.new()
+		_orb_mat.shader = preload("res://godot/shaders/orb.gdshader")
+		_orb_mat.render_priority = 6
+	var m := MeshInstance3D.new()
+	m.mesh = _orb_mesh
+	m.material_override = _orb_mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.extra_cull_margin = 4.0
+	m.visible = false
+	m.set_instance_shader_parameter("tint", U.col(c))
+	m.set_meta("colour", c)
+	parent.add_child(m)
+	return m
+
+func _make_orb(inner: Node3D, at: Vector3, def: Dictionary) -> Dictionary:
+	var g := Node3D.new()
+	g.name = "Orb"
+	g.position = at
+	inner.add_child(g)
+	var o := {"def": def, "group": g, "halo": _orb_sprite(g, Color("#3f7dff")), "core": _orb_sprite(g, Color("#dff0ff")),
+		"flash": _orb_sprite(g, Color("#8fc0ff")), "motes": [], "flash_t": 0.0, "was": 0.0, "spawn": 0.0, "t": 0.0}
+	for i in int(def.motes):
+		o.motes.append({"s": _orb_sprite(g, Color("#5a9cff") if i % 3 else Color("#cfe6ff")), "p": Vector3(), "age": 0.0, "life": 0.0, "live": false})
+	return o
+
+static func _fade(m: MeshInstance3D, a: float) -> void:
+	var c: Color = m.get_meta("colour")
+	m.set_instance_shader_parameter("tint", U.col(Color(c.r, c.g, c.b, clampf(a, 0.0, 1.0))))
+
+func _orb_tic(o: Dictionary, p, dt: float) -> void:
+	var c: float = p.arc_charge if p.arc_charging else 0.0
+	var R: float = o.def.radius
+	var reach: float = o.def.reach
+	o.t += dt
+	var tics: float = o.t * 35.0
+	# the discharge: the charge went to nothing
+	if o.was > 0.02 and c == 0.0:
+		o.flash_t = 1.0
+	o.was = c
+	var breathe := 1.0 + 0.12 * sin(tics * 0.9) + 0.06 * sin(tics * 2.3)
+	var r := R * (0.12 + 0.88 * sqrt(c)) * breathe if c > 0.0 else 0.0
+	var core: MeshInstance3D = o.core
+	var halo: MeshInstance3D = o.halo
+	var flash: MeshInstance3D = o.flash
+	core.visible = r > 0.0
+	halo.visible = r > 0.0
+	core.scale = Vector3.ONE * r * 1.2
+	halo.scale = Vector3.ONE * r * (3.4 + 0.6 * sin(tics * 0.4))
+	_fade(halo, 0.45 + 0.45 * c)
+	o.flash_t = maxf(0.0, o.flash_t - dt * 5.0)
+	flash.visible = o.flash_t > 0.0
+	flash.scale = Vector3.ONE * R * (2.0 + 9.0 * (1.0 - o.flash_t))
+	_fade(flash, o.flash_t)
+	# the motes: born on a shell round the maw, drawn in, faster near it
+	o.spawn += dt * (18.0 + 90.0 * c) if c > 0.0 else 0.0
+	for m in o.motes:
+		var s: MeshInstance3D = m.s
+		if not m.live:
+			if o.spawn < 1.0:
+				s.visible = false
+				continue
+			o.spawn -= 1.0
+			var u := randf() * 2.0 - 1.0
+			var a := randf() * TAU
+			var rr := reach * (0.55 + 0.45 * randf()) * (0.7 + 0.5 * c)
+			var q := sqrt(1.0 - u * u)
+			# toward the eye is +z in here (the gun is turned round)
+			m.p = Vector3(cos(a) * q * rr, sin(a) * q * rr, u * rr * 0.6 + rr * 0.25)
+			m.age = 0.0
+			m.life = 0.35 + randf() * 0.3
+			m.live = true
+		m.age += dt
+		var k := minf(1.0, dt * (3.0 + 9.0 * m.age / m.life))
+		m.p -= m.p * k
+		var d: float = m.p.length()
+		if m.age >= m.life or d < r * 0.5 or c == 0.0:
+			m.live = false
+			s.visible = false
+			continue
+		s.visible = true
+		s.position = m.p
+		s.scale = Vector3.ONE * R * (0.22 + 0.25 * minf(1.0, d / reach))
+		_fade(s, minf(1.0, m.age / 0.08))
