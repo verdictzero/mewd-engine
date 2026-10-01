@@ -57,6 +57,13 @@ const GIB := {
 ##   either side of the throw;  spray  blood particles in the air;  floor
 ##   spatters across the floor, and how far;  walls  rays to the walls, and
 ##   how far;  pool  the size of the pool under them
+## the room's blood, waiting to go down (eviscerate, _room_tic)
+const ROOM_FLOOR := 0
+const ROOM_WALLS := 1
+const ROOM_RAYS := 5
+const ROOM_PER_TIC := 40
+var room: Array = []
+
 const GORE := {
 	"count": 60,
 	"speedMin": 4.0, "speedMax": 15.0,
@@ -103,6 +110,17 @@ var chunks: Particles
 var trail: Particles
 var shards: Particles
 var chunk_kind := PackedByteArray()
+## THE CHECKS, every other tic (for speed: five hundred pieces in the air
+## after a rocket into a crowd, each casting a ray and asking for its
+## floor every tic, was a third of an old laptop's frame): where each
+## piece was last checked against the walls — the ray goes from there,
+## two tics of flight, so nothing slips through — and the floor under it
+## then (UNKNOWN until its first check)
+var chk_x := PackedFloat32Array()
+var chk_y := PackedFloat32Array()
+var chk_z := PackedFloat32Array()
+var chunk_floor := PackedFloat32Array()
+const UNKNOWN := -1.0e9
 var tics := 0
 ## counts, for the tests
 var pools := 0
@@ -127,6 +145,8 @@ func _init(g) -> void:
 		"near_shrink": 80.0, "order": 13})
 	chunks.mat.set_shader_parameter("light", U.col(0.9))
 	chunk_kind.resize(chunks.max)
+	for arr in [chk_x, chk_y, chk_z, chunk_floor]:
+		arr.resize(chunks.max)
 	# And the fire coming off them: the same fireballs the gun fires,
 	# small, additive, gone in a third of a second, which is what turns
 	# thirteen tumbling objects into thirteen comets.
@@ -202,6 +222,10 @@ func _chunk(o: Dictionary, kind: int) -> int:
 	var i := chunks.spawn(o)
 	if i >= 0:
 		chunk_kind[i] = kind
+		chk_x[i] = chunks.px[i]
+		chk_y[i] = chunks.py[i]
+		chk_z[i] = chunks.pz[i]
+		chunk_floor[i] = UNKNOWN
 	return i
 
 # ------------------------------------------------------------------
@@ -238,15 +262,19 @@ func eviscerate(a, at = null, force := 1.0) -> int:
 		var ang: float = dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone if has_dir else spin
 		var sp: float = (GORE.speedMin + _r() * (GORE.speedMax - GORE.speedMin)) * force
 		var size: float = GORE.sizeMin + _r() * (GORE.sizeMax - GORE.sizeMin)
-		_chunk({
-			"x": a.x, "y": a.y, "z": a.z + 4.0 + _r() * h * 0.9,
-			"vx": cos(ang) * sp, "vy": sin(ang) * sp,
-			"vz": (GORE.riseMin + _r() * (GORE.riseMax - GORE.riseMin)) * (0.8 + 0.2 * force) + dz * 0.02,
-			"life": GORE.lifeMin + (U.p_random() % (GORE.lifeMax - GORE.lifeMin)),
-			"size0": size, "c0": WET_GIB if (k & 1) == 0 else Color.WHITE,
-			"frame": float(U.p_random() % GIBLETS),
-			"drag": GORE.drag, "gravity": GORE.gravity,
-		}, K_GORE)
+		# (put, not spawn: the same fields in the same order, no Dictionary)
+		var z: float = a.z + 4.0 + _r() * h * 0.9
+		var vz: float = (GORE.riseMin + _r() * (GORE.riseMax - GORE.riseMin)) * (0.8 + 0.2 * force) + dz * 0.02
+		var life: float = GORE.lifeMin + (U.p_random() % (GORE.lifeMax - GORE.lifeMin))
+		var c: Color = WET_GIB if (k & 1) == 0 else Color.WHITE
+		var i := chunks.put(a.x, a.y, z, cos(ang) * sp, sin(ang) * sp, vz, life, size, size, c, c,
+			float(U.p_random() % GIBLETS), 0.0, GORE.drag, GORE.gravity)
+		if i >= 0:
+			chunk_kind[i] = K_GORE
+			chk_x[i] = a.x
+			chk_y[i] = a.y
+			chk_z[i] = z
+			chunk_floor[i] = UNKNOWN
 	# THE SPRAY, in the air: half of it thrown with the pieces and half
 	# of it every way at once
 	var fx = _fx()
@@ -257,27 +285,62 @@ func eviscerate(a, at = null, force := 1.0) -> int:
 			fx.blood_puff(a.x, a.y, mid + (k - 3) * 6.0)
 	# AND THE ROOM. The pool where they stood, bigger than any other in
 	# the game; the spatters across the floor, thrown out the way the
-	# pieces went; and blood up every wall round them.
+	# pieces went; and blood up every wall round them. Their dice are
+	# thrown now (the simulation's random numbers go as they always did);
+	# the rays and the marks wait in `room` and go down ROOM_PER_TIC a
+	# tic — a rocket into a crowd is ten of these at once, three hundred
+	# marks and as many rays, which on an old laptop was a fifth of a
+	# second in one frame. Spread over the next few tics, as the blood
+	# flies, nobody sees it arrive late.
 	var D = _decals()
 	var marks := 0
 	if D != null:
-		var lv: Level = game.level
 		var floor: float = a.z
 		splat(a.x, a.y, floor, GORE.pool * (0.85 + 0.3 * _r()))
 		marks += 1
 		for k in GORE.floor:
 			var ang: float = _r() * TAU if (not has_dir or (k & 3) == 3) else dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone
 			var d: float = 20.0 + _r() * GORE.floorReach
-			var c := cos(ang)
-			var s := sin(ang)
+			room.append([ROOM_FLOOR, a.x, a.y, floor, cos(ang), sin(ang), d, 34.0 + _r() * 50.0])
+			marks += 1
+		var from := Vector3(a.x, a.y, mid)
+		var u := Vector3(dx if has_dir else 1.0, dy, 0.05)
+		for k in range(0, GORE.walls, ROOM_RAYS):
+			room.append([ROOM_WALLS, from, u, k, mini(ROOM_RAYS, GORE.walls - k)])
+		marks += GORE.walls
+	return marks
+
+## THE ROOM'S BLOOD, waiting (eviscerate): ROOM_PER_TIC of it down a tic,
+## the oldest first. A floor spatter is one ray and one mark; a run of
+## wall spray is ROOM_RAYS of each.
+func _room_tic() -> void:
+	var D = _decals()
+	if D == null:
+		room.clear()
+		return
+	var lv: Level = game.level
+	var budget := ROOM_PER_TIC
+	var n := 0
+	while n < room.size() and budget > 0:
+		var j: Array = room[n]
+		n += 1
+		if j[0] == ROOM_FLOOR:
+			var x: float = j[1]
+			var y: float = j[2]
+			var floor: float = j[3]
+			var c: float = j[4]
+			var s: float = j[5]
+			var d: float = j[6]
 			# only as far as the floor goes: a spatter on the far side of a
 			# wall is a spatter through it
-			var wall := lv.ray_hit_wall(a.x, a.y, floor + 4.0, a.x + c * d, a.y + s * d, floor + 4.0)
+			var wall := lv.ray_hit_wall(x, y, floor + 4.0, x + c * d, y + s * d, floor + 4.0)
 			var far: float = maxf(0.0, float(wall.t) * d - 6.0) if not wall.is_empty() else d
-			D.blood(Vector3(a.x + c * far, a.y + s * far, floor), UP, Vector3(c, s, 0), 34.0 + _r() * 50.0)
-			marks += 1
-		marks += D.spray_walls(Vector3(a.x, a.y, mid), Vector3(dx if has_dir else 1.0, dy, 0.05), GORE.walls, GORE.wallReach, PI, 1.5)
-	return marks
+			D.blood(Vector3(x + c * far, y + s * far, floor), UP, Vector3(c, s, 0), j[7])
+			budget -= 1
+		else:
+			D.spray_walls(j[1], j[2], j[4], GORE.wallReach, PI, 1.5, j[3])
+			budget -= j[4]
+	room = room.slice(n)
 
 # ------------------------------------------------------------------
 # AND THE COLD VERSION OF THE SAME THING
@@ -374,21 +437,32 @@ func splat(x: float, y: float, z: float, size := 0.0) -> int:
 
 func tic() -> void:
 	tics += 1
+	if not room.is_empty():
+		_room_tic()
 	var lv: Level = game.level
 	var C := chunks
+	var odd := tics & 1
 	C.tic(func(i: int, nx: float, ny: float, nz: float) -> bool:
-		var x := C.px[i]
-		var y := C.py[i]
-		var z := C.pz[i]
-		# A piece that goes through the frozen aisle wall and lands in the
-		# car park is funny exactly once.
-		var wall := lv.ray_hit_wall(x, y, z, nx, ny, nz)
-		# ON THE WALL IT HIT, facing the side it came from
-		if not wall.is_empty():
-			_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i])
-			return true
-		var sec := lv.span_at(nx, ny, z)
-		var floor := sec.floor if sec else 0.0
+		var floor: float = chunk_floor[i]
+		# the walls and the floor, every other tic (see chk_x), or at once
+		# for a piece not yet checked, or one coming down onto its floor
+		if (i & 1) == odd or floor == UNKNOWN or nz <= floor + 1.0:
+			var x: float = chk_x[i]
+			var y: float = chk_y[i]
+			var z: float = chk_z[i]
+			# A piece that goes through the frozen aisle wall and lands in
+			# the car park is funny exactly once.
+			var wall := lv.ray_hit_wall(x, y, z, nx, ny, nz)
+			# ON THE WALL IT HIT, facing the side it came from
+			if not wall.is_empty():
+				_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i])
+				return true
+			var sec := lv.span_at(nx, ny, minf(z, nz) if floor == UNKNOWN else z)
+			floor = sec.floor if sec else 0.0
+			chunk_floor[i] = floor
+			chk_x[i] = nx
+			chk_y[i] = ny
+			chk_z[i] = nz
 		if nz <= floor + 1.0:
 			_land(Vector3(nx, ny, floor), chunk_kind[i], UP, C.vx[i], C.vy[i])
 			return true
@@ -397,7 +471,7 @@ func tic() -> void:
 	# drilled head, which were never alight
 	if C.count > 0:
 		var fx = _fx()
-		for i in C.max:
+		for i in C.live:
 			if not C.alive[i] or chunk_kind[i] == K_SPURT:
 				continue
 			# A PIECE OFF A WARHEAD TRAILS BLOOD, not fire: it was never

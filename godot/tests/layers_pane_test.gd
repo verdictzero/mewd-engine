@@ -156,6 +156,7 @@ func run() -> void:
 	ed.compile_now()
 	ok(ed.layer_hidden(1) and ed.other_layers().is_empty(), "the eye hides the upstairs from the plan")
 	ok(level_sectors(ed) < whole and level_sectors(ed) > 0, "and from the 3D view's level (%d of %d sectors)" % [level_sectors(ed), whole])
+	L.render()     # (the pane redraws on a timer; not waited for here)
 	ok(L._layer_items[1].get_button(1, 0) == L._eye_shut, "the eye shut")
 	ok(ed.compiled.problems.size() == probs, "the problems are still the whole map's (%d)" % probs)
 	L._on_button(L._layer_items[1], 1, 0, MOUSE_BUTTON_LEFT)

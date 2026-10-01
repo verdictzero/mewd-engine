@@ -178,15 +178,18 @@ func bleed(a, h: Vector3, d: Vector3) -> int:
 ## nearer the wall the bigger the spatter: blood that has a foot to
 ## travel arrives as a sheet, blood that has two metres arrives as
 ## drops. `scale` is for the warhead. A cone of PI is every direction.
-## Returns how many landed.
-func spray_walls(h: Vector3, u: Vector3, rays: int, reach: float, cone: float, scale := 1.0) -> int:
+## `first`: where in a longer spray these rays start (a spray put down a
+## few rays a tic: Giblets' room) — the first ray of all is the straight
+## one. Returns how many landed.
+func spray_walls(h: Vector3, u: Vector3, rays: int, reach: float, cone: float, scale := 1.0, first := 0) -> int:
 	var lv: Level = game.level
 	var base := atan2(u.y, u.x)
 	var flat := maxf(1e-6, Vector2(u.x, u.y).length())
 	var under := lv.span_at(h.x, h.y, h.z)
 	var fl: float = under.floor if under else -INF
 	var n := 0
-	for k in rays:
+	for kk in rays:
+		var k := first + kk
 		var yaw := base if k == 0 else base + (cosmetic() * 2.0 - 1.0) * cone
 		var rise := u.z / flat if k == 0 else u.z / flat + (cosmetic() - 0.62) * 0.7
 		var c := cos(yaw)

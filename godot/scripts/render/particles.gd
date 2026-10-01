@@ -98,6 +98,32 @@ func spawn(o: Dictionary) -> int:
 	gravity[i] = o.get("gravity", 0.0)
 	return i
 
+## spawn() without the Dictionary, for the hot paths (a rocket into a
+## crowd is fifteen hundred of these in one tic): every field, in the
+## order spawn reads them.
+func put(x: float, y: float, z: float, vx_: float, vy_: float, vz_: float, life_: float, s0: float, s1: float,
+		col0: Color, col1: Color, frame_: float, rate: float, drag_: float, grav: float) -> int:
+	if free.is_empty():
+		return -1
+	var i := free[free.size() - 1]
+	free.resize(free.size() - 1)
+	alive[i] = 1
+	count += 1
+	live.append(i)
+	px[i] = x; py[i] = y; pz[i] = z
+	vx[i] = vx_; vy[i] = vy_; vz[i] = vz_
+	age[i] = 0.0
+	life[i] = maxf(1.0, life_)
+	size0[i] = s0
+	size1[i] = s1
+	c0[i] = col0
+	c1[i] = col1
+	frame[i] = frame_
+	frame_rate[i] = rate
+	drag[i] = drag_
+	gravity[i] = grav
+	return i
+
 func kill(i: int) -> void:
 	if not alive[i]:
 		return

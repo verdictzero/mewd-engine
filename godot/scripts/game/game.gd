@@ -533,7 +533,7 @@ func prof_text() -> String:
 	var ms := func(k: String) -> float: return float(t.get(k, 0.0)) / 1000.0
 	return "tics %.1f (x%.1f, people %.1f) · crowd %.1f (%d rows) · guns %.1f · fx %.1f · scopes %.1f ms" % [
 		ms.call("tics"), _prof_last_tics, ms.call("tic.actors"), ms.call("standees"), standees.written,
-		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx"),
+		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx") + ms.call("tic.giblets"),
 		ms.call("scopes+weather")]
 
 func _prof_frame() -> void:
@@ -639,8 +639,12 @@ func tic() -> void:
 	tracers.tic()
 	if decals != null:
 		decals.tic()
+	_prof_add("tic.decals", t0)
+	t0 = Time.get_ticks_usec()
 	if real_decals != null:
 		real_decals.tic()
+	_prof_add("tic.real_decals", t0)
+	t0 = Time.get_ticks_usec()
 	forest.wind = weather.wind()
 	rain.tic()
 	flame.tic()
@@ -655,8 +659,10 @@ func tic() -> void:
 	_prof_add("tic.escalation", t0)
 	t0 = Time.get_ticks_usec()
 	fx.tic()
-	giblets.tic()
 	_prof_add("tic.fx", t0)
+	t0 = Time.get_ticks_usec()
+	giblets.tic()
+	_prof_add("tic.giblets", t0)
 	if big_message_tics > 0:
 		big_message_tics -= 1
 		if big_message_tics == 0:

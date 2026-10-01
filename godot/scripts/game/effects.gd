@@ -264,17 +264,17 @@ func blood_spray(x: float, y: float, z: float, dx := 0.0, dy := 0.0, dz := 0.0, 
 			uz = uz * 0.55 + dz / dl + 0.3
 		var sp := force * (1.5 + _r() * 6.5)
 		var drop := (k & 1) == 0
-		var i := gore.spawn({
-			"x": x + (_r() - 0.5) * 10.0, "y": y + (_r() - 0.5) * 10.0, "z": z,
-			"vx": ux * sp, "vy": uy * sp, "vz": uz * sp * (1.1 if drop else 0.4),
-			"life": (26 + (U.p_random() % 22)) if drop else (30 + (U.p_random() % 30)),
-			"size0": float(4 + (U.p_random() & 3)) if drop else float(12 + (U.p_random() % 12)),
-			"size1": 3.0 if drop else float(34 + (U.p_random() % 20)),
-			"c0": Color(0.55, 0.02, 0.02, 1.0) if drop else Color(0.62, 0.04, 0.035, 0.82),
-			"c1": Color(0.35, 0.01, 0.01, 0.9) if drop else Color(0.28, 0.03, 0.02, 0.0),
-			"frame": float(U.p_random() % SMOKE_PUFFS), "frameRate": 0.0 if drop else 0.15,
-			"drag": 0.985 if drop else 0.93, "gravity": -0.42 if drop else -0.03,
-		})
+		# (put, not spawn: the same fields in the same order, with no
+		# Dictionary — a crowd blown apart is a thousand of these at once)
+		var i := gore.put(x + (_r() - 0.5) * 10.0, y + (_r() - 0.5) * 10.0, z,
+			ux * sp, uy * sp, uz * sp * (1.1 if drop else 0.4),
+			(26 + (U.p_random() % 22)) if drop else (30 + (U.p_random() % 30)),
+			float(4 + (U.p_random() & 3)) if drop else float(12 + (U.p_random() % 12)),
+			3.0 if drop else float(34 + (U.p_random() % 20)),
+			Color(0.55, 0.02, 0.02, 1.0) if drop else Color(0.62, 0.04, 0.035, 0.82),
+			Color(0.35, 0.01, 0.01, 0.9) if drop else Color(0.28, 0.03, 0.02, 0.0),
+			float(U.p_random() % SMOKE_PUFFS), 0.0 if drop else 0.15,
+			0.985 if drop else 0.93, -0.42 if drop else -0.03)
 		if i >= 0:
 			gore_kind[i] = 1 if drop else 0
 
