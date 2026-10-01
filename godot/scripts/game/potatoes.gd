@@ -245,7 +245,7 @@ func detonate(at: Vector3, direct = null) -> void:
 	blasts += 1
 	var M = game.get("missiles")
 	if M != null:
-		M.detonate(at, direct)
+		M.detonate(at, direct, null, "nuke")
 	else:
 		game.explode({"x": at.x, "y": at.y, "z": at.z}, {"radius": 190.0, "damage": 150.0})
 	var p = game.player

@@ -1,11 +1,13 @@
 // MEWD — the arc maw's charge (js/weapon3d.js orbSprite): a soft round
 // glow, always facing the eye, added onto what is behind it and never
 // hidden by the gun — the ball, its halo, the flash and every mote is
-// one of these, coloured and faded by its own `tint`.
+// one of these, coloured and faded by its own `tint` — on a material of
+// its own (an `instance uniform` would be one material, but the
+// Compatibility renderer, the web build's, has none).
 shader_type spatial;
 render_mode unshaded, blend_add, depth_test_disabled, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
 
-instance uniform vec4 tint = vec4(1.0);
+uniform vec4 tint = vec4(1.0);
 
 void vertex() {
 	float s = length(MODEL_MATRIX[0].xyz);

@@ -33,6 +33,19 @@ const SEAR_POOL := 96
 const KIND_SEAR := 8.0
 const KIND_SLAG := 9.0
 
+## THE BIG MARKS (blast_decal.gdshader), at the user's request: a
+## rocket's crater (10) and its soot thrown up the walls beside it (11),
+## a potato's rainbow glass (12), and the arc maw's Lichtenberg burns
+## (13). A pool of their own, laid over the sears.
+const BLAST_POOL := 160
+const KIND_BLAST := 10.0
+const KIND_STREAK := 11.0
+const KIND_NUKE := 12.0
+const KIND_SHOCK := 13.0
+const BLAST_SIZE := 230.0
+const NUKE_SIZE := 300.0
+const STREAK_REACH := 260.0
+
 class Pool:
 	var mm: MultiMesh
 	var next := 0
@@ -41,6 +54,11 @@ class Pool:
 var pools := {}
 var mat: ShaderMaterial
 var sear_mat: ShaderMaterial
+var blast_mat: ShaderMaterial
+var blasts := 0
+var streaks := 0
+var nukes := 0
+var shocks := 0
 ## counts, for the tests
 var sears := 0
 var slags := 0
@@ -113,11 +131,35 @@ func _ready() -> void:
 	smi.sorting_offset = -1.0
 	add_child(smi)
 	pools["sear"] = sp
+	# the big marks, on theirs
+	blast_mat = ShaderMaterial.new()
+	blast_mat.shader = preload("res://godot/shaders/blast_decal.gdshader")
+	blast_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
+	var bquad := QuadMesh.new()
+	bquad.size = Vector2(1, 1)
+	bquad.material = blast_mat
+	var bp := Pool.new()
+	bp.cap = BLAST_POOL
+	bp.mm = MultiMesh.new()
+	bp.mm.transform_format = MultiMesh.TRANSFORM_3D
+	bp.mm.use_custom_data = true
+	bp.mm.mesh = bquad
+	bp.mm.instance_count = bp.cap
+	bp.mm.visible_instance_count = 0
+	var bmi := MultiMeshInstance3D.new()
+	bmi.multimesh = bp.mm
+	bmi.custom_aabb = AABB(Vector3(-1e6, -1e5, -1e6), Vector3(2e6, 2e5, 2e6))
+	bmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	bmi.sorting_offset = -0.5
+	add_child(bmi)
+	pools["blast"] = bp
 
 func _process(_dt: float) -> void:
 	mat.set_shader_parameter("now", U.col(_now()))
 	if sear_mat != null:
 		sear_mat.set_shader_parameter("now", U.col(_now()))
+	if blast_mat != null:
+		blast_mat.set_shader_parameter("now", U.col(_now()))
 
 func _now() -> float:
 	return (Time.get_ticks_msec() - _t0) / 1000.0
@@ -266,6 +308,47 @@ func slag(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
 		_put_thrown("sear", at, normal, size, d, KIND_SLAG)
 	slags += 1
 
+## A ROCKET WENT OFF at `at`, against the surface facing `normal`: the
+## crater there, and the blast's soot fanned up every wall near enough —
+## rays round the blast at waist height, each wall they meet blackened
+## from the near edge out, away from the blast.
+func blast(at: Vector3, normal: Vector3, size := BLAST_SIZE) -> void:
+	_put_thrown("blast", at, normal, size * (0.9 + 0.2 * randf()), Vector3.ZERO, KIND_BLAST)
+	blasts += 1
+	var lv: Level = get_parent().level
+	var s: Level.Sector = lv.span_at(at.x, at.y, at.z)
+	var z: float = (s.floor if s else at.z) + 40.0
+	var seen := {}
+	for k in 10:
+		var th := k * TAU / 10.0 + randf() * 0.4
+		var d := Vector2(cos(th), sin(th))
+		var hit := lv.ray_hit_wall(at.x, at.y, z, at.x + d.x * STREAK_REACH, at.y + d.y * STREAK_REACH, z)
+		if hit.is_empty() or hit.line == null or seen.has(hit.line):
+			continue
+		seen[hit.line] = true
+		var n := wall_normal(hit.line, at.x, at.y)
+		var away := Vector3(hit.x - at.x, hit.y - at.y, 0.0)
+		# along the wall, away from the blast (or up it, met head on)
+		var along := away - n * away.dot(n)
+		if along.length() < 20.0:
+			along = Vector3(0, 0, 1)
+		along = along.normalized()
+		var near := 1.0 - float(hit.t)
+		var sz: float = size * (0.55 + 0.5 * near)
+		_put_thrown("blast", Vector3(hit.x, hit.y, hit.z + sz * 0.15) + along * sz * 0.42, n, sz, along, KIND_STREAK)
+		streaks += 1
+
+## A POTATO WENT OFF: rainbow glass.
+func nuke(at: Vector3, normal: Vector3, size := NUKE_SIZE) -> void:
+	_put_thrown("blast", at, normal, size * (0.9 + 0.2 * randf()), Vector3.ZERO, KIND_NUKE)
+	nukes += 1
+
+## THE ARC MAW STRUCK here: a Lichtenberg figure, `size` across, its
+## branches leaning along `d`.
+func shock(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
+	_put_thrown("blast", at, normal, size, d, KIND_SHOCK)
+	shocks += 1
+
 ## A decal turned so its +x points along `d` laid flat on the surface —
 ## what turns a spatter to face the way it was thrown (js/decals.js
 ## throwAngle). A `d` along the normal gets a random turn.
@@ -282,7 +365,7 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	var basis := Basis(x * size, y * size, n * size)
 	# lifted a little further than a hole: a sear is laid over holes and
 	# blood that are already there
-	var pos := U.v3(at.x, at.y, at.z) + n * (0.9 if kind == KIND_SEAR else 1.3)
+	var pos := U.v3(at.x, at.y, at.z) + n * (0.9 if kind == KIND_SEAR else (1.1 if kind >= KIND_BLAST else 1.3))
 	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
 	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
 	# w: the surface's light, plus two if it is under the sky

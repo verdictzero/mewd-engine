@@ -109,6 +109,38 @@ func _next_target(from: Vector3, struck: Dictionary):
 		bd = d2
 	return best
 
+## THE ELECTRIC MARKS (Decals.shock, a Lichtenberg figure): under
+## everybody a bolt goes through, under those its field catches (smaller),
+## where a branch earths itself, and where a bolt that met nobody hit the
+## wall, the floor or the ceiling
+const SHOCK_MARK := {"hit": [80.0, 170.0], "field": 55.0, "earth": 60.0, "wall": [110.0, 210.0]}
+
+func _shock_under(a, size: float, from: Vector3) -> void:
+	var D = game.decals
+	if D == null or not D.has_method("shock"):
+		return
+	var s: Level.Sector = game.level.span_at(a.x, a.y, a.z)
+	if s == null:
+		return
+	D.shock(Vector3(a.x, a.y, s.floor), Vector3(0, 0, 1), size, Vector3(a.x - from.x, a.y - from.y, 0.0))
+
+## Where the sight ends and which way that surface faces (map space).
+func _sight_hit(p) -> Dictionary:
+	var e := Vector3(p.x, p.y, p.eye_z())
+	var end := _sight_end(p)
+	var cp := cos(p.pitch)
+	var b := e + Vector3(cos(p.angle) * cp, sin(p.angle) * cp, sin(p.pitch)) * ARC.range
+	var w: Dictionary = game.level.ray_hit_wall(e.x, e.y, e.z, b.x, b.y, b.z)
+	var s: Level.Sector = game.level.span_at(end.x, end.y, end.z)
+	var n := Vector3.ZERO
+	if s and end.z <= s.floor + 1.5:
+		n = Vector3(0, 0, 1)
+	elif s and end.z >= s.ceil - 1.5:
+		n = Vector3(0, 0, -1)
+	elif not w.is_empty() and w.line != null:
+		n = Decals.wall_normal(w.line, p.x, p.y)
+	return {"p": end, "n": n}
+
 func _sight_end(p) -> Vector3:
 	var cp := cos(p.pitch)
 	var e := Vector3(p.x, p.y, p.eye_z())
@@ -179,7 +211,8 @@ func fire(p, charge: float) -> int:
 		nodes.append({"p": chest(at), "who": at})
 		at = _next_target(nodes[nodes.size() - 1].p, struck)
 	if struck.is_empty():
-		nodes.append({"p": _sight_end(p), "who": null})
+		var sh := _sight_hit(p)
+		nodes.append({"p": sh.p, "who": null, "n": sh.n})
 	last_chain = struck.keys()
 	var b := {"nodes": nodes, "reveal": 0, "t": 0, "charge": charge, "struck": struck,
 		"seed": (U.p_random() << 8) | U.p_random(), "fields": [], "subs": []}
@@ -201,7 +234,12 @@ func _strike(b: Dictionary, i: int) -> void:
 		node.p = chest(a)
 	var np: Vector3 = node.p
 	_burst(np, 0.6 + 0.6 * b.charge)
+	# the bolt met nobody: the surface it hit is burnt
+	if a == null and node.get("n", Vector3.ZERO) != Vector3.ZERO and game.decals != null and game.decals.has_method("shock"):
+		var prev: Vector3 = b.nodes[i - 1].p
+		game.decals.shock(np, node.n, lerpf(SHOCK_MARK.wall[0], SHOCK_MARK.wall[1], b.charge), np - prev)
 	if a != null:
+		_shock_under(a, lerpf(SHOCK_MARK.hit[0], SHOCK_MARK.hit[1], b.charge), b.nodes[i - 1].p)
 		var dmg := strike_damage(b.charge, i - 1)
 		strikes += 1
 		if can_strike(a):
@@ -217,6 +255,7 @@ func _strike(b: Dictionary, i: int) -> void:
 			strikes += 1
 			o.damage(_lethal(o, dmg * ARC.fieldShare * (1.0 - 0.5 * d / ARC.field)), p, {"shock": true})
 			if drawn < ARC.fieldMost:
+				_shock_under(o, SHOCK_MARK.field, np)
 				drawn += 1
 				b.fields.append({"a": np, "who": o, "t": 0})
 				_burst(c, 0.35)
@@ -261,6 +300,8 @@ func _branch(b: Dictionary, np: Vector3, dmg: float) -> void:
 			if s == null:
 				continue
 			b.subs.append({"a": np, "who": null, "to": Vector3(x, y, s.floor), "t": 0, "seed": (U.p_random() << 8) | U.p_random()})
+			if game.decals != null and game.decals.has_method("shock"):
+				game.decals.shock(Vector3(x, y, s.floor), Vector3(0, 0, 1), SHOCK_MARK.earth, Vector3(x - np.x, y - np.y, 0.0))
 			_burst(Vector3(x, y, s.floor + 2.0), 0.3)
 
 ## no more than it takes: a strike does not waste itself on the dead

@@ -428,7 +428,9 @@ func _body_on_leg(s: Dictionary, nx: float, ny: float, nz: float, target) -> Dic
 			best = {"u": u, "at": p, "who": a}
 	return best
 
-func detonate(at: Vector3, direct = null, face = null) -> void:
+## `mark`: what it leaves — "blast" (a rocket's crater and its soot up
+## the walls) or "nuke" (a potato's rainbow glass); Decals.blast / nuke.
+func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 	var p = game.player
 	blasts += 1
 	game.play_sound("explode", null)
@@ -436,12 +438,19 @@ func detonate(at: Vector3, direct = null, face = null) -> void:
 	for k in 4:
 		game.fx.fireball(at.x, at.y, at.z, 56, 12)
 	game.fx.ember(at.x, at.y, at.z, 10, 1.3)
+	var D = game.decals
 	if face != null:
-		game.decals.hole(at, face, true)
+		if mark == "nuke":
+			D.nuke(at, face)
+		else:
+			D.blast(at, face)
 	else:
 		var under: Level.Sector = game.level.span_at(at.x, at.y, at.z)
-		if under and at.z - under.floor < 72.0:
-			game.decals.hole(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1), true)
+		if under and at.z - under.floor < 96.0:
+			if mark == "nuke":
+				D.nuke(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1))
+			else:
+				D.blast(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1))
 	game.scare(at.x, at.y, 700.0)
 	game.noise(at, 1600.0)
 	var hit := {}

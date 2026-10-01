@@ -175,6 +175,21 @@ THE WEAPONS, in slots 1 to 8:
     8  IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
                             a colour-cycling nuke at the end of it
 
+WHAT THE BIG GUNS LEAVE (godot/shaders/blast_decal.gdshader):
+  - A rocket leaves a pitted crater. Its rim glows molten and cools,
+    and a shockwave ring races out from it in the first half second.
+    Long soot rays spread out from the crater, the shrapnel pocks are
+    hot for a few seconds, and embers stay in the cracks for a while.
+    Soot is thrown up every wall near the blast.
+  - A potato leaves a crater of fused rainbow glass. Its colours cycle
+    for as long as it is there, it glints, and rainbow petals and a
+    white flash ring spread round it.
+  - The arc maw burns Lichtenberg figures, the branching scars real
+    lightning leaves. One goes under everybody a bolt goes through,
+    smaller ones under those its field catches, and one where a branch
+    earths itself or a bolt hits a wall. They crackle blue-white, then
+    fade to char with a ghost of blue in it.
+
 Every gun is loaded when a level is built, and the loading screen's
 warm-up draws them all once, along with every other effect the level
 has built (rockets, sparks, the scopes' feeds), so the first swap or the

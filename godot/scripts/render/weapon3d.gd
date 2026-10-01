@@ -361,22 +361,22 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 # ---------------------------------------------------------------------
 
 static var _orb_mesh: QuadMesh
-static var _orb_mat: ShaderMaterial
 
 func _orb_sprite(parent: Node3D, c: Color) -> MeshInstance3D:
 	if _orb_mesh == null:
 		_orb_mesh = QuadMesh.new()
 		_orb_mesh.size = Vector2(1, 1)
-		_orb_mat = ShaderMaterial.new()
-		_orb_mat.shader = preload("res://godot/shaders/orb.gdshader")
-		_orb_mat.render_priority = 6
+	# a material each: its tint is its own (see orb.gdshader)
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://godot/shaders/orb.gdshader")
+	mat.render_priority = 6
+	mat.set_shader_parameter("tint", U.col(c))
 	var m := MeshInstance3D.new()
 	m.mesh = _orb_mesh
-	m.material_override = _orb_mat
+	m.material_override = mat
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	m.extra_cull_margin = 4.0
 	m.visible = false
-	m.set_instance_shader_parameter("tint", U.col(c))
 	m.set_meta("colour", c)
 	parent.add_child(m)
 	return m
@@ -394,7 +394,7 @@ func _make_orb(inner: Node3D, at: Vector3, def: Dictionary) -> Dictionary:
 
 static func _fade(m: MeshInstance3D, a: float) -> void:
 	var c: Color = m.get_meta("colour")
-	m.set_instance_shader_parameter("tint", U.col(Color(c.r, c.g, c.b, clampf(a, 0.0, 1.0))))
+	(m.material_override as ShaderMaterial).set_shader_parameter("tint", U.col(Color(c.r, c.g, c.b, clampf(a, 0.0, 1.0))))
 
 func _orb_tic(o: Dictionary, p, dt: float) -> void:
 	var c: float = p.arc_charge if p.arc_charging else 0.0
