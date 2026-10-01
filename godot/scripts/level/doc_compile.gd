@@ -78,6 +78,10 @@ static func compile(doc: Dictionary) -> Level:
 	problems = []
 	last_scattered = []
 	last_grown = {}
+	# A MAP IN BLOCKS (the editor's own, BlockCompile): the ground plane
+	# and what is pulled up out of it, laid over each other as storeys
+	if BlockCompile.is_block_doc(doc):
+		return BlockCompile.compile(doc)
 	var lays := layers_of(doc)
 	if lays.size() > 1:
 		return _compile_layers(doc, lays)
@@ -274,9 +278,10 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			continue
 		var holes := _hole_outlines(kids_of.get(i, []), ring_idx, V, s)
 		var poly: PackedVector2Array = bridge(rings[i], holes) if holes.size() else rings[i]
-		if s.has("__stack"):
+		if s.has("__stack") or s.has("__storeys"):
 			# A PIECE OF A MAP IN LAYERS: the room of every layer over it
-			var st := _stack_props(s.__stack)
+			# (or, of a map in blocks, the storeys BlockCompile worked out)
+			var st: Array = s.__storeys if s.has("__storeys") else _stack_props(s.__stack)
 			if st.is_empty():
 				continue
 			var got := PackedInt32Array()
@@ -306,12 +311,12 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			for g in ctx.layers:
 				if int(g.k) == 0:
 					G = g
-			var gdoc := {"sectors": G.sectors, "props": doc.get("props", []), "things": doc.get("things", []),
-				"scatters": doc.scatters}
+			var gdoc := {"sectors": ctx.ground_blocks if ctx.has("ground_blocks") else G.sectors, "props": doc.get("props", []),
+				"things": doc.get("things", []), "scatters": doc.scatters}
 			var gplain := []
 			var gareas := PackedFloat64Array()
 			var gboxes := []
-			for sd in G.sectors:
+			for sd in gdoc.sectors:
 				var pl := _pts(G.vertices, PackedInt32Array(sd.verts))
 				gplain.append(pl)
 				gboxes.append(_bbox(pl))
@@ -329,7 +334,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			started = true
 		# A THING ON AN UPPER LAYER stands on the floor of that layer's
 		# room: the game puts it in the storey at that height
-		if layered and int(t.get("layer", 0) if t.get("layer") != null else 0) != 0:
+		if layered and not ctx.get("blocks", false) and int(t.get("layer", 0) if t.get("layer") != null else 0) != 0:
 			for g in ctx.layers:
 				if int(g.k) != int(t.layer):
 					continue
@@ -354,6 +359,8 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	lv.things = things
 	if layered:
 		lv.layered = true
+	if doc.get("__bounds") is Rect2:
+		lv.bounds_hint = doc.__bounds
 	lv.finish()
 	for pc in pieces:
 		lv.sectors[pc[1]].doc_id = pc[0].get("id")
@@ -389,7 +396,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# a roof on one side and the open air on the other (as the rooms were
 	# drawn, not as the stacking roofed them) — a terrace over a house is
 	# open air beside open air.
-	if layered:
+	if layered and not ctx.get("blocks", false):
 		var src_of := {}
 		var layer_of := {}
 		for pc in pieces:
@@ -460,7 +467,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# from above as well, a roof, instead
 	var w_all := default_world()
 	w_all.merge(lv.world, true)
-	if not w_all.get("skyWalls", false):
+	if not w_all.get("skyWalls", false) and not ctx.get("blocks", false):
 		for l in lv.lines:
 			if l.back == -1:
 				continue
@@ -479,7 +486,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 				l.upper = "NONE"
 		for pc in pieces:
 			var L := lv.sectors[pc[1]]
-			if L.ceil_tex == "SKY" or L.ceil_tex == "NONE":
+			if L.ceil_tex == "SKY" or L.ceil_tex == "NONE" or ctx.get("blocks", false):
 				continue
 			# a storey with another over it has that one's floor for a roof
 			if L.above != -1:
@@ -542,7 +549,10 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# the plants, placed and spread, one tree to a forest cell
 	lv.plants = Forest.plants_from_things(lv.things, lv.bounds)
 	# 7. THE DOORS: each line override `door`, on the level lines along it
-	_build_doors(lv, ctx.layers if layered else [{"vertices": V, "sectors": S, "lines": doc.get("lines", {})}])
+	if ctx.get("blocks", false):
+		BlockCompile.build_doors(lv, ctx.built)
+	else:
+		_build_doors(lv, ctx.layers if layered else [{"vertices": V, "sectors": S, "lines": doc.get("lines", {})}])
 	return lv
 
 # ------------------------------------------------------------------

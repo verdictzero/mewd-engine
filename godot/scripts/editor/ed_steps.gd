@@ -1,71 +1,96 @@
-## MEWD Editor — THE STEP GENERATOR (js/editor/steps.js): stairs,
-## cliffs and calderas, bridging sectors of different heights a step at
-## a time.
+## MEWD Editor — THE STEP GENERATOR: stairs, cliffs and calderas, a
+## block at a time.
 ##
-##   STAIRS  a sector between two of different heights is cut across into
-##           strips, each a step higher than the last, low side to high
-##   RINGS   a sector is cut into rings, one inside another, each a step
+##   STAIRS  a block between two heights is cut across into strips, each
+##           a step higher than the last, from the lower neighbour's top
+##           up to the higher's (or the heights given)
+##   RINGS   a block is cut into rings, one inside another, each a step
 ##           up (a mound, a mesa) or down (a caldera, a pit) to the middle
 ##
-## Both are ordinary sectors afterwards, drawn as a hand would draw them.
+## Both are ordinary blocks afterwards, drawn as a hand would draw them:
+## each piece's HEIGHT is set so its top is where the step wants it,
+## over the base the piece stands on (the block it is drawn inside, or
+## the ground).
 class_name EdSteps
 
 const STEP_H := 16
 
-## The sectors across a line from S, with the stretch of wall each
-## shares: [{s, len, mid}].
-static func neighbours_of(d: Dictionary, S: Dictionary) -> Array:
-	var si: int = d.sectors.find(S)
+## The blocks across a line from S, with the stretch of edge each
+## shares: [{s, len, mid, top}] — and the ground, where S's edge has no
+## block on the other side, as {s: null, top: 0}.
+static func neighbours_of(d: Dictionary, S: Dictionary, tops: Dictionary) -> Array:
+	var si: int = d.blocks.find(S)
 	var out := {}
 	var order := []
 	for l in EdDoc.lines_of(d):
-		if l.sectors.size() != 2 or not l.sectors.has(si):
+		if not l.blocks.has(si):
 			continue
-		var o: Dictionary = d.sectors[l.sectors[1] if l.sectors[0] == si else l.sectors[0]]
+		var o = null
+		if l.blocks.size() == 2:
+			o = d.blocks[l.blocks[1] if l.blocks[0] == si else l.blocks[0]]
 		var a: Vector2 = d.vertices[l.a]
 		var b: Vector2 = d.vertices[l.b]
 		var len := a.distance_to(b)
-		var key: int = o.id
+		var key = o.id if o != null else -1
 		if not out.has(key):
-			out[key] = {"s": o, "len": 0.0, "m": Vector2.ZERO}
+			out[key] = {"s": o, "len": 0.0, "m": Vector2.ZERO, "top": top_of(d, o, tops)}
 			order.append(key)
 		out[key].len += len
 		out[key].m += (a + b) / 2.0 * len
 	var res := []
 	for k in order:
 		var e: Dictionary = out[k]
-		res.append({"s": e.s, "len": e.len, "mid": e.m / e.len})
+		res.append({"s": e.s, "len": e.len, "mid": e.m / e.len, "top": e.top})
 	return res
 
-static func _fl(s: Dictionary) -> float:
-	return EdDoc.num(s.get("floor"), 0)
+## Where a block's top is: as the last build had it (tops: id -> {base,
+## top}), else its base (or nothing) plus its height.
+static func top_of(d: Dictionary, s, tops: Dictionary) -> float:
+	if s == null:
+		return 0.0
+	var t = tops.get(s.id)
+	if t is Dictionary:
+		return float(t.top)
+	var b = EdDoc.base_of(s)
+	return (float(b) if b != null else 0.0) + EdDoc.h_of(s)
 
-## STAIRS ACROSS S (makeStairs). opts: from, to, count, stepH, dir,
-## headroom. Returns {ids, rise, steps} or {error}.
-static func make_stairs(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
+## The base a piece of S stands on: the block S is drawn inside, else
+## the ground.
+static func base_under(d: Dictionary, S: Dictionary, tops: Dictionary) -> float:
+	var b = EdDoc.base_of(S)
+	if b != null:
+		return float(b)
+	var par := EdDoc.hole_parents(d)
+	var si: int = d.blocks.find(S)
+	if si >= 0 and par[si] >= 0:
+		return top_of(d, d.blocks[par[si]], tops)
+	return 0.0
+
+## STAIRS ACROSS S. opts: from, to, count, stepH, dir. Returns {ids,
+## rise, steps} or {error}.
+static func make_stairs(d: Dictionary, S: Dictionary, opts := {}, tops := {}) -> Dictionary:
 	var ring := EdDoc.ring_of(d, S)
 	if ring.size() < 3:
-		return {"error": "that sector has no shape"}
+		return {"error": "that block has no shape"}
 	var count := int(opts.get("count", 0))
 	var step_h := float(opts.get("stepH", STEP_H))
-	var headroom := bool(opts.get("headroom", true))
-	var nb := neighbours_of(d, S)
+	var nb := neighbours_of(d, S, tops)
 	var lo = null
 	var hi = null
 	for n in nb:
-		if lo == null or _fl(n.s) < _fl(lo.s):
+		if lo == null or n.top < lo.top:
 			lo = n
-		if hi == null or _fl(n.s) > _fl(hi.s):
+		if hi == null or n.top > hi.top:
 			hi = n
-	var auto: bool = lo != null and hi != null and _fl(hi.s) != _fl(lo.s)
+	var auto: bool = lo != null and hi != null and hi.top != lo.top
 	var from = opts.get("from")
 	var to = opts.get("to")
 	if from == null:
-		from = _fl(lo.s) if auto else _fl(S)
+		from = lo.top if auto else base_under(d, S, tops)
 	if to == null:
 		if not auto:
-			return {"error": "the sector has no neighbours of different heights to bridge — give the height to climb to"}
-		to = _fl(hi.s)
+			return {"error": "the block has no neighbours of different heights to bridge — give the height to climb to"}
+		to = hi.top
 	var dh := float(to) - float(from)
 	if dh == 0:
 		return {"error": "the two ends are at the same height — there is nothing to climb"}
@@ -91,8 +116,8 @@ static func make_stairs(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
 		t0 = minf(t0, p.dot(u))
 		t1 = maxf(t1, p.dot(u))
 	var axis: bool = u.x == 0 or u.y == 0
+	var under := base_under(d, S, tops)
 	var pieces := [S]
-	var head_h := EdDoc.num(S.get("ceil"), 256) - _fl(S)
 	for k in range(1, n):
 		var t := t0 + (t1 - t0) * k / n
 		if axis:
@@ -102,9 +127,8 @@ static func make_stairs(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
 	for s in pieces:
 		var c := EdDoc.centroid(EdDoc.ring_of(d, s))
 		var i := clampi(floori((c.dot(u) - t0) / (t1 - t0) * n), 0, n - 1)
-		s.floor = EdDoc.jsround(float(from) + rise * (i + 1))
-		if headroom:
-			s.ceil = s.floor + head_h
+		var top := EdDoc.jsround(float(from) + rise * (i + 1))
+		s.h = top - under
 		if s != S:
 			s.name = ""
 	var ids := []
@@ -154,7 +178,7 @@ static func _cut_across(d: Dictionary, pieces: Array, u: Vector2, t: float) -> v
 				var m: int = P.verts.size()
 				if (i + 1) % m == j or (j + 1) % m == i:
 					continue
-				var made = EdOps.split_sector(d, P, [a, b])
+				var made = EdOps.split_block(d, P, [a, b])
 				if made != null:
 					pieces.append(made)
 					did = true
@@ -164,12 +188,13 @@ static func _cut_across(d: Dictionary, pieces: Array, u: Vector2, t: float) -> v
 		if not did:
 			return
 
-## RINGS IN S (makeRings). opts: to, count, stepH, headroom.
-static func make_rings(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
+## RINGS IN S. opts: to, count, stepH. Each ring stands in the one round
+## it, so its height is the step; the middle's top is `to`.
+static func make_rings(d: Dictionary, S: Dictionary, opts := {}, tops := {}) -> Dictionary:
 	var outer := EdDoc.ring_of(d, S)
 	if outer.size() < 3:
-		return {"error": "that sector has no shape"}
-	var from := _fl(S)
+		return {"error": "that block has no shape"}
+	var from := top_of(d, S, tops)
 	var to = opts.get("to")
 	if to == null or (to is String and to == ""):
 		to = from + 128
@@ -178,7 +203,6 @@ static func make_rings(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
 		return {"error": "give the middle a height different from the edge"}
 	var count := int(opts.get("count", 0))
 	var step_h := float(opts.get("stepH", STEP_H))
-	var headroom := bool(opts.get("headroom", true))
 	var n := int(EdDoc.jsround(count)) if count > 0 else maxi(2, int(EdDoc.jsround(absf(dh) / maxf(1.0, step_h))) + 1)
 	if n > 128:
 		return {"error": "%d rings is too many — make the step taller" % n}
@@ -189,8 +213,7 @@ static func make_rings(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
 	var reach := A / (P / 2.0) * 0.9
 	var w := reach / n
 	if w < 2:
-		return {"error": "the sector is too small for %d rings — fewer rings, or a taller step" % n}
-	var head_h := EdDoc.num(S.get("ceil"), 256) - from
+		return {"error": "the block is too small for %d rings — fewer rings, or a taller step" % n}
 	var ccw := outer
 	if EdDoc.signed_area(outer) <= 0:
 		ccw = outer.duplicate()
@@ -215,20 +238,20 @@ static func make_rings(d: Dictionary, S: Dictionary, opts := {}) -> Dictionary:
 			verts.append(EdOps.vertex_for(d, p.x, p.y))
 		var s := EdDoc.copy_without(S, ["id", "verts"])
 		s["name"] = ""
+		s["base"] = null
 		s["id"] = EdDoc.take_id(d)
 		s["verts"] = verts
-		d.sectors.append(s)
+		d.blocks.append(s)
 		made.append(s)
 		prev = ring
-	for i in made.size():
-		var s: Dictionary = made[i]
-		s.floor = EdDoc.jsround(from + dh * i / (n - 1))
-		if headroom:
-			s.ceil = s.floor + head_h
+	# each ring's top, and so its height over the ring it stands in
+	var step := dh / (n - 1)
+	for i in range(1, made.size()):
+		made[i].h = EdDoc.jsround(step)
 	var ids := []
 	for s in made:
 		ids.append(s.id)
-	return {"ids": ids, "steps": n}
+	return {"ids": ids, "steps": n, "rise": step}
 
 ## A ring moved in by w everywhere, each corner along its bisector,
 ## rounded to whole units; null where a corner would pass the next.

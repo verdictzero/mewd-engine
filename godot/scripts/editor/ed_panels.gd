@@ -4,7 +4,11 @@
 ## scatter tab and the map's own settings with its problem report.
 ##
 ## THE INSPECTOR EDITS EVERYTHING SELECTED AT ONCE: it shows the first
-## and writes a changed field to all of them, one undo step each.
+## and writes a changed field to all of them, one undo step each. A map
+## is blocks on the ground: a block has a height, a base (or none: it
+## stands on what is under it), its sides, its top, its underside, and
+## the light of the space under it; the ground has a texture and the
+## light of the open air.
 class_name EdPanels
 extends RefCounted
 
@@ -33,16 +37,6 @@ var _mine_head: HBoxContainer
 var _mine_grid: GridContainer
 var _pack_box: VBoxContainer
 var _groups := []
-
-const MOODS := {
-	"Warm lamp": {"floor": "#ffd9a0", "ceil": "#ffe8c0", "thing": "#ffe0b0", "top": "#ffd08a", "bottom": "#8a5a30"},
-	"Cold light": {"floor": "#a8c8ff", "ceil": "#c8dcff", "thing": "#b8d0ff", "top": "#d0e4ff", "bottom": "#40507a"},
-	"Toxic": {"floor": "#8aff6a", "ceil": "#60c050", "thing": "#a0ff80", "top": "#50ff40", "bottom": "#103a10"},
-	"Blood": {"floor": "#ff5040", "ceil": "#a02018", "thing": "#ff7060", "top": "#ff3020", "bottom": "#300808"},
-	"Hell": {"floor": "#ff9030", "ceil": "#401000", "thing": "#ffb060", "top": "#200800", "bottom": "#ff6010"},
-	"Night": {"floor": "#404a70", "ceil": "#202840", "thing": "#6070a0", "top": "#303a60", "bottom": "#101420"},
-	"Violet": {"floor": "#c090ff", "ceil": "#6030a0", "thing": "#d0a0ff", "top": "#a060ff", "bottom": "#200840"},
-}
 
 func _init(editor: MewdEditor, frame: EdUI) -> void:
 	ed = editor
@@ -218,18 +212,16 @@ func each(label: String, fn: Callable) -> void:
 	var ids := ed.sel_ids
 	var d := ed.edit_begin(label)
 	match kind:
-		"sector":
-			for s in d.sectors:
+		"block":
+			for s in d.blocks:
 				if ids.has(s.id):
 					fn.call(s)
+		"ground":
+			fn.call(d.ground)
 		"thing":
 			for t in d.things:
 				if ids.has(t.id):
 					fn.call(t)
-		"prop":
-			for p in d.props:
-				if ids.has(p.id):
-					fn.call(p)
 		"scatter":
 			for p in d.scatters:
 				if ids.has(p.id):
@@ -348,25 +340,6 @@ func tex_field(value, field: String, label: String, allow_none := false) -> Cont
 			render_insp())
 	return EdStyle.row(label, [p])
 
-func colour_row(s: Dictionary, k: String) -> Control:
-	var cols: Dictionary = s.get("colors", {}) if s.get("colors") is Dictionary else {}
-	var v = cols.get(k)
-	var names := {"floor": "Floor", "ceil": "Ceiling", "thing": "Things", "top": "Walls, top", "bottom": "Walls, bottom"}
-	var label: String = names[k]
-	var set_c := func(c) -> void:
-		each("%s colour" % label.to_lower(), func(x):
-			if c != null:
-				if not x.get("colors") is Dictionary:
-					x["colors"] = {}
-				x.colors[k] = c
-			elif x.get("colors") is Dictionary:
-				x.colors.erase(k)
-				if x.colors.is_empty():
-					x.erase("colors"))
-	var on := EdStyle.check(v != null, func(b): set_c.call((v if v != null else "#ffffff") if b else null))
-	var pick := EdStyle.color_pick(v if v != null else "#ffffff", func(c): set_c.call(c))
-	return EdStyle.row(label, [on, pick])
-
 func facing_buttons(onset: Callable) -> Control:
 	var g := GridContainer.new()
 	g.columns = 3
@@ -430,16 +403,18 @@ func render_insp() -> void:
 		for k in EdDoc.THING_TYPES:
 			types.append([k, EdDoc.THING_TYPES[k].name])
 		_put(p, [EdStyle.h3("Nothing selected"),
-			EdStyle.note("Click something in the map or the 3D view. Shift adds to the selection; drag on empty space to box-select."),
-			EdStyle.note("%d sectors · %d lines · %d vertices · %d things · %d props" % [d.sectors.size(), ed.lines().size(), d.vertices.size(), d.things.size(), d.props.size()]),
+			EdStyle.note("Click something in the map or the 3D view. Shift adds to the selection; drag on empty space to box-select. Drag on the ground to pull up a block as high as the toolbar's Pull."),
+			EdStyle.note("%d blocks · %d lines · %d vertices · %d things" % [d.blocks.size(), ed.lines().size(), d.vertices.size(), d.things.size()]),
 			EdStyle.h4("New things"),
 			EdStyle.row("Thing type", [EdStyle.option(types, ed.thing_type, func(v): ed.thing_type = v)]),
-			tex_field(ed.prop_tex, "@propTex", "Prop texture")])
+			EdStyle.h4("The ground"),
+			EdStyle.note("The plane everything stands on, forever in every direction: its texture and the light of the open air are in the Map tab, or click the ground in 3D.")])
 		return
 	var n := ids.size()
 	var small := ("%d selected" % n) if n > 1 else ""
 	match kind:
-		"sector": _insp_sector(p, d, ids, small)
+		"block": _insp_block(p, d, ids, small)
+		"ground": _insp_ground(p, d)
 		"line": _insp_line(p, d, ids, small, n)
 		"vertex":
 			var i: int = ids.keys()[0]
@@ -449,128 +424,58 @@ func render_insp() -> void:
 			_put(p, [EdStyle.h3("Vertex %d" % i, small),
 				EdStyle.row("X", [EdStyle.num(v.x, func(x): each("vertex x", func(w): w.v = Vector2(x, w.v.y)))]) if n == 1 else null,
 				EdStyle.row("Y", [EdStyle.num(v.y, func(y): each("vertex y", func(w): w.v = Vector2(w.v.x, y)))]) if n == 1 else null,
-				EdStyle.note("Drag a vertex onto another to weld them. Deleting a vertex takes it out of every sector it is in.")])
+				EdStyle.note("Drag a vertex onto another to weld them. Deleting a vertex takes it out of every block it is in.")])
 		"thing": _insp_thing(p, d, ids, small, n)
-		"prop":
-			var pr = null
-			for x in d.props:
-				if ids.has(x.id):
-					pr = x
-					break
-			if pr == null:
-				return
-			_put(p, [EdStyle.h3("Prop %d" % pr.id, small),
-				EdStyle.note("A solid box anywhere in space — a crate, a beam, a bridge, a floating platform."),
-				EdStyle.row("X from / to", [EdStyle.num(pr.x0, func(v): each("prop x0", func(x): x.x0 = v), 8), EdStyle.num(pr.x1, func(v): each("prop x1", func(x): x.x1 = v), 8)]),
-				EdStyle.row("Y from / to", [EdStyle.num(pr.y0, func(v): each("prop y0", func(x): x.y0 = v), 8), EdStyle.num(pr.y1, func(v): each("prop y1", func(x): x.y1 = v), 8)]),
-				EdStyle.row("Bottom / top", [EdStyle.num(pr.z0, func(v): each("prop bottom", func(x): x.z0 = v), 8), EdStyle.num(pr.z1, func(v): each("prop top", func(x): x.z1 = v), 8)]),
-				tex_field(pr.get("tex"), "tex", "Sides"),
-				tex_field(pr.get("topTex"), "topTex", "Top", true)])
 		"scatter":
 			for x in d.scatters:
 				if ids.has(x.id):
 					_insp_scatter(p, x, n)
 					break
 
-func _insp_sector(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String) -> void:
+func _insp_block(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String) -> void:
 	var s = null
-	for x in d.sectors:
+	for x in d.blocks:
 		if ids.has(x.id):
 			s = x
 			break
 	if s == null:
 		return
 	var r := EdDoc.ring_of(d, s)
-	var ins := MewdEditor.is_inside(s)
-	var fog: Dictionary = s.get("fog", {}) if s.get("fog") is Dictionary else {}
-	var fog_on := EdDoc.num(fog.get("density"), 0) > 0
-	var world_fog: Dictionary = d.world.get("fog", {}) if d.world.get("fog") is Dictionary else {}
-	var moods := HFlowContainer.new()
-	moods.add_theme_constant_override("h_separation", 5)
-	for nm in MOODS:
-		var c: Dictionary = MOODS[nm]
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.tooltip_text = nm
-		b.custom_minimum_size = Vector2(26, 22)
-		var gt := GradientTexture2D.new()
-		var g := Gradient.new()
-		g.set_color(0, Color(c.top))
-		g.set_color(1, Color(c.bottom))
-		gt.gradient = g
-		gt.fill_to = Vector2(0, 1)
-		gt.width = 8
-		gt.height = 8
-		var sb := StyleBoxTexture.new()
-		sb.texture = gt
-		b.add_theme_stylebox_override("normal", sb)
-		b.add_theme_stylebox_override("hover", sb)
-		b.add_theme_stylebox_override("pressed", sb)
-		b.pressed.connect(func(): each("colours %s" % nm, func(x): x["colors"] = c.duplicate()))
-		moods.add_child(b)
-	moods.add_child(EdStyle.small_button("Clear", func(): each("clear colours", func(x): x.erase("colors")), "All white again"))
-	var cols := []
-	for k in EdDoc.COLOR_PARTS:
-		cols.append(colour_row(s, k))
-	var fog_toggle := func(b):
-		each("sector fog", func(x):
-			if b:
-				x["fog"] = {"color": fog.get("color", "#8090a0"), "density": fog.get("density") if fog_on else 20}
-			else:
-				x.erase("fog"))
-	var fog_colour := func(c):
-		each("fog colour", func(x):
-			var f: Dictionary = {"density": 20}
-			if x.get("fog") is Dictionary:
-				f.merge(x.fog, true)
-			f["color"] = c
-			x["fog"] = f)
-	var fog_density := func(v):
-		each("fog density", func(x):
-			var f: Dictionary = {"color": "#8090a0"}
-			if x.get("fog") is Dictionary:
-				f.merge(x.fog, true)
-			f["density"] = clampf(v, 0, 100)
-			x["fog"] = f
-			if not (f.density > 0):
-				x.erase("fog"))
-	var light_toggle := func(b):
-		each("light colour", func(x):
-			if b:
-				x["lightColor"] = s.get("lightColor") if s.get("lightColor") != null else "#ffc890"
-			else:
-				x.erase("lightColor"))
 	var set_bright := func(v): each("brightness", func(x): x["light"] = snappedf(clampf(v, 0, 255) / 255.0, 0.0001))
 	var area := absf(EdDoc.signed_area(r)) / 4096.0
-	_put(p, [EdStyle.h3("Sector %d%s" % [s.id, (" · " + str(s.name)) if str(s.get("name", "")) != "" else ""], small),
-		EdStyle.note("%d corners · %d cells²%s" % [s.verts.size(), roundi(area), (" · picked: " + ed.surf.part) if ed.surf != null else ""]),
-		EdStyle.row("Name", [EdStyle.text_field(s.get("name", ""), func(v): each("rename sector", func(x): x["name"] = v))]),
-		EdStyle.h4("Heights"),
-		EdStyle.row("Floor", [EdStyle.num(EdDoc.num(s.get("floor"), 0), func(v): each("floor height", func(x): x["floor"] = v), 8)]),
-		EdStyle.row("Environment", [seg([["☀ Outside", not ins, func(): ed.set_inside(false), "Open to the sky, no ceiling"],
-			["⌂ Inside", ins, func(): ed.set_inside(true), "A roof, and walls where it meets the outside"]])]),
-		EdStyle.row("Ceiling" if ins else "Wall height", [EdStyle.num(EdDoc.num(s.get("ceil"), 0), func(v): each("ceiling height", func(x): x["ceil"] = v), 8)]),
-		EdStyle.row("Brightness", [bright_row(MewdEditor.bright_of(s), 0, 255, 1, set_bright, 16, "Ctrl+wheel over the sector, on the plan or in 3D")]),
-		_steps_block(s),
-		EdStyle.h4("Light colour and fog"),
-		EdStyle.row("Light colour", [EdStyle.check(s.get("lightColor") != null, light_toggle),
-			EdStyle.color_pick(s.get("lightColor", "#ffffff"), func(c): each("light colour", func(x): x["lightColor"] = c))]),
-		EdStyle.row("Fog", [EdStyle.check(fog_on, fog_toggle), EdStyle.color_pick(fog.get("color", "#8090a0"), fog_colour)]),
-		EdStyle.row("Fog density", [bright_row(EdDoc.num(fog.get("density"), 0), 1, 100, 1, fog_density, 5, "Half-way in at 25600 / density units: 100 is thick at 256, 10 at 2560")]) if fog_on else null,
-		EdStyle.note("The map's fog colour overrides this sector's (Map tab)." if world_fog.get("override", false) else "No fog of its own: the map's fog, if it has one (Map tab)."),
-		EdStyle.h4("Colours — Doom 64"),
-		EdStyle.note("The colour of the light on the floor, the ceiling, the things standing here, and the walls from top to bottom. Unticked is white."),
-		cols,
-		moods,
+	var bt := ed.top_of(s.id)
+	var auto: bool = EdDoc.base_of(s) == null
+	var h := EdDoc.h_of(s)
+	var floats: bool = not auto
+	_put(p, [EdStyle.h3("Block %d%s" % [s.id, (" · " + str(s.name)) if str(s.get("name", "")) != "" else ""], small),
+		EdStyle.note("%d corners · %d cells² · stands %s to %s%s" % [s.verts.size(), roundi(area), EdUI.coord(bt.base), EdUI.coord(bt.top), (" · picked: " + ed.surf.part) if ed.surf != null else ""]),
+		EdStyle.row("Name", [EdStyle.text_field(s.get("name", ""), func(v): each("rename block", func(x): x["name"] = v))]),
+		EdStyle.h4("Pulled up"),
+		EdStyle.row("Height", [EdStyle.num(h, func(v): each("height", func(x): x["h"] = v), 8, "How far it stands up from its base (PgUp/PgDn, the wheel over it in 3D); below zero it is pushed down into what it stands on, a pit")]),
+		EdStyle.row("Base", [EdStyle.check(auto, func(v): ed.set_base(s.id, null if v else bt.base), "On what is under it: the block it is drawn inside, the layers below, or the ground"),
+			EdStyle.label("on what is under" if auto else "floats at", EdStyle.DIM, 11),
+			null if auto else EdStyle.num(bt.base, func(v): ed.set_base(s.id, v), 8, "The height it floats at (Shift+PgUp/PgDn); air under it is a room, its underside the ceiling")]),
+		EdStyle.row("Light under it", [bright_row(MewdEditor.bright_of(s), 0, 255, 1, set_bright, 16, "The light of the space under this block — a slab lights the room it roofs. Ctrl+wheel over it")]),
 		EdStyle.h4("Textures"),
-		tex_field(s.get("floorTex"), "floorTex", "Floor"),
-		null if EdDoc.tex(s, "ceilTex") == "SKY" else tex_field(s.get("ceilTex"), "ceilTex", "Ceiling"),
-		EdStyle.flow([EdStyle.small_button("▢ Select its walls", func(): ed.loop_select(ed.sector_index(s.id)),
-			"Every wall of this sector, to texture them all at once (in Lines mode: double-click or Alt+click a line)")]),
-		tex_field(s.get("wallTex"), "wallTex", "Walls"),
-		EdStyle.note("Its walls are every piece of wall it shows: the walls, the steps up and down to the rooms next door, the lintels over them. Textures follow the world — nothing to peg or align."),
+		tex_field(s.get("top"), "top", "Top"),
+		EdStyle.flow([EdStyle.small_button("▢ Select its sides", func(): ed.loop_select(ed.block_index(s.id)),
+			"Every side of this block, to put a texture on one of them alone (in Lines mode: double-click or Alt+click a line)")]),
+		tex_field(s.get("side"), "side", "Sides"),
+		tex_field(s.get("under"), "under", "Underside", true) if floats else null,
+		EdStyle.note("Its sides are every face it shows, from its base to its top, round every corner — textures follow the world, nothing to peg. A line's own skin (click a side in 3D) covers one face." + (" The underside is the ceiling of what is under it; empty, it wears the sides." if floats else "")),
+		_steps_block(s),
 		EdStyle.h4("Spread"),
-		EdStyle.flow([EdStyle.small_button("Scatter %s here" % EdScatter.presets().get(ed.scatter_preset, {}).get("name", ""), func(): ed.scatter_sectors(), "Fill the selected sectors with the mix chosen in the Scatter tab")])])
+		EdStyle.flow([EdStyle.small_button("Scatter %s here" % EdScatter.presets().get(ed.scatter_preset, {}).get("name", ""), func(): ed.scatter_blocks(), "Fill the tops of the selected blocks with the mix chosen in the Scatter tab")])])
+
+## THE GROUND: the plane, and the open air's light.
+func _insp_ground(p: VBoxContainer, d: Dictionary) -> void:
+	var g := EdDoc.ground_of(d)
+	_put(p, [EdStyle.h3("The ground"),
+		EdStyle.note("The plane everything stands on, forever in every direction, under the sky%s." % ((" · picked: " + ed.surf.part) if ed.surf != null else "")),
+		tex_field(g.get("tex"), "tex", "Texture"),
+		EdStyle.row("Daylight", [bright_row(int(EdDoc.jsround(EdDoc.num(g.get("light"), 0.9) * 255.0)), 0, 255, 1,
+			func(v): each("daylight", func(x): x["light"] = snappedf(clampf(v, 0, 255) / 255.0, 0.0001)), 16, "The light of the open air: every top under the sky, and the ground")]),
+		EdStyle.note("Drag on the ground to pull up a block; a block's own light is the light under it.")])
 
 func _steps_block(s: Dictionary) -> Array:
 	var o := steps
@@ -579,19 +484,18 @@ func _steps_block(s: Dictionary) -> Array:
 		var to = null
 		if not (o.to is String) and o.to != null:
 			to = float(o.to)
-		ed.make_steps(o.kind, {"stepH": o.stepH, "count": o.count, "to": to, "headroom": o.headroom})
+		ed.make_steps(o.kind, {"stepH": o.stepH, "count": o.count, "to": to})
 	return [EdStyle.h4("Steps — stairs, cliffs, calderas"),
-		EdStyle.row("Make", [seg([["▤ Stairs", not rings, func(): o.kind = "stairs"; render_insp(), "Strips across the sector, from its lowest neighbour up to its highest"],
-			["◎ Rings", rings, func(): o.kind = "rings"; render_insp(), "Rings inside the sector, stepping to a height in the middle: a mound, a mesa, a caldera, a pit"]])]),
+		EdStyle.row("Make", [seg([["▤ Stairs", not rings, func(): o.kind = "stairs"; render_insp(), "Strips across the block, from its lowest neighbour up to its highest"],
+			["◎ Rings", rings, func(): o.kind = "rings"; render_insp(), "Rings inside the block, stepping to a height in the middle: a mound, a mesa, a caldera, a pit"]])]),
 		EdStyle.row("Step height", [EdStyle.num(o.stepH, func(v): o.stepH = maxf(1, v), 4, "How high each step rises (the game climbs 24)")]),
 		EdStyle.row("How many", [EdStyle.num(o.count if o.count else "", func(v): o.count = maxi(0, roundi(v)), 1, "Blank or 0: as many as the step height makes")]),
 		EdStyle.row("Middle at" if rings else "Climb to", [EdStyle.num(o.to, func(v): o.to = v, 8,
-			"The height of the middle ring: above the floor for a mound, below it for a caldera (blank: 128 up)" if rings else "Blank: the highest sector next to it")]),
-		EdStyle.row("Keep head-room", [EdStyle.check(o.headroom, func(v): o.headroom = v)]),
+			"The height of the middle ring's top: above this one's for a mound, below it for a caldera (blank: 128 up)" if rings else "Blank: the highest block next to it")]),
 		EdStyle.flow([_primary("Make rings" if rings else "Make stairs", make),
 			EdStyle.small_button("Auto height", func(): o.to = ""; render_insp(), "Back to working it out from the neighbours") if not (o.to is String) else null]),
-		EdStyle.note(("Rings from this floor (%s) to the middle. Up for a mound or a cliff in terraces, down for a caldera." % EdUI.coord(EdDoc.num(s.get("floor"), 0))) if rings
-			else "Draw a sector between two of different heights — a street and a terrace, a floor and the layer above — and it is cut into steps from the low one up to the high one.")]
+		EdStyle.note(("Rings from this top (%s) to the middle, each standing in the last. Up for a mound or a cliff in terraces, down for a caldera." % EdUI.coord(ed.top_of(s.id).top)) if rings
+			else "Draw a block between two of different heights — the ground and a terrace, a floor and the block beside it — and it is cut into strips, each a step higher, from the low one up to the high one.")]
 
 func _primary(text: String, f: Callable) -> Button:
 	var b := EdStyle.small_button(text, f, "One undo step")
@@ -622,9 +526,9 @@ func _door_preset_items() -> Array:
 	var dp: Dictionary = ed.door_preset
 	var styles := [["swing", "Swings open (a hinge)"], ["slide", "Slides into the wall"]]
 	return [EdStyle.h3("Doors"),
-		EdStyle.note("Click a wall — in the plan or in 3D — and a door goes in there, as wide as this, its middle where you clicked. Click another for another. Shift+click a door takes it out."),
+		EdStyle.note("Click the side of a wall block — in the plan or in 3D — and a doorway is cut through it there, as wide as this, its middle where you clicked, with a door in it. Click another for another. Shift+click a door takes it out."),
 		EdStyle.row("Width", [EdStyle.num(dp.w, func(v): dp["w"] = clampf(v, 16, 512), 8, "How wide a new door is")]),
-		EdStyle.row("Height", [EdStyle.num(dp.h, func(v): dp["h"] = clampf(v, 24, 1024), 8, "How high: never higher than the room's ceiling; over it, a lintel")]),
+		EdStyle.row("Height", [EdStyle.num(dp.h, func(v): dp["h"] = clampf(v, 24, 1024), 8, "How high the doorway is: the wall over it becomes a lintel block floating at that height")]),
 		EdStyle.row("Opens", [EdStyle.option(styles, dp.style, func(v): dp["style"] = v)]),
 		EdStyle.row("By itself", [EdStyle.check(dp.auto, func(v): dp["auto"] = v, "as anybody comes to it — else only the use key (F)")]),
 		tex_field(dp.tex, "@doorTex", "Door texture")]
@@ -634,7 +538,6 @@ func _door_items(o: Dictionary) -> Array:
 	var dr = o.get("door")
 	if not dr is Dictionary:
 		return [EdStyle.flow([EdStyle.small_button("+ Door here", func(): each("door", func(x):
-			x["opening"] = true
 			var dp: Dictionary = ed.door_preset.duplicate()
 			dp.erase("w")
 			x["door"] = dp), "A door across this whole line, as the Doors tool (O) makes them")])]
@@ -654,22 +557,17 @@ func _door_items(o: Dictionary) -> Array:
 ## A LOOP (MewdEditor.loop_select): the walls of one sector, textured on
 ## its side all at once.
 func _insp_loop(p: VBoxContainer, d: Dictionary, ids: Dictionary) -> void:
-	var si := ed.sector_index(ed.sel_face)
-	var sec: Dictionary = d.sectors[si] if si >= 0 else {}
-	var one := 0
-	for l in ed.lines():
-		if ids.has(l.key) and l.sectors.size() < 2:
-			one += 1
-	var two := ids.size() - one
-	_put(p, [EdStyle.h3("Walls of sector %s%s" % [str(ed.sel_face), (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else ""], "%d lines" % ids.size()),
-		EdStyle.note("%d walls, %d lines into the next room · the side facing this sector. A texture clicked in the browser skins all of them on this side: the walls, and the steps and lintels of the openings." % [one, two]),
-		EdStyle.h4("This side"),
-		tex_field(ed.loop_tex_of("skin"), "@loop.skin", "Skin", true),
-		tex_field(ed.loop_tex_of("mid"), "@loop.mid", "Fill the openings", true) if two > 0 else null,
-		EdStyle.note("A fill stands in the opening — a fence, a window, a grate. Cleared, the room's own walls show again. Click one line to pick it alone; Shift+Alt+click another sector's line to add its walls.")])
+	var si := ed.block_index(ed.sel_face)
+	var sec: Dictionary = d.blocks[si] if si >= 0 else {}
+	_put(p, [EdStyle.h3("Sides of block %s%s" % [str(ed.sel_face), (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else ""], "%d lines" % ids.size()),
+		EdStyle.note("Every side of the block. A texture clicked in the browser goes on all of them (the block's Sides; a skin set on one line alone is cleared)."),
+		EdStyle.h4("All its sides"),
+		tex_field(ed.loop_tex_of("skin"), "@loop.skin", "Sides", true),
+		tex_field(ed.loop_tex_of("mid"), "@loop.mid", "Fill across the edges", true),
+		EdStyle.note("A fill stands across an edge between two blocks' tops — a fence, a window, a grate. Cleared, nothing stands there. Click one line to pick it alone; Shift+Alt+click another block's line to add its sides.")])
 
 func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String, n: int) -> void:
-	if ed.sel_face != null and ed.sector_index(ed.sel_face) >= 0:
+	if ed.sel_face != null and ed.block_index(ed.sel_face) >= 0:
 		_insp_loop(p, d, ids)
 		return
 	var key: String = ids.keys()[0]
@@ -679,116 +577,42 @@ func _insp_line(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String,
 	var len := 0.0
 	if ab.x >= 0 and ab.x < d.vertices.size() and ab.y < d.vertices.size():
 		len = d.vertices[ab.x].distance_to(d.vertices[ab.y])
-	if info != null and info.get("free", false):
-		_put(p, [EdStyle.h3("Linedef %s" % key, small),
-			EdStyle.note("%d units · on its own: it stands as a wall %d thick, and when more lines close a shape with it, that shape becomes a sector." % [roundi(len), EdDoc.LINEDEF_THICK]),
-			tex_field(o.get("tex", o.get("midTex")), "tex", "Wall texture", true),
-			EdStyle.row("Wall height", [EdStyle.num(o.get("wallH", ""), func(v): each("wall height", func(x):
-				if v > 0:
-					x["wallH"] = v
-				else:
-					x.erase("wallH")), 8)]),
-			EdStyle.note("Empty height: %d outdoors, floor to ceiling in a room. The whole run of joined linedefs takes the first one's texture and height. Delete removes it." % EdDoc.LINEDEF_H)])
-		return
-	var two: bool = info != null and info.sectors.size() > 1
+	var two: bool = info != null and info.blocks.size() > 1
+	var names := []
+	if info != null:
+		for bi in info.blocks:
+			names.append("block %d" % d.blocks[bi].id)
 	var items := [EdStyle.h3("Line %s" % key, small),
-		EdStyle.note("%d units · %s" % [roundi(len), ("two-sided" if two else "one-sided") if info != null else "not on a sector"]),
+		EdStyle.note("%d units · %s" % [roundi(len), ("between %s" % " and ".join(names)) if two else (("the edge of %s, against the ground" % names[0]) if not names.is_empty() else "on no block")]),
 		EdStyle.row("Blocks walking", [EdStyle.check(o.get("blocking", false), func(v): each("line blocking", func(x): _flag(x, "blocking", v)))]),
 		EdStyle.row("Blocks sight", [EdStyle.check(o.get("blockSight", false), func(v): each("line sight", func(x): _flag(x, "blockSight", v)))])]
 	if n == 1 and info != null:
 		items += _door_items(o)
-	if n == 1 and info != null:
-		for si in info.sectors:
-			var sec: Dictionary = d.sectors[si]
-			var sid := str(sec.id)
-			var sides: Dictionary = o.get("sides", {}) if o.get("sides") is Dictionary else {}
-			var sd: Dictionary = sides.get(sid, {})
-			var base := "sides.%s" % sid
-			items.append(EdStyle.h4("Side facing sector %s%s · %s" % [sid, (" · " + str(sec.name)) if str(sec.get("name", "")) != "" else "", "inside" if MewdEditor.is_inside(sec) else "outside"]))
-			# ONE SKIN A SIDE: every piece of wall on this face — the wall,
-			# or the step and the lintel of an opening — and, in an
-			# opening, what stands in it (a fence, a window: the fill)
-			items.append(tex_field(sd.get("tex", o.get("tex", sd.get("upperTex", sd.get("lowerTex")))), base + ".tex",
-				"Skin" if two else "Wall", true))
-			if two:
-				items.append(tex_field(sd.get("midTex", o.get("midTex")), base + ".midTex", "Fill the opening", true))
-			items.append(EdStyle.row("Offset x / y", [
-				EdStyle.num(EdDoc.got(sd, "xoff", o.get("xoff", 0)), func(v): _set_side(sid, "x offset", func(x): x["xoff"] = v)),
-				EdStyle.num(EdDoc.got(sd, "yoff", o.get("yoff", 0)), func(v): _set_side(sid, "y offset", func(x): x["yoff"] = v))]))
-			var set_scale := func(k: String, v: float):
-				_set_side(sid, k.substr(0, 1) + " scale", func(x):
-					if v > 0 and v != 1:
-						x[k] = v
-					else:
-						x.erase(k))
-			var sx := EdStyle.num(EdDoc.got(sd, "xscale", o.get("xscale", 1)), func(v): set_scale.call("xscale", v), 0.25)
-			var sy := EdStyle.num(EdDoc.got(sd, "yscale", o.get("yscale", 1)), func(v): set_scale.call("yscale", v), 0.25)
-			var srow := EdStyle.row("Scale x / y", [sx, sy])
-			srow.tooltip_text = "How big one repeat of the texture is: 2 is twice the size, half as often"
-			items.append(srow)
-	else:
-		items += [EdStyle.h4("Textures — both sides"),
-			tex_field(o.get("tex"), "tex", "Skin", true),
-			tex_field(o.get("midTex"), "midTex", "Fill the opening", true)]
-	var has_mid := EdDoc.tex(o, "midTex") != ""
-	if o.get("sides") is Dictionary:
-		for x in o.sides.values():
-			if x is Dictionary and EdDoc.tex(x, "midTex") != "":
-				has_mid = true
-	if two and has_mid:
-		items.append(EdStyle.row("Middle height", [EdStyle.num(o.get("midHeight", ""), func(v): each("middle height", func(x):
+	items += [EdStyle.h4("Textures"),
+		tex_field(o.get("tex"), "tex", "Skin", true),
+		EdStyle.note("The skin covers every face along this line, both ways — the side of whichever block stands here — instead of the block's Sides. Empty: the block's Sides."),
+		tex_field(o.get("midTex"), "midTex", "Fill across it", true)]
+	if EdDoc.tex(o, "midTex") != "":
+		items.append(EdStyle.row("Fill height", [EdStyle.num(o.get("midHeight", ""), func(v): each("fill height", func(x):
 			if v > 0:
 				x["midHeight"] = v
 			else:
 				x.erase("midHeight")), 8)]))
-	if n == 1 and two:
-		var a_id := str(d.sectors[info.sectors[0]].id)
-		var b_id := str(d.sectors[info.sectors[1]].id)
-		items.append(EdStyle.flow([EdStyle.small_button("⇄ Swap sides", func(): each("swap sides", func(x):
-			var sides: Dictionary = x.get("sides", {}) if x.get("sides") is Dictionary else {}
-			var sa = sides.get(a_id)
-			var sb = sides.get(b_id)
-			if sb != null:
-				sides[a_id] = sb
+	items.append(EdStyle.row("Offset x / y", [
+		EdStyle.num(EdDoc.num(o.get("xoff"), 0), func(v): each("x offset", func(x): x["xoff"] = v)),
+		EdStyle.num(EdDoc.num(o.get("yoff"), 0), func(v): each("y offset", func(x): x["yoff"] = v))]))
+	var set_scale := func(k: String, v: float):
+		each(k.substr(0, 1) + " scale", func(x):
+			if v > 0 and v != 1:
+				x[k] = v
 			else:
-				sides.erase(a_id)
-			if sa != null:
-				sides[b_id] = sa
-			else:
-				sides.erase(b_id)
-			if sides.is_empty():
-				x.erase("sides")
-			else:
-				x["sides"] = sides), "Doom Builder's Flip Sidedefs: each side gets the other's textures and offsets")]))
-	if two:
-		var ss: Array = info.sectors.map(func(i): return d.sectors[i])
-		var any_in := false
-		var any_out := false
-		for x in ss:
-			if MewdEditor.is_inside(x):
-				any_in = true
-			else:
-				any_out = true
-		if any_in and any_out:
-			items += [EdStyle.h4("Building wall"),
-				EdStyle.row("Doorway", [EdStyle.check(o.get("opening", false), func(v): each("doorway", func(x): _flag(x, "opening", v)))]),
-				EdStyle.note("This line is where an inside sector meets the outside, so it is a wall unless it is a doorway. Split it with Insert (vertices mode) to make a doorway in part of a wall.")]
-	items += _align_block(n)
-	items += [EdStyle.note("Textures follow the world: their rows are nailed to height 0 and run round the room, so a step, its lintel and the storey above carry one picture. In 3D, the arrow keys over a wall nudge its offsets (Shift: 8 at a time). Deleting a line joins the two sectors on it into one.")]
+				x.erase(k))
+	var srow := EdStyle.row("Scale x / y", [EdStyle.num(EdDoc.num(o.get("xscale"), 1), func(v): set_scale.call("xscale", v), 0.25),
+		EdStyle.num(EdDoc.num(o.get("yscale"), 1), func(v): set_scale.call("yscale", v), 0.25)])
+	srow.tooltip_text = "How big one repeat of the texture is: 2 is twice the size, half as often"
+	items.append(srow)
+	items += [EdStyle.note("Textures follow the world: their rows are nailed to height 0 and run round the block, so a step, the slab over it and the storey above carry one picture. In 3D, the arrow keys over a side nudge its offsets (Shift: 8 at a time). Deleting a line joins the two blocks on it into one.")]
 	_put(p, items)
-
-func _align_block(n: int) -> Array:
-	var b := func(label: String, how: String, tip: String) -> Button:
-		return EdStyle.small_button(label, func(): ed.align_sel(how), tip)
-	var sx := EdStyle.num(1, func(v): if v > 0: ed.align_sel("scale", {"xscale": v}), 0.25)
-	var sy := EdStyle.num(1, func(v): if v > 0: ed.align_sel("scale", {"yscale": v}), 0.25)
-	var srow := EdStyle.row("Scale all x / y", [sx, sy])
-	srow.tooltip_text = "Put this scale on every side of every selected line"
-	return [EdStyle.h4("Stretch%s" % ((" — all %d lines" % n) if n > 1 else "")),
-		EdStyle.flow([b.call("Fit across", "fitX", "stretch each run a touch so its texture repeats a whole number of times along it"),
-			b.call("Fit up", "fitY", "stretch each wall a touch so its texture fits a whole number of times floor to top"),
-			b.call("Reset", "reset", "no offsets, no scale")]),
-		srow]
 
 func _insp_thing(p: VBoxContainer, d: Dictionary, ids: Dictionary, small: String, n: int) -> void:
 	var t = null
@@ -1017,9 +841,7 @@ func _first_frame(name: String) -> bool:
 func pick_texture(name: String) -> void:
 	if picking != null:
 		var field: String = picking.field
-		if field == "@propTex":
-			ed.prop_tex = name
-		elif field == "@doorTex":
+		if field == "@doorTex":
 			ed.door_preset["tex"] = name
 		elif field.begins_with("@loop."):
 			ed.loop_texture(field.substr(6), name)
@@ -1314,7 +1136,7 @@ func render_scatter() -> void:
 		g.add_child(b)
 	p.add_child(g)
 	p.add_child(EdStyle.row("Brush radius", [EdStyle.num(ed.brush_radius, func(v): ed.brush_radius = int(maxf(16, v)), 64, "for a click without a drag")]))
-	p.add_child(EdStyle.flow([EdStyle.small_button("Brush (X)", func(): ed.set_mode("scatter")), EdStyle.small_button("Fill selected sectors", func(): ed.scatter_sectors())]))
+	p.add_child(EdStyle.flow([EdStyle.small_button("Brush (X)", func(): ed.set_mode("scatter")), EdStyle.small_button("Fill selected sectors", func(): ed.scatter_blocks())]))
 	p.add_child(EdStyle.h4("In this map (%d)" % d.scatters.size()))
 	if d.scatters.is_empty():
 		p.add_child(EdStyle.note("None yet."))
@@ -1374,13 +1196,17 @@ func render_map() -> void:
 		names.sort()
 		for n in names:
 			skies.append([n, n])
+	var g := EdDoc.ground_of(d)
 	var items := [EdStyle.h3("Map"),
 		EdStyle.row("Name", [EdStyle.text_field(d.get("name", ""), func(v): ed.edit("rename map", func(dd): dd["name"] = v, false))]),
+		EdStyle.h4("The ground"),
+		EdStyle.note("The plane everything stands on, forever in every direction."),
+		EdStyle.row("Texture", [EdStyle.option(_tex_options(g.get("tex")), str(g.get("tex", "")), func(v): ed.edit("ground texture", func(dd): dd.ground["tex"] = v, false))]),
+		EdStyle.row("Daylight", [bright_row(int(EdDoc.jsround(EdDoc.num(g.get("light"), 0.9) * 255.0)), 0, 255, 1,
+			func(v): ed.edit("daylight", func(dd): dd.ground["light"] = snappedf(clampf(v, 0, 255) / 255.0, 0.0001), false), 16, "The light of the open air: every top under the sky")]),
 		EdStyle.h4("World"),
 		EdStyle.row("Nothing burns", [EdStyle.check(w.get("noBurn", false), func(v): set_world("noBurn", func(ww): ww["noBurn"] = v))]),
 		EdStyle.row("No responders", [EdStyle.check(w.get("noSquads", false), func(v): set_world("noSquads", func(ww): ww["noSquads"] = v))]),
-		EdStyle.row("Doom sky walls", [EdStyle.check(w.get("skyWalls", false), func(v): set_world("skyWalls", func(ww): _flag(ww, "skyWalls", v)))]),
-		EdStyle.note("Off (the default): an open world — a roofed room under the sky has a roof and no wall running up to the sky. On: Doom's way, the upper wall goes up to the sky height."),
 		EdStyle.h4("Light and fog"),
 		EdStyle.row("Light colour", [EdStyle.color_pick(w.get("lightColor", "#ffffff"), func(c): set_world("light colour", func(ww):
 			if c.to_lower() == "#ffffff":
@@ -1408,7 +1234,7 @@ func render_map() -> void:
 			var f2: Dictionary = fog_of.call(ww, {"color": "#808080", "density": 0})
 			f2["override"] = v
 			ww["fog"] = f2))]),
-		EdStyle.note("The map's fog is the fog of every sector without one of its own; a sector sets its own in the inspector. Override puts this fog colour on every sector's fog and on the far haze. The ambient light lifts every surface and, by \"Ambient in fog\", tints every fog."),
+		EdStyle.note("The map's fog is on everything. The ambient light lifts every surface and, by \"Ambient in fog\", tints the fog."),
 		EdStyle.h4("Sky"),
 		EdStyle.row("Skybox", [EdStyle.option(skies, str(w.get("skybox", "")) if w.get("skybox") != null else "", func(v): set_world("skybox", func(ww):
 			if v != "":
@@ -1433,19 +1259,29 @@ func render_map() -> void:
 				_goto_problem(pr))
 		items.append(l)
 	items += [EdStyle.h4("Counts"),
-		EdStyle.note("%d sectors · %d lines · %d vertices · %d things · %d props" % [d.sectors.size(), ed.lines().size(), d.vertices.size(), d.things.size(), d.props.size()])]
+		EdStyle.note("%d blocks · %d lines · %d vertices · %d things" % [d.blocks.size(), ed.lines().size(), d.vertices.size(), d.things.size()])]
 	_put(p, items)
+
+## Every texture name, for a drop-down.
+func _tex_options(cur) -> Array:
+	var out := []
+	var names: Array = ed.texture_names.duplicate()
+	if cur != null and str(cur) != "" and not names.has(str(cur)):
+		names.append(str(cur))
+	for n in names:
+		out.append([n, n])
+	return out
 
 func _goto_problem(x: Dictionary) -> void:
 	if x.get("layer") != null and int(x.layer) != ed.layer():
 		ed.set_layer(int(x.layer))
-	if x.get("id") != null and x.kind == "sector":
+	if x.get("id") != null and x.kind == "block":
 		var re := RegEx.new()
-		re.compile("sectors (\\d+) and (\\d+)")
+		re.compile("blocks (\\d+) and (\\d+)")
 		var m := re.search(x.msg)
 		var both := [int(m.get_string(1)), int(m.get_string(2))] if m != null else [x.id]
-		ed.set_mode("sectors")
-		ed.select("sector", both)
+		ed.set_mode("blocks")
+		ed.select("block", both)
 		ed.frame_sel_req.emit()
 	elif x.get("id") != null and x.kind == "thing":
 		ed.set_mode("things")

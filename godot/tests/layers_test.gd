@@ -1,6 +1,6 @@
 ## MEWD — ROOM OVER ROOM, headless: THE ANNEXE (godot/scripts/maps/
-## layers.gd), a map drawn in the editor's LAYERS, compiled whole and
-## played.
+## layers.gd), a building put up in BLOCKS in three layers
+## (BlockCompile), compiled whole and played.
 ##
 ##   godot --headless --script res://godot/tests/layers_test.gd -- --map=layers
 ##
@@ -84,59 +84,52 @@ func _compile() -> void:
 	var t0 := Time.get_ticks_msec()
 	var lv := DocCompile.compile(LayersMap.build())
 	print("   %d sectors, %d lines in %d ms" % [lv.sectors.size(), lv.lines.size(), Time.get_ticks_msec() - t0])
+	check(DocCompile.problems.is_empty(), "built with no problems (%s)" % str(DocCompile.problems))
 	var cols := 0
 	for s in lv.sectors:
 		if s.above != -1:
 			cols += 1
 			check(lv.sectors[s.above].below == s.index and lv.sectors[s.above].col_base == s.col_base, "a column's storeys know each other")
 	check(cols >= 2, "columns of storeys: shop and office, yard and terrace, and the walls round them (%d)" % cols)
-	var office: Level.Sector = _named(lv, "office")[0]
-	var shop: Level.Sector = _named(lv, "shop")[0]
-	var terrace: Level.Sector = _named(lv, "terrace")[0]
-	check(office.below == shop.index and shop.ceil == 112.0 and office.floor == 128.0, "the office stands on the shop, on a deck 112..128")
+	var office: Level.Sector = lv.span_at(960, 768, 129)
+	var shop: Level.Sector = lv.span_at(960, 768, 1)
+	var terrace: Level.Sector = lv.span_at(1344, 640, 129)
+	check(office.name == "office floor" and shop.name == "shop" and terrace.name == "terrace", "each storey named for the block it stands on (%s, %s, %s)" % [office.name, shop.name, terrace.name])
+	check(office.below == shop.index and shop.ceil == 112.0 and office.floor == 128.0 and office.ceil == 320.0,
+		"the office stands on the shop, on the slab 112..128, under the roof at 320 (%s..%s over %s..%s)" % [office.floor, office.ceil, shop.floor, shop.ceil])
+	check(shop.ceil_tex == "OFCCEIL1" and absf(shop.light - 0.7) < 0.01 and office.ceil_tex == "OFCCEIL1",
+		"the slab's underside is the shop's ceiling, and its light the shop's (%s, %.2f)" % [shop.ceil_tex, shop.light])
 	var under: Level.Sector = lv.sectors[terrace.below]
-	check(under.name == "yard" and under.ceil == 112.0 and under.ceil_tex == "CONC_3",
-		"the yard runs on under the terrace, the underside of its deck its ceiling (%s)" % under.ceil_tex)
-	check(office.roof_tex != "" and shop.roof_tex == "" and terrace.roof_tex == "", "a roof over the office only")
+	check(under.name == "ground" and under.ceil == 112.0 and under.ceil_tex == "CONC_3" and terrace.floor == 128.0,
+		"the yard runs on under the terrace, the underside of its slab its ceiling (%s), its top at %s" % [under.ceil_tex, terrace.floor])
 	check(lv.edge_conflicts == 0, "no edge claimed by three columns")
-	# THE BUILDING'S WALLS ARE 16 THICK, grown out of its rooms: solid
-	# from the ground to the office's ceiling, and the doors passages
-	# through them, each on its own storey
-	var doors := _named(lv, "doorway")
-	var west_door = null
-	var east_door = null
-	for dw in doors:
-		if dw.floor == 0.0:
-			west_door = dw
-		elif dw.floor == 128.0:
-			east_door = dw
-	check(doors.size() == 2 and west_door != null and west_door.bbox == Rect2(752, 704, 16, 128) and west_door.ceil == 112.0
-		and west_door.above != -1 and lv.sectors[west_door.above].name == "wall",
-		"the shop's door is a passage 16 through its wall, the wall solid over it upstairs")
-	check(east_door != null and east_door.bbox == Rect2(1152, 704, 16, 128) and east_door.ceil == 320.0
-		and east_door.below != -1 and lv.sectors[east_door.below].name == "wall" and lv.sectors[east_door.below].ceil == 128.0,
-		"and the office's a passage on the solid wall of the shop under it")
+	# THE BUILDING'S FACES: each block's own side, band by band
 	var north := _line_at(lv, Vector2(960, 496))
 	var faces := north.bands.filter(func(bd): return bd.tex != "NONE").map(func(bd): return [bd.z0, bd.z1, bd.tex]) if north else []
-	check(faces == [[0.0, 128.0, "CITYMET1"], [128.0, 320.0, "CITYMET2"]],
-		"the building's north face, 16 out: the shop's wall and the office's over it, to the office's ceiling (%s)" % str(faces))
+	check(faces == [[0.0, 112.0, "CITYMET1"], [112.0, 128.0, "CITYMET1"], [128.0, 320.0, "CITYMET2"], [320.0, 336.0, "CITYMET2"]],
+		"the building's north face: the shop's wall, the slab's edge, the office's wall and the roof's edge, each in its own sides (%s)" % str(faces))
 	var inner := _line_at(lv, Vector2(960, 512))
-	check(inner != null and inner.holes.is_empty() and inner.bands.size() >= 2, "and inside, the rooms' own side of it")
-	var terr_edge := _line_at(lv, Vector2(1344, 512))
+	var inner_faces := inner.bands.filter(func(bd): return bd.tex != "NONE").map(func(bd): return [bd.z0, bd.z1, bd.tex]) if inner else []
+	check(inner_faces == [[0.0, 112.0, "CITYMET1"], [128.0, 320.0, "CITYMET2"]], "and inside, the rooms' own side of it (%s)" % str(inner_faces))
+	var terr_edge := _line_at(lv, Vector2(1344, 496))
 	check(terr_edge != null and not terr_edge.blocking and terr_edge.holes.size() == 2, "and the terrace's edge is open, over open yard")
 	var slab := terr_edge.bands.filter(func(bd): return absf(bd.z0 - 112.0) < 0.01 and absf(bd.z1 - 128.0) < 0.01) if terr_edge else []
-	check(slab.size() == 1, "and the edge of its deck, 16 thick, a band over the yard (%s)" % str(terr_edge.bands.map(func(bd): return [bd.z0, bd.z1]) if terr_edge else null))
+	check(slab.size() == 1 and slab[0].tex == "CITYCON1", "and the edge of its slab, 16 thick, a band over the yard in the slab's sides (%s)" % str(terr_edge.bands.map(func(bd): return [bd.z0, bd.z1]) if terr_edge else null))
+	# THE LINTELS: the passage under each, and the wall solid over it
+	var west = lv.sector_at(760, 768)
+	check(west != null and west.ceil == 96.0 and west.ceil_tex == "CITYMET1" and west.floor == 0.0, "the shop's doorway: the yard runs under the lintel to 96 (%s..%s)" % [west.floor, west.ceil])
 	var steps := 0
 	for s in lv.sectors:
-		if s.floor > 0.0 and s.floor < 128.0:
+		if s.floor > 0.0 and s.floor < 128.0 and s.ceil > s.floor:
 			steps += 1
-	check(steps == 7, "seven steps, sixteen high, cut by the step generator (%d)" % steps)
+	check(steps == 7, "seven steps, sixteen high, a block each (%d)" % steps)
+	check(lv.sector_at(-30000, 40000) != null and lv.sector_at(-30000, 40000).floor == 0.0, "and the ground goes on far past the building")
 	# a map of one storey is exactly what it was
 	var maze := DocCompile.compile(MazeMap.build(7))
 	var multi := false
 	for l in maze.lines:
 		multi = multi or l.multi or not l.bands.is_empty()
-	check(not maze.layered and not multi, "a map of one storey has no columns and no bands")
+	check(not maze.layered and not multi, "a map of one storey (the maze, in rooms) has no columns and no bands")
 
 func _line_at(lv: Level, p: Vector2) -> Level.Line:
 	for l in lv.lines:
@@ -205,13 +198,13 @@ func _walk(lv: Level) -> void:
 	# door downstairs, which is no door up here
 	_put(p, 1344, 768, 128, PI)
 	w = _drive(1.0, 200)
-	check(p.sector.name == "office" and w.lo == 128.0 and p.x > 768.0 + 15.0 and p.x < 800.0,
+	check(p.sector.name == "office floor" and w.lo == 128.0 and p.x > 768.0 + 15.0 and p.x < 800.0,
 		"through the office's door, and its west wall (over the shop's door) stops you: x %.1f z %.0f in %s" % [p.x, p.z, p.sector.name])
 	# 4. OFF THE EDGE: the terrace's north side, over open yard
 	_put(p, 1400, 560, 128, -PI / 2)
 	w = _drive(1.0, 60, func(): return p.y < 470.0 and p.on_ground)
 	_drive(0.0, 30)
-	check(p.z == 0.0 and p.on_ground and p.sector.name == "yard" and p.sector.ceil == 512.0,
+	check(p.z == 0.0 and p.on_ground and p.sector.name == "ground" and p.sector.ceil > 1000.0,
 		"off the edge, a fall, and on the yard (z %.0f, lowest %.0f)" % [p.z, w.lo])
 
 func _under(lv: Level) -> void:
@@ -219,7 +212,7 @@ func _under(lv: Level) -> void:
 	var p = game.player
 	# 5. UNDER THE TERRACE: the yard with the deck for a ceiling
 	_put(p, 1344, 900, 0, -PI / 2)
-	check(p.sector.name == "yard" and p.sector.ceil == 112.0 and p.sector.above != -1, "under the terrace, in the yard, the deck overhead")
+	check(p.sector.name == "ground" and p.sector.ceil == 112.0 and p.sector.above != -1, "under the terrace, in the yard, the deck overhead")
 	var w := _drive(1.0, 30)
 	check(w.hi == 0.0 and p.y < 900.0, "walking about under it, on the ground (z %.0f..%.0f)" % [w.lo, w.hi])
 	var pilot: Pilot = p.session
@@ -249,7 +242,7 @@ func _shots(lv: Level) -> void:
 	var p = game.player
 	var down := _shopper(0.0)
 	var up := _shopper(128.0)
-	check(down != null and up != null and up.sector.name == "terrace" and down.sector.name == "yard",
+	check(down != null and up != null and up.sector.name == "terrace" and down.sector.name == "ground",
 		"a shopper under the terrace and one on it, one over the other")
 	if down == null or up == null:
 		return
@@ -300,10 +293,10 @@ func _doors(lv: Level) -> void:
 	check(dd.size() == 2 and west != null and east != null, "two doors: the shop's and the office's (%d)" % dd.size())
 	if west == null or east == null:
 		return
-	check(west.style == "swing" and west.top == 96.0 and west.lintel_top == 112.0 and west.wall == 16.0 and west.inside.x > 0.5,
-		"the shop's swings into it, 96 high, a lintel to its ceiling (%s..%s, into %s)" % [west.top, west.lintel_top, west.inside])
-	check(east.style == "slide" and east.top == 224.0 and east.lintel_top == 320.0 and east.inside.x < -0.5,
-		"the office's slides, 96 over its floor, a lintel to its ceiling (%s..%s)" % [east.top, east.lintel_top])
+	check(west.style == "swing" and west.top == 96.0 and west.lintel_top == 96.0 and west.wall == 16.0 and west.inside.x > 0.5,
+		"the shop's swings into it, 96 high, under its lintel block, through a wall 16 thick (%s..%s, into %s)" % [west.top, west.lintel_top, west.inside])
+	check(east.style == "slide" and east.top == 224.0 and east.lintel_top == 224.0 and east.inside.x < -0.5 and east.wall == 16.0,
+		"the office's slides, 96 over its floor, under its lintel (%s..%s)" % [east.top, east.lintel_top])
 	var doors: Doors = game.doors
 	var settle := func(n: int) -> void:
 		for i in n:
@@ -327,7 +320,7 @@ func _doors(lv: Level) -> void:
 	hit = game.level.ray_hit_wall(700, 768, 40, 900, 768, 40)
 	check(hit.is_empty(), "open, a round goes through")
 	hit = game.level.ray_hit_wall(700, 768, 104, 900, 768, 104)
-	check(not hit.is_empty() and hit.line.door == west, "but not through its lintel")
+	check(not hit.is_empty() and hit.line.door != west, "but not over it: the lintel block stops it (at x %.0f)" % (hit.x if not hit.is_empty() else -1.0))
 	# THE USE KEY: a door that does not open by itself
 	west.auto = false
 	_put(p, 300, 768, 0, 0.0)
@@ -395,11 +388,11 @@ func _troops(lv: Level) -> void:
 	# BOTH: up the stairs, across the terrace, through the office's door
 	_put(p, 900, 768, 128, 0.0)
 	t0 = game.tics
-	r = _chase(Vector2(1344, 1450), "office", 2500)
+	r = _chase(Vector2(1344, 1450), "office floor", 2500)
 	check(r.got and r.z == 128.0, "and one in the yard finds the stairs and the office's door after you in the office (%s at z %.0f, %d tics)" % [r.in, r.z, r.tics - t0])
 	# and without the graph (Doom's own chase), it does not find them
 	game.nav = null
-	r = _chase(Vector2(1344, 1450), "office", 2500)
+	r = _chase(Vector2(1344, 1450), "office floor", 2500)
 	game.nav = nav
 	check(not r.got, "(which, chasing on the plan as Doom does, it never would: %s at z %.0f)" % [r.in, r.z])
 	# A LOCKED DOOR is no way through
@@ -409,7 +402,7 @@ func _troops(lv: Level) -> void:
 			west = d
 	west.locked = true
 	var nav2 := Nav.new(game.level)
-	var shop := _named(game.level, "shop")[0] as Level.Sector
+	var shop := game.level.span_at(1000, 768, 1) as Level.Sector
 	var yard: Level.Sector = game.level.sector_at(500, 900)
 	check(nav.path(yard.index, Vector2(500, 900), shop.index, Vector2(1000, 768)).size() > 0
 		and nav2.path(yard.index, Vector2(500, 900), shop.index, Vector2(1000, 768)).is_empty(),
@@ -443,7 +436,7 @@ func _crowd(lv: Level) -> void:
 	for a in game.actors:
 		if a.type == "TOWNIE":
 			townie = a
-	check(townie != null and townie.z == 128.0 and townie.sector.name == "office", "a townie in the office, on its floor")
+	check(townie != null and townie.z == 128.0 and townie.sector.name == "office floor", "a townie in the office, on its floor")
 	for a in [up, down]:
 		if a != null:
 			a.speed = float(a.info.get("speed", 0))
@@ -532,11 +525,11 @@ func _net() -> void:
 	var o: Array = sim.other_for(p2)
 	check(float(o[3]) == 128.0, "the host's snapshot of TWO carries the height: z %s" % str(o[3]))
 	var you: Dictionary = sim.you_for(p1)
-	check(float(you.z) == 0.0 and p2.sector.name == "terrace" and p1.sector.name == "yard", "and ONE's own, under the deck")
+	check(float(you.z) == 0.0 and p2.sector.name == "terrace" and p1.sector.name == "ground", "and ONE's own, under the deck")
 	var pup = ng.puppets.get(2)
 	check(pup != null and absf(pup.a.z - 128.0) < 0.01 and pup.a.sector.name == "terrace" and pup.a.sector.storey == 1,
 		"ONE draws TWO on the terrace, in its storey (z %s)" % (str(pup.a.z) if pup != null else "none"))
-	check(absf(cg.player.z) < 0.01 and absf(cg.player.x - 1300.0) < 0.5 and cg.player.sector.name == "yard" and cg.player.sector.above != -1,
+	check(absf(cg.player.z) < 0.01 and absf(cg.player.x - 1300.0) < 0.5 and cg.player.sector.name == "ground" and cg.player.sector.above != -1,
 		"and itself in the yard under the deck, where the host has it (z %.1f, %s)" % [cg.player.z, cg.player.sector.name])
 	# a round from ONE, up through the deck at TWO, does nothing
 	var h2: float = p2.health

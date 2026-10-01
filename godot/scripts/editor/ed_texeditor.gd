@@ -223,10 +223,8 @@ static func rename_uses(d: Dictionary, a: String, b: String) -> void:
 		for k in o.keys():
 			if (str(k).ends_with("Tex") or k == "tex") and o[k] == a:
 				o[k] = b
-	for s in d.sectors:
+	for s in d.blocks:
 		swap.call(s)
-	for p in d.props:
-		swap.call(p)
 	for o in d.lines.values():
 		swap.call(o)
 		if o.get("sides") is Dictionary:

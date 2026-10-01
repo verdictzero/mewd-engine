@@ -1,10 +1,16 @@
-## MEWD Editor — the map editor (js/editor/editor.js), in the game.
+## MEWD Editor — the map editor, in the game.
 ##
-## An editor in the mould of SLADE and Ultimate Doom Builder, opened
-## from the front-door terminal (E or EDIT), with `--edit` on the
-## command line, or F2 from the game: draw sectors on a grid, drag
-## vertices, flip between the plan and the 3D view, raise a floor with
-## the wheel, test the map in one key.
+## An editor in the mould of SLADE and Ultimate Doom Builder, but on a
+## WORLD OF BLOCKS (at the user's request; godot/scripts/level/
+## block_compile.gd): the ground is an infinite plane, and a map is what
+## is pulled up out of it — draw a shape on the grid and it stands up to
+## the toolbar's PULL height, with its sides, its top and (floating) its
+## underside each wearing a texture; the wheel over it raises it; the
+## Room tool makes four walls and a roof of a footprint; a block drawn
+## on a block stands on it, one drawn on a higher layer on whatever is
+## under it. No floors and ceilings, no upper and lower textures, no
+## void: Doom's drawing, SketchUp's building. Opened from the title's
+## MAP EDITOR, the terminal (E or EDIT), `--edit`, or F2 from the game.
 ##
 ##   ed_doc.gd       the map as a document, the undo stack, problems
 ##   ed_ops.gd       the edits on the document
@@ -17,8 +23,7 @@
 ##
 ## WHAT IT HANDS THE GAME IS THE SAME DOCUMENT: Play (F5) keeps the map
 ## and the game compiles it with the same compiler; F2 in the game comes
-## back here, to the map as it was. Files are the web build's JSON, so a
-## map goes between the two builds either way.
+## back here, to the map as it was.
 class_name MewdEditor
 extends Control
 
@@ -60,17 +65,18 @@ const UI_SCALES := [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5]
 const MODES := {
 	"vertices": {"key": "V", "name": "Vertices", "short": "Verts"},
 	"lines": {"key": "L", "name": "Lines", "short": "Lines"},
-	"sectors": {"key": "S", "name": "Sectors", "short": "Sectors"},
+	"blocks": {"key": "S", "name": "Blocks", "short": "Blocks"},
 	"things": {"key": "T", "name": "Things", "short": "Things"},
-	"props": {"key": "P", "name": "Props", "short": "Props"},
-	"draw": {"key": "D", "name": "Draw lines and sectors", "short": "Draw"},
+	"draw": {"key": "D", "name": "Draw a block corner by corner", "short": "Draw"},
 	"rect": {"key": "R", "name": "Draw a shape", "short": "Shape"},
 	"scatter": {"key": "X", "name": "Scatter", "short": "Scatter"},
 	"doors": {"key": "O", "name": "Doors", "short": "Doors"},
 }
 ## what each mode selects
-const MODE_KIND := {"vertices": "vertex", "lines": "line", "sectors": "sector", "things": "thing", "props": "prop", "scatter": "scatter",
+const MODE_KIND := {"vertices": "vertex", "lines": "line", "blocks": "block", "things": "thing", "scatter": "scatter",
 	"doors": "line"}
+## what a drawn shape becomes: a block, or a room (walls and a roof)
+const MAKE_KINDS := {"block": "Block", "room": "Room"}
 
 ## THE HAND-OVER between the editor and the game, kept across the scene
 ## reload that swaps one for the other (godot/scripts/main.gd).
@@ -86,7 +92,7 @@ var doc: Dictionary:
 	get:
 		return history.doc
 
-var mode := "sectors"
+var mode := "blocks"
 var mode_before_draw := ""
 var grid := 64
 var snap := true
@@ -94,13 +100,19 @@ var thing_type := "SHOPPER"
 var plant_kind := "fir_tall_1"
 var scatter_preset := "crowd"
 var brush_radius := 512
-## THE SECTOR BEING DRAWN, shared by both views
+## THE BLOCK BEING DRAWN, shared by both views
 var path: Array = []
 var shape := "rect"
 var shape_sides = null
 var cursor = null
 var cursor_kind := "grid"
-var prop_tex := "GRIDWALL"
+## THE PULL: how high a drawn shape stands (the toolbar's field); and
+## whether a shape becomes a block or a room
+var pull_h := 128.0
+var make_kind := "block"
+## each block's base and top as the last build worked them out:
+## id -> {base, top}, for the layer being edited (BlockCompile.last_blocks)
+var _tops := {}
 ## THE SELECTION: one kind at a time — vertices by index, lines by key,
 ## the rest by id — as an ordered set
 var sel_kind := ""
@@ -169,7 +181,7 @@ func _init(start_doc = null, is_headless := false) -> void:
 	game_texture_names.sort()
 	_tex_key = _texture_key(doc)
 	_refresh_textures(false)
-	status = "opened your last map" if opened else "THE GRID — D draws a sector, X scatters, every mode works in 3D; Tab swaps the views, F5 plays"
+	status = "opened your last map" if opened else "THE GRID — drag on the ground to pull up a block, D draws any shape, X scatters; Tab swaps the views, F5 plays"
 
 func _ready() -> void:
 	theme = EdStyle.theme()
@@ -265,14 +277,10 @@ func changed(now := false, topology := true) -> void:
 		_compile_at = Time.get_ticks_msec() + 120
 	_save_at = Time.get_ticks_msec() + 800
 
-## Every line of the map with the sectors on it, once per change — and
-## the linedefs of their own, with no sector either side.
+## Every line of the map with the blocks on it, once per change.
 func lines() -> Array:
 	if _lines_cache == null:
-		var out := EdDoc.lines_of(doc)
-		for e in doc.get("linedefs", []):
-			out.append({"key": EdDoc.line_key(e[0], e[1]), "a": mini(e[0], e[1]), "b": maxi(e[0], e[1]), "sectors": [], "free": true})
-		_lines_cache = out
+		_lines_cache = EdDoc.lines_of(doc)
 	return _lines_cache
 
 func line_info(key: String):
@@ -360,29 +368,25 @@ static func _compile_geo(d: Dictionary, b) -> Dictionary:
 	return c
 
 static func _compile(d: Dictionary) -> Dictionary:
+	# the whole map, every layer (BlockCompile lays them over each
+	# other); each layer's problems said with its number
 	var probs: Array = []
-	var cd := d
-	if EdDoc.is_layered(d):
-		# A MAP IN LAYERS is built whole, every storey (compileLayers):
-		# each layer's problems said with its number
-		for g in EdDoc.layers_of(d):
-			if g.sectors.is_empty() and g.linedefs.is_empty():
+	for g in EdDoc.layers_of(d):
+		if g.blocks.is_empty():
+			continue
+		var gd := d.duplicate()
+		for part in EdDoc.LAYER_PARTS:
+			gd[part] = g[part]
+		gd["layer"] = g.k
+		for p in EdDoc.problems_of(gd):
+			if p.kind == "map" and g.k != 0:
 				continue
-			var gd := d.duplicate()
-			for part in EdDoc.LAYER_PARTS:
-				gd[part] = g[part]
-			gd["layer"] = g.k
-			for p in EdDoc.problems_of(gd):
-				if p.kind != "map":
-					var q: Dictionary = p.duplicate()
-					q["layer"] = g.k
-					q["msg"] = "layer %d: %s" % [g.k, p.msg]
-					probs.append(q)
-	else:
-		cd = EdDoc.for_compile(d)
-		probs = EdDoc.problems_of(cd)
-	var lv: Level = null
-	lv = DocCompile.compile(cd)
+			var q: Dictionary = p.duplicate()
+			if g.k != 0:
+				q["layer"] = g.k
+				q["msg"] = "layer %d: %s" % [g.k, p.msg]
+			probs.append(q)
+	var lv: Level = DocCompile.compile(d)
 	var seen := {}
 	for p in probs:
 		seen[p.msg] = true
@@ -390,13 +394,15 @@ static func _compile(d: Dictionary) -> Dictionary:
 		if not seen.has(p.msg):
 			probs.append(p)
 			seen[p.msg] = true
-	return {"level": lv, "problems": probs, "scattered": DocCompile.last_scattered.duplicate(), "grown": DocCompile.last_grown.duplicate()}
+	return {"level": lv, "problems": probs, "scattered": DocCompile.last_scattered.duplicate(), "grown": DocCompile.last_grown.duplicate(),
+		"tops": BlockCompile.last_blocks.duplicate(true)}
 
 func _apply_compile(c: Dictionary) -> void:
 	var old = compiled.get("geo")
 	if old != null and is_instance_valid(old) and not old.is_inside_tree():
 		old.free()
 	compiled = c
+	_tops = c.get("tops", {}).get(str(layer()), {})
 	compiled_ready.emit()
 
 func _process(_dt: float) -> void:
@@ -507,29 +513,21 @@ func redo() -> void:
 func file_new(from_grid := false) -> void:
 	replace(EdDoc.grid_doc() if from_grid else EdDoc.new_doc(), "new from grid" if from_grid else "new map")
 	reframe()
-	say("new map from THE GRID" if from_grid else "new map — drag on the ground to draw a sector (or R), D to draw any shape")
+	say("new map from THE GRID" if from_grid else "new map: the ground, forever — drag on it to pull up a block (or R), D to draw any shape")
 
-## THE DEMO LEVELS: a new MAZE, THE SPRAWL, a new JESSE, THE GRID, and
-## THE ANNEXE (a map in two storeys: godot/scripts/maps/layers.gd).
-func file_demo(which := "maze") -> void:
-	var seed := MazeMap.new_seed()
+## THE DEMO LEVELS: THE ANNEXE (a building in three layers:
+## godot/scripts/maps/layers.gd) and THE GRID.
+func file_demo(which := "layers") -> void:
 	var d: Dictionary
 	match which:
-		"sprawl": d = SprawlMap.build()
-		"jesse": d = JesseMap.build(seed)
 		"grid": d = EdDoc.grid_doc()
-		"layers": d = LayersMap.build()
-		_: d = MazeMap.build(seed)
+		_: d = LayersMap.build()
 	d = EdDoc.normalise(EdDoc.clone(d))
-	d.erase("jesse")
 	replace(d, "open demo")
 	reframe()
 	match which:
-		"sprawl": say("opened the demo level, THE SPRAWL")
-		"jesse": say("opened a new JESSE, the PvP maze (seed %d)" % seed)
 		"grid": say("opened THE GRID")
-		"layers": say("opened THE ANNEXE, a map in two storeys — Alt+PgUp for the upstairs")
-		_: say("opened a new maze (seed %d)" % seed)
+		_: say("opened THE ANNEXE, a building in three layers — Alt+PgUp for the upstairs")
 
 func reframe() -> void:
 	frame_req.emit()
@@ -600,8 +598,6 @@ func _play_from_here(d: Dictionary) -> void:
 	if view3d == null or view3d.cam == null or layout == "only2d":
 		return
 	var c = view3d.cam
-	if sector_at(c.x, c.y) == null:
-		return
 	var start = null
 	for t in d.things:
 		if t.type == "START":
@@ -650,19 +646,22 @@ func clear_sel() -> void:
 func is_sel(kind: String, id) -> bool:
 	return sel_kind == kind and sel_ids.has(id)
 
-## The 3D view's selection: a floor or a ceiling, or a wall.
+## The 3D view's selection: a block's top or underside, the ground, or
+## a side (a line). s: {part: top|under|side|ground, block (id or
+## null), line, z0, z1}
 func select_surface(s) -> void:
 	sel_face = null
 	surf = s
 	if s != null:
-		if s.part == "wall":
+		if s.part == "side":
 			sel_kind = "line"
 			sel_ids = {s.line: true}
+		elif s.get("block") == null or s.part == "ground":
+			sel_kind = "ground"
+			sel_ids = {0: true}
 		else:
-			sel_kind = "sector"
-			sel_ids = {}
-			if s.sector >= 0 and s.sector < doc.sectors.size():
-				sel_ids[doc.sectors[s.sector].id] = true
+			sel_kind = "block"
+			sel_ids = {s.block: true}
 	else:
 		sel_kind = ""
 		sel_ids = {}
@@ -674,42 +673,87 @@ func select_surface(s) -> void:
 ## `w` wide, the rest the line override's `door` (DocCompile.DOOR_DEFAULT)
 var door_preset := {"w": 64, "h": 96, "tex": "DOOR0001", "style": "swing", "auto": true}
 
-## A DOOR IN A WALL at `at` along line `key`: the line cut to a piece the
-## preset's width round the click (its edges on the grid, with snap on,
-## and never nearer a corner than 8), that piece an opening with a door
-## in it — a building's outside wall gets a passage through it too. One
-## undo step. A line no longer than the door is the door. Returns the
-## door's line, "" if it cannot go there.
+## A DOOR IN A WALL BLOCK at `at` along line `key`: the block the line
+## is an edge of is cut across into three, the piece under the click
+## the preset's width (its edges on the grid, with snap on, and never
+## nearer a corner than 8); that piece is lifted to a LINTEL — floating
+## at the door's height, up to the block's top — and the door itself
+## goes on the line's piece of it. One undo step. A block no wider than
+## the door is lifted whole. Returns the door's line, "" if it cannot
+## go there.
 func place_door(key: String, at: Vector2) -> String:
 	var info = line_info(key)
-	if info == null or info.get("free", false) or info.sectors.is_empty():
-		say("a door goes in a line of a sector — not a linedef on its own")
+	if info == null or info.blocks.is_empty():
+		say("a door goes in the side of a block")
 		return ""
 	var o0 = doc.lines.get(key)
 	if o0 is Dictionary and o0.get("door") is Dictionary:
 		select("line", [key])
 		say("a door already — its settings are in the inspector")
 		return key
+	# the wall: the block the line is an edge of (the smaller, where two)
+	var wall = null
+	for bi in info.blocks:
+		var b: Dictionary = doc.blocks[bi]
+		var vs: Array = b.verts
+		var on := false
+		for j in vs.size():
+			if EdDoc.line_key(vs[j], vs[(j + 1) % vs.size()]) == key:
+				on = true
+		if on and (wall == null or absf(EdDoc.signed_area(EdDoc.ring_of(doc, b))) < absf(EdDoc.signed_area(EdDoc.ring_of(doc, wall)))):
+			wall = b
+	if wall == null:
+		say("a door goes in the side of a block")
+		return ""
 	var A: Vector2 = doc.vertices[info.a]
 	var B: Vector2 = doc.vertices[info.b]
 	var L := A.distance_to(B)
 	var w := maxf(16.0, float(door_preset.get("w", 64)))
+	var h := maxf(24.0, float(door_preset.get("h", 96)))
+	var wid = wall.id
+	var under: float = EdSteps.base_under(doc, wall, _tops)
+	var top: float = EdSteps.top_of(doc, wall, _tops)
+	if top - under < h + 8.0:
+		say("the block is too low for a %d-high door: raise it, or a lower door" % int(h))
+		return ""
 	var d := edit_begin("door")
-	var k2 := key
+	var u := (B - A) / L
+	var t := clampf((at - A).dot(u), w / 2.0 + 8.0, L - w / 2.0 - 8.0)
+	if snap and grid > 0:
+		t = clampf(snappedf(t - w / 2.0, float(grid)) + w / 2.0, w / 2.0 + 8.0, L - w / 2.0 - 8.0)
+	var pieces := [block_by_id(wid)]
 	if L > w + 16.0:
-		var u := (B - A) / L
-		var t := clampf((at - A).dot(u), w / 2.0 + 8.0, L - w / 2.0 - 8.0)
-		if snap and grid > 0:
-			t = clampf(snappedf(t - w / 2.0, float(grid)) + w / 2.0, w / 2.0 + 8.0, L - w / 2.0 - 8.0)
-		var p1 := A + u * (t - w / 2.0)
-		var p2 := A + u * (t + w / 2.0)
-		var i1 := EdOps.vertex_for(d, p1.x, p1.y)
-		EdOps.split_lines_at(d, i1)
-		var i2 := EdOps.vertex_for(d, p2.x, p2.y)
-		EdOps.split_lines_at(d, i2)
-		k2 = EdDoc.line_key(i1, i2)
+		# cut the wall across at both edges of the doorway
+		for tt in [t - w / 2.0, t + w / 2.0]:
+			EdSteps._cut_across(d, pieces, u, A.dot(u) + tt)
+	# the piece under the click is the lintel: the one whose middle is
+	# nearest the click along the line
+	var lintel = null
+	var best := INF
+	for b in pieces:
+		var c := EdDoc.centroid(EdDoc.ring_of(d, b))
+		var dd: float = absf((c - A).dot(u) - t)
+		if dd < best:
+			best = dd
+			lintel = b
+	lintel["base"] = under + h
+	lintel["h"] = top - (under + h)
+	if EdDoc.tex(lintel, "under") == "":
+		lintel["under"] = lintel.get("side")
+	if str(lintel.get("name", "")) == "":
+		lintel["name"] = "lintel"
+	# the door: on the lintel's edge along the line
+	var k2 := ""
+	var vs: Array = lintel.verts
+	for j in vs.size():
+		var p: Vector2 = d.vertices[vs[j]]
+		var q: Vector2 = d.vertices[vs[(j + 1) % vs.size()]]
+		if EdDoc.seg_dist(A, B, p).x < 0.5 and EdDoc.seg_dist(A, B, q).x < 0.5:
+			k2 = EdDoc.line_key(vs[j], vs[(j + 1) % vs.size()])
+			break
+	if k2 == "":
+		k2 = key
 	var o: Dictionary = d.lines.get(k2, {}).duplicate(true) if d.lines.get(k2) is Dictionary else {}
-	o["opening"] = true
 	var dp := door_preset.duplicate()
 	dp.erase("w")
 	o["door"] = dp
@@ -723,31 +767,33 @@ func place_door(key: String, at: Vector2) -> String:
 			k2 = k
 			break
 	select("line", [k2])
-	say("a door, %d wide — click another wall for another; Ctrl+Z takes it back" % roundi(minf(w, L)))
+	say("a door, %d wide, %d high, under a lintel — click another wall for another; Ctrl+Z takes it back" % [roundi(minf(w, L)), int(h)])
 	return k2
 
-## The door out of line `key` (it stays an opening).
+## The door out of line `key` (the lintel stays: the way through is open).
 func remove_door(key: String) -> void:
 	var o = doc.lines.get(key)
 	if not (o is Dictionary and o.get("door") is Dictionary):
 		return
 	var d := edit_begin("no door")
 	d.lines[key].erase("door")
+	if d.lines[key].is_empty():
+		d.lines.erase(key)
 	edit_end(false)
-	say("no door on line %s — still a way through" % key)
+	say("no door on line %s — still a way through under the lintel" % key)
 
-## LOOP SELECT: every wall of a sector — each line of its outline, and of
-## the rooms drawn inside it — its side facing that sector. What is
-## painted on the selection then goes on that side of each of them
-## (loop_texture). `add` adds the loop to the lines already picked (and
-## the walls face no one sector unless it is the same one).
+## LOOP SELECT: every side of a block — each line of its outline, and of
+## the blocks drawn inside it. What is painted on the selection then
+## goes on the block's sides (loop_texture). `add` adds the loop to the
+## lines already picked (and they face no one block unless it is the
+## same one).
 func loop_select(si: int, add := false) -> int:
-	if si < 0 or si >= doc.sectors.size():
+	if si < 0 or si >= doc.blocks.size():
 		return 0
-	var face = doc.sectors[si].id
+	var face = doc.blocks[si].id
 	var keys := []
 	for l in lines():
-		if l.sectors.has(si):
+		if l.blocks.has(si):
 			keys.append(l.key)
 	var was = sel_face if add and sel_kind == "line" else face
 	var ids := sel_ids.duplicate() if add and sel_kind == "line" else {}
@@ -760,18 +806,18 @@ func loop_select(si: int, add := false) -> int:
 	if mode != "lines" and MODES.has("lines") and mode != "draw":
 		set_mode("lines")
 	sel_changed.emit()
-	var nm := str(doc.sectors[si].get("name", ""))
-	say("%d walls of sector %s%s — pick a texture to put it on all of them" % [keys.size(), str(face), (" (%s)" % nm) if nm != "" else ""])
+	var nm := str(doc.blocks[si].get("name", ""))
+	say("%d sides of block %s%s — pick a texture to put it on all of them" % [keys.size(), str(face), (" (%s)" % nm) if nm != "" else ""])
 	return keys.size()
 
-## The sector (its index) whose side of line `key` the point p is on —
-## the one side of a one-sided line; -1 off any sector.
+## The block (its index) whose side of line `key` the point p is on —
+## the one side of an outside edge; -1 on the ground.
 func side_of(key: String, p: Vector2) -> int:
 	var info = line_info(key)
-	if info == null or info.sectors.is_empty():
+	if info == null or info.blocks.is_empty():
 		return -1
-	if info.sectors.size() == 1:
-		return info.sectors[0]
+	if info.blocks.size() == 1:
+		return info.blocks[0]
 	var a: Vector2 = doc.vertices[info.a]
 	var b: Vector2 = doc.vertices[info.b]
 	var n := (b - a).orthogonal().normalized()
@@ -781,74 +827,53 @@ func side_of(key: String, p: Vector2) -> int:
 		sgn = 1.0
 	for step in [2.0, 8.0, 32.0]:
 		var q: Vector2 = mid + n * sgn * step
-		for si in info.sectors:
-			if U.point_in_poly(PackedVector2Array(doc.sectors[si].verts.map(func(v): return doc.vertices[int(v)])), q.x, q.y) \
+		for si in info.blocks:
+			if U.point_in_poly(PackedVector2Array(doc.blocks[si].verts.map(func(v): return doc.vertices[int(v)])), q.x, q.y) \
 					and not _in_hole_of(si, q):
 				return si
-	return info.sectors[0]
+	return info.blocks[0]
 
 func _in_hole_of(si: int, q: Vector2) -> bool:
-	var s = sector_at(q.x, q.y)
-	return s != null and s.id != doc.sectors[si].id
+	var s = block_at(q.x, q.y)
+	return s != null and s.id != doc.blocks[si].id
 
-## A texture onto every wall of a loop, on the side facing sel_face
-## (null clears it): the "skin" — every piece of wall on that face, a
-## one-sided wall or the step and lintel of an opening — or the "mid",
-## what stands in a two-sided opening (a fence, a window). (The older
-## parts, "walls", "upper", "lower" and "all", are the skin.)
+## A texture onto a loop: the "skin" is the block's SIDES (every side
+## of it, and the per-line skins on them cleared); the "mid" is a fill
+## standing across each selected edge (a fence, a window). null clears.
 func loop_texture(part: String, name) -> void:
 	if sel_kind != "line" or sel_face == null:
 		return
-	var face := str(sel_face)
-	var info := {}
-	for l in lines():
-		if sel_ids.has(l.key):
-			info[l.key] = l
-	var d := edit_begin("walls %s %s" % [part, name if name != null else "cleared"])
-	for k in sel_ids:
-		var two: bool = info.has(k) and info[k].sectors.size() > 1
-		var fields := []
-		match part:
-			"mid": fields = ["midTex"] if two else []
-			_: fields = ["tex"]
-		if fields.is_empty():
-			continue
-		if not d.lines.has(k):
-			d.lines[k] = {}
-		var o: Dictionary = d.lines[k]
-		if not o.get("sides") is Dictionary:
-			o["sides"] = {}
-		if not o.sides.get(face) is Dictionary:
-			o.sides[face] = {}
-		for f in fields:
+	var si := block_index(sel_face)
+	var d := edit_begin("sides %s %s" % [part, name if name != null else "cleared"])
+	if part == "mid":
+		for k in sel_ids:
+			if not d.lines.has(k):
+				d.lines[k] = {}
 			if name != null:
-				o.sides[face][f] = name
+				d.lines[k]["midTex"] = name
 			else:
-				o.sides[face].erase(f)
-		if o.sides[face].is_empty():
-			o.sides.erase(face)
-		if o.sides.is_empty():
-			o.erase("sides")
-		if o.is_empty():
-			d.lines.erase(k)
+				d.lines[k].erase("midTex")
+			if d.lines[k].is_empty():
+				d.lines.erase(k)
+	elif si >= 0:
+		d.blocks[si]["side"] = name if name != null else EdDoc.BLOCK_DEFAULTS.side
+		for k in sel_ids:
+			if d.lines.has(k) and d.lines[k] is Dictionary:
+				d.lines[k].erase("tex")
+				if d.lines[k].is_empty():
+					d.lines.erase(k)
 	edit_end(false)
 
-## What the loop's walls wear for a part, if they all wear the same
-## (null: none set on any), else "(mixed)".
+## What the loop's sides wear for a part: the block's sides, or the
+## fill if every selected edge has the same (null: none), else "(mixed)".
 func loop_tex_of(part: String):
-	var face := str(sel_face)
+	var si := block_index(sel_face)
+	if part != "mid":
+		return EdDoc.tex(doc.blocks[si], "side") if si >= 0 else null
 	var seen := {}
-	for l in lines():
-		if not sel_ids.has(l.key):
-			continue
-		var two: bool = l.sectors.size() > 1
-		var f := "midTex" if part == "mid" else "tex"
-		if part == "mid" and not two:
-			continue
-		var o: Dictionary = doc.lines.get(l.key, {})
-		var sd = o.get("sides", {}).get(face) if o.get("sides") is Dictionary else null
-		var v = sd.get(f) if sd is Dictionary and sd.get(f) != null else o.get(f)
-		seen[str(v) if v != null else ""] = true
+	for k in sel_ids:
+		var o: Dictionary = doc.lines.get(k, {})
+		seen[EdDoc.tex(o, "midTex")] = true
 	if seen.size() > 1:
 		return "(mixed)"
 	var only = seen.keys()[0] if seen.size() == 1 else ""
@@ -1006,8 +1031,8 @@ func moving_verts() -> Dictionary:
 			var ab := EdDoc.key_verts(k)
 			out[ab.x] = true
 			out[ab.y] = true
-	elif sel_kind == "sector":
-		for s in doc.sectors:
+	elif sel_kind == "block":
+		for s in doc.blocks:
 			if sel_ids.has(s.id):
 				for v in s.verts:
 					out[v] = true
@@ -1032,10 +1057,6 @@ func snap_sel_to_grid() -> void:
 			if ids.has(t.id):
 				t.x = r.call(t.x)
 				t.y = r.call(t.y)
-	if kind == "prop":
-		for p in d.props:
-			if ids.has(p.id):
-				p.x0 = r.call(p.x0); p.y0 = r.call(p.y0); p.x1 = r.call(p.x1); p.y1 = r.call(p.y1)
 	edit_end(true)
 	if not verts.is_empty():
 		clear_sel()
@@ -1056,25 +1077,18 @@ func delete_sel() -> void:
 		return
 	var n := ids.size()
 	var d := edit_begin("delete %d %s%s" % [n, kind, "s" if n > 1 else ""])
-	if kind == "sector":
-		d.sectors = d.sectors.filter(func(s): return not ids.has(s.id))
+	if kind == "block":
+		d.blocks = d.blocks.filter(func(s): return not ids.has(s.id))
 	if kind == "thing":
 		d.things = d.things.filter(func(t): return not ids.has(t.id))
-	if kind == "prop":
-		d.props = d.props.filter(func(p): return not ids.has(p.id))
 	if kind == "scatter":
 		d.scatters = d.scatters.filter(func(p): return not ids.has(p.id))
 	if kind == "vertex":
-		for s in d.sectors:
+		for s in d.blocks:
 			s.verts = s.verts.filter(func(v): return not ids.has(v))
 	if kind == "line":
-		var own := {}
-		for e in d.linedefs:
-			own[EdDoc.line_key(e[0], e[1])] = true
-		d.linedefs = d.linedefs.filter(func(e): return not ids.has(EdDoc.line_key(e[0], e[1])))
 		for key in ids:
-			if not own.has(key):
-				EdOps.merge_across(d, key)
+			EdOps.merge_across(d, key)
 	edit_end(true)
 	clear_sel()
 
@@ -1095,7 +1109,7 @@ func other_layers() -> Array:
 	if _other_key != doc:
 		_other_cache = []
 		for g in EdDoc.layers_of(doc):
-			if g.k != layer() and not g.sectors.is_empty():
+			if g.k != layer() and not g.blocks.is_empty():
 				_other_cache.append(g)
 		_other_key = doc
 	return _other_cache
@@ -1111,16 +1125,30 @@ func set_layer(k: int) -> void:
 	_other_key = null
 	changed(true)
 	var g := EdDoc.layer_geom(doc, k)
-	var n: int = g.sectors.size()
+	var n: int = g.blocks.size()
 	say("layer %d%s — %s; Alt+PgUp / Alt+PgDn change layer" % [k, " (the ground)" if k == 0 else "",
-		("%d sector%s" % [n, "" if n == 1 else "s"]) if n > 0 else "empty: draw on it, and rooms stand on the layer under"])
+		("%d block%s" % [n, "" if n == 1 else "s"]) if n > 0 else "empty: draw on it, and blocks stand on whatever the layers under put there"])
 
-func layer_floor(x: float, y: float) -> float:
-	var s = sector_at(x, y)
-	if s != null:
-		return EdDoc.num(s.get("floor"), 0)
-	var b = EdDoc.layer_base(doc, layer(), x, y)
-	return EdDoc.num(b.floor, 0) if b != null else 0.0
+## THE FLOOR AT (x, y) on the layer being edited, as the last build has
+## it: the top of what stands there (the ground, a block), under the
+## floating blocks of this layer.
+func floor_at(x: float, y: float) -> float:
+	var lv = compiled.get("level")
+	if lv == null:
+		return 0.0
+	return BlockCompile.stand_z(lv, x, y, layer())
+
+## A block's base and top as the last build had them (id on this layer).
+func top_of(id) -> Dictionary:
+	var t = _tops.get(id)
+	if t is Dictionary:
+		return t
+	var b = block_by_id(id)
+	if b == null:
+		return {"base": 0.0, "top": 0.0}
+	var bz = EdDoc.base_of(b)
+	var z: float = float(bz) if bz != null else 0.0
+	return {"base": z, "top": z + EdDoc.h_of(b)}
 
 func on_layer(t: Dictionary) -> bool:
 	return int(EdDoc.num(t.get("layer"), 0)) == layer()
@@ -1128,9 +1156,9 @@ func on_layer(t: Dictionary) -> bool:
 # --- STEPS --------------------------------------------------------------
 
 func make_steps(kind: String, opts := {}) -> Array:
-	var ids := target_or("sector")
+	var ids := target_or("block")
 	if ids.is_empty():
-		say("select a sector to make steps in")
+		say("select a block to make steps in")
 		return []
 	var made := []
 	var errs := []
@@ -1138,19 +1166,19 @@ func make_steps(kind: String, opts := {}) -> Array:
 	var d := edit_begin("rings" if kind == "rings" else "stairs")
 	for id in ids:
 		var S = null
-		for x in d.sectors:
+		for x in d.blocks:
 			if x.id == id:
 				S = x
 				break
 		if S == null:
 			continue
-		res = EdSteps.make_rings(d, S, opts) if kind == "rings" else EdSteps.make_stairs(d, S, opts)
+		res = EdSteps.make_rings(d, S, opts, _tops) if kind == "rings" else EdSteps.make_stairs(d, S, opts, _tops)
 		if res.has("error"):
 			errs.append(res.error)
 		made.append_array(res.get("ids", []))
 	edit_end(true)
 	if not made.is_empty():
-		select("sector", made)
+		select("block", made)
 	if not errs.is_empty() and made.is_empty():
 		say(errs[0])
 	else:
@@ -1179,88 +1207,103 @@ func add_thing(x: float, y: float) -> void:
 	edit_end(true)
 	select("thing", [t.id])
 
-func add_prop(x0: float, y0: float, x1: float, y1: float) -> void:
-	if absf(x1 - x0) < 1 or absf(y1 - y0) < 1:
-		return
-	var under = sector_at((x0 + x1) / 2.0, (y0 + y1) / 2.0)
-	var z0 := EdDoc.num(under.get("floor"), 0) if under != null else 0.0
-	var d := edit_begin("add prop")
-	var p := {"id": EdDoc.take_id(d), "x0": minf(x0, x1), "y0": minf(y0, y1), "x1": maxf(x0, x1), "y1": maxf(y0, y1),
-		"z0": z0, "z1": z0 + 64, "tex": prop_tex}
-	d.props.append(p)
-	edit_end(true)
-	select("prop", [p.id])
+## The smallest document block under a point, or null (the ground).
+func block_at(x: float, y: float):
+	return EdOps.block_containing(doc, x, y)
 
-## The smallest document sector under a point, or null.
-func sector_at(x: float, y: float):
-	return EdOps.sector_containing(doc, x, y)
-
-func sector_by_id(id):
-	for s in doc.sectors:
+func block_by_id(id):
+	for s in doc.blocks:
 		if s.id == id:
 			return s
 	return null
 
-func sector_index(id) -> int:
-	for i in doc.sectors.size():
-		if doc.sectors[i].id == id:
+func block_index(id) -> int:
+	for i in doc.blocks.size():
+		if doc.blocks[i].id == id:
 			return i
 	return -1
 
-# --- SECTORS ---------------------------------------------------------
+# --- BLOCKS ----------------------------------------------------------
 
-## A NEW SECTOR from points, Doom Builder's draw: corners on vertices use
+## A NEW BLOCK from points, Doom Builder's draw: corners on vertices use
 ## them, corners on lines split them; drawn inside another it takes that
-## one's heights and textures.
-func add_sector(points: PackedVector2Array, label := "draw sector"):
+## one's textures and stands on it; it is as high as the toolbar's PULL.
+## With the toolbar set to ROOM, a room instead (add_room).
+func add_block(points: PackedVector2Array, label := "draw block"):
 	if points.size() < 3:
 		return null
+	if make_kind == "room":
+		return add_room(points)
 	if EdOps.crosses_lines(doc, points):
-		return add_sector_across(points, label)
+		return add_block_across(points, label)
 	var d := edit_begin(label)
 	var idx := []
 	for p in points:
 		idx.append(EdOps.vertex_for(d, p.x, p.y))
-	var made = EdOps.insert_sector(d, idx)
+	var made = EdOps.insert_block(d, idx, {"h": pull_h})
 	edit_end(true)
 	if made != null:
-		select("sector", [made.id])
+		select("block", [made.id])
 	return made
 
-## LINEDEFS OF THEIR OWN: a path finished open that splits no sector.
-func add_linedefs(points: PackedVector2Array) -> Array:
-	if points.size() < 2:
-		return []
-	var n := 0
-	var d := edit_begin("draw linedefs")
-	var pts := EdOps.with_crossings(d, points, false)
-	var idx := []
-	for p in pts:
-		idx.append(EdOps.vertex_for(d, p.x, p.y))
-	for k in idx.size() - 1:
-		var a: int = idx[k]
-		var b: int = idx[k + 1]
-		if a == b:
-			continue
-		d.linedefs.append([a, b])
-		n += 1
-	var made := EdOps.close_loops(d)
+## THE ROOM TOOL: a footprint becomes a building — a floor patch inside
+## (no height, so the room has a floor of its own), a wall block
+## WALL_T thick along each edge, as high as the PULL, and a roof slab
+## over the whole footprint on the layer above, standing on the walls,
+## its underside the ceiling. Returns the roof block.
+func add_room(points: PackedVector2Array):
+	var outer := points.duplicate()
+	if EdDoc.signed_area(outer) < 0:
+		outer.reverse()
+	var inner = EdSteps._inset(outer, EdDoc.WALL_T)
+	if inner == null or EdDoc.self_crosses(inner) or not EdDoc.strictly_inside(inner, outer):
+		say("too small or too sharp for walls %d thick — a bigger footprint" % int(EdDoc.WALL_T))
+		return null
+	var d := edit_begin("draw room")
+	var n := outer.size()
+	var oi := []
+	var ii := []
+	for p in outer:
+		oi.append(EdOps.vertex_for(d, p.x, p.y))
+	for p in inner:
+		ii.append(EdOps.vertex_for(d, p.x, p.y))
+	var walls := []
+	for k in n:
+		var w = EdOps.insert_block(d, [oi[k], oi[(k + 1) % n], ii[(k + 1) % n], ii[k]], {"h": pull_h, "name": "wall"})
+		if w != null:
+			walls.append(w.id)
+	var fl = EdOps.insert_block(d, ii, {"h": 0.0, "name": "floor", "top": "CONC_2"})
+	# the roof: on the layer over, so it stands on the walls
+	var k := layer()
+	EdDoc.set_layer(d, k + 1)
+	var ri := []
+	for p in outer:
+		ri.append(EdOps.vertex_for(d, p.x, p.y))
+	var roof = EdOps.insert_block(d, ri, {"h": EdDoc.SLAB_T, "name": "roof", "top": "CONC_3", "under": "OFCCEIL1", "light": 0.7})
+	EdDoc.compact(d)
+	EdDoc.set_layer(d, k)
 	edit_end(true)
-	if not made.is_empty():
-		select("sector", made)
-		say("%d sector%s closed by the new line%s" % [made.size(), "s" if made.size() > 1 else "", "s" if n > 1 else ""])
-	else:
-		var ks := []
-		var L: Array = doc.linedefs
-		for i in range(maxi(0, L.size() - n), L.size()):
-			ks.append(EdDoc.line_key(L[i][0], L[i][1]))
-		select("line", ks)
-		say("%d linedef%s — close a shape with more and it becomes a sector; left open, it stands as a wall" % [n, "s" if n > 1 else ""])
-	return made
+	if not walls.is_empty():
+		select("block", walls)
+	say("a room: %d walls %d thick, %d high, a floor, and a roof on the layer over (Alt+PgUp) — O puts a door in a wall" % [walls.size(), int(EdDoc.WALL_T), int(pull_h)])
+	return roof
 
-## A SECTOR DRAWN ACROSS WALLS: cut where it crosses every line, and each
-## room it passes through split along the part inside it.
-func add_sector_across(points: PackedVector2Array, label: String):
+func set_pull(h: float) -> void:
+	pull_h = clampf(h, -4096.0, 4096.0)
+	grid_changed.emit()
+	say("new blocks stand %s high%s" % [_nice(pull_h), " (pushed down into what they are drawn on)" if pull_h < 0 else ""])
+
+func set_make(k: String) -> void:
+	if not MAKE_KINDS.has(k):
+		return
+	make_kind = k
+	grid_changed.emit()
+	say("a drawn shape becomes a %s" % ("room: walls, a floor and a roof" if k == "room" else "block"))
+
+## A BLOCK DRAWN ACROSS OTHERS: cut where it crosses every line, and each
+## block it passes through split along the part inside it; the pieces
+## inside the drawn shape are the new blocks, as high as the PULL.
+func add_block_across(points: PackedVector2Array, label: String):
 	var made := []
 	var outside := false
 	var d := edit_begin(label)
@@ -1290,7 +1333,7 @@ func add_sector_across(points: PackedVector2Array, label: String):
 		var in_sector := func(i: int, j: int):
 			var a: Vector2 = d.vertices[i]
 			var b: Vector2 = d.vertices[j]
-			var s = EdOps.sector_containing(d, (a.x + b.x) / 2.0, (a.y + b.y) / 2.0)
+			var s = EdOps.block_containing(d, (a.x + b.x) / 2.0, (a.y + b.y) / 2.0)
 			if s == null:
 				return null
 			var r: Array = s.verts
@@ -1335,7 +1378,7 @@ func add_sector_across(points: PackedVector2Array, label: String):
 			k = m
 		for rn in runs:
 			var S = null
-			for x in d.sectors:
+			for x in d.blocks:
 				if x.id == rn.id:
 					S = x
 					break
@@ -1345,12 +1388,12 @@ func add_sector_across(points: PackedVector2Array, label: String):
 			var u: int = pth[0]
 			var w: int = pth[pth.size() - 1]
 			if S.verts.has(u) and S.verts.has(w):
-				EdOps.split_sector(d, S, pth)
+				EdOps.split_block(d, S, pth)
 				continue
 			# the run ends on the wall of a room INSIDE S: the piece is the
 			# run and the shorter stretch of that room's wall
 			var H = null
-			for x in d.sectors:
+			for x in d.blocks:
 				if not is_same(x, S) and x.verts.has(u) and x.verts.has(w):
 					H = x
 					break
@@ -1378,10 +1421,10 @@ func add_sector_across(points: PackedVector2Array, label: String):
 			ns["name"] = ""
 			ns["id"] = EdDoc.take_id(d)
 			ns["verts"] = cands[0]
-			d.sectors.append(ns)
+			d.blocks.append(ns)
 		# 4. the pieces inside the drawn shape are the new sectors
 		var shape_pts := EdOps._pts_of(d, ring)
-		for s in d.sectors:
+		for s in d.blocks:
 			var r := EdDoc.ring_of(d, s)
 			var cc := Vector2.ZERO
 			for p in r:
@@ -1394,66 +1437,55 @@ func add_sector_across(points: PackedVector2Array, label: String):
 					all_in = false
 					break
 			if all_in:
+				s["h"] = pull_h
 				made.append(s.id)
 	edit_end(true)
 	if not made.is_empty():
-		select("sector", made)
-	say("%d sector%s drawn across the walls%s" % [made.size(), "" if made.size() == 1 else "s",
-		" — the part outside the map was not made; draw it on its own" if outside else ""])
-	return sector_by_id(made[0]) if not made.is_empty() else null
+		select("block", made)
+	say("%d block%s drawn across others%s" % [made.size(), "" if made.size() == 1 else "s",
+		" — the part over bare ground was not made; draw it on its own" if outside else ""])
+	return block_by_id(made[0]) if not made.is_empty() else null
 
-## Raise or lower floors or ceilings by dz — the wheel in 3D, PgUp/PgDn.
+## Raise or lower blocks by dz — the wheel in 3D, PgUp/PgDn. `part`:
+## "h" their height (the top moves), "base" where they float (a block
+## standing on what is under it starts floating from there).
 func nudge_height(part: String, dz: float, ids = null) -> void:
-	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "sector" else {})
+	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "block" else {})
 	if which.is_empty():
 		return
 	var keys := which.keys()
 	keys.sort()
-	var d := edit_begin("%s %s%s" % [part, "+" if dz > 0 else "", _nice(dz)], "height %s %s" % [part, ",".join(keys.map(func(x): return str(x)))])
-	for s in d.sectors:
+	var d := edit_begin("%s %s%s" % ["height" if part == "h" else "base", "+" if dz > 0 else "", _nice(dz)], "height %s %s" % [part, ",".join(keys.map(func(x): return str(x)))])
+	for s in d.blocks:
 		if not which.has(s.id):
 			continue
-		if part == "floor":
-			s["floor"] = snap_z(EdDoc.num(s.get("floor"), 0), dz)
+		if part == "base":
+			var bz = EdDoc.base_of(s)
+			var z: float = float(bz) if bz != null else float(top_of(s.id).base)
+			s["base"] = snap_z(z, dz)
 		else:
-			s["ceil"] = snap_z(EdDoc.num(s.get("ceil"), 256), dz)
+			s["h"] = snap_z(EdDoc.h_of(s), dz)
 	edit_end(false)
 
-## LINE THE TEXTURES UP on the selected lines (or the one under the mouse).
-func align_sel(how: String, opts := {}) -> int:
-	var keys := []
-	if sel_kind == "line":
-		keys = sel_ids.keys()
-	elif hovered != null and hovered.kind == "line":
-		keys = [hovered.id]
-	if keys.is_empty():
-		say("select some lines first (L, then click or box them)")
-		return 0
-	var labels := {"x": "align x", "y": "align y", "match": "match textures", "fitX": "fit across", "fitY": "fit up", "scale": "texture scale", "reset": "reset alignment"}
-	var label: String = labels.get(how, how)
-	var d := edit_begin(label)
-	var n := EdDoc.align_textures(d, keys, how, tex_size, opts)
+## A block's base: a height to float at, or null to stand on what is under it.
+func set_base(id, base) -> void:
+	var d := edit_begin("base %s" % ("auto" if base == null else _nice(float(base))))
+	for s in d.blocks:
+		if s.id == id:
+			s["base"] = null if base == null else float(base)
 	edit_end(false)
-	if n > 0:
-		say("%s: %d wall face%s on %d line%s" % [label, n, "" if n == 1 else "s", keys.size(), "" if keys.size() == 1 else "s"])
-	else:
-		say("those lines have no walls to align (a linedef of its own is a wall sector: align it by its own lines)")
-	return n
 
-## A sector's brightness, Doom's way: 0 to 255.
+## A block's light (of the space under it), Doom's way: 0 to 255.
 static func bright_of(s: Dictionary) -> int:
 	return int(EdDoc.jsround(clampf(EdDoc.num(s.get("light"), 0.72), 0.0, 1.0) * 255.0))
 
-static func is_inside(s: Dictionary) -> bool:
-	return EdDoc.tex(s, "ceilTex") != "" and EdDoc.tex(s, "ceilTex") != "SKY"
-
 ## BRIGHTNESS, Ctrl and the wheel, as in Ultimate Doom Builder.
 func nudge_light(delta: int, ids = null) -> void:
-	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "sector" else {})
+	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "block" else {})
 	if which.is_empty():
 		return
 	var moves := false
-	for s in doc.sectors:
+	for s in doc.blocks:
 		if which.has(s.id) and clampi(bright_of(s) + delta, 0, 255) != bright_of(s):
 			moves = true
 	if not moves:
@@ -1463,7 +1495,7 @@ func nudge_light(delta: int, ids = null) -> void:
 	keys.sort()
 	var now := 0
 	var d := edit_begin("brightness %s%d" % ["+" if delta > 0 else "", delta], "light %s" % ",".join(keys.map(func(x): return str(x))))
-	for s in d.sectors:
+	for s in d.blocks:
 		if not which.has(s.id):
 			continue
 		var b := clampi(bright_of(s) + delta, 0, 255)
@@ -1471,31 +1503,6 @@ func nudge_light(delta: int, ids = null) -> void:
 		now = b
 	edit_end(false)
 	say("brightness %d" % now)
-
-## INSIDE OR OUTSIDE: a room with a roof, or open to the sky.
-func set_inside(inside: bool, ids = null) -> void:
-	var which: Dictionary = ids if ids != null else (sel_ids if sel_kind == "sector" else {})
-	if which.is_empty():
-		return
-	var d := edit_begin("inside" if inside else "outside")
-	for s in d.sectors:
-		if not which.has(s.id):
-			continue
-		var f := EdDoc.num(s.get("floor"), 0)
-		if inside:
-			if EdDoc.tex(s, "ceilTex") == "SKY" or EdDoc.tex(s, "ceilTex") == "":
-				var roof := EdDoc.tex(s, "roofTex")
-				s["ceilTex"] = roof if roof != "" and roof != "SKY" else "GRIDBOX"
-			if EdDoc.num(s.get("ceil"), 1024) - f > 512:
-				s["ceil"] = f + 128
-			s["outdoor"] = false
-		else:
-			s["ceilTex"] = "SKY"
-			s["outdoor"] = true
-			if EdDoc.num(s.get("ceil"), 0) < f + 128:
-				s["ceil"] = f + 128
-	edit_end(false)
-	say("inside: roofed, walled where it meets the outside" if inside else "outside: open to the sky")
 
 ## INSERT, as in Doom Builder.
 func insert_at_cursor() -> void:
@@ -1509,24 +1516,14 @@ func insert_at_cursor() -> void:
 		say("vertex at %s, %s" % [_nice(c.x), _nice(c.y)])
 	elif mode == "draw":
 		add_path_point(c)
-	elif mode == "sectors" or mode == "lines":
+	elif mode == "blocks" or mode == "lines":
 		set_mode("draw")
 		add_path_point(c)
 		say("drawing: click the corners, click the first one (or Enter) to finish, Esc to cancel")
 	else:
 		add_thing(c.x, c.y)
 
-## THE GROUND: the only sector, or the outermost with rooms in it.
-func is_ground(id) -> bool:
-	var i := sector_index(id)
-	if i < 0:
-		return false
-	if doc.sectors.size() == 1:
-		return true
-	var par := EdDoc.hole_parents(doc)
-	return par[i] == -1 and par.has(i)
-
-## A shape dragged out, from corner a to corner b, as a new sector.
+## A shape dragged out, from corner a to corner b, as a new block.
 func add_rect(a: Vector2, b: Vector2):
 	if a.x == b.x or a.y == b.y:
 		say("too small for the %d grid: drag further, or make the grid finer with [" % grid)
@@ -1537,10 +1534,10 @@ func add_rect(a: Vector2, b: Vector2):
 		say("too small for that shape: drag further")
 		return null
 	var nm: String = EdOps.SHAPES[kind].name
-	var s = add_sector(pts, "draw %s" % nm.to_lower())
+	var s = add_block(pts, "draw %s" % nm.to_lower())
 	var bb := EdDoc.bbox(pts)
-	if s != null:
-		say("new sector %d, %s%s by %s" % [s.id, "" if kind == "rect" else nm.to_lower() + " ", _nice(bb.size.x), _nice(bb.size.y)])
+	if s != null and make_kind != "room":
+		say("new block %d, %s%s by %s, %s high — the wheel over it in 3D raises it" % [s.id, "" if kind == "rect" else nm.to_lower() + " ", _nice(bb.size.x), _nice(bb.size.y), _nice(pull_h)])
 	return s
 
 func shape_points(a: Vector2, b: Vector2) -> PackedVector2Array:
@@ -1572,26 +1569,21 @@ func copy_sel() -> bool:
 				if sel_ids.has(t.id):
 					clip.items.append(t.duplicate(true))
 					pts.append(Vector2(t.x, t.y))
-		"prop":
-			for p in d.props:
-				if sel_ids.has(p.id):
-					clip.items.append(p.duplicate(true))
-					pts.append(Vector2(p.x0, p.y0))
 		"scatter":
 			for c in d.scatters:
 				if sel_ids.has(c.id):
 					clip.items.append(c.duplicate(true))
 					var a: Dictionary = c.area
 					pts.append(Vector2(EdDoc.num(got2(a, "x", "x0"), 0), EdDoc.num(got2(a, "y", "y0"), 0)))
-		"sector":
-			for s in d.sectors:
+		"block":
+			for s in d.blocks:
 				if sel_ids.has(s.id):
 					var r := EdDoc.ring_of(d, s)
 					clip.items.append({"props": EdDoc.copy_without(s, ["verts", "id"]), "ring": r})
 					for p in r:
 						pts.append(p)
 		_:
-			say("%ss cannot be copied — copy the sectors or things" % sel_kind)
+			say("%ss cannot be copied — copy the blocks or things" % sel_kind)
 			return false
 	var mn := Vector2(INF, INF)
 	for p in pts:
@@ -1618,8 +1610,8 @@ func paste(in_place := false) -> void:
 	var dy := 0.0 if in_place else snap_v(c.y - clip.anchor.y)
 	var moved: bool = int(clip.get("layer", 0)) != layer()
 	var made := []
-	if clip.kind == "sector":
-		history.push("paste %d sectors" % clip.items.size())
+	if clip.kind == "block":
+		history.push("paste %d blocks" % clip.items.size())
 		for it in clip.items:
 			var d := doc
 			var ring := []
@@ -1632,17 +1624,11 @@ func paste(in_place := false) -> void:
 			var s: Dictionary = it.props.duplicate(true)
 			s["id"] = EdDoc.take_id(d)
 			s["verts"] = vs
-			if moved and layer() != 0:
-				var cc := Vector2.ZERO
-				for p in it.ring:
-					cc += (p + Vector2(dx, dy)) / it.ring.size()
-				var b = EdDoc.layer_base(d, layer(), cc.x, cc.y)
-				if b != null:
-					var hgt := EdDoc.num(s.get("ceil"), 256) - EdDoc.num(s.get("floor"), 0)
-					s["floor"] = b.floor
-					s["ceil"] = b.floor + hgt
+			# onto another layer: it stands on what is under it there
+			if moved:
+				s["base"] = null
 			if vs.size() >= 3:
-				d.sectors.append(s)
+				d.blocks.append(s)
 				made.append(s.id)
 		EdDoc.compact(doc)
 		changed(true)
@@ -1659,9 +1645,6 @@ func paste(in_place := false) -> void:
 				else:
 					o.erase("layer")
 				d.things.append(o)
-			elif clip.kind == "prop":
-				o.x0 += dx; o.x1 += dx; o.y0 += dy; o.y1 += dy
-				d.props.append(o)
 			elif clip.kind == "scatter":
 				var a: Dictionary = o.area
 				if a.kind == "circle":
@@ -1686,7 +1669,7 @@ func set_hover(h) -> void:
 
 func _two_sided(key: String) -> bool:
 	var l = line_info(key)
-	return l != null and l.sectors.size() > 1
+	return l != null and l.blocks.size() > 1
 
 ## The selection if there is one of this kind, or the highlighted thing.
 func target_or(kind: String) -> Dictionary:
@@ -1696,57 +1679,59 @@ func target_or(kind: String) -> Dictionary:
 		return {hovered.id: true}
 	return {}
 
-## A texture onto whatever is selected: the surface picked in 3D, or the
-## field the inspector is picking for.
+## A texture onto whatever is selected: the surface picked in 3D (a
+## block's top or underside, the ground, or one side — the line's skin),
+## the loop's sides, the selected lines' skins, or the field the
+## inspector is picking for.
 func apply_texture(name: String, field := "") -> void:
 	var kind := sel_kind
 	var ids := sel_ids
 	if surf != null:
-		var s: Dictionary = surf
-		if s.part == "wall":
-			# the face's skin — or, in a two-sided opening, what stands in it
-			var f := "midTex" if s.get("band") == "middle" and _two_sided(s.line) else "tex"
-			var face_id := str(doc.sectors[s.sector].id) if s.sector >= 0 and s.sector < doc.sectors.size() else ""
+		var sf: Dictionary = surf
+		if sf.part == "side":
 			var d := edit_begin("texture %s" % name)
-			if not d.lines.has(s.line):
-				d.lines[s.line] = {}
-			var o: Dictionary = d.lines[s.line]
-			if not o.has("sides"):
-				o["sides"] = {}
-			if not o.sides.has(face_id):
-				o.sides[face_id] = {}
-			o.sides[face_id][f] = name
+			if not d.lines.has(sf.line):
+				d.lines[sf.line] = {}
+			d.lines[sf.line]["tex"] = name
+			edit_end(false)
+		elif sf.get("block") == null or sf.part == "ground":
+			var d := edit_begin("ground %s" % name)
+			d.ground["tex"] = name
 			edit_end(false)
 		else:
 			var d := edit_begin("texture %s" % name)
-			if s.sector >= 0 and s.sector < d.sectors.size():
-				d.sectors[s.sector]["floorTex" if s.part == "floor" else "ceilTex"] = name
+			for b in d.blocks:
+				if b.id == sf.block:
+					b["top" if sf.part == "top" else "under"] = name
 			edit_end(false)
 		return
-	if kind == "sector" and field != "":
+	if kind == "block" and field != "":
 		var d := edit_begin("%s %s" % [field, name])
-		for s in d.sectors:
+		for s in d.blocks:
 			if ids.has(s.id):
 				s[field] = name
 		edit_end(false)
-	elif kind == "prop":
-		var d := edit_begin("prop texture %s" % name)
-		for p in d.props:
-			if ids.has(p.id):
-				p[field if field != "" else "tex"] = name
+	elif kind == "block":
+		var d := edit_begin("sides %s" % name)
+		for s in d.blocks:
+			if ids.has(s.id):
+				s["side"] = name
+		edit_end(false)
+	elif kind == "ground":
+		var d := edit_begin("ground %s" % name)
+		d.ground["tex"] = name
 		edit_end(false)
 	elif kind == "line" and sel_face != null:
-		loop_texture("all", name)
+		loop_texture("skin", name)
 	elif kind == "line":
 		var d := edit_begin("line texture %s" % name)
 		for k in ids:
 			if not d.lines.has(k):
 				d.lines[k] = {}
-			d.lines[k]["wallTex"] = name
+			d.lines[k]["tex"] = name
 		edit_end(false)
 	else:
-		prop_tex = name
-		say("%s is the texture for new props" % name)
+		say("select a block, the ground or some lines to put %s on" % name)
 
 # --- THE OUTLINE BEING DRAWN --------------------------------------------
 
@@ -1759,19 +1744,17 @@ func add_path_point(pt: Vector2) -> void:
 	path.append(pt)
 	path_changed.emit()
 
-## FINISH THE DRAWING: closed, a sector; finished open with both ends on
-## one sector's edge, a split; otherwise linedefs.
+## FINISH THE DRAWING: closed, a block; finished open with both ends on
+## one block's edge, a split of it; otherwise closed as it stands.
 func close_path(open := false) -> void:
 	var p := PackedVector2Array(path)
 	path = []
 	if open and p.size() >= 2 and split_by_path(p):
 		pass
-	elif open and p.size() >= 2:
-		add_linedefs(p)
 	elif p.size() >= 3:
-		add_sector(p)
+		add_block(p)
 	elif p.size() > 0:
-		say("one corner is not a line — click another, then Enter for linedefs, or close the shape for a sector")
+		say("two corners are not a block — click a third, then the first again (or Enter) to close it")
 	path_changed.emit()
 	after_draw()
 
@@ -1791,18 +1774,18 @@ func split_by_path(pts: PackedVector2Array) -> bool:
 		return false
 	var mid := pts[1] if pts.size() > 2 else (a + b) / 2.0
 	var s0 = null
-	for s in d0.sectors:
+	for s in d0.blocks:
 		if on_edge.call(s, a) and on_edge.call(s, b) and EdDoc.pip(EdDoc.ring_of(d0, s), mid.x, mid.y):
 			s0 = s
 			break
 	if s0 == null:
 		return false
 	var sid = s0.id
-	var d := edit_begin("split sector")
+	var d := edit_begin("split block")
 	var pth := []
 	for p in pts:
 		pth.append(EdOps.vertex_for(d, p.x, p.y))
-	var made = EdOps.split_sector(d, sector_by_id(sid), pth)
+	var made = EdOps.split_block(d, block_by_id(sid), pth)
 	if made == null:
 		# nothing was split: that edit is not kept
 		history.undo()
@@ -1810,8 +1793,8 @@ func split_by_path(pts: PackedVector2Array) -> bool:
 		changed()
 		return false
 	edit_end(true)
-	select("sector", [made.id])
-	say("split the sector in two")
+	select("block", [made.id])
+	say("split the block in two")
 	return true
 
 func cancel_path() -> void:
@@ -1833,7 +1816,7 @@ func drag_move(dr: Dictionary, at: Vector2, r := 0.0) -> void:
 	var st: Vector2 = dr.start
 	var tx: float = snap_v(ref.x + at.x - st.x) - ref.x
 	var ty: float = snap_v(ref.y + at.y - st.y) - ref.y
-	if r > 0 and sel_kind in ["vertex", "line", "sector"]:
+	if r > 0 and sel_kind in ["vertex", "line", "block"]:
 		var moving := moving_verts()
 		var s := snap_at(ref.x + at.x - st.x, ref.y + at.y - st.y, r, moving, sel_kind == "vertex" and moving.size() == 1)
 		if s.kind != "grid":
@@ -1879,8 +1862,8 @@ func grab_point(at: Vector2) -> Vector2:
 				for i in [ab.x, ab.y]:
 					if i >= 0 and i < d.vertices.size():
 						pts.append(d.vertices[i])
-		"sector":
-			for s in d.sectors:
+		"block":
+			for s in d.blocks:
 				if sel_ids.has(s.id):
 					for p in EdDoc.ring_of(d, s):
 						pts.append(p)
@@ -1888,11 +1871,6 @@ func grab_point(at: Vector2) -> Vector2:
 			for t in d.things:
 				if sel_ids.has(t.id):
 					pts.append(Vector2(t.x, t.y))
-		"prop":
-			for p in d.props:
-				if sel_ids.has(p.id):
-					pts.append(Vector2(p.x0, p.y0))
-					pts.append(Vector2(p.x1, p.y1))
 		"scatter":
 			for c in d.scatters:
 				if sel_ids.has(c.id) and c.area.kind == "circle":
@@ -1919,11 +1897,11 @@ func add_scatter(area: Dictionary, preset := "") -> Dictionary:
 	changed(true)
 	return made
 
-func scatter_sectors(preset := ""):
-	if sel_kind != "sector" or sel_ids.is_empty():
-		say("select sectors to scatter into")
+func scatter_blocks(preset := ""):
+	if sel_kind != "block" or sel_ids.is_empty():
+		say("select blocks to scatter over")
 		return null
-	return add_scatter({"kind": "sectors", "ids": sel_ids.keys()}, preset)
+	return add_scatter({"kind": "blocks", "ids": sel_ids.keys()}, preset)
 
 func paint_brush(a: Vector2, b: Vector2) -> void:
 	var r := a.distance_to(b)
@@ -1979,12 +1957,10 @@ func select_all_in_mode() -> void:
 				if on_layer(t):
 					ids.append(t.id)
 			select("thing", ids)
-		"props":
-			select("prop", d.props.map(func(p): return p.id))
 		"scatter":
 			select("scatter", d.scatters.map(func(p): return p.id))
 		_:
-			select("sector", d.sectors.map(func(s): return s.id))
+			select("block", d.blocks.map(func(s): return s.id))
 
 # ---------------------------------------------------------------------
 # THE KEYBOARD, which is most of what a Doom editor is. The view the
@@ -2088,7 +2064,7 @@ func _key(e: InputEventKey) -> bool:
 		path_changed.emit()
 		return true
 	if k == KEY_DELETE or k == KEY_BACKSPACE:
-		if sel_kind == "" and k == KEY_DELETE and hovered != null and hovered.kind == MODE_KIND.get(mode, "sector"):
+		if sel_kind == "" and k == KEY_DELETE and hovered != null and hovered.kind == MODE_KIND.get(mode, "block"):
 			select(hovered.kind, [hovered.id])
 		if sel_kind != "":
 			delete_sel()
@@ -2100,9 +2076,9 @@ func _key(e: InputEventKey) -> bool:
 		set_layer(layer() + (1 if k == KEY_PAGEUP else -1))
 		return true
 	if k == KEY_PAGEUP or k == KEY_PAGEDOWN:
-		var ids := target_or("sector")
+		var ids := target_or("block")
 		if not ids.is_empty():
-			nudge_height("ceil" if e.shift_pressed else "floor", (1 if k == KEY_PAGEUP else -1) * 8, ids)
+			nudge_height("base" if e.shift_pressed else "h", (1 if k == KEY_PAGEUP else -1) * 8, ids)
 		return true
 	if k == KEY_ESCAPE:
 		if not path.is_empty():
@@ -2141,10 +2117,10 @@ func _key(e: InputEventKey) -> bool:
 		view3d.set_fullbright(not view3d.fullbright)
 		return true
 	if k == KEY_K:
-		var order := ["normal", "light", "floor", "ceil"]
+		var order := ["normal", "light", "top"]
 		plan_view = order[(order.find(plan_view) + 1) % order.size()]
 		grid_changed.emit()
-		var names := {"normal": "normal", "light": "brightness", "floor": "floor heights", "ceil": "ceiling heights"}
+		var names := {"normal": "normal", "light": "brightness", "top": "heights"}
 		say("plan: %s" % names[plan_view])
 		return true
 	return false

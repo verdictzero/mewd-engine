@@ -76,6 +76,12 @@ class Sector:
 	var storey := 0
 	var above := -1
 	var below := -1
+	# A MAP IN BLOCKS (BlockCompile): the block whose top this floor is
+	# (0: the ground), the one whose underside its ceiling is (null:
+	# the sky), and the layer the block is on
+	var block = null
+	var over = null
+	var layer := 0
 
 class Line:
 	var index := 0
@@ -164,6 +170,9 @@ var lines: Array[Line] = []
 var things: Array = []
 var world := {}
 var bounds := Rect2()
+## the built part of a map whose ground runs on past it (BlockCompile):
+## the blockmap, the forest and the plants keep to this
+var bounds_hint := Rect2()
 ## FREE BOXES (level.props in js/editor/doc.js): {x0, y0, x1, y1, z0, z1,
 ## tex, topTex, light, sky, tint (Color or null), fog (Color or null)} —
 ## drawn by MapGeo, owned by no sector, and solid to nothing (as in the
@@ -244,6 +253,9 @@ func add_sector(poly: PackedVector2Array, p: Dictionary) -> int:
 	s.poly = pts
 	s.col_base = int(p.get("__colBase", s.index))
 	s.storey = int(p.get("__storey", 0))
+	s.block = p.get("__block")
+	s.over = p.get("__over")
+	s.layer = int(p.get("__layer", 0))
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
 	for q in pts:
@@ -388,6 +400,10 @@ func _build_bounds() -> void:
 		mn = mn.min(v)
 		mx = mx.max(v)
 	bounds = Rect2(mn, mx - mn)
+	if bounds_hint.size.x > 0.0 and bounds_hint.size.y > 0.0:
+		bounds = bounds_hint
+		mn = bounds.position
+		mx = bounds.end
 	origin_x = floorf(mn.x / BLOCK) * BLOCK - BLOCK
 	origin_y = floorf(mn.y / BLOCK) * BLOCK - BLOCK
 	cols = ceili((mx.x - origin_x) / BLOCK) + 2

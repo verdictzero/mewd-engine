@@ -3,9 +3,10 @@
 ## Ultimate Doom Builder's visual mode, on the game's own renderer: the
 ## level MapGeo builds from what the compiler made, in the game's own
 ## materials, under the map's sky. And not only a place to look: EVERY
-## MODE WORKS HERE as it does on the plan — vertex handles to drag, walls
-## and floors to pick, things and props and shapes and scatters to put
-## down and drag, the outline being drawn shared with the plan.
+## MODE WORKS HERE as it does on the plan — vertex handles to drag, the
+## tops, undersides and sides of blocks and the ground to pick, things
+## and shapes and scatters to put down and drag, the outline being
+## drawn shared with the plan.
 ##
 ## Hold the right button to look (WASD, Q and E fly while it is held,
 ## Shift faster), or press Q for VISUAL MODE: the 3D view on its own, the
@@ -16,9 +17,10 @@
 ## the arrows over a wall nudge its texture offsets; Shift+A aligns;
 ## B is fullbright, H the grid, F back to the start.
 ##
-## PICKING IS DONE AGAINST THE DOCUMENT, not the triangles: a ray against
-## every sector's two planes, every line's bands, the props and the
-## things placed by hand.
+## PICKING IS DONE AGAINST THE BUILT LEVEL (the last compile's storeys
+## and bands: exactly what is drawn), each hit read back to the block,
+## the ground or the line of the document it came from — and against
+## the things placed by hand.
 class_name EdView3D
 extends Control
 
@@ -31,7 +33,7 @@ const PEOPLE := ["SHOPPER", "TOWNIE"]
 const AXIS_X := Color("#ff3352")
 const AXIS_Y := Color("#8bdc00")
 const AXIS_Z := Color("#4aa8ff")
-const GRID_MODES := ["draw", "rect", "vertices", "things", "props", "scatter"]
+const GRID_MODES := ["draw", "rect", "vertices", "things", "scatter"]
 const GIZMO := 84.0
 
 var ed: MewdEditor
@@ -207,27 +209,16 @@ static func set_lines(node: MeshInstance3D, pts: PackedVector3Array) -> void:
 		im.surface_add_vertex(p)
 	im.surface_end()
 
-func z_of(s: Dictionary, part: String) -> float:
-	return EdDoc.num(s.get("floor"), 0) if part == "floor" else EdDoc.num(s.get("ceil"), 256)
-
-## The floor at (x, y), as the compiled level has it.
+## The floor at (x, y) on the layer being edited, as the compiled
+## level has it.
 func floor_z(x: float, y: float) -> float:
-	if ed.layer() != 0:
-		return ed.layer_floor(x, y)
-	var L = ed.compiled.get("level")
-	if L != null:
-		var s = L.sector_at(x, y)
-		if s != null:
-			return s.floor
-	var ds = ed.sector_at(x, y)
-	return EdDoc.num(ds.get("floor"), 0) if ds != null else 0.0
+	return ed.floor_at(x, y)
 
 func thing_z(t: Dictionary) -> float:
-	var k := int(EdDoc.num(t.get("layer"), 0))
-	if k == ed.layer():
-		return floor_z(t.x, t.y)
-	var z = EdDoc.layer_floor_at(ed.doc, k, t.x, t.y)
-	return z if z != null else floor_z(t.x, t.y)
+	var lv = ed.compiled.get("level")
+	if lv == null:
+		return 0.0
+	return BlockCompile.stand_z(lv, float(t.x), float(t.y), int(EdDoc.num(t.get("layer"), 0)))
 
 static func thing_height(t: Dictionary) -> float:
 	if t.type == "START":
@@ -238,17 +229,6 @@ static func thing_height(t: Dictionary) -> float:
 	if t.type in PEOPLE:
 		return PERSON_H * EdDoc.num(t.get("scale"), 1)
 	return float(EdDoc.THING_TYPES.get(t.type, {}).get("radius", 16)) * 2.6
-
-## Whether a two-sided line is a building's outside wall (5c in doc.js).
-static func exterior_wall(d: Dictionary, l) -> bool:
-	if l == null or l.sectors.size() != 2 or d.lines.get(l.key, {}).get("opening", false):
-		return false
-	var a: Dictionary = d.sectors[l.sectors[0]]
-	var b: Dictionary = d.sectors[l.sectors[1]]
-	return (EdDoc.tex(a, "ceilTex") != "SKY") != (EdDoc.tex(b, "ceilTex") != "SKY")
-
-static func mid_wall(d: Dictionary, l) -> bool:
-	return exterior_wall(d, l) or EdDoc.tex(d.lines.get(l.key, {}), "midTex") != ""
 
 # ---------------------------------------------------------------------
 # VISUAL MODE
@@ -504,15 +484,10 @@ static func sprite_batches(things: Array, L, layer_k: int, d: Dictionary) -> Dic
 		# on the floor of ITS OWN layer's room (a map in storeys), lit by
 		# the storey of the build it stands in
 		var tk := int(EdDoc.num(t.get("layer"), 0))
-		if tk != 0:
-			fz = EdDoc.num(EdDoc.layer_floor_at(d, tk, x, y), 0)
 		if L != null:
-			var sec = L.sector_at(x, y)
+			var sec = BlockCompile.stand_in(L, x, y, tk)
 			if sec != null:
-				if tk != 0:
-					sec = L.span_in(sec, fz + 1.0)
-				else:
-					fz = sec.floor
+				fz = sec.floor
 				light = clampf(sec.light, 0.15, 1.0)
 		var c: Color = b.tint
 		b.buf.append_array([b.w * s, 0, 0, x, 0, b.h * s, 0, fz, 0, 0, 1, -y, c.r * light, c.g * light, c.b * light, 1.0])
@@ -546,48 +521,53 @@ func _person_texture() -> Texture2D:
 
 ## EVERY EDGE IN THE MAP, faintly: along every floor, along a ceiling
 ## that is not the sky, and up a corner as far as a wall stands.
+## THE EDGES of what is built: every storey's floor and ceiling outline,
+## and the ends of every band of every line.
 func build_edges() -> void:
-	var d := ed.doc
 	var pts := PackedVector3Array()
+	var lv = ed.compiled.get("level")
+	if lv == null:
+		set_lines(edges, pts)
+		return
 	var seg := func(a: Vector2, za: float, b: Vector2, zb: float) -> void:
 		pts.append(gv(a.x, a.y, za))
 		pts.append(gv(b.x, b.y, zb))
-	var sky_walls: bool = d.world.get("skyWalls", false)
-	for l in ed.lines():
-		var a: Vector2 = d.vertices[l.a]
-		var b: Vector2 = d.vertices[l.b]
-		var ss: Array = l.sectors.map(func(i): return d.sectors[i])
-		for s in ss:
-			seg.call(a, z_of(s, "floor"), b, z_of(s, "floor"))
-			if EdDoc.tex(s, "ceilTex") != "SKY" or ss.size() == 1:
-				seg.call(a, z_of(s, "ceil"), b, z_of(s, "ceil"))
-		if ss.is_empty():
+	var big := BlockCompile.GROUND_EXTENT * 0.5
+	for sec in lv.sectors:
+		if sec.ceil - sec.floor <= 1e-6:
 			continue
-		for v in [a, b]:
-			var fl: Array = ss.map(func(s): return z_of(s, "floor"))
-			var ce: Array = ss.map(func(s): return z_of(s, "ceil"))
-			if ss.size() == 1:
-				seg.call(v, fl[0], v, ce[0])
-				continue
-			if fl.max() > fl.min():
-				seg.call(v, fl.min(), v, fl.max())
-			var any_in := false
-			var all_roofed := true
-			for s in ss:
-				if s.get("outdoor") == false:
-					any_in = true
-				if EdDoc.tex(s, "ceilTex") == "SKY":
-					all_roofed = false
-			if any_in and (sky_walls or all_roofed) and ce.max() > ce.min():
-				seg.call(v, ce.min(), v, ce.max())
-		if ss.size() == 2 and exterior_wall(d, l):
-			var top := minf(z_of(ss[0], "ceil"), z_of(ss[1], "ceil"))
-			var bot := maxf(z_of(ss[0], "floor"), z_of(ss[1], "floor"))
-			seg.call(a, top, b, top)
-			for v in [a, b]:
-				seg.call(v, bot, v, top)
-	for p in d.props:
-		_box(pts, p.x0, p.y0, p.z0, p.x1, p.y1, p.z1)
+		var r: PackedVector2Array = sec.flat_outer if not sec.flat_holes.is_empty() else sec.poly
+		var rings := [r]
+		for h in sec.flat_holes:
+			rings.append(h)
+		for ring in rings:
+			for k in ring.size():
+				var a: Vector2 = ring[k]
+				var b: Vector2 = ring[(k + 1) % ring.size()]
+				if absf(a.x) > big or absf(b.x) > big or absf(a.y) > big or absf(b.y) > big:
+					continue
+				seg.call(a, sec.floor, b, sec.floor)
+				if sec.ceil_tex != "SKY" and sec.ceil_tex != "NONE" and sec.ceil < BlockCompile.SKY_H - 1.0:
+					seg.call(a, sec.ceil, b, sec.ceil)
+	for l in lv.lines:
+		var a := Vector2(l.x1, l.y1)
+		var b := Vector2(l.x2, l.y2)
+		if absf(a.x) > big or absf(a.y) > big or absf(b.x) > big or absf(b.y) > big:
+			continue
+		if l.multi:
+			for bd in l.bands:
+				if bd.z1 - bd.z0 < 1e-3 or bd.z1 > BlockCompile.SKY_H - 1.0:
+					continue
+				for v in [a, b]:
+					seg.call(v, bd.z0, v, bd.z1)
+		elif l.back != -1:
+			var f = lv.sectors[l.front]
+			var k = lv.sectors[l.back]
+			var lo := minf(f.floor, k.floor)
+			var hi := maxf(f.floor, k.floor)
+			if hi - lo > 1e-3:
+				for v in [a, b]:
+					seg.call(v, lo, v, hi)
 	set_lines(edges, pts)
 
 static func _box(P: PackedVector3Array, x0: float, y0: float, z0: float, x1: float, y1: float, z1: float) -> void:
@@ -635,7 +615,7 @@ func on_plane(R: Dictionary, z: float):
 ## THE FLOOR UNDER THE MOUSE: the floor the ray hits first, or the plane
 ## at the height of the floor under the camera.
 func ground(R: Dictionary, hit):
-	if hit != null and hit.kind == "surface" and hit.part == "floor":
+	if hit != null and hit.kind == "surface" and (hit.part == "top" or hit.part == "ground"):
 		return Vector3(hit.x, hit.y, R.o.z + R.d.z * hit.t)
 	return on_plane(R, floor_z(cam.x, cam.y) if cam != null else 0.0)
 
@@ -698,99 +678,75 @@ static func _slab(R: Dictionary, lo: Vector3, hi: Vector3):
 			return null
 	return t0 if t0 > 0 else null
 
-## What the ray hits first: {t, kind: surface|thing|prop, part, sector,
-## line, band, id, x, y, z}.
+## What the ray hits first: {t, kind: surface|thing, part: top|under|
+## ground|side, block (its id on its layer, null for the ground), layer,
+## line (the document line's key, for a side), z0, z1, x, y, z, id}.
 func pick(R: Dictionary):
-	var d := ed.doc
-	# a holder: a lambda sees its outer locals by value
+	var lv = ed.compiled.get("level")
 	var best := [null]
 	var take := func(h: Dictionary) -> void:
 		if h.t > 0.5 and (best[0] == null or h.t < best[0].t):
 			best[0] = h
-	# floors and ceilings: every sector's two planes
-	for si in d.sectors.size():
-		var s: Dictionary = d.sectors[si]
-		var r := EdDoc.ring_of(d, s)
-		if r.size() < 3:
-			continue
-		for part in ["floor", "ceil"]:
-			if part == "ceil" and EdDoc.tex(s, "ceilTex") == "SKY":
+	if lv != null:
+		# the storeys' floors and ceilings
+		for sec in lv.sectors:
+			if sec.ceil - sec.floor <= 1e-6:
 				continue
-			var z0 := z_of(s, part)
-			var den: float = R.d.z
-			if (den >= -1e-6) if part == "floor" else (den <= 1e-6):
+			for part in ["top", "under"]:
+				if part == "under" and (sec.ceil_tex == "SKY" or sec.ceil_tex == "NONE"):
+					continue
+				var z0: float = sec.floor if part == "top" else sec.ceil
+				var den: float = R.d.z
+				if (den >= -1e-6) if part == "top" else (den <= 1e-6):
+					continue
+				var t: float = (z0 - R.o.z) / den
+				if not (t > 0):
+					continue
+				var x: float = R.o.x + R.d.x * t
+				var y: float = R.o.y + R.d.y * t
+				if not lv._in_sector(sec, x, y):
+					continue
+				var bid = sec.block if part == "top" else sec.over
+				var is_ground: bool = bid == null or int(bid) == 0
+				take.call({"t": t, "kind": "surface", "part": ("ground" if is_ground else "top") if part == "top" else "under",
+					"block": null if is_ground else bid, "layer": sec.layer, "x": x, "y": y, "z": z0, "z0": z0, "z1": z0})
+		# the lines' bands: every face standing on them
+		for l in lv.lines:
+			var ex: float = l.dx
+			var ey: float = l.dy
+			var den: float = R.d.x * ey - R.d.y * ex
+			if absf(den) < 1e-9:
 				continue
-			var t: float = (z0 - R.o.z) / den
-			if not (t > 0):
+			var qx: float = l.x1 - R.o.x
+			var qy: float = l.y1 - R.o.y
+			var t: float = (qx * ey - qy * ex) / den
+			var u: float = (qx * R.d.y - qy * R.d.x) / den
+			if not (t > 0) or u < 0 or u > 1:
 				continue
-			var x: float = R.o.x + R.d.x * t
-			var y: float = R.o.y + R.d.y * t
-			if not EdDoc.pip(r, x, y):
-				continue
-			if not is_same(ed.sector_at(x, y), s):
-				continue
-			take.call({"t": t, "kind": "surface", "part": part, "sector": si, "x": x, "y": y})
-	# the walls: every line, and which band of it the hit is in
-	for l in ed.lines():
-		var a: Vector2 = d.vertices[l.a]
-		var b: Vector2 = d.vertices[l.b]
-		var ex := b.x - a.x
-		var ey := b.y - a.y
-		var den: float = R.d.x * ey - R.d.y * ex
-		if absf(den) < 1e-9:
-			continue
-		var qx: float = a.x - R.o.x
-		var qy: float = a.y - R.o.y
-		var t: float = (qx * ey - qy * ex) / den
-		var u: float = (qx * R.d.y - qy * R.d.x) / den
-		if not (t > 0) or u < 0 or u > 1:
-			continue
-		var x: float = R.o.x + R.d.x * t
-		var y: float = R.o.y + R.d.y * t
-		var z: float = R.o.z + R.d.z * t
-		if l.sectors.is_empty():
-			continue
-		var ss: Array = l.sectors.map(func(i): return d.sectors[i])
-		var fl: Array = ss.map(func(s): return z_of(s, "floor"))
-		var ce: Array = ss.map(func(s): return z_of(s, "ceil"))
-		var side: float = ex * (R.o.y - a.y) - ey * (R.o.x - a.x)
-		var front: int = l.sectors[0]
-		if ss.size() > 1:
-			var m := (a + b) / 2.0
-			var L := a.distance_to(b)
-			var n := Vector2(-ey / L * signf(side) * 2, ex / L * signf(side) * 2)
-			var on = ed.sector_at(m.x + n.x, m.y + n.y)
-			for k in l.sectors.size():
-				if is_same(d.sectors[l.sectors[k]], on):
-					front = l.sectors[k]
-		var h := {"t": t, "kind": "surface", "part": "wall", "line": l.key, "sector": front, "x": x, "y": y, "z": z}
-		if ss.size() == 1:
-			if z >= fl[0] and z <= ce[0]:
-				h.band = "middle"
-				take.call(h)
-		else:
-			var f_lo: float = fl.min()
-			var f_hi: float = fl.max()
-			var c_lo: float = ce.min()
-			var c_hi: float = ce.max()
-			var any_sky := false
-			for q in ss:
-				if EdDoc.tex(q, "ceilTex") == "SKY":
-					any_sky = true
-			if z >= f_lo and z <= f_hi and f_hi > f_lo:
-				h.band = "lower"
-				take.call(h)
-			elif z >= c_lo and z <= c_hi and c_hi > c_lo and not any_sky:
-				h.band = "upper"
-				take.call(h)
-			elif z > f_hi and z < c_lo and mid_wall(d, l):
-				h.band = "middle"
-				take.call(h)
-	for p in d.props:
-		var t = _slab(R, Vector3(minf(p.x0, p.x1), minf(p.y0, p.y1), minf(p.z0, p.z1)), Vector3(maxf(p.x0, p.x1), maxf(p.y0, p.y1), maxf(p.z0, p.z1)))
-		if t != null:
-			take.call({"t": t, "kind": "prop", "id": p.id})
-	for th in d.things:
+			var z: float = R.o.z + R.d.z * t
+			var bands := []
+			if l.multi:
+				for bd in l.bands:
+					if bd.tex != "NONE":
+						bands.append([bd.z0, bd.z1, bd.from])
+			elif l.back != -1:
+				var f = lv.sectors[l.front]
+				var k = lv.sectors[l.back]
+				if absf(f.floor - k.floor) > 1e-3:
+					bands.append([minf(f.floor, k.floor), maxf(f.floor, k.floor), f if f.floor > k.floor else k])
+			else:
+				var f = lv.sectors[l.front]
+				bands.append([f.floor, f.ceil, f])
+			for bd in bands:
+				if z < bd[0] or z > bd[1]:
+					continue
+				var from = bd[2]
+				take.call({"t": t, "kind": "surface", "part": "side", "block": from.block, "layer": from.layer,
+					"lline": l, "x": R.o.x + R.d.x * t, "y": R.o.y + R.d.y * t, "z": z, "z0": bd[0], "z1": bd[1]})
+	var h = best[0]
+	if h != null and h.part == "side":
+		h["line"] = doc_line_of(h.lline)
+	for th in ed.doc.things:
 		if not ed.on_layer(th):
 			continue
 		var rad := maxf(8.0, float(EdDoc.THING_TYPES.get(th.type, {}).get("radius", 16)) * 0.6)
@@ -799,6 +755,22 @@ func pick(R: Dictionary):
 		if t != null:
 			take.call({"t": t, "kind": "thing", "id": th.id})
 	return best[0]
+
+## The document line (its key, on the layer being edited) a level line
+## lies along, or "" (a line of another layer, or the ground's edge).
+func doc_line_of(l) -> String:
+	var d := ed.doc
+	var m := Vector2((l.x1 + l.x2) / 2.0, (l.y1 + l.y2) / 2.0)
+	var best := ""
+	var bd := 1.0
+	for dl in ed.lines():
+		var a: Vector2 = d.vertices[dl.a]
+		var b: Vector2 = d.vertices[dl.b]
+		var st := EdDoc.seg_dist(a, b, m)
+		if st.x < bd and st.y > 0.0 and st.y < 1.0:
+			bd = st.x
+			best = dl.key
+	return best
 
 # ---------------------------------------------------------------------
 # THE MOUSE — every mode, as on the plan
@@ -874,9 +846,9 @@ func _dbl() -> void:
 			if g != null:
 				ed.add_thing(g.x, g.y)
 			return
-	# A DOUBLE-CLICK ON A WALL: every wall of the room it faces
-	if ed.surf != null and ed.surf.part == "wall":
-		ed.loop_select(int(ed.surf.sector))
+	# A DOUBLE-CLICK ON A SIDE: every side of the block
+	if ed.surf != null and ed.surf.part == "side" and ed.surf.get("block") != null:
+		ed.loop_select(ed.block_index(ed.surf.block))
 	if ed.sel_kind != "" and ed.ui != null:
 		ed.ui.panels.show_tab("insp")
 
@@ -933,18 +905,6 @@ func _down(e: InputEventMouseButton) -> void:
 		if not e.shift_pressed:
 			ed.clear_sel()
 		return
-	if mode == "props":
-		if hit != null and hit.kind == "prop":
-			for p in ed.doc.props:
-				if p.id == hit.id:
-					var at = on_plane(R, p.z0)
-					grab.call("prop", hit.id, p.z0, Vector2(at.x, at.y) if at != null else Vector2(p.x0, p.y0))
-					break
-			return
-		if g != null:
-			var a := ed.snap_pt(Vector2(g.x, g.y))
-			drag = {"type": "prop", "z": g.z, "a": a, "b": a}
-		return
 	if mode == "scatter":
 		var c = EdScatter.scatter_at(ed.doc, g.x, g.y) if g != null and not e.alt_pressed else null
 		if c != null:
@@ -962,44 +922,54 @@ func _down(e: InputEventMouseButton) -> void:
 		ed.set_mode("things")
 		ed.select("thing", [hit.id])
 		return
-	if hit.kind == "prop":
-		ed.set_mode("props")
-		ed.select("prop", [hit.id])
+	# a block of another layer: go there
+	if hit.get("layer", ed.layer()) != ed.layer() and hit.get("block") != null:
+		ed.set_layer(int(hit.layer))
 		return
-	if hit.part == "wall" and mode == "doors":
+	if hit.part == "side" and hit.get("line", "") == "":
+		ed.clear_sel()
+		return
+	if hit.part == "side" and mode == "doors":
 		if e.shift_pressed:
 			ed.remove_door(hit.line)
 		else:
 			ed.place_door(hit.line, Vector2(hit.x, hit.y))
 		return
-	if hit.part == "wall":
-		# ALT-CLICK A WALL: every wall of the room it faces
+	if hit.part == "side":
+		# ALT-CLICK A SIDE: every side of the block
 		if e.alt_pressed:
-			ed.loop_select(hit.sector, e.shift_pressed)
+			ed.loop_select(ed.block_index(hit.block), e.shift_pressed)
 			return
 		if e.shift_pressed and ed.sel_kind == "line":
 			ed.select("line", [hit.line], true)
 			return
 		if not ed.is_sel("line", hit.line):
-			ed.select_surface({"sector": hit.sector, "part": "wall", "line": hit.line, "band": hit.band})
+			ed.select_surface({"part": "side", "block": hit.block, "line": hit.line, "z0": hit.z0, "z1": hit.z1})
 		if mode == "lines":
 			var z := floor_z(hit.x, hit.y)
 			var at = on_plane(R, z)
 			var p2 := Vector2(at.x, at.y) if at != null else Vector2(hit.x, hit.y)
 			drag = {"type": "move", "z": z, "mv": ed.begin_move(ed.grab_point(p2), p2), "px": px, "moved": false}
 		return
-	var s: Dictionary = ed.doc.sectors[hit.sector]
-	if mode == "sectors" and hit.part == "floor" and not e.alt_pressed and not e.shift_pressed and ed.is_ground(s.id) and sg != null:
-		drag = {"type": "rect", "z": g.z, "a": sg, "b": sg, "ground": s.id, "hit": hit, "px": px}
+	# THE GROUND: in blocks mode a drag on it pulls up a block
+	if hit.part == "ground" or hit.get("block") == null:
+		if mode == "blocks" and not e.alt_pressed and not e.shift_pressed and sg != null:
+			drag = {"type": "rect", "z": g.z, "a": sg, "b": sg, "ground": true, "hit": hit, "px": px}
+			return
+		ed.select_surface({"part": "ground", "block": null, "z": hit.z})
 		return
-	if e.shift_pressed and ed.sel_kind == "sector":
-		ed.select("sector", [s.id], true)
-		ed.surf = {"sector": hit.sector, "part": hit.part}
+	var s = ed.block_by_id(hit.block)
+	if s == null:
+		ed.clear_sel()
+		return
+	if e.shift_pressed and ed.sel_kind == "block":
+		ed.select("block", [s.id], true)
+		ed.surf = {"part": hit.part, "block": s.id, "z": hit.z}
 		ed.sel_changed.emit()
 		return
-	if not ed.is_sel("sector", s.id) or ed.surf == null or ed.surf.part != hit.part:
-		var keep = ed.sel_ids.duplicate() if ed.is_sel("sector", s.id) else null
-		ed.select_surface({"sector": hit.sector, "part": hit.part})
+	if not ed.is_sel("block", s.id) or ed.surf == null or ed.surf.part != hit.part:
+		var keep = ed.sel_ids.duplicate() if ed.is_sel("block", s.id) else null
+		ed.select_surface({"part": hit.part, "block": s.id, "z": hit.z})
 		if keep != null and keep.size() > 1:
 			ed.sel_ids = keep
 			ed.sel_changed.emit()
@@ -1043,12 +1013,10 @@ func _up(e: InputEventMouseButton) -> void:
 		"rect":
 			var q := _at(e.position)
 			if dr.get("ground") != null and q.distance_to(dr.px) < 4:
-				ed.select_surface({"sector": dr.hit.sector, "part": dr.hit.part})
-				ed.say("the ground — drag on it to draw a new sector; Alt-drag moves it")
+				ed.select_surface({"part": "ground", "block": null, "z": dr.z})
+				ed.say("the ground — drag on it to pull up a block")
 			else:
 				ed.add_rect(dr.a, dr.b)
-		"prop":
-			ed.add_prop(dr.a.x, dr.a.y, dr.b.x, dr.b.y)
 		"brush":
 			ed.paint_brush(dr.a, dr.b)
 	_overlay_dirty = true
@@ -1063,48 +1031,55 @@ func _wheel(e: InputEventMouseButton) -> void:
 	var h = hover
 	var up := e.button_index == MOUSE_BUTTON_WHEEL_UP
 	if e.ctrl_pressed or e.meta_pressed:
-		var s = null
+		# THE LIGHT: of the block over the surface (a block lights the
+		# space under it), or the open air's
+		var bid = null
 		if h != null and h.kind == "surface":
-			s = ed.doc.sectors[h.sector]
-		elif h != null and h.kind == "thing":
-			for t in ed.doc.things:
-				if t.id == h.id:
-					s = ed.sector_at(t.x, t.y)
-		elif h != null and h.kind == "prop":
-			for p in ed.doc.props:
-				if p.id == h.id:
-					s = ed.sector_at((p.x0 + p.x1) / 2.0, (p.y0 + p.y1) / 2.0)
-		if s == null:
+			if h.part == "under":
+				bid = h.get("block")
+			elif h.part == "top" or h.part == "ground":
+				var lv = ed.compiled.get("level")
+				if lv != null:
+					var st = BlockCompile.stand_in(lv, h.x, h.y, ed.layer())
+					if st != null:
+						bid = st.over
+			else:
+				bid = h.get("block")
+		if bid == null:
+			var d := ed.edit_begin("daylight", "daylight")
+			var g := EdDoc.ground_of(d)
+			var b := clampi(int(EdDoc.jsround(EdDoc.num(g.get("light"), 0.9) * 255.0)) + (1 if e.shift_pressed else 16) * (1 if up else -1), 0, 255)
+			d.ground["light"] = snappedf(b / 255.0, 0.0001)
+			ed.edit_end(false)
+			ed.say("daylight %d" % b)
 			return
-		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "sector" and ed.sel_ids.has(s.id) else {s.id: true}
+		if ed.block_by_id(bid) == null:
+			ed.say("that is lit by a block on another layer")
+			return
+		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "block" and ed.sel_ids.has(bid) else {bid: true}
 		ed.nudge_light((1 if e.shift_pressed else 16) * (1 if up else -1), ids)
 		return
 	var step := (1.0 if e.shift_pressed else 8.0) * (1.0 if up else -1.0)
-	if h != null and h.kind == "surface" and h.part != "wall":
-		var s: Dictionary = ed.doc.sectors[h.sector]
-		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "sector" and ed.sel_ids.has(s.id) else {s.id: true}
-		var part: String = ("ceil" if h.part == "floor" else "floor") if e.alt_pressed else h.part
+	if h != null and h.kind == "surface" and h.get("block") != null and h.get("layer", ed.layer()) == ed.layer():
+		var s = ed.block_by_id(h.block)
+		if s == null:
+			return
+		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "block" and ed.sel_ids.has(s.id) else {s.id: true}
+		var part := "base" if (e.alt_pressed or h.part == "under") else "h"
 		ed.nudge_height(part, step, ids)
-		var s2: Dictionary = ed.doc.sectors[h.sector] if h.sector < ed.doc.sectors.size() else s
-		ed.say("%s %s%s → %s" % [part, "+" if step > 0 else "", MewdEditor._nice(step), EdUI.coord(EdDoc.num(s2.get(part), 0))])
+		var s2 = ed.block_by_id(h.block)
+		ed.say("%s %s%s → %s" % ["base" if part == "base" else "height", "+" if step > 0 else "", MewdEditor._nice(step),
+			EdUI.coord(EdDoc.h_of(s2) if part == "h" else EdDoc.num(s2.get("base"), 0)) if s2 != null else "?"])
 		_hover_dirty = true
 		return
-	if h != null and h.kind == "surface" and h.part == "wall":
-		var s: Dictionary = ed.doc.sectors[h.sector]
-		ed.nudge_height("floor" if h.band == "lower" else "ceil", step, {s.id: true})
+	if h != null and h.kind == "surface" and (h.part == "ground" or h.get("block") == null):
+		ed.say("the ground goes on forever: drag on it to pull up a block, Ctrl+wheel for the daylight")
 		return
-	if h != null and h.kind == "prop":
-		var id = h.id
-		var d := ed.edit_begin("prop %s" % ("up" if step > 0 else "down"))
-		for p in d.props:
-			if p.id == id:
-				var z := ed.snap_z(p.z0, step)
-				p.z1 += z - p.z0
-				p.z0 = z
-		ed.edit_end(false)
+	if h != null and h.kind == "surface":
+		ed.say("a block of layer %d: click it to go there" % int(h.get("layer", 0)))
 		return
 	if h != null and h.kind == "thing":
-		ed.say("things stand on the floor: raise the floor under it, or Ctrl+wheel for its light")
+		ed.say("things stand on what is under them: raise the block under it")
 		return
 	if cam != null:
 		var f := (1.0 if up else -1.0) * 64.0
@@ -1142,29 +1117,24 @@ func key(e: InputEventKey) -> bool:
 		return true
 	if ctrl and c == KEY_V and h != null and h.kind == "surface" and clip != null:
 		var was = ed.surf
-		ed.surf = {"sector": h.sector, "part": h.part, "line": h.get("line"), "band": h.get("band")}
-		ed.apply_texture(clip)
+		ed.surf = {"part": h.part, "block": h.get("block"), "line": h.get("line", ""), "z0": h.get("z0"), "z1": h.get("z1")}
+		if h.part != "side" or h.get("line", "") != "":
+			ed.apply_texture(clip)
+			ed.say("pasted %s" % clip)
 		ed.surf = was
-		ed.say("pasted %s" % clip)
 		return true
 	var arrows := {KEY_LEFT: Vector2(-1, 0), KEY_RIGHT: Vector2(1, 0), KEY_UP: Vector2(0, -1), KEY_DOWN: Vector2(0, 1)}
-	if arrows.has(e.keycode) and h != null and h.kind == "surface" and h.part == "wall" and not ctrl:
+	if arrows.has(e.keycode) and h != null and h.kind == "surface" and h.part == "side" and h.get("line", "") != "" and not ctrl:
 		var dv: Vector2 = arrows[e.keycode] * (8.0 if e.shift_pressed else 1.0)
-		var face_id := str(ed.doc.sectors[h.sector].id)
 		var line: String = h.line
-		var d := ed.edit_begin("texture offset", "offset %s %s" % [line, face_id])
+		var d := ed.edit_begin("texture offset", "offset %s" % line)
 		if not d.lines.has(line):
 			d.lines[line] = {}
 		var o: Dictionary = d.lines[line]
-		if not o.get("sides") is Dictionary:
-			o["sides"] = {}
-		if not o.sides.get(face_id) is Dictionary:
-			o.sides[face_id] = {}
-		var sd: Dictionary = o.sides[face_id]
-		sd["xoff"] = EdDoc.num(EdDoc.got(sd, "xoff", o.get("xoff", 0)), 0) + dv.x
-		sd["yoff"] = EdDoc.num(EdDoc.got(sd, "yoff", o.get("yoff", 0)), 0) + dv.y
+		o["xoff"] = EdDoc.num(o.get("xoff"), 0) + dv.x
+		o["yoff"] = EdDoc.num(o.get("yoff"), 0) + dv.y
 		ed.edit_end(false)
-		ed.say("offset %s, %s on the side facing sector %s" % [EdUI.coord(sd.xoff), EdUI.coord(sd.yoff), face_id])
+		ed.say("offset %s, %s on line %s" % [EdUI.coord(o.xoff), EdUI.coord(o.yoff), line])
 		return true
 	return false
 
@@ -1175,37 +1145,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func texture_of(h: Dictionary) -> String:
 	var d := ed.doc
-	var s: Dictionary = d.sectors[h.sector]
-	if h.part == "floor":
-		return EdDoc.tex(s, "floorTex") if EdDoc.tex(s, "floorTex") != "" else EdDoc.DEFAULT_FLOOR
-	if h.part == "ceil":
-		return EdDoc.tex(s, "ceilTex") if EdDoc.tex(s, "ceilTex") != "" else "SKY"
-	var o: Dictionary = d.lines.get(h.line, {})
-	var sides: Dictionary = o.get("sides", {}) if o.get("sides") is Dictionary else {}
-	var side: Dictionary = sides.get(str(s.id), {})
-	var first := func(a: Array) -> String:
-		for v in a:
-			if v != "":
-				return v
+	if h.part == "ground" or h.get("block") == null:
+		return EdDoc.tex(EdDoc.ground_of(d), "tex") if h.part != "side" else "GRIDWALL"
+	var s = ed.block_by_id(h.block)
+	if s == null:
 		return "GRIDWALL"
-	# the face's SKIN first, then the room's walls
-	if h.band == "upper":
-		return first.call([EdDoc.tex(side, "tex"), EdDoc.tex(side, "upperTex"), EdDoc.tex(o, "tex"), EdDoc.tex(o, "upperTex"), EdDoc.tex(s, "upperTex"), EdDoc.tex(s, "wallTex")])
-	if h.band == "lower":
-		return first.call([EdDoc.tex(side, "tex"), EdDoc.tex(side, "lowerTex"), EdDoc.tex(o, "tex"), EdDoc.tex(o, "lowerTex"), EdDoc.tex(s, "lowerTex"), EdDoc.tex(s, "wallTex")])
-	if EdDoc.tex(side, "midTex") != "":
-		return EdDoc.tex(side, "midTex")
-	if EdDoc.tex(side, "tex") != "":
-		return EdDoc.tex(side, "tex")
-	var l = ed.line_info(h.line)
-	if l != null and l.sectors.size() > 1:
-		if EdDoc.tex(o, "midTex") != "":
-			return EdDoc.tex(o, "midTex")
-		for i in l.sectors:
-			if MewdEditor.is_inside(d.sectors[i]):
-				return first.call([EdDoc.tex(d.sectors[i], "wallTex")])
-		return first.call([EdDoc.tex(s, "wallTex")])
-	return first.call([EdDoc.tex(o, "tex"), EdDoc.tex(o, "wallTex"), EdDoc.tex(s, "wallTex")])
+	if h.part == "top":
+		return EdDoc.tex(s, "top") if EdDoc.tex(s, "top") != "" else EdDoc.BLOCK_DEFAULTS.top
+	if h.part == "under":
+		return EdDoc.tex(s, "under") if EdDoc.tex(s, "under") != "" else EdDoc.tex(s, "side")
+	var o: Dictionary = d.lines.get(h.get("line", ""), {})
+	if EdDoc.tex(o, "tex") != "":
+		return EdDoc.tex(o, "tex")
+	return EdDoc.tex(s, "side") if EdDoc.tex(s, "side") != "" else "GRIDWALL"
 
 # ---------------------------------------------------------------------
 # THE HIGHLIGHTS
@@ -1216,57 +1168,36 @@ func outline(h) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if h == null:
 		return out
-	if h.kind == "surface" and h.part != "wall":
-		if h.sector < 0 or h.sector >= d.sectors.size():
+	if h.kind == "surface" and h.part != "side":
+		var bid = h.get("block")
+		if bid == null:
 			return out
-		var s: Dictionary = d.sectors[h.sector]
+		var s = ed.block_by_id(bid)
+		if s == null:
+			return out
 		var r := EdDoc.ring_of(d, s)
-		var z := z_of(s, h.part)
+		var bt := ed.top_of(bid)
+		var z: float = h.get("z", bt.top if h.part == "top" else bt.base)
 		for i in r.size():
 			out.append(gv(r[i].x, r[i].y, z))
 			out.append(gv(r[(i + 1) % r.size()].x, r[(i + 1) % r.size()].y, z))
 	elif h.kind == "surface":
-		var ab := EdDoc.key_verts(h.line)
+		var key: String = h.get("line", "")
+		var ab := EdDoc.key_verts(key)
 		if ab.x < 0 or ab.x >= d.vertices.size() or ab.y >= d.vertices.size():
 			return out
 		var a: Vector2 = d.vertices[ab.x]
 		var b: Vector2 = d.vertices[ab.y]
-		var l = ed.line_info(h.line)
-		if l == null or l.sectors.is_empty():
-			return out
-		var ss: Array = l.sectors.map(func(i): return d.sectors[i])
-		var fl: Array = ss.map(func(s): return z_of(s, "floor"))
-		var ce: Array = ss.map(func(s): return z_of(s, "ceil"))
-		var band := Vector2(fl[0], ce[0])
-		if h.band == "lower":
-			band = Vector2(fl.min(), fl.max())
-		elif h.band == "upper":
-			band = Vector2(ce.min(), ce.max())
-		elif ss.size() > 1:
-			var top: float = ce.min()
-			var o: Dictionary = d.lines.get(h.line, {})
-			var mh = o.get("midHeight")
-			if exterior_wall(d, l):
-				band = Vector2(fl.max(), top)
-			elif mh != null:
-				band = Vector2(fl.max(), minf(top, fl.max() + float(mh)))
-			else:
-				var tx := EdDoc.tex(o, "midTex")
-				if tx == "" and o.get("sides") is Dictionary:
-					for x in o.sides.values():
-						if x is Dictionary and EdDoc.tex(x, "midTex") != "":
-							tx = EdDoc.tex(x, "midTex")
-							break
-				var th := ed.tex_size(tx).y if tx != "" else 0.0
-				band = Vector2(fl.max(), minf(top, fl.max() + th) if th > 0 else top)
-		out.append(gv(a.x, a.y, band.x)); out.append(gv(b.x, b.y, band.x))
-		out.append(gv(b.x, b.y, band.x)); out.append(gv(b.x, b.y, band.y))
-		out.append(gv(b.x, b.y, band.y)); out.append(gv(a.x, a.y, band.y))
-		out.append(gv(a.x, a.y, band.y)); out.append(gv(a.x, a.y, band.x))
-	elif h.kind == "prop":
-		for p in d.props:
-			if p.id == h.id:
-				_box(out, p.x0, p.y0, p.z0, p.x1, p.y1, p.z1)
+		var z0: float = h.get("z0", 0.0)
+		var z1: float = h.get("z1", z0)
+		if z1 - z0 < 1e-3:
+			var band := line_band(key)
+			z0 = band.x
+			z1 = band.y
+		out.append(gv(a.x, a.y, z0)); out.append(gv(b.x, b.y, z0))
+		out.append(gv(b.x, b.y, z0)); out.append(gv(b.x, b.y, z1))
+		out.append(gv(b.x, b.y, z1)); out.append(gv(a.x, a.y, z1))
+		out.append(gv(a.x, a.y, z1)); out.append(gv(a.x, a.y, z0))
 	elif h.kind == "thing":
 		for t in d.things:
 			if t.id == h.id:
@@ -1274,6 +1205,31 @@ func outline(h) -> PackedVector3Array:
 				var z := thing_z(t)
 				_box(out, t.x - r, t.y - r, z, t.x + r, t.y + r, z + thing_height(t))
 	return out
+
+## The lowest and highest face along a document line, as built.
+func line_band(key: String) -> Vector2:
+	var d := ed.doc
+	var ab := EdDoc.key_verts(key)
+	var lv = ed.compiled.get("level")
+	if lv == null or ab.x < 0 or ab.x >= d.vertices.size() or ab.y >= d.vertices.size():
+		return Vector2(0, 0)
+	var lo := INF
+	var hi := -INF
+	for l in DocCompile._level_lines_on(lv, d.vertices[ab.x], d.vertices[ab.y]):
+		if l.multi:
+			for bd in l.bands:
+				if bd.tex != "NONE" and bd.z1 < BlockCompile.SKY_H - 1.0:
+					lo = minf(lo, bd.z0)
+					hi = maxf(hi, bd.z1)
+		elif l.back != -1:
+			var f = lv.sectors[l.front]
+			var k = lv.sectors[l.back]
+			lo = minf(lo, minf(f.floor, k.floor))
+			hi = maxf(hi, maxf(f.floor, k.floor))
+	if lo == INF:
+		var z := floor_z((d.vertices[ab.x].x + d.vertices[ab.y].x) / 2.0, (d.vertices[ab.x].y + d.vertices[ab.y].y) / 2.0)
+		return Vector2(z, z)
+	return Vector2(lo, hi)
 
 func draw_sel() -> void:
 	if sel_lines == null:
@@ -1286,15 +1242,15 @@ func draw_sel() -> void:
 		pts.append_array(outline(s))
 	var kind := ed.sel_kind
 	var ids := ed.sel_ids
-	if kind == "sector":
-		for si in d.sectors.size():
-			var s: Dictionary = d.sectors[si]
-			if not ids.has(s.id) or (ed.surf != null and ed.surf.sector == si and ed.surf.part != "wall"):
+	if kind == "block":
+		for s in d.blocks:
+			if not ids.has(s.id) or (ed.surf != null and ed.surf.get("block") == s.id and ed.surf.part != "side"):
 				continue
-			pts.append_array(outline({"kind": "surface", "part": "floor", "sector": si}))
-			if s.get("outdoor") == false:
-				pts.append_array(outline({"kind": "surface", "part": "ceil", "sector": si}))
-	if kind == "thing" or kind == "prop":
+			var bt := ed.top_of(s.id)
+			pts.append_array(outline({"kind": "surface", "part": "top", "block": s.id, "z": bt.top}))
+			if EdDoc.base_of(s) != null:
+				pts.append_array(outline({"kind": "surface", "part": "under", "block": s.id, "z": bt.base}))
+	if kind == "thing":
 		for id in ids:
 			pts.append_array(outline({"kind": kind, "id": id}))
 	if kind == "scatter":
@@ -1312,14 +1268,12 @@ func draw_sel() -> void:
 					pts.append(gv(p.x, p.y, floor_z(p.x, p.y) + 2))
 					pts.append(gv(q.x, q.y, floor_z(q.x, q.y) + 2))
 			else:
-				for si in d.sectors.size():
-					if a.get("ids", []).has(d.sectors[si].id):
-						pts.append_array(outline({"kind": "surface", "part": "floor", "sector": si}))
+				for s in d.blocks:
+					if a.get("ids", []).has(s.id):
+						pts.append_array(outline({"kind": "surface", "part": "top", "block": s.id, "z": ed.top_of(s.id).top}))
 	if kind == "line" and ed.surf == null:
 		for k in ids:
-			var l = ed.line_info(k)
-			if l != null and not l.sectors.is_empty():
-				pts.append_array(outline({"kind": "surface", "part": "wall", "band": "lower" if l.sectors.size() > 1 else "middle", "line": k, "sector": l.sectors[0]}))
+			pts.append_array(outline({"kind": "surface", "part": "side", "line": k}))
 	set_lines(sel_lines, pts)
 
 func draw_hover() -> void:
@@ -1342,22 +1296,27 @@ func draw_overlay() -> void:
 		seg.call(path[i], path[i + 1])
 	for p in ed.path:
 		_cross(pts, p.x, p.y, fz.call(p), 8)
-	if ed.cursor != null and mouse != null and ed.mode in ["draw", "rect", "things", "props", "scatter"] and drag == null:
+	if ed.cursor != null and mouse != null and ed.mode in ["draw", "rect", "things", "scatter", "blocks"] and drag == null:
 		_cross(pts, ed.cursor.x, ed.cursor.y, fz.call(ed.cursor), 16)
 	var dr = drag
-	if dr != null and (dr.type == "rect" or dr.type == "prop"):
+	if dr != null and dr.type == "rect":
 		var c: PackedVector2Array
-		if dr.type == "rect" and dr.b != dr.a:
+		if dr.b != dr.a:
 			c = ed.shape_points(dr.a, dr.b)
 		else:
 			c = PackedVector2Array([dr.a, Vector2(dr.b.x, dr.a.y), dr.b, Vector2(dr.a.x, dr.b.y)])
+		# the shape, and how high it will stand
 		for i in c.size():
 			seg.call(c[i], c[(i + 1) % c.size()])
-		if dr.type == "prop":
-			for p in c:
-				var z: float = fz.call(p)
-				pts.append(gv(p.x, p.y, z))
-				pts.append(gv(p.x, p.y, z + 64))
+		for i in c.size():
+			var p: Vector2 = c[i]
+			var q: Vector2 = c[(i + 1) % c.size()]
+			var zp: float = fz.call(p) + ed.pull_h
+			var zq: float = fz.call(q) + ed.pull_h
+			pts.append(gv(p.x, p.y, fz.call(p)))
+			pts.append(gv(p.x, p.y, zp))
+			pts.append(gv(p.x, p.y, zp))
+			pts.append(gv(q.x, q.y, zq))
 	if dr != null and dr.type == "brush":
 		_ring(pts, dr.a.x, dr.a.y, dr.a.distance_to(dr.b))
 	set_lines(draw_lines, pts)
@@ -1540,12 +1499,17 @@ func _process(dt: float) -> void:
 		var hv = hover
 		if hv == null:
 			ed.set_hover(null)
-		elif hv.kind == "thing" or hv.kind == "prop":
+		elif hv.kind == "thing":
 			ed.set_hover({"kind": hv.kind, "id": hv.id})
-		elif hv.part == "wall":
-			ed.set_hover({"kind": "line", "id": hv.line, "part": "wall", "band": hv.band})
+		elif hv.part == "side":
+			if hv.get("line", "") != "":
+				ed.set_hover({"kind": "line", "id": hv.line, "part": "side"})
+			else:
+				ed.set_hover(null)
+		elif hv.part == "ground" or hv.get("block") == null:
+			ed.set_hover({"kind": "ground", "id": 0, "part": "ground"})
 		else:
-			ed.set_hover({"kind": "sector", "id": ed.doc.sectors[hv.sector].id, "part": hv.part})
+			ed.set_hover({"kind": "block", "id": hv.block, "part": hv.part})
 		var sg = snap_ground(ground(R, hover), mouse)
 		if sg != null:
 			ed.set_cursor(sg)
