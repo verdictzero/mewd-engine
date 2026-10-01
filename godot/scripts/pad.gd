@@ -16,6 +16,18 @@
 ## sticks). It is now put only on a pad in a browser, where that order is
 ## what arrives.
 ##
+## AND ON ANDROID, NO MAPPING AT ALL. Godot puts its "Default Android
+## Gamepad" on a pad it does not know, and that layout has no L2 or R2
+## BUTTONS (Godot's 15 and 16, KEYCODE_BUTTON_L2 / R2) and no axis past
+## the sixth: an RG557's triggers were thrown away before the game, or
+## the wizard, ever saw them. So each pad's mapping is taken off as it
+## arrives, and everything comes through as Godot's Android code numbers
+## it, which is the standard order already. Its axes are the device's
+## own, sorted (X, Y, Z, RZ, LTRIGGER, RTRIGGER, GAS, BRAKE on most
+## pads), so the triggers are bound on every axis and button they may
+## arrive as: R2 on axis 5, axis 6 (GAS) and button 16; L2 on axis 4,
+## axis 7 (BRAKE) and button 15.
+##
 ## A PAD SET UP BY HAND (PadWizard, ui/pad_wizard.gd): what each action
 ## was given, button, axis and direction, or key, as it arrived, kept in
 ## user://pad_map.cfg and put over the defaults on every start.
@@ -40,10 +52,14 @@ const ACTIONS := ["fwd", "back", "left", "right", "attack", "jump", "use", "zoom
 ## its direction
 const DEFAULTS := {
 	"fwd": ["b11", "a1-"], "back": ["b12", "a1+"], "left": ["b13", "a0-"], "right": ["b14", "a0+"],
-	"attack": ["a5+"], "jump": ["b2", "a4+"], "use": ["b0"], "zoom": ["b1"],
+	"attack": ["a5+", "a6+", "b16"], "jump": ["b2", "a4+", "a7+", "b15"], "use": ["b0"], "zoom": ["b1"],
 	"next_weapon": ["b10", "b3"], "prev_weapon": ["b9"], "run": ["b7", "b8"], "pause": ["b6", "b4"],
 }
 const LOOK_DEFAULT := {"x": 2, "sx": 1.0, "y": 3, "sy": 1.0}
+## the triggers' other forms (see the top): a map saved before they came
+## through, or that never named them, still fires and jumps on them —
+## unless it gave them to something else
+const TRIGGER_WORDS := [["attack", "b16"], ["attack", "a6+"], ["jump", "b15"], ["jump", "a7+"]]
 
 ## whether a pad is in charge — true from its first press or push until
 ## the next finger on the glass; the thumb controls are taken off the
@@ -87,6 +103,13 @@ static func apply(m: Dictionary) -> void:
 			var e := event_of(str(w))
 			if e != null:
 				InputMap.action_add_event(action, e)
+	var used := {}
+	for a in acts:
+		for w in acts[a]:
+			used[str(w)] = true
+	for pair in TRIGGER_WORDS:
+		if acts.has(pair[0]) and not used.has(pair[1]):
+			InputMap.action_add_event(pair[0], event_of(pair[1]))
 	look = LOOK_DEFAULT.duplicate()
 	var lk = m.get("look")
 	if lk is Dictionary:
@@ -152,12 +175,12 @@ static func say(w: String) -> String:
 		return "—"
 	match w[0]:
 		"b":
-			var names := ["A", "B", "X", "Y", "SELECT", "HOME", "START", "L3", "R3", "L1", "R1", "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT"]
+			var names := ["A", "B", "X", "Y", "SELECT", "HOME", "START", "L3", "R3", "L1", "R1", "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "L2", "R2"]
 			var i := int(w.substr(1))
 			return "%s (button %d)" % [names[i], i] if i < names.size() else "BUTTON %d" % i
 		"a":
 			var i := int(w.substr(1, w.length() - 2))
-			var names := ["LEFT STICK X", "LEFT STICK Y", "RIGHT STICK X", "RIGHT STICK Y", "L2", "R2"]
+			var names := ["LEFT STICK X", "LEFT STICK Y", "RIGHT STICK X", "RIGHT STICK Y", "L2", "R2", "R2 (GAS)", "L2 (BRAKE)"]
 			return "%s %s (axis %d)" % [names[i] if i < names.size() else "AXIS %d" % i, "−" if w.ends_with("-") else "+", i]
 		"k":
 			return "KEY %s" % OS.get_keycode_string(int(w.substr(1)) as Key)
@@ -177,11 +200,19 @@ static func on_connection(device: int, connected: bool) -> void:
 		return
 	var guid := Input.get_joy_guid(device)
 	var name := Input.get_joy_name(device)
-	if wants_standard(device):
+	if wants_raw():
+		# no mapping: Godot's own Android numbering, triggers and all
+		Input.remove_joy_mapping(guid)
+		print("pad %d: %s (%s) — raw, as Android numbers it" % [device, name, guid])
+	elif wants_standard(device):
 		Input.add_joy_mapping("%s,%s,%s" % [guid, name.replace(",", " ") if name != "" else "Pad", STANDARD], true)
 		print("pad %d: %s (%s) — given the standard layout" % [device, name, guid])
 	else:
 		print("pad %d: %s (%s)" % [device, name, guid])
+
+## on Android, every pad as it comes (see the top)
+static func wants_raw() -> bool:
+	return OS.has_feature("android")
 
 ## only in a browser, and only for a pad it has no layout for
 static func wants_standard(device: int) -> bool:

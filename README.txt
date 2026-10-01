@@ -108,8 +108,11 @@ PAD. Any pad on any port: a handheld's built-in controller (the
 Anbernic RG557 and its kind), a USB or Bluetooth controller, or both at
 once. Every binding answers to every device. In a browser, a pad the
 engine has no mapping for is given the standard layout when it
-connects. On Android the system already reports the buttons in order,
-so nothing is remapped.
+connects. On Android each pad's mapping is taken off as it connects:
+Godot already reports the buttons in order there, and its fallback
+layout threw away the L2 and R2 buttons (an RG557's triggers). The
+triggers fire and jump on whichever form they arrive in: buttons 16
+and 15, or axes 5 and 4, or the mirrored axes 6 and 7.
 
     left stick / D-pad   move               right stick     look
     R2                   fire               L2 / X          jump

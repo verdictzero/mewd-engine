@@ -107,6 +107,12 @@ func _init() -> void:
 
 	# ANDROID: the built-in pad is never given the browser's layout
 	ok(not Pad.wants_standard(0) and not OS.has_feature("web"), "off the web, no pad is given the standard (browser) layout")
+	ok(Pad.wants_raw() == OS.has_feature("android"), "on Android (only), every pad raw")
+	# THE TRIGGERS, every way Android may send them
+	for dev in [0, 2]:
+		ok(btn(16, dev).is_action_pressed("attack") and btn(15, dev).is_action_pressed("jump"), "digital R2 / L2 (Godot's 16 / 15) fire and jump on device %d" % dev)
+		ok(axis(6, 0.9, dev).is_action_pressed("attack") and axis(7, 0.9, dev).is_action_pressed("jump"), "GAS / BRAKE (axes 6 / 7) fire and jump on device %d" % dev)
+	ok(not axis(6, 0.1, 0).is_action_pressed("attack"), "a trigger's dead zone")
 
 	# A MAP SET UP BY HAND
 	var kept = FileAccess.get_file_as_string(Pad.MAP_FILE) if FileAccess.file_exists(Pad.MAP_FILE) else null
@@ -114,6 +120,10 @@ func _init() -> void:
 	ok(btn(7, 0).is_action_pressed("attack") and not axis(JOY_AXIS_TRIGGER_RIGHT, 0.9, 0).is_action_pressed("attack"), "a map: fire on button 7, not R2")
 	ok(btn(2, 3).is_action_pressed("use") and not btn(JOY_BUTTON_A, 3).is_action_pressed("use"), "a map: use on button 2 only")
 	ok(btn(JOY_BUTTON_X, 0).is_action_pressed("jump"), "a map: what it does not name keeps the default")
+	ok(btn(16, 0).is_action_pressed("attack"), "a map that names fire without R2's button still fires on it")
+	Pad.apply({"actions": {"attack": ["b7"], "use": ["b16"]}})
+	ok(not btn(16, 0).is_action_pressed("attack") and btn(16, 0).is_action_pressed("use"), "unless the map gave it to something else")
+	Pad.apply({"actions": {"attack": ["b7"], "use": ["b2"]}, "look": {"x": 3, "sx": -1.0, "y": 4, "sy": 1.0}})
 	ok(Pad.nav(btn(2, 0)) == "ok", "a map: the menus' OK follows USE")
 	ok(Pad.nav(btn(7, 0)) == "", "a map: a button that fires is not a menu move")
 	ok(Pad.look.x == 3 and Pad.look.sx == -1.0, "a map: the look stick")
