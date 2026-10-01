@@ -28,6 +28,8 @@ const MISSILE := {"speed0": 12.0, "speed1": 58.0, "accel": 1.13, "boost": 5, "tu
 	"life": 7 * 35, "reach": 14.0, "gap": 4, "lead": 40.0}
 const WARHEAD := {"direct": 420, "splash": 150, "radius": 190.0, "heat": 240.0, "heatRadius": 90.0, "ignite": 260, "self": 0.5}
 const TRAIL := {"step": 14.0, "max": 1000, "life": 44, "size0": 6.0, "size1": 34.0, "light": 0.82}
+## nose to tail, in map units
+const ROCKET_LENGTH := 16.0
 const BOOM := {"tics": 3, "frames": 8, "size": 136.0}
 
 ## the visual layer the lock brackets are drawn on (see _ready)
@@ -50,6 +52,8 @@ var trail: Particles
 var im := ImmediateMesh.new()
 var im_top := ImmediateMesh.new()
 var boom_mm: MultiMesh
+## the missiles themselves (assets/models/rocket_projectile.glb)
+var rockets: MultiMeshInstance3D
 
 func _init(g) -> void:
 	game = g
@@ -99,6 +103,8 @@ func _ready() -> void:
 	bmi.multimesh = boom_mm
 	bmi.custom_aabb = box
 	add_child(bmi)
+	rockets = ProjectileModels.pool("res://assets/models/rocket_projectile.glb", ROCKET_LENGTH, 32)
+	add_child(rockets)
 
 func active() -> bool:
 	var p = game.player
@@ -555,23 +561,12 @@ func draw(cam: Camera3D) -> void:
 						im_top.surface_set_color(col)
 						im_top.surface_add_vertex(v)
 		im_top.surface_end()
-	if not shots.is_empty():
-		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		for s in shots:
-			var c := U.v3(s.x, s.y, s.z)
-			var dir := U.v3(s.dx, s.dy, s.dz).normalized()
-			var side := dir.cross(c - cam.global_position).normalized() * 2.5
-			var tail := c - dir * 18.0
-			for v in [tail - side, c - side, c + side, tail - side, c + side, tail + side]:
-				im.surface_set_color(Color(0.45, 0.45, 0.42))
-				im.surface_add_vertex(v)
-			var f := tail - dir * 4.0
-			var fs := side * 1.8
-			var fu := dir.cross(side).normalized() * 4.5
-			for v in [f - fs - fu, f + fs - fu, f + fs + fu, f - fs - fu, f + fs + fu, f - fs + fu]:
-				im.surface_set_color(Color(1.0, 0.85, 0.4))
-				im.surface_add_vertex(v)
-		im.surface_end()
+	# the missiles: the rocket model, rolling slowly as it flies
+	var mm := rockets.multimesh
+	mm.visible_instance_count = mini(shots.size(), mm.instance_count)
+	for i in mm.visible_instance_count:
+		var r: Dictionary = shots[i]
+		ProjectileModels.place(mm, i, game.level, Vector3(r.x, r.y, r.z), Vector3(r.dx, r.dy, r.dz), r.tics * 0.35 + r.tube * 1.57)
 	boom_mm.visible_instance_count = mini(booms.size(), 16)
 	for i in boom_mm.visible_instance_count:
 		var b: Dictionary = booms[i]

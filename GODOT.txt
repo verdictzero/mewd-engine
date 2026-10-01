@@ -292,6 +292,16 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   adult), so each stands as tall as before. Standees._strip takes the
   texel cell, mipmaps the strip and lays it out by fraction; the
   classic build keeps its boxed-down shoppers.png.
+  THE ROCKET AND THE BORE ARE MODELS, at the user's request: assets/
+  models/rocket_projectile.glb and bore_projectile.glb, flown as one
+  MultiMesh each (render/projectile_models.gd: the files' nodes baked
+  into one mesh, nose on +Z, scaled to MissileSystem.ROCKET_LENGTH and
+  BoreSystem.BORE_LENGTH), in their files' own colours and glow, lit by
+  the sector they are in (projectile.gdshader). The rocket rolls as it
+  flies; the bore's drill turns, and keeps turning in the head it is in
+  (drawn at DRAW_HEAD of the actor's height, the sprite's face).
+  godot/tests/projectile_shot.gd takes the pictures (rocket, bore,
+  drill).
 
   THE DATA the port reads from the web build's own tables is written by
   `node tools/godot-data.mjs`: the texture list (godot/data/

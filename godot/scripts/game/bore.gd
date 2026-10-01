@@ -13,6 +13,11 @@
 class_name BoreSystem
 extends Node3D
 
+## the projectile, drill bit to thruster, in map units
+const BORE_LENGTH := 9.0
+## where one in a head is DRAWN, of the actor's height: the sprite stands
+## taller than the actor (62 to 56), so the sim's headAt is its neck
+const DRAW_HEAD := 0.98
 const BORE := {
 	"range": 2200.0, "grace": 14, "speed0": 9.0, "speed1": 30.0, "accel": 1.09, "turn": 0.16,
 	"life": 6 * 35, "drillTics": 78, "headAt": 0.86, "reach": 12.0,
@@ -29,6 +34,8 @@ var fired := 0
 var drilled := 0
 var im := ImmediateMesh.new()
 var im_top := ImmediateMesh.new()
+## the bores themselves (assets/models/bore_projectile.glb)
+var models: MultiMeshInstance3D
 
 func _init(g) -> void:
 	game = g
@@ -46,6 +53,8 @@ func _ready() -> void:
 	b.material_override = _mat(true)
 	b.custom_aabb = a.custom_aabb
 	add_child(b)
+	models = ProjectileModels.pool("res://assets/models/bore_projectile.glb", BORE_LENGTH, 32)
+	add_child(models)
 
 func _mat(top: bool) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -210,16 +219,14 @@ func draw(cam: Camera3D, t: float) -> void:
 				im_top.surface_set_color(red)
 				im_top.surface_add_vertex(v)
 		im_top.surface_end()
-	# the bores themselves: a dark turning blade with a hot tip
+	# the bores themselves: the model, its drill bit turning, still
+	# turning in the head it is in
 	var bores := shots + drilling
-	if not bores.is_empty():
-		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		for s in bores:
-			var c := U.v3(s.x, s.y, s.z)
-			var a: float = s.spin * 0.9
-			var ax := (right * cos(a) + up * sin(a)) * 5.0
-			var ay := (right * -sin(a) + up * cos(a)) * 2.0
-			for v in [c - ax - ay, c + ax - ay, c + ax + ay, c - ax - ay, c + ax + ay, c - ax + ay]:
-				im.surface_set_color(Color(0.25, 0.22, 0.2))
-				im.surface_add_vertex(v)
-		im.surface_end()
+	var mm := models.multimesh
+	mm.visible_instance_count = mini(bores.size(), mm.instance_count)
+	for i in mm.visible_instance_count:
+		var s: Dictionary = bores[i]
+		var at := Vector3(s.x, s.y, s.z)
+		if s.stuck != null:
+			at.z = s.stuck.z + s.stuck.height * DRAW_HEAD
+		ProjectileModels.place(mm, i, game.level, at, Vector3(s.dx, s.dy, s.dz), s.spin * 0.9)
