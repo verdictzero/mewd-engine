@@ -44,6 +44,9 @@ func _init(editor: MewdEditor) -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
 func _ready() -> void:
+	# a texture dragged in from the browser: onto the wall under it, or the
+	# floor of the room (Shift: its ceiling)
+	set_drag_forwarding(Callable(), _can_drop_tex, _drop_tex)
 	font = EdStyle.mono()
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -82,6 +85,55 @@ func _on_resize() -> void:
 		framed = true
 		frame()
 	_view()
+
+# --- A TEXTURE DRAGGED IN from the browser -------------------------------
+
+## What a texture let go at `at` would land on: the line within a few
+## pixels (the wall of the room the cursor is on that side of), or the
+## room under the cursor's floor — its ceiling with Shift held.
+func tex_target(at: Vector2):
+	var w := Vector2(mx(at.x), my(at.y))
+	var d: Dictionary = ed.doc
+	var best = null
+	var bd := 8.0 / scale_
+	for l in ed.lines():
+		if l.get("free", false) or l.sectors.is_empty():
+			continue
+		var A: Vector2 = d.vertices[l.a]
+		var B: Vector2 = d.vertices[l.b]
+		var dist := Geometry2D.get_closest_point_to_segment(w, A, B).distance_to(w)
+		if dist < bd:
+			bd = dist
+			best = l
+	var room = ed.sector_at(w.x, w.y)
+	if best != null:
+		var si: int = best.sectors[0]
+		if room != null:
+			var ri := ed.sector_index(room.id)
+			if ri in best.sectors:
+				si = ri
+		return {"kind": "surface", "part": "wall", "line": best.key, "sector": si, "band": "lower" if best.sectors.size() > 1 else "middle"}
+	if room != null:
+		return {"kind": "surface", "part": "ceiling" if Input.is_key_pressed(KEY_SHIFT) else "floor", "sector": ed.sector_index(room.id)}
+	return null
+
+func _can_drop_tex(at: Vector2, data) -> bool:
+	if not (data is Dictionary and data.has("mewd_tex")):
+		return false
+	var t = tex_target(at)
+	if t == null:
+		ed.set_hover(null)
+		return false
+	if t.part == "wall":
+		ed.set_hover({"kind": "line", "id": t.line})
+	else:
+		ed.set_hover({"kind": "sector", "id": ed.doc.sectors[t.sector].id})
+	return true
+
+func _drop_tex(at: Vector2, data) -> void:
+	var t = tex_target(at)
+	if t != null:
+		ed.texture_onto(data.mewd_tex, t)
 
 func sx(x: float) -> float:
 	return (x - cx) * scale_ + size.x / 2.0

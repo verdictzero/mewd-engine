@@ -1929,6 +1929,21 @@ func target_or(kind: String) -> Dictionary:
 		return {hovered.id: true}
 	return {}
 
+## A TEXTURE DROPPED ON A SURFACE (dragged out of the texture browser
+## onto either view, at the user's request): `target` is the surface as
+## the 3D view picks it — {sector (index), part: floor | ceiling | wall,
+## line, band} — and it is selected and takes the texture, one undo step.
+func texture_onto(name: String, target: Dictionary) -> void:
+	if target.get("sector", -1) < 0 or target.sector >= doc.sectors.size():
+		return
+	if target.part == "wall":
+		select_surface({"sector": target.sector, "part": "wall", "line": target.line, "band": target.get("band", "")})
+	else:
+		select_surface({"sector": target.sector, "part": target.part})
+	apply_texture(name)
+	var what: String = "the wall" if target.part == "wall" else ("the floor" if target.part == "floor" else "the ceiling")
+	say("%s on %s of sector %d" % [name, what, int(doc.sectors[target.sector].id)])
+
 ## A texture onto whatever is selected: the surface picked in 3D, or the
 ## field the inspector is picking for.
 func apply_texture(name: String, field := "") -> void:

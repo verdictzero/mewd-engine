@@ -266,6 +266,13 @@ undo and redo, copy and paste, snap, and Q for visual mode. PLAY (F5)
 hands the document to the game and starts you where the 3D camera
 stands; F2 comes back. Help in the menu lists the keys.
 
+DRAG A TEXTURE out of the texture browser onto a surface to put it there.
+In the 3D view, it lands on whatever wall, floor or ceiling is under the
+cursor, which lights up as you pass over it. In the plan, it lands on a
+wall if you let go near one, or else on the floor of the room under the
+cursor (hold Shift for the ceiling). Each drop is one undo step. A plain
+click on a texture still puts it on whatever is selected.
+
 The LAYERS tab is a layers panel in the style of Photoshop. The
 storeys are a stack, with the top one first, and each has a
 thumbnail of its plan, a name and an eye.

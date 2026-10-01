@@ -962,15 +962,29 @@ func _cell(name: String, mine: bool) -> Control:
 	vb.add_child(l)
 	if an != null:
 		p.tooltip_text = "%s, animated: %d frames — double-click to make a texture from it" % [name, an.run.size()]
+	# A CLICK puts it on what is selected, when the button comes up — a
+	# press that turns into a DRAG carries it to a surface in either view
+	# instead (the drop is the views', EdView2D/3D._drop_tex)
 	p.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			if e.double_click:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed and e.double_click:
+				p.set_meta("down", false)
 				if mine:
 					ui.open_texture_editor(name)
 				else:
 					ui.open_texture_editor(null, name)
-			else:
+			elif e.pressed:
+				p.set_meta("down", true)
+			elif p.get_meta("down", false):
+				p.set_meta("down", false)
 				pick_texture(name))
+	p.set_drag_forwarding(func(_at):
+		p.set_meta("down", false)
+		var pv := swatch(name, 48)
+		pv.modulate = Color(1, 1, 1, 0.85)
+		p.set_drag_preview(pv)
+		ed.say("drop %s on a wall, a floor or a ceiling — in the plan, Shift for the ceiling" % name)
+		return {"mewd_tex": name}, Callable(), Callable())
 	p.set_meta("mine", mine)
 	p.set_meta("anim", an != null)
 	return p

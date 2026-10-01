@@ -82,6 +82,8 @@ func _init(editor: MewdEditor) -> void:
 	clip_contents = true
 
 func _ready() -> void:
+	# a texture dragged in from the browser lands on the surface under it
+	set_drag_forwarding(Callable(), _can_drop_tex, _drop_tex)
 	svc = SubViewportContainer.new()
 	svc.stretch = true
 	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -620,6 +622,22 @@ func _ring(P: PackedVector3Array, x: float, y: float, r: float, lift := 1.0) -> 
 # ---------------------------------------------------------------------
 
 ## The ray under a pixel, in map space: {o: Vector3(x, y, z), d}.
+# --- A TEXTURE DRAGGED IN from the browser (EdPanels' cells): the surface
+# under the cursor lights as it goes over, and takes it when let go
+
+func _can_drop_tex(at: Vector2, data) -> bool:
+	if not (data is Dictionary and data.has("mewd_tex")):
+		return false
+	hover = pick(ray(at))
+	draw_hover()
+	return hover != null and hover.get("kind", "") == "surface" and hover.get("sector", -1) >= 0
+
+func _drop_tex(at: Vector2, data) -> void:
+	var hit = pick(ray(at))
+	if hit == null or hit.get("kind", "") != "surface":
+		return
+	ed.texture_onto(data.mewd_tex, hit)
+
 func ray(px: Vector2) -> Dictionary:
 	var o := camera.project_ray_origin(px)
 	var v := camera.project_ray_normal(px)

@@ -37,4 +37,6 @@ run layers  --script res://godot/tests/layers_test.gd -- --map=layers
 # the editor's layers pane: the stack, the hierarchy, the eye, move, duplicate, delete
 # (godot/tests/layers_pane_test.gd)
 run layerspane --script res://godot/tests/layers_pane_test.gd -- --edit
+# a texture dragged out of the browser onto a surface (godot/tests/tex_drop_test.gd)
+run texdrop --script res://godot/tests/tex_drop_test.gd -- --edit
 exit $fail
