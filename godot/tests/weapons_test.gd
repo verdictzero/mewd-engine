@@ -118,6 +118,30 @@ func _bore(p, run: Vector2) -> void:
 	check(v.bored > 0, "BORE: the bore arrived and is drilling after %d tics" % n)
 	_settle(90)
 	check(v.removed or v.dead, "BORE: and they went off")
+	# THE BRAIN it pulled out lies where they stood; walking over it takes it
+	_settle(30)
+	check(game.trophies.count() == 1, "BORE: the brain it pulled out lies on the floor")
+	if game.trophies.count() == 1:
+		var b: Dictionary = game.trophies.items[0]
+		check(b.rest and absf(b.z - b.floor) < 0.01, "BORE: the brain came to rest on the floor")
+		var px: float = p.x
+		var py: float = p.y
+		p.x = b.x
+		p.y = b.y
+		_settle(2)
+		check(game.trophies.count() == 0 and p.brains == 1, "BORE: walking over it takes it — brains %d" % p.brains)
+		p.x = px
+		p.y = py
+	# SLOW MOTION: a frame's worth of time is a quarter of the tics, and
+	# the player's own tics go on at full rate inside it
+	var t0: int = game.tics
+	game.slow_mo = true
+	game._process(4.2 / 35.0)
+	check(game.tics - t0 == 1, "SLOW-MO: four tics of time ran the world one tic (%d)" % (game.tics - t0))
+	var pt: Vector4 = p.prev
+	check(absf(pt.x - p.x) < 1e-3 and absf(pt.y - p.y) < 1e-3, "SLOW-MO: the player is drawn from where they stood before their four tics")
+	game.slow_mo = false
+	game._acc = 0.0
 
 func _launcher(p, run: Vector2) -> void:
 	_settle(40)

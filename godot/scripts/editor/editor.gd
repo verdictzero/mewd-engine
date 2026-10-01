@@ -51,6 +51,11 @@ const MAPS := "user://mewd-editor/maps/"
 ## the grid ladder: Doom Builder's own
 const GRIDS := [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 const GRID_MAX := 4096
+## UI SCALE (at the user's request): every panel, bar and field of the
+## editor drawn this much bigger — the window's content scale while the
+## editor is up, so the views scale with the chrome. Ctrl+= / Ctrl+- step
+## it, Ctrl+0 resets; it is remembered in prefs.
+const UI_SCALES := [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5]
 
 const MODES := {
 	"vertices": {"key": "V", "name": "Vertices", "short": "Verts"},
@@ -115,6 +120,7 @@ var plan_view := "normal"
 var pointer_view := "2d"
 var clipboard = null
 var tabs_hidden := false
+var ui_scale := 1.0
 
 var bank: TexBank
 var game_texture_names: Array = []
@@ -149,6 +155,7 @@ func _init(start_doc = null, is_headless := false) -> void:
 	grid = clampi(g, 1, GRID_MAX)
 	snap = prefs.get("snap", true) != false
 	tabs_hidden = prefs.get("tabs", "on") == "off"
+	ui_scale = clampf(EdDoc.num(prefs.get("scale"), 1.0), UI_SCALES[0], UI_SCALES[-1])
 	var d = start_doc
 	if d == null and not headless:
 		d = _read_autosave()
@@ -174,6 +181,7 @@ func _ready() -> void:
 		return
 	ui = EdUI.new(self)
 	add_child(ui)
+	_apply_ui_scale()
 	compile_now()
 	frame_req.emit()
 	say(status)
@@ -187,6 +195,9 @@ func _ready() -> void:
 				EdScript.run(self, ops)
 
 func _exit_tree() -> void:
+	# the game and the title are drawn at the window's own scale
+	if not headless and get_window() != null:
+		get_window().content_scale_factor = 1.0
 	if _thread != null:
 		var res = _thread.wait_to_finish()
 		_thread = null
@@ -413,6 +424,27 @@ func _process(_dt: float) -> void:
 # files and prefs
 # ---------------------------------------------------------------------
 
+func _apply_ui_scale() -> void:
+	if headless or get_window() == null:
+		return
+	get_window().content_scale_factor = ui_scale
+
+func set_ui_scale(s: float) -> void:
+	ui_scale = clampf(s, UI_SCALES[0], UI_SCALES[-1])
+	_apply_ui_scale()
+	save_prefs()
+	say("UI scale %d%%" % int(roundf(ui_scale * 100.0)))
+
+## the next size up (dir 1) or down (-1) the ladder
+func ui_scale_step(dir: int) -> void:
+	var i := 0
+	var best := INF
+	for k in UI_SCALES.size():
+		if absf(UI_SCALES[k] - ui_scale) < best:
+			best = absf(UI_SCALES[k] - ui_scale)
+			i = k
+	set_ui_scale(UI_SCALES[clampi(i + dir, 0, UI_SCALES.size() - 1)])
+
 static func _ensure_dirs() -> void:
 	DirAccess.make_dir_recursive_absolute(MAPS)
 
@@ -431,6 +463,7 @@ func save_prefs() -> void:
 	p["snap"] = snap
 	p["grid"] = grid
 	p["tabs"] = "off" if tabs_hidden else "on"
+	p["scale"] = ui_scale
 	var f := FileAccess.open(PREFS, FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify(p))
@@ -2015,6 +2048,15 @@ func _key(e: InputEventKey) -> bool:
 		return true
 	if ctrl and k == KEY_A:
 		select_all_in_mode()
+		return true
+	if ctrl and (k == KEY_EQUAL or k == KEY_PLUS or k == KEY_KP_ADD):
+		ui_scale_step(1)
+		return true
+	if ctrl and (k == KEY_MINUS or k == KEY_KP_SUBTRACT):
+		ui_scale_step(-1)
+		return true
+	if ctrl and (k == KEY_0 or k == KEY_KP_0):
+		set_ui_scale(1.0)
 		return true
 	if ctrl and pointer_view == "3d" and view3d != null and view3d.key(e):
 		return true

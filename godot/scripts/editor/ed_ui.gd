@@ -176,6 +176,15 @@ func _build_top() -> void:
 		"-",
 		["Frame the map", "F", func(): ed.frame_req.emit()],
 	]))
+	var view := [
+		["UI bigger", "Ctrl+=", func(): ed.ui_scale_step(1)],
+		["UI smaller", "Ctrl+-", func(): ed.ui_scale_step(-1)],
+		"-",
+	]
+	for sc in MewdEditor.UI_SCALES:
+		var scc: float = sc
+		view.append(["UI scale %d%%" % int(roundf(scc * 100.0)), "Ctrl+0" if scc == 1.0 else "", func(): ed.set_ui_scale(scc)])
+	top.add_child(_menu("View", view))
 	var help := []
 	for h in ["2D: drag to move, box-select on empty", "2D: middle / right drag pans, wheel zooms",
 			"D: click points, click the first to close", "R: drag a rectangle into a sector",

@@ -63,6 +63,23 @@ RUNNING IT
   F2 in the game opens the map editor on the map last edited (a test
   run from the editor has an "◀ EDITOR F2" button too).
 
+  SLOW MOTION (the Godot build's own, at the user's request): T, Y on
+  the pad, or SLO on the glass, toggles it. The world runs one tic in
+  four (Game.SLOW_MO) while your own body takes all four, so you walk,
+  turn and fire as fast as ever through a world that crawls — bullet
+  time, not a replay; the music slows with it, and the HUD says so at
+  the top of the screen. Not in a network match, whose worlds must
+  agree. The weapons test checks the tic count and the player's draw.
+
+  BRAINS (game/trophies.gd; at the user's request, "let the player
+  collect body parts extracted with the cerebral bore"): when a bore
+  finishes its drilling and the head goes, what it was after drops out
+  — a brain, out of the gore strip, which falls to the floor and lies
+  there turning until a player walks over it and takes it. A trophy
+  and nothing more: BRAINS n on the HUD under the gun's name
+  (Player.brains), a toast as each is taken. The weapons test finds
+  the one its bore kill left and walks over it.
+
 
 HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
 
@@ -332,6 +349,12 @@ THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
     ed_steps.gd, ed_scatter.gd            steps.js, scatter.js
     ed_texcompose.gd, ed_texeditor.gd     texcompose.js, texeditor.js
     ed_script.gd    a script of edits, for the tests and --edit-ops
+
+  UI SCALE (at the user's request): View > UI scale, or Ctrl+= and
+  Ctrl+- to step it (75% to 250%), Ctrl+0 back to 100%: the whole
+  editor — bars, panels, fields, and the views with them — drawn that
+  much bigger, as the window's content scale while the editor is up
+  (MewdEditor.UI_SCALES); remembered in prefs.json with the grid.
 
   FILES are the web build's own: File > Open… and Save as file… (any
   path on the desktop; the file dialog), Ctrl+S into user://mewd-editor/

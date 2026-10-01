@@ -28,6 +28,7 @@ var jump_pulse := false
 var cycle := 0
 var aim_pulse := false
 var zoom_pulse := false
+var slow_pulse := false
 var pause_pulse := false
 var lefty := false
 var sens := 1.0
@@ -75,6 +76,7 @@ func _buttons() -> Dictionary:
 		"use": [fc + Vector2(sx * arc * 0.7071, -arc * 0.7071), small * 0.5, "USE"],
 		"swap": [fc + Vector2(0, -arc), small * 0.5, "SWAP"],
 		"pause": [Vector2(size.x - 30.0 if not lefty else 30.0, 76.0), 22.0, "II"],
+		"slow": [Vector2(size.x - 30.0 if not lefty else 30.0, 130.0), 22.0, "SLO"],
 	}
 	if scope_on:
 		out["aim"] = [fc + Vector2(sx * outer * 0.9239, -outer * 0.3827), small * 0.5, "AIM"]
@@ -116,6 +118,7 @@ func _down(id: int, p: Vector2) -> void:
 			"swap": cycle = 1
 			"aim": aim_pulse = true
 			"zoom": zoom_pulse = true
+			"slow": slow_pulse = true
 		return
 	var move_side := p.x > size.x * (1.0 - MOVE_SHARE) if lefty else p.x < size.x * MOVE_SHARE
 	var has_move := pointers.values().any(func(q): return q.kind == "move")

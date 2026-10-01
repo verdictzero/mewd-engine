@@ -82,6 +82,8 @@ var dry := {}
 var spin := 0.0
 var heat := 0.0
 var shots_fired := 0
+## brains taken off the floor, where the cerebral bore left them (Trophies)
+var brains := 0
 ## the launcher: the trigger is down and the seeker is looking; and the
 ## one refusal that is heard, once per press
 var seeking := false
