@@ -629,6 +629,8 @@ func A_PickExit() -> void:
 ## Running away: the eight directions SCORED — closer to the way out (or
 ## further from the fright), minus the heat where it would land, minus a
 ## little for turning — and walked in score order until one is free.
+const FLEE_TRIES := 3
+
 func A_Flee() -> void:
 	panic -= 1
 	if panic <= 0 and not burning:
@@ -655,7 +657,10 @@ func A_Flee() -> void:
 			s -= 10.0
 		s += (U.p_random() / 255.0 - 0.5) * 4.0
 		score[d] = s
-	for k in 8:
+	# the best FLEE_TRIES of them, not all eight: in a dead end most fail,
+	# and a crowd panicking at once was thousands of tries a tic (the next
+	# tic scores them afresh, with a little noise, and tries again)
+	for k in FLEE_TRIES:
 		var best := -1
 		var best_s := -INF
 		for d in 8:

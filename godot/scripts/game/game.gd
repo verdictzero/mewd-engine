@@ -195,8 +195,20 @@ func start_map(doc: Dictionary) -> void:
 	bank = TexBank.new()
 	var mg := MapGeo.new(bank)
 	# real decals want the world in tiles (RealDecals: eight a mesh)
+	var tile := 0.0
 	if RealDecals.on():
-		mg.tile = RealDecals.TILE
+		# only the built area (Level.bounds): the ground past it is one
+		# mesh a texture (MapGeo.tile_area), in the world's x and z; and
+		# a big map in bigger tiles (RealDecals.tile_for)
+		var bb: Rect2 = level.bounds
+		var T := RealDecals.tile_for(bb)
+		tile = T
+		mg.tile = T
+		var x0 := floorf(bb.position.x / T) * T
+		var x1 := ceilf(bb.end.x / T) * T
+		var z0 := floorf(-bb.end.y / T) * T
+		var z1 := ceilf(-bb.position.y / T) * T
+		mg.tile_area = Rect2(x0, z0, x1 - x0, z1 - z0)
 	var geo := mg.build(level)
 	add_child(geo)
 	# the way from room to room, for the troops (game/nav.gd)
@@ -246,6 +258,7 @@ func start_map(doc: Dictionary) -> void:
 	add_child(gore_decals)
 	if RealDecals.on():
 		real_decals = RealDecals.new(self)
+		real_decals.tile = tile
 		add_child(real_decals)
 		real_decals.register(geo)
 		decals.real = real_decals
@@ -653,9 +666,11 @@ func tic() -> void:
 	var lx: float = player.x if lod else 0.0
 	var ly: float = player.y if lod else 0.0
 	var lod_far2 := LOD_FAR * LOD_FAR
+	# AND THE FRIGHTENED far off take one in two: a blast panics half the
+	# crowd at once, every one of them looking for a way out every tic
 	for a: Actor in actors:
-		if lod and a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.panic == 0 and a.target == null \
-				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and (tics + a.id) % 4 != 0:
+		if lod and a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.target == null \
+				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and (tics + a.id) % (2 if a.panic > 0 else 4) != 0:
 			var ddx: float = a.x - lx
 			var ddy: float = a.y - ly
 			if ddx * ddx + ddy * ddy > lod_far2:

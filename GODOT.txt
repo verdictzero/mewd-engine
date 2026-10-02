@@ -163,8 +163,30 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
   any tile mesh under it is refused, and laid as the quad it always was
   — nothing is lost, and nothing is dropped by the renderer unseen. A
   minigun puts dozens of holes in one spot, which is why holes stay
-  quads. The tiles are more meshes: THE MAZE 482 against 4, THE SPRAWL
-  4,732 against 121.
+  quads. ONLY THE BUILT AREA IS TILED (MapGeo.tile_area, Level.bounds):
+  a map in blocks stands on a ground plane 131,072 units across, and
+  tiled whole that was 65,536 meshes on every map — a quarter of a
+  minute to load and fifteen hundred draw calls looking at an empty
+  field; past the built area each texture is one mesh that takes no
+  marks (a mark that lands on no tile is a quad). AND A BIG MAP'S TILES
+  ARE BIGGER (RealDecals.tile_for): 512, doubled until the built area
+  is at most 400 tiles — THE SPRAWL and JESSE in 1,024s — because every
+  texture in every tile is a mesh and a draw call, and a road runs
+  through nearly every tile of the city: fewer meshes, and fewer real
+  marks before the rest are quads. Every picture a mark can wear is
+  held in the renderer's decal atlas from load (a hidden decal wearing
+  each, _keep_in_atlas): the atlas is rebuilt whenever a picture comes
+  in or goes out, which was a hitch the first time each variant was
+  worn. Under the loading screen a mark of every kind is laid on the
+  floor ahead for the warm-up's frames (RealDecals.warm_begin, Main),
+  so their pipelines are built before the first rocket.
+  WHAT IT COSTS NOW (godot/tests/perf_bench.gd: the real game on a map,
+  its draw calls looking four ways, and two rockets into a ring of
+  shoppers and a cerebral bore, timed; xvfb, the Mobile renderer):
+                    level meshes   draw calls   load
+    THE ANNEXE        66,079 ->57   1,400 -> 89   13.7 s -> 0.3 s
+    THE MAZE          66,372 ->522  1,700 -> 556  16.8 s -> 0.6 s
+    THE SPRAWL        69,719 ->1,983 2,700 -> 813  22.7 s -> 4.9 s
 
   THE LIGHT (js/material.js -> godot/shaders/world_light.gdshaderinc).
   One set of GLOBAL shader uniforms — sky_light, light_falloff,
@@ -711,6 +733,40 @@ THE ANDROID BUILD (an APK)
   never cancelled midway), so a push to both at once can no longer have
   one run delete the release under the other's upload; the Linux build
   (linux.yml, release "linux") does the same.
+
+WHAT THE HANDHELD LAGGED ON, AND WHAT WAS DONE (at the user's request:
+"major lagging on cerebral bore explosion, in maze some lag, in sprawl
+catastrophic lag, same with rocket gore explosion"), measured with
+godot/tests/perf_bench.gd:
+  - the ground's 65,536 tiles, and THE SPRAWL's 5,000 (REAL DECALS: only
+    the built area tiled, a big map's tiles bigger);
+  - WHICH SECTOR A POINT IS IN (Level._in_sector) asked the whole outline
+    every time, and a map in blocks makes the open ground one polygon
+    round every block on it — the maze's 624 corners, THE SPRAWL's
+    1,474 — while every person, piece and drop asks many times a tic:
+    a big sector's edges are now kept in bands across it (Level._band)
+    and a question asks only its band's: THE SPRAWL 97 microseconds a
+    question -> 10, the same answers;
+  - A ROCKET INTO A CROWD was eight full evisceration — 480 pieces, 720
+    drops of blood, 160 floor marks and wall rays — at once; the bodies
+    it kills now share one budget, one over the square root of how many
+    (Giblets.eviscerate's `share`, MissileSystem.detonate): one body is
+    as extreme as ever, eight are about three bodies' worth;
+  - THE PANIC: a fleeing person scored eight ways and tried every one
+    until one was free, every tic — in the maze's dead ends, all eight,
+    for hundreds of people at once; now the best three (Actor.
+    FLEE_TRIES), and the frightened further than LOD_FAR from the player
+    think one tic in two, as the calm far off think one in four;
+  - THE DROPS of blood ask where the floor is every other tic;
+  - THE DOORS asked every person on the map, for every door, every tic —
+    three quarters of THE SPRAWL's tic; now the actor grid's people
+    round each (Doors._near): its tic 2.64 ms -> 0.75.
+  Script time a frame, before -> after (llvmpipe, so the frames' own
+  times are mostly the drawing, done on the processor):
+    THE MAZE     standing 8.9 -> 6.6 ms, after a rocket 17.5 -> 12,
+                 after the bore 29.5 -> 12.6
+    THE SPRAWL   standing 15.5 -> 4.9 ms, after a rocket 11.5 -> 7.2,
+                 after the bore 36.9 -> 11.5
 
 THE PERFORMANCE OVERLAY (ui/perf.gd): FRAME RATE on the pause menu's
 DEBUG page, on by default. Frames a second, the frame's time and the

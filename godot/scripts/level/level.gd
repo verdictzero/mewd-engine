@@ -82,6 +82,12 @@ class Sector:
 	var block = null
 	var over = null
 	var layer := 0
+	# A BIG ONE'S EDGES IN BANDS across it (Level._band): the band a
+	# point's y falls in holds every edge that reaches that height, as
+	# [ax, ay, bx, by, ...]; empty for a small one, asked whole
+	var band_y0 := 0.0
+	var band_h := 1.0
+	var band_edges: Array = []
 
 class Line:
 	var index := 0
@@ -420,6 +426,8 @@ func _build_blockmap() -> void:
 		for r in range(_row(minf(l.y1, l.y2)), _row(maxf(l.y1, l.y2)) + 1):
 			for c in range(_col(minf(l.x1, l.x2)), _col(maxf(l.x1, l.x2)) + 1):
 				block_lines[r * cols + c].append(l)
+	for s in sectors:
+		_band(s)
 	# THE GROUND STOREYS ONLY: the storeys over one share its outline, and
 	# whoever wants them walks the column (span_in)
 	for s in sectors:
@@ -545,7 +553,57 @@ func _in_sector(s: Sector, x: float, y: float) -> bool:
 		return false
 	if s.is_rect:
 		return true
-	return U.point_in_poly(s.poly, x, y)
+	if s.band_edges.is_empty():
+		return U.point_in_poly(s.poly, x, y)
+	# the same crossing test as U.point_in_poly, on the edges of the
+	# point's band only
+	var e: PackedFloat64Array = s.band_edges[clampi(int((y - s.band_y0) / s.band_h), 0, s.band_edges.size() - 1)]
+	var inside := false
+	var i := 0
+	var n := e.size()
+	while i < n:
+		var ay := e[i + 1]
+		var by := e[i + 3]
+		if (ay > y) != (by > y):
+			var ax := e[i]
+			if x < (e[i + 2] - ax) * (y - ay) / (by - ay) + ax:
+				inside = not inside
+		i += 4
+	return inside
+
+## A BIG SECTOR'S EDGES IN BANDS. A map in blocks makes the open ground
+## one polygon round every block standing on it — the maze's six hundred
+## corners, THE SPRAWL's fifteen hundred — and every person, every piece
+## of somebody and every drop of blood asks which sector it is over many
+## times a tic: the whole outline each time was a hundred microseconds a
+## question on the handheld's side of things. Cut into bands across, a
+## question asks only the edges that reach its height (about four).
+const BAND_MIN_EDGES := 32
+func _band(s: Sector) -> void:
+	s.band_edges = []
+	var n := s.poly.size()
+	if n < BAND_MIN_EDGES or s.is_rect:
+		return
+	var y0: float = s.bbox.position.y
+	var h: float = maxf(1.0, s.bbox.size.y)
+	var k := clampi(n / 4, 1, 1024)
+	s.band_y0 = y0
+	s.band_h = h / k
+	var bands := []
+	for i in k:
+		bands.append(PackedFloat64Array())
+	var j := n - 1
+	for i in n:
+		var a := s.poly[i]
+		var c := s.poly[j]
+		j = i
+		if a.y == c.y:
+			continue
+		var lo := clampi(int((minf(a.y, c.y) - y0) / s.band_h), 0, k - 1)
+		var hi := clampi(int((maxf(a.y, c.y) - y0) / s.band_h), 0, k - 1)
+		for q in range(lo, hi + 1):
+			bands[q].append_array(PackedFloat64Array([a.x, a.y, c.x, c.y]))
+	s.band_edges = bands
 
 ## Doom's four reasons a line stops a mover: the map said so, the gap is
 ## too short, the step is too tall, the drop is too far (monsters only).

@@ -42,6 +42,23 @@ class_name RealDecals
 extends Node3D
 
 const TILE := 512.0
+## A BIG MAP'S TILES ARE BIGGER: every texture in every tile is a mesh
+## and a draw call, and THE SPRAWL in 512s was five thousand of them (a
+## road runs through nearly every tile, a pavement beside it, a wall...).
+## The tile doubles until the built area is at most this many of them —
+## fewer meshes, and fewer real marks on them (eight a mesh) before the
+## rest are quads.
+const MAX_TILES := 400
+## the size in use (tile_for), which MapGeo cut the world at
+var tile := TILE
+
+## The tile for a built area (map units): TILE, doubled while the area
+## would be more than MAX_TILES of them.
+static func tile_for(area: Rect2) -> float:
+	var t := TILE
+	while ceilf(area.size.x / t) * ceilf(area.size.y / t) > MAX_TILES and t < 8192.0:
+		t *= 2.0
+	return t
 const PER_MESH := 8
 ## the world's tiles are on this layer as well as the first: what a
 ## decal lands on (never a person, a plant, a van or the gun)
@@ -185,7 +202,28 @@ func _bake() -> void:
 			var cell := img.get_region(Rect2i(c * CELL, r * CELL, CELL, CELL))
 			arr.append(ImageTexture.create_from_image(cell))
 		textures[BAKE[r][0]] = arr
+	_keep_in_atlas()
 	baked = true
+
+## EVERY PICTURE IN THE DECAL ATLAS, FOR GOOD. The renderer packs the
+## pictures decals wear into one atlas and builds it again whenever one
+## comes in or goes out — so the first time each of a kind's variants
+## was worn (a spatter's fourth look, a pool's sixth) the next frame
+## stopped while the atlas was redrawn, one hitch after another through
+## the first explosions. A hidden decal wearing each, made once and never
+## used, keeps them all in from the start.
+var _keepers: Array = []
+func _keep_in_atlas() -> void:
+	for kind in textures:
+		for t in (textures[kind] as Array):
+			var d := Decal.new()
+			d.visible = false
+			d.cull_mask = 0
+			d.layers = DECAL_LAYER
+			d.size = Vector3(1, 1, 1)
+			d.texture_albedo = t
+			add_child(d)
+			_keepers.append(d)
 
 ## one bake target: every kind's variants, a row a kind, drawn by the
 ## kinds' own shaders in their bake mode (`alpha`: the cover as grey)
@@ -256,10 +294,10 @@ func register(geo: Node3D) -> void:
 
 func chunks_under(box: AABB) -> PackedInt32Array:
 	var out := PackedInt32Array()
-	var x0 := floori(box.position.x / TILE)
-	var x1 := floori(box.end.x / TILE)
-	var z0 := floori(box.position.z / TILE)
-	var z1 := floori(box.end.z / TILE)
+	var x0 := floori(box.position.x / tile)
+	var x1 := floori(box.end.x / tile)
+	var z0 := floori(box.position.z / tile)
+	var z1 := floori(box.end.z / tile)
 	for tx in range(x0, x1 + 1):
 		for tz in range(z0, z1 + 1):
 			var ids = _tile_chunks.get(Vector2i(tx, tz))
@@ -305,6 +343,11 @@ func add(kind: int, at: Vector3, n: Vector3, size: float, d := Vector3.ZERO, lig
 	var ext := Vector3(size, depth, size)
 	var box: AABB = xf * AABB(-ext * 0.5, ext)
 	var under := chunks_under(box)
+	# on no tile (past the built area, where the ground is one mesh that
+	# takes none): a quad
+	if under.is_empty():
+		overflow += 1
+		return null
 	# room on every tile mesh it covers, or it is a quad
 	for c in under:
 		if (_chunk_marks[c] as Array).size() + room > PER_MESH:
@@ -407,6 +450,25 @@ func _fade(d: Decal) -> void:
 	var far: float = _g.get("air_far", 5000.0)
 	d.distance_fade_begin = near + (far - near) * 0.3
 	d.distance_fade_length = maxf(64.0, (far - near) * 0.7)
+
+## THE WARM-UP's (Warmup, under the loading screen, Main): a mark of
+## every kind on the floor at `at` for its few frames, so whatever the
+## first real mark costs the renderer the first time (its pipelines, the
+## decal atlas) is paid there and not in the first rocket; and gone again
+## (warm_end), as if never made.
+var _warm: Array = []
+func warm_begin(at: Vector3) -> void:
+	if not baked:
+		return
+	for kind in K.values():
+		var m = add(kind, at, Vector3(0, 0, 1), 40.0)
+		if m != null:
+			_warm.append(m)
+
+func warm_end() -> void:
+	for m in _warm:
+		_remove(m)
+	_warm.clear()
 
 # ------------------------------------------------------------------
 # EVERY TIC

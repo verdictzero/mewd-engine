@@ -40,30 +40,41 @@ func _init(g) -> void:
 
 ## Anybody walking, or a player, within `r` of the door's middle and at
 ## its height.
+##
+## THE PEOPLE ROUND IT, from the actor grid (game.blockmap): asking every
+## one on the map, for every door, every tic, was most of a tic on THE
+## SPRAWL (eleven doors, four hundred people). The grid has whoever is
+## solid — which is whoever walks; the dead are no matter to a door.
+const MAX_RADIUS := 96.0
 func _near(d: Level.Door, r: float, doorway := false) -> bool:
 	var m := (d.a + d.b) / 2.0
 	var half := d.a.distance_to(d.b) / 2.0
 	var u := (d.b - d.a).normalized()
-	for list in [game.players, game.actors]:
-		for a in list:
-			if a.removed or a.dead:
-				continue
-			if list == game.actors and not (a.monster or a.speed > 0.0):
-				continue
-			if a.z + a.height < d.z0 or a.z > d.top:
-				continue
-			var p := Vector2(a.x, a.y) - m
-			if doorway:
-				# in the way of it: in its swing, into the room — or, for a
-				# sliding one, in the doorway itself
-				var across: float = p.dot(d.inside)
-				var lo: float = -a.radius if d.style == "swing" else -d.wall - a.radius
-				var hi: float = half + a.radius if d.style == "swing" else a.radius
-				if absf(p.dot(u)) <= half + a.radius and across >= lo and across <= hi:
-					return true
-			elif p.length() <= r + a.radius:
-				return true
+	for a in game.players:
+		if _at(d, a, m, half, u, r, doorway):
+			return true
+	var reach := maxf(r, half + maxf(d.wall, 0.0)) + MAX_RADIUS
+	for a in game.blockmap.near_radius(m.x, m.y, reach):
+		if not (a.monster or a.speed > 0.0):
+			continue
+		if _at(d, a, m, half, u, r, doorway):
+			return true
 	return false
+
+func _at(d: Level.Door, a, m: Vector2, half: float, u: Vector2, r: float, doorway: bool) -> bool:
+	if a.removed or a.dead:
+		return false
+	if a.z + a.height < d.z0 or a.z > d.top:
+		return false
+	var p := Vector2(a.x, a.y) - m
+	if doorway:
+		# in the way of it: in its swing, into the room — or, for a
+		# sliding one, in the doorway itself
+		var across: float = p.dot(d.inside)
+		var lo: float = -a.radius if d.style == "swing" else -d.wall - a.radius
+		var hi: float = half + a.radius if d.style == "swing" else a.radius
+		return absf(p.dot(u)) <= half + a.radius and across >= lo and across <= hi
+	return p.length() <= r + a.radius
 
 ## A player's command this tic (Game.tic): the use key, as it goes down.
 func command(p, cmd: Dictionary) -> void:

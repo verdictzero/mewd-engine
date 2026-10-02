@@ -492,9 +492,10 @@ func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 		a.damage(n, p, {"impact": true, "gib": true})
 		if a.info.get("flammable", false):
 			a.ignite(WARHEAD.ignite)
-	for b in blown:
-		if b[0].dead and game.gore_decals.bleeds(b[0]):
-			game.giblets.eviscerate(b[0], at, b[1])
+	var gory := blown.filter(func(b): return b[0].dead and game.gore_decals.bleeds(b[0]))
+	var share := 1.0 / sqrt(maxf(1.0, gory.size()))
+	for b in gory:
+		game.giblets.eviscerate(b[0], at, b[1], share)
 	if p != null and not p.dead:
 		var h := maxf(0.0, sqrt(U.dist2(at.x, at.y, p.x, p.y)) - p.radius)
 		var v: float = (p.z - at.z) if at.z < p.z else ((at.z - p.z - p.height) if at.z > p.z + p.height else 0.0)

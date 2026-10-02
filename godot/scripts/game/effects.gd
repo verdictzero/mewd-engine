@@ -349,8 +349,12 @@ func tic() -> void:
 		var s := lv.span_at(nx, ny, body_flames.pz[_i])
 		return s == null or nz <= s.floor - 2.0 or nz >= s.ceil)
 	if gore.count > 0:
+		# a drop asks where the floor is every other tic (half of them one
+		# tic, half the next): a rocket into a crowd is hundreds of drops,
+		# and one a tic late is under the floor, where nobody sees it
+		var odd: int = game.tics & 1
 		gore.tic(func(i: int, nx: float, ny: float, nz: float) -> bool:
-			if gore_kind[i] != 1:
+			if gore_kind[i] != 1 or (i & 1) != odd:
 				return false
 			var s := lv.span_at(nx, ny, gore.pz[i])
 			return s == null or nz <= s.floor + 1.0)

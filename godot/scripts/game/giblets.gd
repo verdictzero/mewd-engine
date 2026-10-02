@@ -265,9 +265,16 @@ func _chunk(o: Dictionary, kind: int) -> int:
 # it went off IN. Nothing for a thing that does not bleed. Returns how
 # many marks it left on the room.
 # ------------------------------------------------------------------
-func eviscerate(a, at = null, force := 1.0) -> int:
+## `share`: how much of a whole body's worth this one gets — a rocket into
+## a crowd shares one budget among everybody it kills (MissileSystem.
+## detonate: one over the square root of how many), so one body is as
+## extreme as ever and eight are about three bodies' worth of pieces, not
+## eight: eight was fifteen hundred things flying at once, each asking
+## the walls and the floor where it was, and the handheld stopped.
+func eviscerate(a, at = null, force := 1.0, share := 1.0) -> int:
 	if a == null or a.get("vehicle") or a.frozen:
 		return 0
+	share = clampf(share, 0.05, 1.0)
 	eviscerations += 1
 	game.play_sound("gib", a)
 	var h := _stood(a)
@@ -287,7 +294,7 @@ func eviscerate(a, at = null, force := 1.0) -> int:
 		dx = 0.0
 		dy = 0.0
 	# THE PIECES
-	for k in GORE.count:
+	for k in maxi(6, roundi(GORE.count * share)):
 		var spin := _r() * TAU
 		var ang: float = dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone if has_dir else spin
 		var sp: float = (GORE.speedMin + _r() * (GORE.speedMax - GORE.speedMin)) * force
@@ -309,9 +316,10 @@ func eviscerate(a, at = null, force := 1.0) -> int:
 	# of it every way at once
 	var fx = _fx()
 	if fx != null:
-		fx.blood_spray(a.x, a.y, mid, dx, dy, 0.4, GORE.spray >> 1, 1.2 * force)
-		fx.blood_spray(a.x, a.y, mid, 0.0, 0.0, 0.0, GORE.spray >> 1, 0.9 * force)
-		for k in 6:
+		var spray := maxi(8, roundi((GORE.spray >> 1) * share))
+		fx.blood_spray(a.x, a.y, mid, dx, dy, 0.4, spray, 1.2 * force)
+		fx.blood_spray(a.x, a.y, mid, 0.0, 0.0, 0.0, spray, 0.9 * force)
+		for k in maxi(2, roundi(6 * share)):
 			fx.blood_puff(a.x, a.y, mid + (k - 3) * 6.0)
 	# AND THE ROOM. The pool where they stood, bigger than any other in
 	# the game; the spatters across the floor, thrown out the way the
@@ -328,16 +336,17 @@ func eviscerate(a, at = null, force := 1.0) -> int:
 		var floor: float = a.z
 		splat(a.x, a.y, floor, GORE.pool * (0.85 + 0.3 * _r()))
 		marks += 1
-		for k in GORE.floor:
+		for k in maxi(3, roundi(GORE.floor * share)):
 			var ang: float = _r() * TAU if (not has_dir or (k & 3) == 3) else dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone
 			var d: float = 20.0 + _r() * GORE.floorReach
 			room.append([ROOM_FLOOR, a.x, a.y, floor, cos(ang), sin(ang), d, 34.0 + _r() * 50.0])
 			marks += 1
 		var from := Vector3(a.x, a.y, mid)
 		var u := Vector3(dx if has_dir else 1.0, dy, 0.05)
-		for k in range(0, GORE.walls, ROOM_RAYS):
-			room.append([ROOM_WALLS, from, u, k, mini(ROOM_RAYS, GORE.walls - k)])
-		marks += GORE.walls
+		var walls := maxi(ROOM_RAYS, roundi(GORE.walls * share))
+		for k in range(0, walls, ROOM_RAYS):
+			room.append([ROOM_WALLS, from, u, k, mini(ROOM_RAYS, walls - k)])
+		marks += walls
 	return marks
 
 ## THE ROOM'S BLOOD, waiting (eviscerate): ROOM_PER_TIC of it down a tic,

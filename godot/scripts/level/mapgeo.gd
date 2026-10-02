@@ -99,6 +99,14 @@ var tinted := false
 ## that crosses a tile's edge is clipped there, its UVs and colours cut
 ## with it. 0 (the default, and the editor's) is one mesh a texture.
 var tile := 0.0
+## WHERE THE TILES ARE, in the world's x and z (Rect2(x, z, w, d)): the
+## built area. Beyond it — the endless ground of a map in blocks, sixty-
+## five thousand units each way — every texture's surfaces are ONE mesh
+## that takes no decals (FAR). Diced like the rest, the ground alone was
+## 65,536 meshes on every map, a quarter of a minute to load and fifteen
+## hundred draw calls looking at an empty field. Empty: tiles everywhere.
+var tile_area := Rect2()
+const FAR := Vector2i(1 << 30, 1 << 30)
 var _paint = null
 var _fog := Color(0, 0, 0, -1)
 const NO_FOG := Color(0, 0, 0, -1)
@@ -163,6 +171,10 @@ func _emit(root: Node3D) -> void:
 			var parts := _tiles(b)
 			for key in parts:
 				var mi := _mesh_instance(name, parts[key], flags)
+				if key == FAR:
+					mi.name = "%s@far" % name
+					root.add_child(mi)
+					continue
 				mi.name = "%s@%d,%d" % [name, key.x, key.y]
 				mi.set_meta("tile", key)
 				mi.layers = 1 | RealDecals.RECEIVE_LAYER
@@ -197,6 +209,8 @@ func _mesh_instance(name: String, b: Batch, flags: int) -> MeshInstance3D:
 func _tiles(b: Batch) -> Dictionary:
 	var out := {}
 	var T := tile
+	var A := tile_area
+	var whole := A.size.x <= 0.0 or A.size.y <= 0.0
 	for t in range(0, b.idx.size(), 3):
 		var ia := b.idx[t]
 		var ib := b.idx[t + 1]
@@ -204,13 +218,43 @@ func _tiles(b: Batch) -> Dictionary:
 		var pa := b.v[ia]
 		var pb := b.v[ib]
 		var pc := b.v[ic]
+		var tri := [_vtx(b, ia), _vtx(b, ib), _vtx(b, ic)]
+		if not whole:
+			var lo := Vector2(minf(pa.x, minf(pb.x, pc.x)), minf(pa.z, minf(pb.z, pc.z)))
+			var hi := Vector2(maxf(pa.x, maxf(pb.x, pc.x)), maxf(pa.z, maxf(pb.z, pc.z)))
+			if lo.x >= A.end.x or hi.x <= A.position.x or lo.y >= A.end.y or hi.y <= A.position.y:
+				# all of it beyond the tiles
+				_fan(out, FAR, b.custom, tri)
+				continue
+			if lo.x < A.position.x or hi.x > A.end.x or lo.y < A.position.y or hi.y > A.end.y:
+				# across the edge of them: what is beyond, as four pieces —
+				# the side strips whole, the middle's ends — and the rest
+				# tiled
+				_fan(out, FAR, b.custom, _clip(tri, 0, A.position.x, -1.0))
+				_fan(out, FAR, b.custom, _clip(tri, 0, A.end.x, 1.0))
+				var mid := _clip(_clip(tri, 0, A.position.x, 1.0), 0, A.end.x, -1.0)
+				_fan(out, FAR, b.custom, _clip(mid, 2, A.position.y, -1.0))
+				_fan(out, FAR, b.custom, _clip(mid, 2, A.end.y, 1.0))
+				tri = _clip(_clip(mid, 2, A.position.y, 1.0), 2, A.end.y, -1.0)
+				if tri.size() < 3:
+					continue
+				var p0 := Vector2(INF, INF)
+				var p1 := Vector2(-INF, -INF)
+				for vv in tri:
+					var q: Vector3 = vv[0]
+					p0 = p0.min(Vector2(q.x, q.z))
+					p1 = p1.max(Vector2(q.x, q.z))
+				lo = p0
+				hi = p1
+			pa = Vector3(lo.x, 0.0, lo.y)
+			pb = Vector3(hi.x, 0.0, hi.y)
+			pc = pa
 		var x0 := floori(minf(pa.x, minf(pb.x, pc.x)) / T)
 		var x1 := floori((maxf(pa.x, maxf(pb.x, pc.x)) - 1e-3) / T)
 		var z0 := floori(minf(pa.z, minf(pb.z, pc.z)) / T)
 		var z1 := floori((maxf(pa.z, maxf(pb.z, pc.z)) - 1e-3) / T)
 		x1 = maxi(x1, x0)
 		z1 = maxi(z1, z0)
-		var tri := [_vtx(b, ia), _vtx(b, ib), _vtx(b, ic)]
 		for tx in range(x0, x1 + 1):
 			for tz in range(z0, z1 + 1):
 				var poly: Array = tri
@@ -239,6 +283,27 @@ func _tiles(b: Batch) -> Dictionary:
 							ob.c0.append_array([c0.r, c0.g, c0.b, c0.a])
 							ob.c1.append_array([c1.r, c1.g, c1.b, c1.a])
 	return out
+
+## A convex piece (from _clip) into out[key], fanned to triangles.
+static func _fan(out: Dictionary, key: Vector2i, custom: bool, poly: Array) -> void:
+	if poly.size() < 3:
+		return
+	if not out.has(key):
+		var nb := Batch.new()
+		nb.custom = custom
+		out[key] = nb
+	var ob: Batch = out[key]
+	for k in range(1, poly.size() - 1):
+		for vv in [poly[0], poly[k], poly[k + 1]]:
+			ob.idx.append(ob.v.size())
+			ob.v.append(vv[0])
+			ob.uv.append(vv[1])
+			ob.col.append(vv[2])
+			if custom:
+				var c0: Color = vv[3]
+				var c1: Color = vv[4]
+				ob.c0.append_array([c0.r, c0.g, c0.b, c0.a])
+				ob.c1.append_array([c1.r, c1.g, c1.b, c1.a])
 
 func _vtx(b: Batch, i: int) -> Array:
 	if b.custom:
