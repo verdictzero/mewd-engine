@@ -10,8 +10,10 @@
 ## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words and a
 ## marker by the one you are on that blinks the way the skull did. The
 ## one you are on is filled in red, the logo's brick, at the user's
-## request. NEW GAME and MAP EDITOR go somewhere; the others shake their
-## heads.
+## request. NEW GAME opens the LEVELS — the maze, JESSE, THE SPRAWL, THE
+## GRID, THE ANNEXE — in the same column (at the user's request), and
+## one of those starts the game; MAP EDITOR goes to the editor; the
+## others shake their heads.
 ##
 ## THE LAYERS, at the user's request, top to bottom: this menu; MEWD, in
 ## front of the dither; the blue, over the finished frame; the dither;
@@ -20,7 +22,8 @@
 class_name Title
 extends Control
 
-signal new_game
+## the map chosen: maze, jesse, sprawl, grid or layers
+signal new_game(map: String)
 signal open_editor
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
@@ -29,6 +32,9 @@ const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LO
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
 ## asset — so it is always the latest and costs the site nothing to host
+## THE LEVELS, under NEW GAME
+const LEVELS := [["THE MAZE", "map:maze", true], ["JESSE", "map:jesse", true], ["THE SPRAWL", "map:sprawl", true],
+	["THE GRID", "map:grid", true], ["THE ANNEXE", "map:layers", true], ["BACK", "back", true]]
 const ZIP_URL := "https://github.com/verdictzero/sellwrong/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
@@ -38,6 +44,9 @@ var logo: TextureRect
 var panel: PanelContainer
 var buttons: Array[Button] = []
 var at := 0
+## the column on show: the main menu, or the levels
+var items: Array = ITEMS
+var col: VBoxContainer
 var font: Font
 ## the logo's shadows, inside the picture: [TextureRect, grow, dx, dy]
 var shade: Control
@@ -66,18 +75,10 @@ func _ready() -> void:
 	sb.set_content_margin_all(10)
 	panel.add_theme_stylebox_override("panel", sb)
 	add_child(panel)
-	var col := VBoxContainer.new()
+	col = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	panel.add_child(col)
-	for i in ITEMS.size():
-		var b := Button.new()
-		b.text = _spaced(ITEMS[i][0])
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_override("font", font)
-		b.mouse_entered.connect(func(): mark(i))
-		b.pressed.connect(func(): take(i))
-		col.add_child(b)
-		buttons.append(b)
+	_build_buttons()
 	var ver := Label.new()
 	ver.text = "V" + VERSION
 	ver.add_theme_font_override("font", font)
@@ -88,6 +89,29 @@ func _ready() -> void:
 	add_child(ver)
 	mark(0)
 	resized.connect(_layout)
+	_layout()
+
+func _build_buttons() -> void:
+	for b in buttons:
+		col.remove_child(b)
+		b.queue_free()
+	buttons = []
+	for i in items.size():
+		var b := Button.new()
+		b.text = _spaced(items[i][0])
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_override("font", font)
+		b.mouse_entered.connect(func(): mark(i))
+		b.pressed.connect(func(): take(i))
+		col.add_child(b)
+		buttons.append(b)
+
+## The column on show: the main menu, or the levels under NEW GAME.
+func show_page(levels: bool) -> void:
+	items = LEVELS if levels else ITEMS
+	_shake = {}
+	_build_buttons()
+	mark(0)
 	_layout()
 
 ## the menu's words set wide, as the page's letter-spacing sets them
@@ -172,14 +196,14 @@ func _place_shadows() -> void:
 		t.size = r.size * (1.0 + 2.0 * grow) * k
 
 func mark(i: int) -> void:
-	at = (i + ITEMS.size()) % ITEMS.size()
+	at = (i + items.size()) % items.size()
 	_style()
 
 func _style() -> void:
 	for j in buttons.size():
 		var b := buttons[j]
 		var on := j == at
-		var live: bool = ITEMS[j][2]
+		var live: bool = items[j][2]
 		var sb := StyleBoxFlat.new()
 		sb.set_corner_radius_all(10)
 		sb.set_border_width_all(2)
@@ -198,18 +222,23 @@ func _style() -> void:
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			b.add_theme_color_override(c, ink)
 		var marker := "▶ " if on and fmod(_blink, 1.0) < 0.5 else "  "
-		b.text = marker + _spaced(ITEMS[j][0]) + "  "
+		b.text = marker + _spaced(items[j][0]) + "  "
 
 func take(i: int) -> void:
 	mark(i)
-	if not ITEMS[at][2]:
+	if not items[at][2]:
 		_shake[at] = 0.32     # NOT YET: the one you tried shakes its head
 		return
-	if ITEMS[at][1] == "new":
-		new_game.emit()
-	elif ITEMS[at][1] == "editor":
+	var what: String = items[at][1]
+	if what == "new":
+		show_page(true)
+	elif what == "back":
+		show_page(false)
+	elif what.begins_with("map:"):
+		new_game.emit(what.substr(4))
+	elif what == "editor":
 		open_editor.emit()
-	elif ITEMS[at][1] == "zip":
+	elif what == "zip":
 		OS.shell_open(ZIP_URL)
 
 func _process(dt: float) -> void:
@@ -235,6 +264,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			mark(at + 1)
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			take(at)
+		KEY_ESCAPE, KEY_BACKSPACE:
+			if items == LEVELS:
+				show_page(false)
+			else:
+				return
 		_:
 			return
 	get_viewport().set_input_as_handled()

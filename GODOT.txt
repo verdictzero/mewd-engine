@@ -509,7 +509,10 @@ THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
 
 THE MAIN MENU FIRST (at the user's request): the game opens on the MEWD
 title, not on the web build's terminal (`-- --terminal` still opens
-that), and the editor's "Back" and a failed join come back to it. At
+that), and the editor's "Back" and a failed join come back to it. NEW
+GAME opens the LEVELS in the same column (at the user's request) —
+THE MAZE (a new one each time), JESSE, THE SPRAWL, THE GRID, THE
+ANNEXE, and BACK (Escape too) — and one of those starts the game. At
 the bottom of the menu, DOWNLOAD ZIP: GitHub's zip of the main branch,
 the whole thing (Title.ZIP_URL).
 
