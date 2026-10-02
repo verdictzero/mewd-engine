@@ -2,11 +2,11 @@
 ##
 ## A perfect maze carved by a depth-first walk, BRAIDED (an eighth of the
 ## inside walls knocked through) and cleared into a few PLAZAS; laid out
-## as tiles, wall and cell alternating, a wall tile a hedge-high sector
-## and a floor tile ground; runs of one kind merged into rectangles that
-## tile the square exactly. Returned as a map document for DocCompile —
-## the same shape the JS editor writes — and one seed is the same maze
-## as the web build's, generator for generator.
+## as tiles, wall and cell alternating, a wall tile a hedge-high BLOCK
+## on the ground and a floor tile the ground itself; runs of one kind
+## merged into rectangles that tile the square exactly. Returned as a
+## map document in blocks (BlockDoc, for BlockCompile), and one seed is
+## the same maze as the web build's, generator for generator.
 class_name MazeMap
 
 const NAME := "THE MAZE"
@@ -90,84 +90,29 @@ static func build(seed: int = 1, cells: int = CELLS, people: int = PEOPLE) -> Di
 				open[ty][tx] = 2
 
 	var size := _edge(T)
-	var d := {
-		"name": NAME, "vertices": [], "sectors": [], "lines": {}, "things": [],
-		# the grid's world under it (defaultWorld in js/editor/doc.js):
-		# nothing burns but people, nobody comes, the cell fire is off
-		"world": {"skybox": "BSKY2", "ambient": {"color": "#ffffff", "amount": 0.3}, "lightColor": "#fff6ea", "seed": seed,
-			"noBurn": true, "noSquads": true, "noCellFire": true},
-	}
-	var vmap := {}
-	var verts: Array = d.vertices
-	var v := func(x: int, y: int) -> int:
-		var key := Vector2i(x, y)
-		if vmap.has(key):
-			return vmap[key]
-		var i := verts.size()
-		verts.append(Vector2(x, y))
-		vmap[key] = i
-		return i
+	# ---- THE DOCUMENT, IN BLOCKS: the ground is the path, every run of
+	# hedge a block a hedge high (its top moss, its sides ivy), every
+	# plaza a patch of concrete on the ground; the grid's world under it
+	# (defaultWorld in js/editor/doc.js): nothing burns but people, nobody
+	# comes, the cell fire is off
+	var world := {"skybox": "BSKY2", "ambient": {"color": "#ffffff", "amount": 0.3}, "lightColor": "#fff6ea", "seed": seed,
+		"noBurn": true, "noSquads": true, "noCellFire": true}
+	var b := BlockDoc.new(NAME, {"tex": "DIRT_01", "light": 1.0}, world)
 	var KIND := {
-		0: {"name": "hedge", "floor": HEDGE_H, "floorTex": "MOSS_01"},
-		1: {"name": "path", "floor": 0, "floorTex": "DIRT_01"},
-		2: {"name": "plaza", "floor": 0, "floorTex": "CONC_4"},
+		0: {"h": HEDGE_H, "top": "MOSS_01", "side": "IVY1", "name": "hedge"},
+		1: null,
+		2: {"h": 0.0, "top": "CONC_4", "side": "CONC_4", "name": "plaza"},
 	}
-	# runs along each row, then runs the same across rows joined
-	var runs := []
-	for ty in T:
-		var tx := 0
-		while tx < T:
-			var kk: int = open[ty][tx]
-			var e := tx
-			while e + 1 < T and open[ty][e + 1] == kk:
-				e += 1
-			runs.append({"k": kk, "x0": tx, "x1": e, "y0": ty, "y1": ty})
-			tx = e + 1
-	var by_row := {}
-	var rects := []
-	for r in runs:
-		var above = null
-		for q in by_row.get(r.y0 - 1, []):
-			if q.k == r.k and q.x0 == r.x0 and q.x1 == r.x1:
-				above = q
-				break
-		if not by_row.has(r.y0):
-			by_row[r.y0] = []
-		if above != null:
-			above.y1 = r.y0
-			by_row[r.y0].append(above)
-		else:
-			rects.append(r)
-			by_row[r.y0].append(r)
-	for r in rects:
-		var X0: int = r.x0
-		var X1: int = r.x1 + 1
-		var Y0: int = r.y0
-		var Y1: int = r.y1 + 1
-		var ring := []
-		for i in range(X0, X1):
-			ring.append(v.call(_edge(i), _edge(Y0)))
-		for j in range(Y0, Y1):
-			ring.append(v.call(_edge(X1), _edge(j)))
-		for i in range(X1, X0, -1):
-			ring.append(v.call(_edge(i), _edge(Y1)))
-		for j in range(Y1, Y0, -1):
-			ring.append(v.call(_edge(X0), _edge(j)))
-		var kind: Dictionary = KIND[r.k]
-		d.sectors.append({
-			"verts": ring, "name": kind.name, "floor": kind.floor, "ceil": SKY_H,
-			"floorTex": kind.floorTex, "ceilTex": "SKY", "wallTex": "IVY1", "lowerTex": "IVY1", "upperTex": null,
-			"light": 1.0, "outdoor": true,
-		})
+	b.tiles(func(tx: int, ty: int) -> int: return open[ty][tx], T, T, func(kk: int): return KIND[kk], MazeMap._edge)
+	var d := b.out()
 
 	# ---- THINGS
 	var mid := func(i: int) -> float:
 		return _edge(i) + (CELL if i % 2 else WALL) / 2.0
-	var things: Array = d.things
 	var thing := func(type: String, x: float, y: float, extra := {}) -> void:
-		var t := {"type": type, "x": roundi(x), "y": roundi(y), "angle": rnd.next() * TAU}
+		var t := {"angle": rnd.next() * TAU}
 		t.merge(extra, true)
-		things.append(t)
+		b.thing(type, x, y, t)
 	thing.call("START", mid.call(1), mid.call(1), {"angle": PI / 4})
 	var TREES := ["fir_tall_1", "savanna_tree_1", "wasteland_tree", "pine_juvenile_fir_tree_1"]
 	for p in plazas:

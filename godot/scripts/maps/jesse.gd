@@ -6,8 +6,9 @@
 ##
 ## THE SAME FORMAT AS THE MAZE (maze.gd): a grid of tiles, a thin 64-unit
 ## wall line between every pair of 256-unit corridor cells, a wall tile
-## raised to a hedge's height, runs of one kind merged into rectangles
-## and those into a map document DocCompile builds.
+## a block a hedge high on the ground, runs of one kind merged into
+## rectangles and those into a map document in blocks (BlockDoc) that
+## BlockCompile builds.
 ##
 ## WILDLY DIFFERENT, because nothing about it is fixed but the idea:
 ##   THE SIZE      30–41 cells long, 18–26 across.
@@ -475,78 +476,27 @@ func _build(seed: int, opts: Dictionary) -> Dictionary:
 			t[i] = _zone_at(mini(W - 1, maxi(0, (x - 1) >> 1))).path
 			knocked += 1
 
-	# ---- THE DOCUMENT -------------------------------------------------
-	# The JS document's every field, the ones DocCompile does not read yet
-	# (lines keyed Vector2i(min, max) vertex indices, linedefs, textures,
-	# props, scatters) kept in shape and empty, as the JS leaves them.
+	# ---- THE DOCUMENT, IN BLOCKS -----------------------------------------
+	# The ground is the first zone's path; every other kind of tile a
+	# block on it (a hedge or a fort wall its height, a path or a room
+	# floor of another ground a patch of no height), runs of one kind
+	# merged into rectangles (BlockDoc.tiles).
 	var world := {
 		"noBurn": true, "noSquads": true, "noCellFire": true,
 		"sky": {"horizon": "#1d9a48", "mid": "#06301a", "zenith": "#000000", "ground": "#05180c", "midPow": 0.95},
 		"skybox": "BSKY2", "ambient": {"color": "#ffffff", "amount": 0.3}, "lightColor": "#fff6ea",
 		"seed": seed & 0xFFFFFFFF, "jesseSeed": seed & 0xFFFFFFFF,
 	}
-	var d := {
-		"format": "gss-map", "version": 1, "name": NAME,
-		"vertices": [], "sectors": [], "lines": {}, "linedefs": [], "things": [], "textures": [], "props": [], "scatters": [],
-		"world": world, "nextId": 1,
-	}
-	var vmap := {}
-	var verts: Array = d.vertices
-	var runs := []
-	for ty in TY:
-		var tx := 0
-		while tx < TX:
-			var kk := _T(tx, ty)
-			var e := tx
-			while e + 1 < TX and _T(e + 1, ty) == kk:
-				e += 1
-			runs.append({"k": kk, "x0": tx, "x1": e, "y0": ty, "y1": ty})
-			tx = e + 1
-	var by_row := {}
-	var rects := []
-	for r in runs:
-		var above = null
-		for q in by_row.get(r.y0 - 1, []):
-			if q.k == r.k and q.x0 == r.x0 and q.x1 == r.x1:
-				above = q
-				break
-		if not by_row.has(r.y0):
-			by_row[r.y0] = []
-		if above != null:
-			above.y1 = r.y0
-			by_row[r.y0].append(above)
-		else:
-			rects.append(r)
-			by_row[r.y0].append(r)
-	for r in rects:
-		var rx0: int = r.x0
-		var rx1: int = r.x1 + 1
-		var ry0: int = r.y0
-		var ry1: int = r.y1 + 1
-		var ring := []
-		for i in range(rx0, rx1):
-			ring.append(_vert(verts, vmap, _edge(i), _edge(ry0)))
-		for j in range(ry0, ry1):
-			ring.append(_vert(verts, vmap, _edge(rx1), _edge(j)))
-		for i in range(rx1, rx0, -1):
-			ring.append(_vert(verts, vmap, _edge(i), _edge(ry1)))
-		for j in range(ry1, ry0, -1):
-			ring.append(_vert(verts, vmap, _edge(rx0), _edge(j)))
-		# SECTOR_DEFAULTS, then the maze's outdoor sky, then the kind — its
-		# name is the kind's, kept apart, as the JS drops it from the sector
-		var sec := {
-			"floor": 0, "ceil": SKY_H + 64, "floorTex": "LAWN2", "ceilTex": "SKY", "wallTex": "GRIDWALL",
-			"upperTex": null, "lowerTex": null, "light": 1.0, "outdoor": true, "sky": 0, "name": "",
-		}
-		var kd: Dictionary = kinds[r.k]
-		for key in kd:
-			if key != "name":
-				sec[key] = kd[key]
-		sec.kind = kd.name
-		sec.id = d.nextId
-		d.nextId += 1
-		sec.verts = ring
-		d.sectors.append(sec)
+	var ground_tex: String = kinds[zones[0].path].floorTex
+	var bd := BlockDoc.new(NAME, {"tex": ground_tex, "light": 1.0}, world)
+	var kind_block := func(kk: int):
+		var kd: Dictionary = kinds[kk]
+		var fl := float(kd.get("floor", 0))
+		if fl == 0.0 and str(kd.get("floorTex", "")) == ground_tex:
+			return null
+		return {"h": fl, "top": str(kd.get("floorTex", "LAWN2")), "side": str(kd.get("wallTex", "IVY1")), "name": str(kd.name)}
+	bd.tiles(func(tx: int, ty: int) -> int: return t[ty * TX + tx], TX, TY, kind_block, JesseMap._edge)
+	var d := bd.out()
 
 	# ---- THINGS -------------------------------------------------------
 	var things: Array = d.things
@@ -624,15 +574,6 @@ func _build(seed: int, opts: Dictionary) -> Dictionary:
 func _step_kind(team: String, h: int) -> int:
 	return _kind("step:%s:%d" % [team, h], {"floor": h, "floorTex": "METALP1" if team == "A" else "CONC_7",
 		"wallTex": "CAUTSTR2", "lowerTex": "CAUTSTR2", "upperTex": null})
-
-static func _vert(verts: Array, vmap: Dictionary, x: int, y: int) -> int:
-	var key := Vector2i(x, y)
-	if vmap.has(key):
-		return vmap[key]
-	var i := verts.size()
-	verts.append(Vector2(x, y))
-	vmap[key] = i
-	return i
 
 ## A tile of base A, or its mirror in base B, as a map point nudged by
 ## (dx, dy) — turned round with it for B.

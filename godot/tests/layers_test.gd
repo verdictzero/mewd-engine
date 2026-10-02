@@ -124,12 +124,14 @@ func _compile() -> void:
 			steps += 1
 	check(steps == 7, "seven steps, sixteen high, a block each (%d)" % steps)
 	check(lv.sector_at(-30000, 40000) != null and lv.sector_at(-30000, 40000).floor == 0.0, "and the ground goes on far past the building")
-	# a map of one storey is exactly what it was
+	# the maze is a map in blocks too: hedges on the ground
 	var maze := DocCompile.compile(MazeMap.build(7))
-	var multi := false
-	for l in maze.lines:
-		multi = multi or l.multi or not l.bands.is_empty()
-	check(not maze.layered and not multi, "a map of one storey (the maze, in rooms) has no columns and no bands")
+	var hedges := 0
+	for s in maze.sectors:
+		if s.name == "hedge" and s.floor == float(MazeMap.HEDGE_H):
+			hedges += 1
+	check(maze.sector_at(192, 192) != null and maze.sector_at(192, 192).floor == 0.0 and hedges > 50 and DocCompile.problems.is_empty(),
+		"the maze is hedge blocks on the ground (%d hedges, start on the ground)" % hedges)
 
 func _line_at(lv: Level, p: Vector2) -> Level.Line:
 	for l in lv.lines:

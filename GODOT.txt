@@ -206,18 +206,48 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     - Vehicles, the wood, the street lamps, the scatters, a match's
       spawn pads and the plants stay on the ground (as in the web build).
 
-  THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE, JESSE, THE
-  SPRAWL (sprawl.gd) and THE GRID (grid.gd) are ported and produce the
-  SAME document as the JS — JESSE was diffed against js/maps/jesse.js
-  for 48 seeds (godot/tests/jesse_dump.gd); THE SPRAWL's document and
-  its compiled level (every sector, line, band, side, thing, plant and
-  box) against compileDoc(sprawlDoc()) (godot/tests/sprawl_dump.gd,
-  which the suite runs to hold the counts), and the grid's crowd
-  against buildGrid. THE ANNEXE (godot/scripts/maps/layers.gd,
-  --map=layers) is the port's own: a yard, a shop with an office over
-  it and a terrace beside that over open yard, drawn in two layers, with
-  stairs cut by the editor's step generator — the map room over room is
-  tested and pictured on.
+  THE MAPS (js/maps/ -> godot/scripts/maps/) ARE ALL IN BLOCKS now (at
+  the user's request: "remake the rest of the levels as well") — each
+  generator builds a BlockDoc (block_doc.gd: welded vertices, a block
+  from a ring or a rectangle, a line override, a thing, a scatter, the
+  storeys over the ground, and the tile grid the maze and JESSE are
+  laid out on merged into rectangles of one kind and made blocks) that
+  BlockCompile builds. THE MAZE (maze.gd): the ground is the dirt path,
+  every run of hedge a block 192 high (moss on top, ivy round), every
+  plaza a patch of concrete; the carving is the web build's, call for
+  call, so one seed is still the same maze. JESSE (jesse.gd): the
+  ground is the first zone's path, every other kind of tile a block on
+  it — the hedges and fort walls their height, a path or a room floor
+  of another ground a patch of no height, the cover 40, the tower deck
+  96 up steps of 24 — the bases, gates and spawn pads (world.pvp) as
+  they were; godot/tests/jesse_dump.gd builds seeds and holds the
+  forts, the tower, the gates and the ground being one connected
+  floor. THE SPRAWL (sprawl.gd): the roads are the ground, the plateau
+  four blocks 686 high round them (their inner faces the cliff, the
+  painted horizons standing on top as pictures across an edge), and
+  every piece of a district a block on what it is drawn inside — a
+  pavement 8 high, a lawn a patch on it, a pond pushed down into the
+  lawn, a hedge up out of it (each piece is still drawn at the height
+  of its top, a ring strictly inside its parent, and made relative at
+  the end: BlockDoc.relative_heights); a building its floor, four wall
+  blocks round it cut at the doors with a lintel floating over each, a
+  working door in every doorway that has a door texture, the room's
+  own texture a skin on the walls' inner edges, and a roof slab on the
+  layer over (holed where a courtyard or the hall's light well is open
+  to the sky); what were free boxes (desks, panels, cubicles, the
+  stones of the circle) are blocks floating at their own base. Gone
+  with it: a district's own fog and light colour (the map keeps its
+  own), the reactor room's higher ceiling. godot/tests/sprawl_dump.gd
+  builds it and holds the start, the plateau, the cliff, the horizons,
+  the cube farm's room, roof, walls and door, the pond, the light
+  well, the crowds, and that everything stands on its floor. THE GRID
+  (grid.gd): the lattice is the ground, four wall blocks 1024 high
+  round the field. THE ANNEXE (layers.gd, --map=layers): a yard, a shop
+  with an office over it and a terrace beside that over open yard, in
+  three layers, with stairs cut by the editor's step generator — the
+  map room over room is tested and pictured on. The web build's
+  documents these were diffed against are not these; cross-play with
+  js/ is lost with the format.
 
   THE SIMULATION runs at 35 tics a second, at most six a frame, and
   the picture is drawn between the last two (godot/scripts/game/
@@ -366,13 +396,25 @@ stuff")
   the floor to the ceiling of the storeys either side on its layer,
   swinging into the side that is a room (not the passage under the
   lintel block the edge belongs to), the lintel block's thickness its
-  wall. The maze, JESSE, THE SPRAWL and THE GRID the game plays are
-  still their generators' maps in rooms, compiled as they always were;
-  only THE ANNEXE is a map in blocks now (godot/scripts/maps/layers.gd:
-  a shop of a floor patch and four wall blocks with a lintel over its
-  door, seven stair blocks, the office's floor a slab on the shop's
-  walls with the office's walls on it and a terrace floating beside it,
-  a roof slab on the layer over), and the layers test plays it.
+  wall. A block's `air` (a map's, not the editor's) lights the open sky
+  over its top where a district is dimmer than the ground; a pit (a
+  block pushed down) draws its walls in its own sides (a skin put on
+  its edges), and cuts away the joins it goes down through. Blocks
+  floating at a base of their own are built bottom-up by base after
+  the ones standing on what is under them (a panel over a panel, a
+  roof on its posts), and one of them hidden inside another is no
+  problem — only a block standing on the ground with its top under
+  what it stands on is. Every level the game plays is a map in blocks
+  (THE MAPS above); THE ANNEXE (godot/scripts/maps/layers.gd: a shop of
+  a floor patch and four wall blocks with a lintel over its door, seven
+  stair blocks, the office's floor a slab on the shop's walls with the
+  office's walls on it and a terrace floating beside it, a roof slab on
+  the layer over) was the first, and the layers test plays it. The plan
+  overlay (DocCompile.overlay) hashes its segments into a grid so each
+  asks only its neighbours, and a face walk that comes back through a
+  vertex (two blocks meeting at a corner) is split there into the loops
+  either side; JESSE's 750 blocks build in a second, THE SPRAWL's
+  thousand in two and a half.
 
 
 THE MAP EDITOR (godot/scripts/editor/)
@@ -465,9 +507,11 @@ THE MAP EDITOR (godot/scripts/editor/)
   file dialog), Ctrl+S into user://mewd-editor/maps/, and an autosave
   (user://mewd-editor/autosave.gssmap.json) the editor opens on; its
   grid, snap, UI scale and left panel are remembered in
-  user://mewd-editor/prefs.json. File > Open demo: THE ANNEXE (a
-  building in three layers) and THE GRID. The compile runs in a
-  thread, on a copy, so a big map never holds the mouse.
+  user://mewd-editor/prefs.json. File > Open: THE ANNEXE (a building in
+  three layers), THE GRID, THE MAZE and JESSE (seed 7 of each) and THE
+  SPRAWL — every level the game plays, each a map in blocks to pick
+  apart. The compile runs in a thread, on a copy, so a big map never
+  holds the mouse.
 
   NOT HERE: the web build's editor and its files (the Godot editor's
   maps are blocks, not rooms, and the two do not read each other's);
@@ -537,8 +581,9 @@ TESTS
 
   runs the headless suites: the weapons against real people in the
   maze (godot/tests/weapons_test.gd — minigun, flamer, extinguisher,
-  bore, launcher, arc), the fire grid, the forest, and the JESSE
-  generator, and THE SPRAWL and the grid against the web build's counts,
+  bore, launcher, arc), the fire grid, the forest, JESSE built for two
+  seeds (its forts, tower, gates and one connected floor), THE SPRAWL
+  and THE GRID built in blocks (what each makes, piece by piece),
   and network play (godot/tests/net_test.gd: the TicCmd bytes against
   js/net/ticcmd.js's — node godot/tests/net_js.mjs prints them — a match
   over loopback pipes with prediction, a kill through the rewind and a

@@ -219,27 +219,6 @@ static func new_doc(name := "UNTITLED") -> Dictionary:
 		"nextId": 2,
 	}
 
-## THE GRID, as the editor opens it: the field, and sixty people placed
-## by the same roll.
-static func grid_doc() -> Dictionary:
-	var F := 10240.0
-	var mid := F / 2.0
-	var d := new_doc("THE GRID")
-	d.things = [{"id": 1, "type": "START", "x": mid, "y": mid - 512, "angle": PI / 2.0}]
-	var rnd := U.Rng.new(20250924)
-	var id := 2
-	var span := F * 0.66
-	var edge := (F - span) / 2.0
-	for k in 60:
-		var x := jsround(edge + rnd.next() * span)
-		var y := jsround(edge + rnd.next() * span)
-		var a := rnd.next() * PI * 2.0
-		var v := int(rnd.next() * 17)
-		d.things.append({"id": id, "type": "SHOPPER", "x": x, "y": y, "angle": a, "variant": v})
-		id += 1
-	d.nextId = id
-	return d
-
 static func take_id(doc: Dictionary) -> int:
 	var id := int(doc.get("nextId", 1))
 	doc["nextId"] = id + 1

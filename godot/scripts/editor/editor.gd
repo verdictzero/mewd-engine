@@ -173,7 +173,7 @@ func _init(start_doc = null, is_headless := false) -> void:
 		d = _read_autosave()
 	var opened := d != null
 	if d == null:
-		d = EdDoc.grid_doc()
+		d = EdDoc.normalise(EdDoc.clone(TheGrid.editor_doc()))
 	history = EdDoc.History.new(d)
 	bank = TexBank.new()
 	built_in = EdTex.built_in()
@@ -511,22 +511,29 @@ func redo() -> void:
 		say("redid %s" % l)
 
 func file_new(from_grid := false) -> void:
-	replace(EdDoc.grid_doc() if from_grid else EdDoc.new_doc(), "new from grid" if from_grid else "new map")
+	replace(EdDoc.normalise(EdDoc.clone(TheGrid.editor_doc())) if from_grid else EdDoc.new_doc(), "new from grid" if from_grid else "new map")
 	reframe()
 	say("new map from THE GRID" if from_grid else "new map: the ground, forever — drag on it to pull up a block (or R), D to draw any shape")
 
-## THE DEMO LEVELS: THE ANNEXE (a building in three layers:
-## godot/scripts/maps/layers.gd) and THE GRID.
+## THE DEMO LEVELS: every level the game plays, each a map in blocks
+## (godot/scripts/maps/): THE ANNEXE (a building in three layers), THE
+## GRID, THE MAZE and JESSE (one seed of each) and THE SPRAWL.
 func file_demo(which := "layers") -> void:
 	var d: Dictionary
 	match which:
-		"grid": d = EdDoc.grid_doc()
+		"grid": d = TheGrid.editor_doc()
+		"maze": d = MazeMap.build(7)
+		"jesse": d = JesseMap.build(7)
+		"sprawl": d = SprawlMap.build()
 		_: d = LayersMap.build()
 	d = EdDoc.normalise(EdDoc.clone(d))
 	replace(d, "open demo")
 	reframe()
 	match which:
 		"grid": say("opened THE GRID")
+		"maze": say("opened THE MAZE (seed 7): hedges on the ground")
+		"jesse": say("opened JESSE (seed 7): the forts and the maze between")
+		"sprawl": say("opened THE SPRAWL: sixteen districts, the roofs on the layer over — Alt+PgUp")
 		_: say("opened THE ANNEXE, a building in three layers — Alt+PgUp for the upstairs")
 
 func reframe() -> void:

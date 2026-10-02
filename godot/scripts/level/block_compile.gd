@@ -17,7 +17,8 @@
 ##             the block it is drawn inside on its own layer, the blocks
 ##             of the layers below), or a height to float at
 ##             light: the light of the space UNDER it (a slab lights the
-##             room it roofs); the open air has the ground's
+##             room it roofs); the open air has the ground's — or the
+##             block's `air`, where a map sets one over its top
 ##   lines     the overrides on an edge, keyed "a,b": tex (a skin on
 ##             every face of the edge), midTex (a fill across an open
 ##             edge: a fence, a window), xoff yoff xscale yscale,
@@ -178,13 +179,31 @@ static func _prepare(doc: Dictionary, lays: Array) -> Array:
 			b["__box"] = DocCompile._bbox(pts)
 			b["__k"] = int(g.k)
 			b["__ok"] = pts.size() >= 3 and not DocCompile.self_crosses(pts) and b.__area >= 1.0
-		built.append({"k": int(g.k), "vertices": V, "blocks": blocks, "sectors": blocks, "lines": g.lines if g.lines is Dictionary else {}})
+		# a pit (a block pushed down) draws its walls in its own sides: a
+		# skin on each of its edges, unless the edge wears one already
+		var lines: Dictionary = (g.lines as Dictionary).duplicate() if g.lines is Dictionary else {}
+		for b in blocks:
+			if b.h >= 0.0 or not b.__ok:
+				continue
+			var vs: Array = b.verts
+			for j in vs.size():
+				var key := "%d,%d" % [mini(int(vs[j]), int(vs[(j + 1) % vs.size()])), maxi(int(vs[j]), int(vs[(j + 1) % vs.size()]))]
+				var o = lines.get(key)
+				if o is Dictionary and str(o.get("tex", "")) != "":
+					continue
+				var oo: Dictionary = o.duplicate() if o is Dictionary else {}
+				oo["tex"] = tex(b, "side", "GRIDWALL")
+				lines[key] = oo
+		# and a grid of the blocks, so a point asks only its own cell's
+		var grid := DocCompile.BoxGrid.new(blocks.map(func(b): return b.__box if b.__ok else Rect2()))
+		built.append({"k": int(g.k), "vertices": V, "blocks": blocks, "sectors": blocks, "lines": lines, "grid": grid})
 	return built
 
 ## The blocks of layer `g` round a point, outermost first.
 static func _chain(g: Dictionary, at: Vector2) -> Array:
 	var out := []
-	for b in g.blocks:
+	for i in (g.grid as DocCompile.BoxGrid).at(at):
+		var b: Dictionary = g.blocks[i]
 		if b.__ok and (b.__box as Rect2).grow(0.01).has_point(at) and DocCompile.pip(b.__pts, at.x, at.y):
 			out.append(b)
 	out.sort_custom(func(p, q): return p.__area > q.__area)
@@ -242,8 +261,16 @@ static func compile(doc: Dictionary) -> Level:
 		var chains := []
 		for f in faces:
 			chains.append(_chain(g, f.at))
+		# the blocks standing on what is under them, the outermost first;
+		# then the ones floating at a base of their own, bottom-up (a
+		# panel over a panel, a roof on its posts)
 		var order: Array = g.blocks.filter(func(b): return b.__ok)
-		order.sort_custom(func(p, q): return p.__area > q.__area)
+		order.sort_custom(func(p, q):
+			if (p.base == null) != (q.base == null):
+				return p.base == null
+			if p.base != null and float(p.base) != float(q.base):
+				return float(p.base) < float(q.base)
+			return p.__area > q.__area)
 		for b in order:
 			var mine := []
 			for fi in faces.size():
@@ -264,7 +291,10 @@ static func compile(doc: Dictionary) -> Level:
 			for fi in mine:
 				var f: Dictionary = faces[fi]
 				if b.h >= 0.0 and b.__top < f.floor - EPS:
-					buried = true
+					# under what it stands on: nothing of it shows there (a
+					# block floating at its own base may well be inside
+					# another; one standing on the ground is a mistake)
+					buried = b.base == null
 					continue
 				f.ev.append({"b": b, "fb": f.floor})
 				f.floor = _raise(f.floor, b)
@@ -313,10 +343,25 @@ static func compile(doc: Dictionary) -> Level:
 				p["name"] = "join"
 				st.append({"k": stand.__k, "s": stand, "p": p})
 			fl = _raise(e.fb, b)
+			if b.h < 0.0:
+				# A PIT: the joins it cuts through go, the air over it
+				# comes down to its floor
+				var kept := []
+				for q in st:
+					var p: Dictionary = q.p
+					if p.ceil - p.floor <= ZEPS and p.floor >= fl - EPS:
+						continue
+					if p.floor > fl:
+						p.floor = fl
+					kept.append(q)
+				st = kept
 			ftex = tex(b, "top", "CONC_1")
 			side = bside
 			stand = b
-		st.append({"k": stand.__k, "s": stand, "p": _storey(fl, SKY_H, ftex, side, "SKY", side, num(ground.get("light"), 0.9), true, stand, null)})
+		# the open air over the last top: the ground's light, or the
+		# block's own `air` where a map sets one (a dim district)
+		var air := num(stand.get("air"), num(ground.get("light"), 0.9))
+		st.append({"k": stand.__k, "s": stand, "p": _storey(fl, SKY_H, ftex, side, "SKY", side, air, true, stand, null)})
 		fs.append({"id": -(i + 1), "verts": f.verts, "__storeys": st})
 	F["sectors"] = fs
 	# 4. the things (where each stands is asked of the level, below)
