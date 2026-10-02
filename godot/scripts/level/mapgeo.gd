@@ -268,17 +268,24 @@ static func _clip(poly: Array, axis: int, k: float, keep: float) -> Array:
 ## A DOOR (Level.Door): [the slab, under a Node3D at its hinge (a) for
 ## Doors to swing or slide, and its lintel (or null)] — the slab's
 ## picture stretched once over each face, the lintel's tiled like a wall.
+## EACH FACE IN THE LIGHT OF WHERE IT LOOKS: the one toward the room by
+## the room's, the one toward the other side by what lies past the wall
+## there (the street, under the sky) — a front door used to wear the
+## dark hall behind it, seen from a sunny street.
 func door_nodes(lv: Level, d: Level.Door) -> Array:
 	tinted = lv.tinted
 	batches = {}
 	var u := (d.b - d.a).normalized()
 	var n := d.inside
 	var w := d.a.distance_to(d.b)
-	var m := (d.a + d.b) / 2.0 + n * 4.0
-	var s = lv.sector_at(m.x, m.y)
-	if s != null and lv.layered:
-		s = lv.span_in(s, d.z0 + 1.0)
+	var mid := (d.a + d.b) / 2.0
+	var s = _door_side(lv, d, mid + n * 4.0)
+	var o = _door_side(lv, d, mid - n * (maxf(d.wall, 0.0) + 4.0))
+	if o == null:
+		o = s
 	var color := _light(s.light if s != null else 0.8, s.sky if s != null else 0.0)
+	var out := [_light(o.light if o != null else 0.8, o.sky if o != null else 0.0),
+		_paint_wall(o) if o != null else null, _fog_of(o) if o != null else NO_FOG]
 	_paint = _paint_wall(s) if s != null else null
 	_fog = _fog_of(s) if s != null else NO_FOG
 	var v0 := -d.depth / 2.0
@@ -286,7 +293,7 @@ func door_nodes(lv: Level, d: Level.Door) -> Array:
 	if d.style == "slide" and d.wall > 0.0:
 		v0 = -d.wall / 2.0 - d.depth / 2.0
 		v1 = -d.wall / 2.0 + d.depth / 2.0
-	_obox(Vector2.ZERO, u, n, 0.0, w, v0, v1, d.z0, d.top, d.tex, color, true)
+	_obox(Vector2.ZERO, u, n, 0.0, w, v0, v1, d.z0, d.top, d.tex, color, true, out)
 	var slab := Node3D.new()
 	slab.name = "Door%d" % d.index
 	_emit(slab)
@@ -295,7 +302,7 @@ func door_nodes(lv: Level, d: Level.Door) -> Array:
 	if d.lintel_top > d.top + 0.5:
 		var lv0 := -d.wall if d.wall > 0.0 else -4.0
 		var lv1 := 0.0 if d.wall > 0.0 else 4.0
-		_obox(d.a, u, n, 0.0, w, lv0, lv1, d.top, d.lintel_top, d.lintel_tex, color, false)
+		_obox(d.a, u, n, 0.0, w, lv0, lv1, d.top, d.lintel_top, d.lintel_tex, color, false, out)
 		lintel = Node3D.new()
 		lintel.name = "Lintel%d" % d.index
 		_emit(lintel)
@@ -303,11 +310,20 @@ func door_nodes(lv: Level, d: Level.Door) -> Array:
 	_fog = NO_FOG
 	return [slab, lintel]
 
+## The storey a door's face looks into at `at`, on the door's floor.
+static func _door_side(lv: Level, d: Level.Door, at: Vector2):
+	var s = lv.sector_at(at.x, at.y)
+	if s != null and lv.layered:
+		s = lv.span_in(s, d.z0 + 1.0)
+	return s
+
 ## A box on the plan's axes u (along) and n (across) from o: every face
 ## drawn from both sides (it is small, and it moves). `fit`: the picture
-## once over each long face; else tiled as a wall is.
+## once over each long face; else tiled as a wall is. `back`: [colour,
+## paint, fog] for the long face on the -n side (a door's face away from
+## its room), when that side is lit otherwise.
 func _obox(o: Vector2, u: Vector2, n: Vector2, u0: float, u1: float, v0: float, v1: float, z0: float, z1: float,
-		tex: String, color: Color, fit: bool) -> void:
+		tex: String, color: Color, fit: bool, back: Array = []) -> void:
 	if _none(tex):
 		return
 	var b := _batch(tex)
@@ -327,10 +343,23 @@ func _obox(o: Vector2, u: Vector2, n: Vector2, u0: float, u1: float, v0: float, 
 		[P.call(u1, v0, z1), P.call(u1, v1, z1), P.call(u1, v1, z0), P.call(u1, v0, z0), uv.call(0.0, v1 - v0, z1, z0)],
 		[P.call(u0, v0, z0), P.call(u1, v0, z0), P.call(u1, v1, z0), P.call(u0, v1, z0), uv.call(u0, u1, z1, z1 - (v1 - v0))],
 		[P.call(u0, v1, z1), P.call(u1, v1, z1), P.call(u1, v0, z1), P.call(u0, v0, z1), uv.call(u0, u1, z1, z1 - (v1 - v0))]]
-	for f in faces:
+	var paint = b.paint
+	var fogc: Color = b.fogc
+	for fi in faces.size():
+		var f: Array = faces[fi]
+		var c := color
+		if fi == 0 and not back.is_empty():
+			c = back[0]
+			b.paint = back[1]
+			b.fogc = back[2]
+		else:
+			b.paint = paint
+			b.fogc = fogc
 		var q: Array = [f[0], f[1], f[2], f[3]]
-		b.quad(q, f[4], color)
-		b.quad([q[3], q[2], q[1], q[0]], [f[4][3], f[4][2], f[4][1], f[4][0]], color)
+		b.quad(q, f[4], c)
+		b.quad([q[3], q[2], q[1], q[0]], [f[4][3], f[4][2], f[4][1], f[4][0]], c)
+	b.paint = paint
+	b.fogc = fogc
 
 static func _light(l: float, sky: float) -> Color:
 	return Color(clampf(l, 0.02, 1.4), sky, 0.0, 1.0)

@@ -1338,7 +1338,7 @@ static func linedef_walls(doc: Dictionary, probs: Array, id_base := -1) -> Dicti
 ## What a door is when its override says nothing (and what the editor's
 ## door tool puts in a new one): 64 wide, 96 high, the shutter, swinging
 ## open as somebody comes to it.
-const DOOR_DEFAULT := {"w": 64, "h": 96, "tex": "DOOR0001", "style": "swing", "auto": true}
+const DOOR_DEFAULT := {"w": 64, "h": 96, "tex": "DR1_01", "style": "swing", "auto": true}
 
 ## A LINE WITH A DOOR (its override's `door`: {h, tex, style, auto,
 ## locked, lintelTex}): a Level.Door across it, on the level lines along
@@ -1421,7 +1421,7 @@ static func _build_doors(lv: Level, lays: Array) -> void:
 			var h := maxf(24.0, float(dd.get("h", 96)))
 			dr.top = z0 + h if lt == INF else minf(lt, z0 + h)
 			dr.lintel_top = dr.top if lt == INF else lt
-			dr.tex = str(dd.get("tex", "DOOR0001"))
+			dr.tex = str(dd.get("tex", "DR1_01"))
 			dr.lintel_tex = str(dd.get("lintelTex", into.get("wallTex", "GRIDWALL") if into != null and into.get("wallTex") else "GRIDWALL"))
 			dr.style = "slide" if str(dd.get("style", "swing")) == "slide" else "swing"
 			dr.auto = bool(dd.get("auto", true))

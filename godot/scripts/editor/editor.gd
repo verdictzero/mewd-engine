@@ -690,7 +690,7 @@ func select_surface(s) -> void:
 
 ## THE DOOR TOOL's door: what a click in Doors mode (O) puts in a wall —
 ## `w` wide, the rest the line override's `door` (DocCompile.DOOR_DEFAULT)
-var door_preset := {"w": 64, "h": 96, "tex": "DOOR0001", "style": "swing", "auto": true}
+var door_preset := {"w": 64, "h": 96, "tex": "DR1_01", "style": "swing", "auto": true}
 
 ## A DOOR IN A WALL BLOCK at `at` along line `key`: the block the line
 ## is an edge of is cut across into three, the piece under the click

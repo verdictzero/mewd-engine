@@ -64,7 +64,7 @@ const ZEPS := 1e-6
 const LAYER_PARTS := ["vertices", "blocks", "lines"]
 const BLOCK_DEFAULTS := {"h": 128.0, "base": null, "top": "CONC_1", "side": "GRIDWALL", "under": null, "light": 0.72, "name": ""}
 const GROUND_DEFAULTS := {"tex": "LAWN2", "light": 0.9}
-const DOOR_DEFAULT := {"h": 96, "tex": "DOOR0001", "style": "swing", "auto": true, "locked": false}
+const DOOR_DEFAULT := {"h": 96, "tex": "DR1_01", "style": "swing", "auto": true, "locked": false}
 ## what the last build worked out for every block: {"k": {id: {base,
 ## top}}} by layer — for the editor
 static var last_blocks := {}
@@ -495,7 +495,7 @@ static func build_doors(lv: Level, built: Array) -> void:
 			var roofed: bool = lt < SKY_H - 1.0
 			dr.top = minf(lt, z0 + h) if roofed else z0 + h
 			dr.lintel_top = lt if roofed else dr.top
-			dr.tex = str(dd.get("tex", "DOOR0001"))
+			dr.tex = str(dd.get("tex", "DR1_01"))
 			var lintel_tex := "GRIDWALL"
 			dr.wall = 0.0
 			if over_id != null:

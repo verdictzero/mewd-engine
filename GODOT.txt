@@ -546,7 +546,14 @@ THE MAP EDITOR (godot/scripts/editor/)
                puts in another; Shift+click takes a door out (the
                doorway stays). The inspector's panel on top sets the
                width, height, swinging or sliding, by itself or on the
-               use key, the texture.
+               use key, the texture (DR1_01, the pack's red-eye door,
+               unless you pick another). Each face of a door is lit by
+               where it looks (MapGeo.door_nodes): the side toward its
+               room by the room, the other by what lies past the wall —
+               a front door seen from the street is lit as the street
+               is. It used to wear the room behind it on both faces,
+               and the old default, the near-black DOOR0001 shutter,
+               made that read as a black slab.
     THE SIDES  a texture clicked with a block selected is its Sides;
                Alt+click a side (3D) or a line (plan), or double-click a
                line, or the inspector's "Select its sides", selects
@@ -699,7 +706,11 @@ THE ANDROID BUILD (an APK)
   main or the Godot branch (tools/ci-android.sh sets up a clean runner)
   and puts it up as the rolling release "android". Repository secrets
   MEWD_KEYSTORE_B64, MEWD_KEY_ALIAS and MEWD_KEY_PASS give it a steady
-  key; without them each build is signed with a new one.
+  key; without them each build is signed with a new one. The runs share
+  one queue whichever branch pushed (concurrency group android-release,
+  never cancelled midway), so a push to both at once can no longer have
+  one run delete the release under the other's upload; the Linux build
+  (linux.yml, release "linux") does the same.
 
 THE PERFORMANCE OVERLAY (ui/perf.gd): FRAME RATE on the pause menu's
 DEBUG page, on by default. Frames a second, the frame's time and the

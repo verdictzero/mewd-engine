@@ -18,9 +18,15 @@ on:
 permissions:
   contents: write
 
+# ONE QUEUE FOR THE ONE RELEASE, whichever branch pushed: a push to main
+# and the Godot branch at once used to run side by side, each deleting
+# and recreating "android" under the other (the second's upload then
+# found its release gone: HTTP 404). Now they take turns, and none is
+# cancelled halfway — a run cut off between the delete and the create
+# would leave no release at all. The last to finish is the one up.
 concurrency:
-  group: android-${{ github.ref }}
-  cancel-in-progress: true
+  group: android-release
+  cancel-in-progress: false
 
 jobs:
   apk:

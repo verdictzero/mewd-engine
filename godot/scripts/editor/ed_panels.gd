@@ -571,7 +571,7 @@ func _door_items(o: Dictionary) -> Array:
 		EdStyle.row("Opens", [EdStyle.option(styles, dr.get("style", "swing"), func(v): set_d.call("style", v))]),
 		EdStyle.row("By itself", [EdStyle.check(dr.get("auto", true), func(v): set_d.call("auto", v), "as anybody comes to it")]),
 		EdStyle.row("Locked", [EdStyle.check(dr.get("locked", false), func(v): set_d.call("locked", v), "shut, for good")]),
-		tex_field(dr.get("tex", "DOOR0001"), "door.tex", "Door texture"),
+		tex_field(dr.get("tex", "DR1_01"), "door.tex", "Door texture"),
 		EdStyle.flow([EdStyle.small_button("✕ No door", func(): each("no door", func(x): x.erase("door")), "Still a way through, with no door in it")])]
 
 ## A LOOP (MewdEditor.loop_select): the walls of one sector, textured on
