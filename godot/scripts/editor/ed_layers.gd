@@ -1,9 +1,9 @@
 ## MEWD Editor — THE LAYERS PANE, Photoshop's, at the user's request: the
 ## map's layers (its storeys) as a stack, the top one at the top, each
 ## with a thumbnail of its plan, its name and an eye; and under each, its
-## HIERARCHY — its rooms, a room cut out of another (a pillar, a pit, a
-## platform) under the one it is cut from, and every thing under the room
-## it stands in (the ones in no room at the end).
+## HIERARCHY — its blocks, a block drawn inside another (standing on it)
+## under the one it is in, and every thing under the block it stands on
+## (the ones on the bare ground at the end).
 ##
 ##   click a layer        edit it (the layer being edited is lit)
 ##   the eye              hide it: not ghosted in the plan, and left out
@@ -14,7 +14,7 @@
 ##   drag it              up or down the stack: it swaps places with the
 ##                        layers it passes, each taking the other's height
 ##   right-click          rename, duplicate, up, down, alone, delete
-##   click a room/thing   select it (Ctrl/Shift for more), on its layer;
+##   click a block/thing  select it (Ctrl/Shift for more), on its layer;
 ##                        double-click frames it
 ##   along the bottom     a new layer on top, duplicate, up, down, delete
 ##
@@ -54,7 +54,7 @@ func build(parent: Control) -> Control:
 	box.offset_top = 4
 	box.offset_bottom = -6
 	parent.add_child(box)
-	box.add_child(EdStyle.note("The map's layers, top storey first. Click one to edit it, the eye to hide it, double-click to rename, drag to move it in the stack; open one for its rooms and things."))
+	box.add_child(EdStyle.note("The map's layers, top storey first. Click one to edit it, the eye to hide it, double-click to rename, drag to move it in the stack; open one for its blocks and things."))
 	tree = Tree.new()
 	tree.columns = 2
 	tree.hide_root = true
@@ -139,8 +139,8 @@ func render() -> void:
 		it.set_text(0, EdDoc.layer_name(d, k))
 		it.set_icon(0, _thumb(g, bounds, k == cur, hidden))
 		it.set_icon_max_width(0, THUMB.x)
-		it.set_tooltip_text(0, "Layer %d%s · %d sector%s · %d thing%s\nclick: edit it · double-click: rename · drag: move it in the stack · right-click: more" % [
-			k, " (the ground)" if k == 0 else "", g.sectors.size(), "" if g.sectors.size() == 1 else "s", n_th, "" if n_th == 1 else "s"])
+		it.set_tooltip_text(0, "Layer %d%s · %d block%s · %d thing%s\nclick: edit it · double-click: rename · drag: move it in the stack · right-click: more" % [
+			k, " (the ground)" if k == 0 else "", g.blocks.size(), "" if g.blocks.size() == 1 else "s", n_th, "" if n_th == 1 else "s"])
 		it.add_button(1, _eye_shut if hidden else _eye, 0, false, "Show this layer" if hidden else "Hide this layer (Alt+click: this one alone)")
 		if k == cur:
 			it.set_custom_bg_color(0, Color("#17301f"))
@@ -149,7 +149,7 @@ func render() -> void:
 			it.set_custom_color(0, Color.WHITE)
 		elif hidden:
 			it.set_custom_color(0, EdStyle.DIM)
-		var filled: bool = not g.sectors.is_empty() or n_th > 0 or not g.linedefs.is_empty()
+		var filled: bool = not g.blocks.is_empty() or n_th > 0
 		it.collapsed = not _open.has(str(k))
 		if filled:
 			if it.collapsed:
@@ -163,12 +163,12 @@ func render() -> void:
 		if c is VScrollBar:
 			(c as VScrollBar).value = scroll.y
 
-## A layer's hierarchy under its row: rooms in rooms, things in rooms.
+## A layer's hierarchy under its row: blocks in blocks, things on blocks.
 func _fill(it: TreeItem, k: int, g: Dictionary) -> void:
 	for c in it.get_children():
 		it.remove_child(c)
 		c.free()
-	var S: Array = g.sectors
+	var S: Array = g.blocks
 	var parents := EdDoc.hole_parents(g) if not S.is_empty() else PackedInt32Array()
 	var kids := {}
 	var rings := []
@@ -183,7 +183,7 @@ func _fill(it: TreeItem, k: int, g: Dictionary) -> void:
 		if not kids.has(p):
 			kids[p] = []
 		kids[p].append(i)
-	# each thing in the smallest room round it
+	# each thing on the smallest block round it
 	var owned := {}
 	for t in ed.doc.things:
 		if int(EdDoc.num(t.get("layer"), 0)) != k:
@@ -201,32 +201,26 @@ func _fill(it: TreeItem, k: int, g: Dictionary) -> void:
 			owned[best] = []
 		owned[best].append(t)
 	for i in kids.get(-1, []):
-		_sector_item(it, k, g, i, kids, owned, str(k))
+		_block_item(it, k, g, i, kids, owned, str(k))
 	for t in owned.get(-1, []):
 		_thing_item(it, k, t)
-	var free: int = g.linedefs.size()
-	if free > 0:
-		var l := tree.create_item(it)
-		l.set_text(0, "%d free-standing line%s" % [free, "" if free == 1 else "s"])
-		l.set_custom_color(0, EdStyle.DIM)
-		l.set_selectable(0, false)
-		l.set_selectable(1, false)
 
-func _sector_item(parent: TreeItem, k: int, g: Dictionary, i: int, kids: Dictionary, owned: Dictionary, path: String) -> void:
-	var s: Dictionary = g.sectors[i]
+func _block_item(parent: TreeItem, k: int, g: Dictionary, i: int, kids: Dictionary, owned: Dictionary, path: String) -> void:
+	var s: Dictionary = g.blocks[i]
 	var it := tree.create_item(parent)
 	var nm: String = str(s.get("name", ""))
-	it.set_text(0, nm if nm != "" else "Sector %d" % int(s.id))
-	it.set_icon(0, _icon("sector", Color("#7fb2ff") if not s.get("outdoor", true) else Color("#7fd88f")))
-	it.set_metadata(0, {"kind": "sector", "k": k, "id": s.id})
-	it.set_tooltip_text(0, "Sector %d · floor %d, ceiling %d · %s\nclick: select · double-click: frame it" % [int(s.id), int(EdDoc.num(s.get("floor"), 0)),
-		int(EdDoc.num(s.get("ceil"), 0)), "inside" if not s.get("outdoor", true) else "outside"])
+	it.set_text(0, nm if nm != "" else "Block %d" % int(s.id))
+	var floats: bool = EdDoc.base_of(s) != null
+	it.set_icon(0, _icon("block", Color("#7fb2ff") if floats else Color("#7fd88f")))
+	it.set_metadata(0, {"kind": "block", "k": k, "id": s.id})
+	it.set_tooltip_text(0, "Block %d · %d high%s\nclick: select · double-click: frame it" % [int(s.id), int(EdDoc.h_of(s)),
+		(" · floating at %d" % int(EdDoc.num(s.get("base"), 0))) if floats else " · on what is under it"])
 	_items["s%s" % s.id] = it
 	var p := "%s/s%s" % [path, s.id]
 	var has := kids.has(i) or owned.has(i)
 	it.collapsed = has and not _open.has(p)
 	for c in kids.get(i, []):
-		_sector_item(it, k, g, c, kids, owned, p)
+		_block_item(it, k, g, c, kids, owned, p)
 	for t in owned.get(i, []):
 		_thing_item(it, k, t)
 
@@ -247,14 +241,14 @@ func _thing_item(parent: TreeItem, k: int, t: Dictionary) -> void:
 # WHAT IS SELECTED, both ways
 # ---------------------------------------------------------------------
 
-## The map's selection, shown here (and the rooms it is in opened, when
+## The map's selection, shown here (and the blocks it is in opened, when
 ## its layer is open).
 func _sync_sel(reveal := true) -> void:
 	if tree == null:
 		return
 	_syncing = true
 	tree.deselect_all()
-	var pre := "s" if ed.sel_kind == "sector" else ("t" if ed.sel_kind == "thing" else "")
+	var pre := "s" if ed.sel_kind == "block" else ("t" if ed.sel_kind == "thing" else "")
 	var last: TreeItem = null
 	if pre != "":
 		for id in ed.sel_ids:
@@ -310,7 +304,7 @@ func _apply_sel() -> void:
 		ids = [m.id]
 	if m.k != ed.layer():
 		ed.set_layer(m.k)
-	ed.set_mode("sectors" if m.kind == "sector" else "things")
+	ed.set_mode("blocks" if m.kind == "block" else "things")
 	ed.select(m.kind, ids)
 
 func _on_tree_input(e: InputEvent) -> void:
@@ -408,7 +402,7 @@ func ask_delete(k: int) -> void:
 		return
 	var c := ConfirmationDialog.new()
 	c.title = "MEWD Editor"
-	c.dialog_text = "Delete %s (layer %d), its rooms and its things? Ctrl+Z brings it back." % [EdDoc.layer_name(ed.doc, k), k]
+	c.dialog_text = "Delete %s (layer %d), its blocks and its things? Ctrl+Z brings it back." % [EdDoc.layer_name(ed.doc, k), k]
 	c.confirmed.connect(func(): ed.delete_layer(k); c.queue_free())
 	c.canceled.connect(func(): c.queue_free())
 	ui.add_child(c)
@@ -519,7 +513,7 @@ func _thumb(g: Dictionary, b: Rect2, cur: bool, hidden: bool) -> Texture2D:
 		var col := Color("#cfe8d6") if cur else Color("#8a98a4")
 		if hidden:
 			col.a = 0.35
-		for s in g.sectors:
+		for s in g.blocks:
 			var n: int = s.verts.size()
 			for i in n:
 				var a: Vector2 = g.vertices[int(s.verts[i])] * sc + off
@@ -562,7 +556,7 @@ func _icon(kind: String, c: Color) -> Texture2D:
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
 	for y in 10:
 		for x in 10:
-			if kind == "sector":
+			if kind == "block":
 				if x == 1 or x == 8 or y == 1 or y == 8:
 					if x >= 1 and x <= 8 and y >= 1 and y <= 8:
 						img.set_pixel(x, y, c)

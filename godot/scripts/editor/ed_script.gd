@@ -1,17 +1,11 @@
-## MEWD Editor — a script of edits (godot/tests/editor_ops.json's
-## format): the same operations the views and the keyboard make, run in
-## order. The parity test (godot/tests/editor_test.gd) runs one against
-## the web build's editor; `--edit --edit-ops=FILE` runs one in the real
-## editor for pictures (with a few more ops that drive the workspace:
-## layout, visual, camera, tab, demo, hover...).
+## MEWD Editor — a script of edits: the same operations the views and
+## the keyboard make, run in order. The editor's test (godot/tests/
+## editor_test.gd) runs one; `--edit --edit-ops=FILE` runs one in the
+## real editor for pictures (with a few more ops that drive the
+## workspace: layout, visual, camera, tab, demo, hover...).
 class_name EdScript
 
-## the parity test measures every texture as 64 (the web build's bank is
-## not there headless); the real editor measures them
-static var zero_sizes := false
-
 static func run(ed: MewdEditor, ops: Array, checkpoint := Callable()) -> void:
-	var zero := func(_n): return Vector2.ZERO
 	for op in ops:
 		var k: String = op[0]
 		var a: Array = op.slice(1)
@@ -19,9 +13,9 @@ static func run(ed: MewdEditor, ops: Array, checkpoint := Callable()) -> void:
 			"rect": ed.add_rect(Vector2(a[0][0], a[0][1]), Vector2(a[1][0], a[1][1]))
 			"shape": ed.set_shape(a[0], a[1] if a[1] == null else int(a[1]))
 			"select": ed.select(a[0], a[1].map(func(x): return int(x)))
-			"selectSectorAt":
-				var s = ed.sector_at(a[0], a[1])
-				ed.select("sector", [s.id] if s != null else [])
+			"selectBlockAt":
+				var s = ed.block_at(a[0], a[1])
+				ed.select("block", [s.id] if s != null else [])
 			"selectLineAt":
 				var best = null
 				var bd := 16.0
@@ -52,26 +46,22 @@ static func run(ed: MewdEditor, ops: Array, checkpoint := Callable()) -> void:
 					if t.type == a[0]:
 						ids.append(t.id)
 				ed.select("thing", ids)
-			"inside": ed.set_inside(a[0])
 			"path":
 				ed.path = a[0].map(func(p): return Vector2(p[0], p[1]))
 				ed.close_path(a[1])
-			"linedefs": ed.add_linedefs(PackedVector2Array(a[0].map(func(p): return Vector2(p[0], p[1]))))
-			"sector": ed.add_sector(PackedVector2Array(a[0].map(func(p): return Vector2(p[0], p[1]))))
+			"block": ed.add_block(PackedVector2Array(a[0].map(func(p): return Vector2(p[0], p[1]))))
+			"pull": ed.set_pull(float(a[0]))
+			"make": ed.set_make(a[0])
+			"base": ed.set_base(int(a[0]), a[1])
+			"door": ed.place_door(a[0], Vector2(a[1], a[2]))
 			"thingType": ed.thing_type = a[0]
 			"thing": ed.add_thing(a[0], a[1])
-			"prop": ed.add_prop(a[0], a[1], a[2], a[3])
 			"height": ed.nudge_height(a[0], a[1])
 			"light": ed.nudge_light(int(a[0]))
 			"stairs": ed.make_steps("stairs", a[0])
 			"rings": ed.make_steps("rings", a[0])
 			"mode": ed.set_mode(a[0])
 			"delete": ed.delete_sel()
-			"align":
-				# the web build's bank is not there headless: every texture 64
-				var d := ed.edit_begin("align")
-				EdDoc.align_textures(d, ed.sel_ids.keys(), a[0], zero if zero_sizes else ed.tex_size)
-				ed.edit_end(false)
 			"move":
 				var at := Vector2(a[0][0], a[0][1])
 				var dr := ed.begin_move(ed.grab_point(at), at)

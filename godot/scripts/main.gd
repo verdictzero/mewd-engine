@@ -189,7 +189,7 @@ func show_title() -> void:
 	title = Title.new()
 	title_layer.add_child(title)
 	title.attach_shade(shade)
-	title.new_game.connect(start_game)
+	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
 	title.open_editor.connect(_title_to_editor)
 	title.pad_setup.connect(open_pad_wizard)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -210,6 +210,8 @@ func _title_to_editor() -> void:
 	show_editor()
 
 var _loading := false
+## the level picked on the title (NEW GAME), "" for the default
+var _chosen_map := ""
 func start_game() -> void:
 	if game != null or _loading:
 		return
@@ -241,6 +243,9 @@ func start_game() -> void:
 	lofi.gun.add_child(w3d)
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
+	if _chosen_map != "":
+		game.map_name = _chosen_map
+		_chosen_map = ""
 	if _jesse:
 		game.map_name = "jesse"
 	# a test run of a map from the editor

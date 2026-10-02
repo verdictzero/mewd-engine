@@ -29,7 +29,7 @@ RUNNING IT
                          straight port, random-number call for call)
     --map=NAME           maze (the default), jesse, sprawl (THE SPRAWL,
                          the web build's ?sprawl), grid (?grid) or layers
-                         (THE ANNEXE: a map in two storeys, room over room)
+                         (THE ANNEXE: a building in blocks, three layers)
     --at=X,Y,DEG[,LAYER] stand the start somewhere else (for pictures);
                          LAYER: on that layer's floor, on a map in layers
     --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
@@ -74,6 +74,24 @@ RUNNING IT
   about a pad only after its first press.)
   F2 in the game opens the map editor on the map last edited (a test
   run from the editor has an "◀ EDITOR F2" button too).
+
+  SLOW MOTION (the Godot build's own, at the user's request): T, the
+  right stick pressed in on the pad (Pad's "slow"; the wizard asks for
+  it), or SLO on the glass, toggles it. The world runs one tic in
+  four (Game.SLOW_MO) while your own body takes all four, so you walk,
+  turn and fire as fast as ever through a world that crawls — bullet
+  time, not a replay; the music slows with it, and the HUD says so at
+  the top of the screen. Not in a network match, whose worlds must
+  agree. The weapons test checks the tic count and the player's draw.
+
+  BRAINS (game/trophies.gd; at the user's request, "let the player
+  collect body parts extracted with the cerebral bore"): when a bore
+  finishes its drilling and the head goes, what it was after drops out
+  — a brain, out of the gore strip, which falls to the floor and lies
+  there turning until a player walks over it and takes it. A trophy
+  and nothing more: BRAINS n on the HUD under the gun's name
+  (Player.brains), a toast as each is taken. The weapons test finds
+  the one its bore kill left and walks over it.
 
 
 HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
@@ -255,18 +273,48 @@ HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
     - Vehicles, the wood, the scatters, a match's
       spawn pads and the plants stay on the ground (as in the web build).
 
-  THE MAPS (js/maps/ -> godot/scripts/maps/). THE MAZE, JESSE, THE
-  SPRAWL (sprawl.gd) and THE GRID (grid.gd) are ported and produce the
-  SAME document as the JS — JESSE was diffed against js/maps/jesse.js
-  for 48 seeds (godot/tests/jesse_dump.gd); THE SPRAWL's document and
-  its compiled level (every sector, line, band, side, thing, plant and
-  box) against compileDoc(sprawlDoc()) (godot/tests/sprawl_dump.gd,
-  which the suite runs to hold the counts), and the grid's crowd
-  against buildGrid. THE ANNEXE (godot/scripts/maps/layers.gd,
-  --map=layers) is the port's own: a yard, a shop with an office over
-  it and a terrace beside that over open yard, drawn in two layers, with
-  stairs cut by the editor's step generator — the map room over room is
-  tested and pictured on.
+  THE MAPS (js/maps/ -> godot/scripts/maps/) ARE ALL IN BLOCKS now (at
+  the user's request: "remake the rest of the levels as well") — each
+  generator builds a BlockDoc (block_doc.gd: welded vertices, a block
+  from a ring or a rectangle, a line override, a thing, a scatter, the
+  storeys over the ground, and the tile grid the maze and JESSE are
+  laid out on merged into rectangles of one kind and made blocks) that
+  BlockCompile builds. THE MAZE (maze.gd): the ground is the dirt path,
+  every run of hedge a block 192 high (moss on top, ivy round), every
+  plaza a patch of concrete; the carving is the web build's, call for
+  call, so one seed is still the same maze. JESSE (jesse.gd): the
+  ground is the first zone's path, every other kind of tile a block on
+  it — the hedges and fort walls their height, a path or a room floor
+  of another ground a patch of no height, the cover 40, the tower deck
+  96 up steps of 24 — the bases, gates and spawn pads (world.pvp) as
+  they were; godot/tests/jesse_dump.gd builds seeds and holds the
+  forts, the tower, the gates and the ground being one connected
+  floor. THE SPRAWL (sprawl.gd): the roads are the ground, the plateau
+  four blocks 686 high round them (their inner faces the cliff, the
+  painted horizons standing on top as pictures across an edge), and
+  every piece of a district a block on what it is drawn inside — a
+  pavement 8 high, a lawn a patch on it, a pond pushed down into the
+  lawn, a hedge up out of it (each piece is still drawn at the height
+  of its top, a ring strictly inside its parent, and made relative at
+  the end: BlockDoc.relative_heights); a building its floor, four wall
+  blocks round it cut at the doors with a lintel floating over each, a
+  working door in every doorway that has a door texture, the room's
+  own texture a skin on the walls' inner edges, and a roof slab on the
+  layer over (holed where a courtyard or the hall's light well is open
+  to the sky); what were free boxes (desks, panels, cubicles, the
+  stones of the circle) are blocks floating at their own base. Gone
+  with it: a district's own fog and light colour (the map keeps its
+  own), the reactor room's higher ceiling. godot/tests/sprawl_dump.gd
+  builds it and holds the start, the plateau, the cliff, the horizons,
+  the cube farm's room, roof, walls and door, the pond, the light
+  well, the crowds, and that everything stands on its floor. THE GRID
+  (grid.gd): the lattice is the ground, four wall blocks 1024 high
+  round the field. THE ANNEXE (layers.gd, --map=layers): a yard, a shop
+  with an office over it and a terrace beside that over open yard, in
+  three layers, with stairs cut by the editor's step generator — the
+  map room over room is tested and pictured on. The web build's
+  documents these were diffed against are not these; cross-play with
+  js/ is lost with the format.
 
   THE SIMULATION runs at 35 tics a second, at most six a frame, and
   the picture is drawn between the last two (godot/scripts/game/
@@ -392,110 +440,205 @@ NETWORK PLAY (js/net/ -> godot/scripts/net/)
   host --spawns=x,y;x,y… (a deathmatch's pads) and --score-file=PATH.
 
 
-THE MAP EDITOR (js/editor/ -> godot/scripts/editor/)
+A MAP IN BLOCKS (godot/scripts/level/block_compile.gd; at the user's
+request: "layer 0 is an infinite plane the player could hypothetically
+walk on forever; everything else is built on top of that ... treat it
+all as geometric extrusion with texturing instead of how doom treats
+stuff")
+
+  THE EDITOR'S MAPS ARE NOT DOOM'S. The world is an infinite GROUND
+  PLANE (a texture and the light of the open air), and a map is what is
+  pulled up out of it: BLOCKS — a ring of vertices, a HEIGHT, and three
+  textures, its SIDES, its TOP (what you walk on) and, where it floats,
+  its UNDERSIDE (a ceiling) — and the light of the space under it. No
+  room has a floor and a ceiling of its own; there are no upper and
+  lower textures (a face is one picture from a block's base to its top,
+  round every corner); there is no void. A building is wall blocks and
+  a slab over them; a step is a low block; a pit is a block pushed DOWN
+  (a negative height) into what it stands on. A block drawn inside
+  another stands on it; a block on a higher LAYER stands on whatever the
+  layers under it put there (the highest top under its footprint, so a
+  slab over uneven ground floats over the low parts); a block given a
+  BASE floats at it, and the air under it is a room. The document
+  ("mewd-blocks": ground, vertices, blocks, lines, things, scatters,
+  textures, world, layers) is EdDoc's; the old editor's files (rooms
+  with floors and ceilings) are refused, and say why.
+
+  HOW IT IS BUILT (BlockCompile.compile): every layer's rings, and the
+  ground (a square GROUND_EXTENT = 65536 each way, as the outermost ring
+  of layer 0), laid over each other (DocCompile.overlay); over each
+  face of the plan the blocks round it, bottom-up (layer by layer, and
+  on one layer the outermost first), raise the floor — each one's solid
+  from its base to its top, an open STOREY wherever a base is over the
+  floor it had, a storey of no height at every join of solid on solid
+  (so each block's edge is a band of its own, in its own sides), and
+  one more over the last top, under the sky (SKY_H = 8192). Those are
+  Level.add_column's storeys, and the Level does the rest as for any
+  map in layers: the solid between two storeys is a deck as thick as
+  the block, its edge drawn in the block's sides (assign_bands: a
+  band's texture is the storey over it's lower texture, which is the
+  block's side), a floating block's underside the ceiling of the storey
+  under it (lit by the block's light), its top the floor of the one
+  over. Each storey knows its block (Sector.block, .over, .layer).
+  Things and doors stand on the storey their layer leaves (stand_in:
+  the highest floor among those a block of their layer or under left).
+  The built area (Level.bounds_hint) is what the blockmap, the forest
+  and the plants keep to; the ground runs on past it. Line overrides on
+  an edge: `tex` (a skin on every face of the edge), `midTex` (a fill
+  across it: a fence, a window), offsets and scale, blocking, and
+  `door` {h, tex, style, auto, locked} — the slab across the edge from
+  the floor to the ceiling of the storeys either side on its layer,
+  swinging into the side that is a room (not the passage under the
+  lintel block the edge belongs to), the lintel block's thickness its
+  wall. A block's `air` (a map's, not the editor's) lights the open sky
+  over its top where a district is dimmer than the ground; a pit (a
+  block pushed down) draws its walls in its own sides (a skin put on
+  its edges), and cuts away the joins it goes down through. Blocks
+  floating at a base of their own are built bottom-up by base after
+  the ones standing on what is under them (a panel over a panel, a
+  roof on its posts), and one of them hidden inside another is no
+  problem — only a block standing on the ground with its top under
+  what it stands on is. Every level the game plays is a map in blocks
+  (THE MAPS above); THE ANNEXE (godot/scripts/maps/layers.gd: a shop of
+  a floor patch and four wall blocks with a lintel over its door, seven
+  stair blocks, the office's floor a slab on the shop's walls with the
+  office's walls on it and a terrace floating beside it, a roof slab on
+  the layer over) was the first, and the layers test plays it. The plan
+  overlay (DocCompile.overlay) hashes its segments into a grid so each
+  asks only its neighbours, and a face walk that comes back through a
+  vertex (two blocks meeting at a corner) is split there into the loops
+  either side; JESSE's 750 blocks build in a second, THE SPRAWL's
+  thousand in two and a half.
+
+
+THE MAP EDITOR (godot/scripts/editor/)
 
   MEWD Editor, in the game: MAP EDITOR on the title (whose "Back to
-  the title" comes back to it), the terminal's E or EDIT, `-- --edit`, or
-  F2 from the game. It is the web build's editor ported feature for
-  feature, on Godot Controls in the web build's look (css/editor.css):
-  the plan (view2d.gd), the 3D view drawn by the game's own MapGeo
-  (view3d.gd), the combined workspace (3D big and the plan inset, Tab
-  swaps them; Split, 2D, 3D), the top bar, the tabs down the left
-  (textures, things, scatter, the map and its problems), the inspector
-  down the right, the status line and info bar; every mode (vertices,
-  lines, sectors, things, props, draw, shape, scatter) in both views;
-  Q for visual mode; the step generator, the scatters, the texture
-  editor (layers of textures and imported images), copy and paste,
-  layers, undo and redo, the keyboard — see the Help menu, and the
-  header of each file. PLAY (F5) hands the document to the game (the
-  map's own textures drawn for it by ed_texcompose.gd into TexBank),
-  and F2 comes back to it. PLAY FROM HERE, at the user's request: with
-  the 3D view on screen you start where its camera stands, looking the
-  way it looks, on the layer you are editing (the START is moved in the
-  copy the game gets, never in the map); with only the plan on screen,
-  or the camera over no room, the START as drawn.
-  ROOM STYLES, at the user's request: a named set of walls, floor,
-  ceiling and brightness (doc.styles), painted onto rooms from the
-  sector inspector ("Wears") or made from a room ("Save as"); change a
-  style in the Map tab and every room wearing it changes; set a room's
-  own texture and it is off the style. The values are written into the
-  sectors, so the game and the compiler never see a style.
+  the title" comes back to it), the terminal's E or EDIT, `-- --edit`,
+  or F2 from the game. An editor in the mould of SLADE and Ultimate
+  Doom Builder — the plan (view2d.gd), the 3D view drawn by the game's
+  own MapGeo (view3d.gd), the combined workspace (3D big and the plan
+  inset, Tab swaps them; Split, 2D, 3D), the top bar, the tabs down the
+  left (textures, things, scatter, the map), the inspector down the
+  right, the status line and info bar; Q for visual mode; undo and
+  redo; the keyboard (the Help menu) — but ON A WORLD OF BLOCKS:
 
-    ed_doc.gd       the document: the web build's JSON (Vector2 vertices
-                    in memory, [x, y] on disk), undo, the tidy after an
-                    edit, problems, layers, texture alignment (doc.js)
-    ed_ops.gd       the edits on it (editor.js's document helpers)
-    editor.gd       the state, the edits a person makes, files, keyboard
-    ed_ui.gd, ed_panels.gd, ed_style.gd   the bars, panels and look (ui.js)
+    DRAWING    drag on the bare ground (Blocks mode, S) or drag a shape
+               out (R: rectangle, ellipse, circle, polygon, star…) or
+               click the corners out (D), and the shape stands up as
+               high as the toolbar's PULL (a block drawn on a block
+               stands on it, in its textures); below zero it is pushed
+               down into what it is drawn on. The wheel over a block in
+               3D raises it (Alt: its base), PgUp/PgDn too (Shift: the
+               base); Ctrl+wheel its light (over bare ground, the
+               daylight). The plan shades blocks by their top's height
+               (K: by brightness, by height).
+    THE ROOM   with the toolbar's Make set to ROOM, a drawn footprint
+               becomes a building: a floor patch inside, a wall block
+               WALL_T = 16 thick along each edge as high as the Pull,
+               and a roof slab over the whole footprint on the layer
+               above, standing on the walls, its underside the ceiling.
+    DOORS      Doors mode (O): click the side of a wall block, in the
+               plan or in 3D, and a doorway is cut through it there —
+               the block cut across into three, the piece under the
+               click the tool's width lifted to a LINTEL floating at
+               the door's height, the door on its edge; the next click
+               puts in another; Shift+click takes a door out (the
+               doorway stays). The inspector's panel on top sets the
+               width, height, swinging or sliding, by itself or on the
+               use key, the texture.
+    THE SIDES  a texture clicked with a block selected is its Sides;
+               Alt+click a side (3D) or a line (plan), or double-click a
+               line, or the inspector's "Select its sides", selects
+               every side of the block and paints them all; a plain
+               click on one side in 3D paints that face alone (the
+               line's skin, which covers the block's sides there). The
+               inspector: Height, Base (on what is under, or floating
+               at a height), the light under it, Top, Sides, Underside
+               (when it floats); a line's skin, a fill across it, its
+               offsets and scale, its door; the ground's texture and
+               daylight in the Map tab, or click the ground in 3D.
+    STEPS      the inspector's step generator (ed_steps.gd): a block
+               between two heights cut across into strips, each a step
+               higher (Stairs); or into rings, each standing in the
+               last, up to a mound or down to a caldera (Rings).
+    LAYERS     Alt+PgUp / Alt+PgDn, as before: the storeys. A block on
+               layer 1 stands on the top of what the layers under put
+               there; a click on a block of another layer in 3D goes to
+               that layer. The other layers are ghosted on the plan.
+    THE PANE   the Layers tab (ed_layers.gd), Photoshop's way, at the
+               user's request: the stack, top storey first, a thumbnail
+               of each layer's plan, its name (double-click to rename;
+               doc.layerNames) and an eye that hides it from the plan's
+               ghosts and the 3D view's level (never the one being
+               edited; Alt+click: that one alone); opened, a layer's
+               hierarchy — its blocks, a block drawn inside another
+               under it, every thing under the block it stands on —
+               and a click there selects on the map (and the other way
+               round). Drag a layer up or down the stack (it swaps
+               places with the ones it passes, each layer's floating
+               blocks taking the other's height); + New, Dup (a copy on
+               the first empty layer over, its floating blocks a storey
+               up), ▲ ▼, Delete, the right-click menu. Each one undo.
+    STYLES     BLOCK STYLES, at the user's request (room styles, before
+               the blocks): a named top, sides, underside and light
+               (doc.styles) painted onto blocks from the inspector's
+               "Wears", or made from a block ("Save as"); change one in
+               the Map tab and every block wearing it changes; give a
+               block its own texture and it is off the style. The values
+               are written into the blocks: the game never sees a style.
+    DROP       a texture dragged out of the browser onto either view
+               lands on what is under it: a block's top (Shift: its
+               underside), one side (the line's skin), or the ground.
+    PLAY FROM HERE  with the 3D view on screen, F5 starts the game where
+               its camera stands, looking the way it looks, on the layer
+               being edited (the START is moved in the copy the game
+               gets, never in the map); with only the plan, or the
+               camera over nothing, the START as drawn.
+    PICKING    the 3D view picks against the built level — the storeys'
+               floors and ceilings, the lines' bands — so what you
+               click is what is drawn, read back to its block, the
+               ground or its line.
+    GONE       floors and ceilings, inside and outside, upper and lower
+               textures, Doom 64's colours and fog per room, free props
+               and linedefs (a block does both), texture alignment.
+               UI scale, the scatters, the texture editor, copy and
+               paste, PLAY (F5, from where the 3D camera stands) and F2
+               back are as they were.
+
+    ed_doc.gd       the document: ground, blocks, lines, things, undo,
+                    the tidy after an edit, problems, layers, files
+    ed_ops.gd       the edits on it (a vertex splitting an edge, a
+                    block cut out of the one it is drawn in, splits,
+                    merges, moves, the shapes)
+    editor.gd       the state, the edits a person makes (add_block,
+                    add_room, place_door, nudge_height, loop_select,
+                    apply_texture...), files, keyboard
+    ed_ui.gd, ed_panels.gd, ed_style.gd   the bars, panels and look
     view2d.gd, view3d.gd                  the two views
-    ed_steps.gd, ed_scatter.gd            steps.js, scatter.js
-    ed_texcompose.gd, ed_texeditor.gd     texcompose.js, texeditor.js
-    ed_script.gd    a script of edits, for the tests and --edit-ops
+    ed_steps.gd, ed_scatter.gd            the steps, the scatters
+    ed_texcompose.gd, ed_texeditor.gd     the map's own textures
+    ed_script.gd    a script of edits, for pictures (--edit-ops)
 
-  FILES are the web build's own: File > Open… and Save as file… (any
-  path on the desktop; the file dialog), Ctrl+S into user://mewd-editor/
-  maps/, and an autosave (user://mewd-editor/autosave.gssmap.json) the
-  editor opens on; its grid, snap and left panel are remembered in
-  user://mewd-editor/prefs.json. A map saved by either editor opens in
-  the other. File > Open demo: a new MAZE, THE SPRAWL, a new JESSE,
-  THE GRID, THE ANNEXE (a map in two storeys). The compile runs in a
-  thread, on a copy, so a big map never holds the mouse.
+  UI SCALE (at the user's request): View > UI scale, or Ctrl+= and
+  Ctrl+- to step it (75% to 250%), Ctrl+0 back to 100%: the whole
+  editor — bars, panels, fields, and the views with them — drawn that
+  much bigger, as the window's content scale while the editor is up
+  (MewdEditor.UI_SCALES); remembered in prefs.json with the grid.
 
-  A map in LAYERS is edited in full (each layer's plan, the others
-  ghosted, rooms standing on the layer under), saved in full, and BUILT
-  in full — every storey in the 3D view and in the game, room over room
-  (see THE LEVEL); each layer's problems are listed with its number.
-  The 3D view's picking is of the layer being edited.
+  FILES: File > Open… and Save as file… (any path on the desktop; the
+  file dialog), Ctrl+S into user://mewd-editor/maps/, and an autosave
+  (user://mewd-editor/autosave.gssmap.json) the editor opens on; its
+  grid, snap, UI scale and left panel are remembered in
+  user://mewd-editor/prefs.json. File > Open: THE ANNEXE (a building in
+  three layers), THE GRID, THE MAZE and JESSE (seed 7 of each) and THE
+  SPRAWL — every level the game plays, each a map in blocks to pick
+  apart. The compile runs in a thread, on a copy, so a big map never
+  holds the mouse.
 
-  DOORS (the Godot build's own; not in the web build). Doors mode (O):
-  click a wall, in the plan or in 3D, and a door goes in there — the
-  line cut to a piece the tool's width round the click (its edges on
-  the grid with snap on), that piece an opening with a door in it (a
-  building's outside wall gets its passage through the thick wall too)
-  — and the next click puts in another, as the panel on top of the
-  inspector sets it: width, height, swinging or sliding, opening by
-  itself or only on the use key, its texture. Shift+click takes a door
-  out. A line's inspector has its Door (height, how it opens, by
-  itself, locked, texture, No door) or "Door here". A door is a line
-  override `door` {h, tex, style, auto, locked, lintelTex} next to
-  `opening`; DocCompile builds a Level.Door on the level lines along it
-  (standing on the higher floor either side, never higher than the
-  lower ceiling, a lintel over it to that ceiling, swinging into the
-  roofed room); Level stops movers, rays and eyes at it while it is
-  shut, and at its lintel always; game/doors.gd opens it as anybody
-  walking comes near (auto) or on the use key (F, touch USE) from a
-  player facing it, keeps it open while anybody is in its way, shuts it
-  three seconds after, and swings it a quarter turn on its hinge or
-  slides it into the wall. It all runs in the tic, the same on every
-  machine of a match. The editor's 3D view draws the doors shut. THE
-  ANNEXE has one of each.
-
-  THE TROOPS FIND THE WAY (game/nav.gd; the Godot build's own). Doom's
-  chase is on the plan — straight at you, round what is in the way — and
-  never finds a stair or a door. Nav makes the level a graph: a node for
-  each storey of each sector a trooper can stand in, a way across each
-  two-sided line it can walk over (tall enough, a step up at most, a
-  drop of 96 down at most, not walled at that height, no locked or low
-  door). A trooper whose target is in another room plans the way there
-  (A*, each room costed from where it was entered), again every two
-  seconds or when the target changes room, and chases the next point on
-  it — just over the next line — aiming again each step; in the target's
-  own room it chases as Doom does. Doors open as it comes (auto doors
-  open for anybody walking), and steps are steps: up the stairs to the
-  terrace, through the shop's door, into the office by both.
-
-  LOOP SELECT (the Godot editor's own; not in the web build): in Lines
-  mode double-click or Alt+click a line, or Alt+click a wall in 3D, or
-  a sector's "Select its walls" — every wall of the room on that side
-  (its outline and the rooms drawn inside it), on the side facing it.
-  A texture clicked in the browser then goes on all of them (the
-  walls, and the tops and bottoms of its openings), and the inspector
-  sets each part alone: walls, tops, bottoms, middles. Shift adds
-  another room's loop.
-
-  NOT PORTED: the web's "Export Godot scene…" (this is Godot); a pen's
-  eraser end; the texture pack's animation in the 3D view (the port's
-  game does not animate them either).
+  NOT HERE: the web build's editor and its files (the Godot editor's
+  maps are blocks, not rooms, and the two do not read each other's);
+  the Godot-scene export; the texture pack's animation in the 3D view.
 
 
 THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
@@ -533,7 +676,10 @@ THE IRISH POTATO CANNON (game/potatoes.gd; the Godot build's own)
 
 THE MAIN MENU FIRST (at the user's request): the game opens on the MEWD
 title, not on the web build's terminal (`-- --terminal` still opens
-that), and the editor's "Back" and a failed join come back to it. At
+that), and the editor's "Back" and a failed join come back to it. NEW
+GAME opens the LEVELS in the same column (at the user's request) —
+THE MAZE (a new one each time), JESSE, THE SPRAWL, THE GRID, THE
+ANNEXE, and BACK (Escape too) — and one of those starts the game. At
 the bottom of the menu, DOWNLOAD ZIP: GitHub's zip of the main branch,
 the whole thing (Title.ZIP_URL).
 
@@ -585,35 +731,31 @@ TESTS
 
   runs the headless suites: the weapons against real people in the
   maze (godot/tests/weapons_test.gd — minigun, flamer, extinguisher,
-  bore, launcher, arc), the fire grid, the forest, and the JESSE
-  generator, and THE SPRAWL and the grid against the web build's counts,
+  bore, launcher, arc), the fire grid, the forest, JESSE built for two
+  seeds (its forts, tower, gates and one connected floor), THE SPRAWL
+  and THE GRID built in blocks (what each makes, piece by piece),
   and network play (godot/tests/net_test.gd: the TicCmd bytes against
   js/net/ticcmd.js's — node godot/tests/net_js.mjs prints them — a match
   over loopback pipes with prediction, a kill through the rewind and a
   respawn, and a headless --server with two headless --join clients
-  fragging each other on a real socket), and MEWD Editor: its edits
-  and its files against the web build's editor (godot/tests/
-  editor_test.gd runs the script godot/tests/editor_ops.json — shapes,
-  splits, linedefs closing into sectors, stairs, rings, merges,
-  alignment, drags, scatters, paste, undo, layers — and holds every
-  checkpoint's document, problems, selection and build to the one
-  js/editor/editor.js made from the same script, godot/tests/
-  editor_ref.json, written by `node godot/tests/editor_js.mjs`; then
-  the web build's files open and save back the same, textures,
-  bake and layers), and the editor driven by input events
-  (godot/tests/editor_ui_test.gd: drags, clicks, keys, the inspector's
-  fields, the 3D view's picking, visual mode, PLAY into the game and F2
-  back), and ROOM OVER ROOM (godot/tests/layers_test.gd on THE ANNEXE:
-  the compile's columns, walls and doors a storey at a time; walking up
-  the step generator's stairs onto the terrace, round it, into the
-  office, the walls up there, off the edge and down; under the deck,
-  its walls, a jump into it; a round from under stopping in the deck
-  while the shopper over it lives, one over the edge from the yard
-  finding them; sight blocked by the slab; an actor on each storey
-  staying on it, frightened or not; fire on the terrace not coming
-  down, fire under it not going up; and over a loopback network the
-  snapshot's height and the client's bodies on the right storey). The
-  editor's test holds its map in layers to the web build's build of it.
+  fragging each other on a real socket), and MEWD Editor: its document
+  (godot/tests/editor_test.gd: a block pulled up, one standing on it,
+  height and base, a pit, the Room tool, a door cut into a wall, stairs
+  and rings, a split and a merge, loop select and the textures, a layer
+  standing on the one under, paste, delete, the file read back the
+  same, undo all the way back, and what each builds to) and the editor
+  driven by input events (godot/tests/editor_ui_test.gd: drags, clicks,
+  keys, the inspector's fields, the Room tool, the 3D view's picking,
+  visual mode, PLAY into the game and F2 back), and ROOM OVER ROOM
+  (godot/tests/layers_test.gd on THE ANNEXE in blocks: the compile's
+  storeys, each block's face a band in its own sides, the lintels;
+  walking up the stairs onto the terrace, round it, into the office,
+  the walls up there, off the edge and down; under the deck, its walls,
+  a jump into it; a round from under stopping in the deck while the
+  shopper over it lives, one over the edge from the yard finding them;
+  sight blocked by the slab; the doors, the troops finding the way, an
+  actor on each storey staying on it; and over a loopback network the
+  snapshot's height and the client's bodies on the right storey).
   Real decals (godot/tests/decals_test.gd, with RealDecals.force): the
   world cut into tiles with not a unit of surface gained or lost, never
   a ninth mark on a tile mesh and the refused ones laid as quads, a sear
@@ -623,6 +765,11 @@ TESTS
   ash, shot down and blown apart, each removed and its sprite let go.
   The pad (godot/tests/pad_test.gd): the bindings answering to every
   device, the standard layout as a mapping, the menus' reading of it.
+  The editor's layers pane (godot/tests/layers_pane_test.gd): the
+  stack, the hierarchy of blocks and things, the eye, rename, move,
+  duplicate, delete, each one undo; and a texture dragged out of the
+  browser onto a block's top, a side or the ground (godot/tests/
+  tex_drop_test.gd).
   A shell with xvfb can also render pictures with --shot.
 
   CROSS-PLAY, by hand (needs node, and Playwright for the second):

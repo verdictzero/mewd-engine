@@ -82,6 +82,14 @@ func _draw() -> void:
 		draw_string(font, Vector2(x + 1, ny + 1), spaced, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(x, ny), spaced, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)
 		draw_rect(Rect2(x, ny + roundf(5.0 * s), w, maxf(1.0, roundf(s))), UI.rule)
+		# the brains taken (Trophies), under it
+		if p.brains > 0:
+			var bs := int(roundf(11.0 * s))
+			var bt := "B R A I N S  %d" % p.brains
+			var bx := size.x - M - font.get_string_size(bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs).x
+			var by := ny + roundf(5.0 * s) + bs + roundf(6.0 * s)
+			draw_string(font, Vector2(bx + 1, by + 1), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(0, 0, 0, 0.6))
+			draw_string(font, Vector2(bx, by), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(1.0, 0.72, 0.78, 0.92))
 	else:
 		# the card: 死, and YOU DIED
 		var band := size.y * 0.22
@@ -94,6 +102,14 @@ func _draw() -> void:
 		var txt := "Y O U   D I E D"
 		var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x
 		draw_string(font, Vector2(size.x * 0.5 - tw * 0.5, top + band * 0.9), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, UI.death)
+	# SLOW MOTION, said at the top of the screen while it is on
+	if game.get("slow_mo") == true:
+		var ss := int(roundf(12.0 * s))
+		var st := "S L O W   M O T I O N"
+		var sw := font.get_string_size(st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss).x
+		var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.004)
+		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5 + 1, M + ss + 1), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, M + ss), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(UI.rule.r, UI.rule.g, UI.rule.b, pulse))
 	# the red wash when something hits you
 	if p.damage_flash > 0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.02, minf(0.35, p.damage_flash * 0.025)))

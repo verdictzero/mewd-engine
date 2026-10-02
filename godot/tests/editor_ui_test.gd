@@ -6,12 +6,13 @@
 ##
 ## The main scene is started as the game starts (--edit opens the
 ## editor), the plan is driven with mouse events — a drag on the ground
-## draws a room, a click selects it, a drag moves it, Draw mode clicks a
-## triangle, the wheel zooms, Ctrl+wheel lights — the keys switch modes,
-## snap, grid and layout, the inspector's Floor field is typed into, a
-## texture is picked, the 3D view picks a floor under its crosshair and
-## the wheel raises it, Q is visual mode; then PLAY builds the map in the
-## game, and F2 comes back to the editor on the same map.
+## pulls up a block, a click selects it, a drag moves it, Draw mode
+## clicks a triangle, the wheel zooms, Ctrl+wheel lights — the keys
+## switch modes, snap, grid and layout, the inspector's Height field is
+## typed into, a texture is picked, the 3D view picks a block's top
+## under its crosshair and the wheel raises it, Q is visual mode; then
+## PLAY builds the map in the game, and F2 comes back to the editor on
+## the same map.
 extends SceneTree
 
 var fails := 0
@@ -120,78 +121,72 @@ func run() -> void:
 	ok(v.size.x > 100 and v.size.y > 100, "the plan has a size (%s)" % v.size)
 	var P := func(x: float, y: float) -> Vector2: return v.sp(Vector2(x, y))
 
-	# A DRAG ON THE GROUND DRAWS A ROOM
+	# A DRAG ON THE GROUND PULLS UP A BLOCK
 	drag(v, P.call(512, 512), P.call(1024, 1024))
-	ok(ed.doc.sectors.size() == 2, "a drag on the ground draws a sector (%d)" % ed.doc.sectors.size())
-	var room = ed.sector_at(700, 700)
-	ok(room != null and room.id != 1, "the new room is under the mouse")
-	ok(ed.sel_kind == "sector" and room != null and ed.sel_ids.has(room.id), "and it is selected")
+	ok(ed.doc.blocks.size() == 1, "a drag on the ground pulls up a block (%d)" % ed.doc.blocks.size())
+	var room = ed.block_at(700, 700)
+	ok(room != null and EdDoc.h_of(room) == ed.pull_h, "the new block is under the mouse, as high as the Pull")
+	ok(ed.sel_kind == "block" and room != null and ed.sel_ids.has(room.id), "and it is selected")
 	# A CLICK ON NOTHING LETS GO, A CLICK SELECTS
 	ed.clear_sel()
 	click(v, P.call(768, 768))
-	ok(room != null and ed.is_sel("sector", room.id), "a click selects the room")
+	ok(room != null and ed.is_sel("block", room.id), "a click selects the room")
 	# A DRAG MOVES IT, ONE UNDO
 	var before: Vector2 = EdDoc.bbox(EdDoc.ring_of(ed.doc, room)).position
 	drag(v, P.call(768, 768), P.call(768 + 128, 768))
-	room = ed.sector_by_id(room.id)
+	room = ed.block_by_id(room.id)
 	var after: Vector2 = EdDoc.bbox(EdDoc.ring_of(ed.doc, room)).position
 	ok(after.x - before.x == 128 and after.y == before.y, "a drag moves it 128 (%s → %s)" % [before, after])
 	ed.undo()
-	room = ed.sector_by_id(room.id)
+	room = ed.block_by_id(room.id)
 	ok(EdDoc.bbox(EdDoc.ring_of(ed.doc, room)).position == before, "and one undo puts it back")
 	ed.redo()
 
-	# LOOP SELECT (the room is at 640..1152 x 512..1024 now): Alt+click a
-	# line, every wall of the room on that side
+	# LOOP SELECT (the block is at 640..1152 x 512..1024 now): Alt+click a
+	# line, every side of the block
 	ok(key(ed, KEY_L) and ed.mode == "lines", "L is Lines")
 	click(v, P.call(642, 768), {"alt": true})
 	ok(ed.sel_kind == "line" and ed.sel_ids.size() == 4 and ed.sel_face == room.id,
-		"Alt+click inside the room's wall: its four walls, facing it (%d, face %s)" % [ed.sel_ids.size(), str(ed.sel_face)])
-	var ground = ed.sector_at(100, 100)
-	click(v, P.call(636, 768), {"alt": true})
-	ok(ed.sel_ids.size() == 8 and ed.sel_face == ground.id,
-		"and outside it: the ground's four, and the room's four facing the ground (%d)" % ed.sel_ids.size())
+		"Alt+click a side: the block's four sides (%d, block %s)" % [ed.sel_ids.size(), str(ed.sel_face)])
 	click(v, P.call(896, 514), {"double": true})
 	ok(ed.sel_ids.size() == 4 and ed.sel_face == room.id, "a double-click on a line does the same")
 	ed.ui.panels.pick_texture("CONC_1")
-	var painted := 0
-	for k in ed.sel_ids:
-		var sd = ed.doc.lines.get(k, {}).get("sides", {}).get(str(room.id), {})
-		if sd.get("tex") == "CONC_1" and sd.get("midTex") == null:
-			painted += 1
-	ok(painted == 4 and ed.loop_tex_of("skin") == "CONC_1", "a texture clicked skins all four, on the room's side (%d)" % painted)
+	room = ed.block_by_id(room.id)
+	ok(room.side == "CONC_1" and ed.loop_tex_of("skin") == "CONC_1", "a texture clicked is the block's sides")
 	ed.ui.panels.picking = {"field": "@loop.mid", "label": "Fill", "allow_none": true}
 	ed.ui.panels.pick_texture("CONC_2")
-	ok(ed.loop_tex_of("mid") == "CONC_2" and ed.loop_tex_of("skin") == "CONC_1", "and the loop's fill field sets what stands in the openings alone")
+	ok(ed.loop_tex_of("mid") == "CONC_2" and ed.loop_tex_of("skin") == "CONC_1", "and the loop's fill field sets what stands across its edges alone")
 	ed.undo()
 	ed.undo()
-	ok(ed.doc.lines.is_empty(), "two undos, and no line has an override (%d)" % ed.doc.lines.size())
+	ok(ed.doc.lines.is_empty() and ed.block_by_id(room.id).side == "GRIDWALL", "two undos, and no line has an override (%d)" % ed.doc.lines.size())
 	click(v, P.call(642, 768))
 	ok(ed.sel_ids.size() == 1 and ed.sel_face == null, "a plain click picks one line again")
 	ed.clear_sel()
 
-	# ROOM STYLES: one made from the room, painted on the ground, changed on both
-	ed.style_from_sector("TEST", room.id)
-	ok(ed.styles().size() == 1 and ed.style_index("TEST") == 0 and ed.sector_by_id(room.id).get("style") == "TEST",
-		"a style made from the room, and the room wears it")
-	ed.select("sector", [ground.id])
+	# BLOCK STYLES: one made from the room's block, painted on another, changed on both
+	ed.add_rect(Vector2(2000, 2000), Vector2(2200, 2200))
+	var other = ed.block_at(2100, 2100)
+	ed.style_from_block("TEST", room.id)
+	ok(ed.styles().size() == 1 and ed.style_index("TEST") == 0 and ed.block_by_id(room.id).get("style") == "TEST",
+		"a style made from the block, and the block wears it")
+	ed.select("block", [other.id])
 	ed.apply_style("TEST")
-	var g2 = ed.sector_by_id(ground.id)
-	var r2 = ed.sector_by_id(room.id)
-	ok(g2.get("style") == "TEST" and g2.get("wallTex") == r2.get("wallTex") and g2.get("ceilTex") == r2.get("ceilTex"),
-		"painted on the ground: its walls and ceiling are the room's (%s, %s)" % [str(g2.get("wallTex")), str(g2.get("ceilTex"))])
-	ed.update_style(0, "wallTex", "CONC_2")
-	ok(ed.sector_by_id(ground.id).get("wallTex") == "CONC_2" and ed.sector_by_id(room.id).get("wallTex") == "CONC_2",
-		"the style's walls changed, and both rooms with it")
-	ed.ui.panels.picking = {"field": "wallTex", "label": "Walls", "allow_none": false}
-	ed.select("sector", [ground.id])
+	var g2 = ed.block_by_id(other.id)
+	var r2 = ed.block_by_id(room.id)
+	ok(g2.get("style") == "TEST" and g2.get("side") == r2.get("side") and g2.get("top") == r2.get("top"),
+		"painted on another block: its sides and top are the first's (%s, %s)" % [str(g2.get("side")), str(g2.get("top"))])
+	ed.update_style(0, "side", "CONC_2")
+	ok(ed.block_by_id(other.id).get("side") == "CONC_2" and ed.block_by_id(room.id).get("side") == "CONC_2",
+		"the style's sides changed, and both blocks with it")
+	ed.ui.panels.picking = {"field": "side", "label": "Sides", "allow_none": false}
+	ed.select("block", [other.id])
 	ed.ui.panels.pick_texture("CONC_1")
-	ok(ed.sector_by_id(ground.id).get("style") == null and ed.sector_by_id(room.id).get("style") == "TEST",
-		"a texture set by hand takes that room off the style; the other still wears it")
-	for i in 4:
+	ok(ed.block_by_id(other.id).get("style") == null and ed.block_by_id(room.id).get("style") == "TEST",
+		"a texture set by hand takes that block off the style; the other still wears it")
+	for i in 5:
 		ed.undo()
-	ok(ed.styles().is_empty() and ed.sector_by_id(room.id).get("style") == null and ed.sector_by_id(ground.id).get("style") == null,
-		"four undos, and no style anywhere")
+	ok(ed.styles().is_empty() and ed.block_by_id(room.id).get("style") == null and ed.block_at(2100, 2100) == null,
+		"five undos, and no style anywhere, nor the other block")
 	ed.clear_sel()
 
 	# THE DOOR TOOL (O): a click on a wall, a door in it
@@ -209,7 +204,9 @@ func run() -> void:
 	if dk.size() == 1:
 		var ab := EdDoc.key_verts(dk[0])
 		dlen = ed.doc.vertices[ab.x].distance_to(ed.doc.vertices[ab.y])
-	ok(dk.size() == 1 and dlen == 64.0 and ed.doc.lines[dk[0]].get("opening", false), "a click on the room's wall: a door, 64 wide (%s, %.0f)" % [dk, dlen])
+	var lintels: Array = ed.doc.blocks.filter(func(x): return x.get("name") == "lintel")
+	ok(dk.size() == 1 and dlen == 64.0 and lintels.size() == 1 and EdDoc.base_of(lintels[0]) == 96.0,
+		"a click on the block's side: a doorway cut through it, 64 wide, a lintel floating at 96, a door in it (%s, %.0f)" % [dk, dlen])
 	ok(ed.sel_kind == "line" and dk.size() == 1 and ed.sel_ids.has(dk[0]), "and it is selected, for the inspector")
 	click(v, P.call(1150, 700))
 	ok(doors_in.call().size() == 2, "another click, another door (%d)" % doors_in.call().size())
@@ -220,28 +217,35 @@ func run() -> void:
 	ed.undo()
 	ed.undo()
 	ed.undo()
-	ok(doors_in.call().is_empty(), "three undos, and no doors")
+	ok(doors_in.call().is_empty() and ed.doc.blocks.size() == 1, "three undos, and no doors, the block whole again")
 	ed.clear_sel()
 	key(ed, KEY_S)
 	# DRAW MODE: three clicks and the first again
 	ok(key(ed, KEY_D), "D is Draw")
 	ok(ed.mode == "draw", "the mode is draw")
-	var n0: int = ed.doc.sectors.size()
+	var n0: int = ed.doc.blocks.size()
 	for p in [Vector2(2048, 2048), Vector2(2560, 2048), Vector2(2304, 2560), Vector2(2048, 2048)]:
 		click(v, P.call(p.x, p.y))
-	ok(ed.doc.sectors.size() == n0 + 1, "a triangle clicked out is a sector")
-	ok(ed.mode == "sectors", "and Draw goes back to the mode it came from")
+	ok(ed.doc.blocks.size() == n0 + 1, "a triangle clicked out is a block")
+	ok(ed.mode == "blocks", "and Draw goes back to the mode it came from")
 	# THE SHAPE TOOL
 	ed.set_shape("circle", 16)
 	drag(v, P.call(3000, 512), P.call(3512, 1024))
-	var circ = ed.sector_at(3256, 768)
+	var circ = ed.block_at(3256, 768)
 	ok(circ != null and circ.verts.size() == 16, "the shape tool draws a 16-sided circle")
+	# THE ROOM TOOL (a round one is sixteen walls: back to the rectangle)
 	ed.set_shape("rect")
-	ed.set_mode("sectors")
+	ed.set_make("room")
+	drag(v, P.call(4096, 512), P.call(4608, 1024))
+	ed.set_make("block")
+	var walls: Array = ed.doc.blocks.filter(func(x): return x.get("name") == "wall")
+	ok(walls.size() == 4 and ed.doc.get("layers", {}).has("1"), "Make: Room drags out four walls, a floor and a roof on the layer over (%d walls)" % walls.size())
+	ed.set_shape("rect")
+	ed.set_mode("blocks")
 	# BOX SELECT, in vertices mode
 	ok(key(ed, KEY_V) and ed.mode == "vertices", "V is Vertices")
 	drag(v, P.call(400, 400), P.call(1300, 1100))
-	ok(ed.sel_kind == "vertex" and ed.sel_ids.size() == 4, "a box on nothing selects the room's four corners (%d)" % ed.sel_ids.size())
+	ok(ed.sel_kind == "vertex" and ed.sel_ids.size() == 4, "a box on nothing selects the block's four corners (%d)" % ed.sel_ids.size())
 	# ARROWS NUDGE
 	var vid: int = ed.sel_ids.keys()[0]
 	var vp: Vector2 = ed.doc.vertices[vid]
@@ -251,16 +255,16 @@ func run() -> void:
 	ok(v.key(e), "an arrow nudges the selection")
 	ok(ed.doc.vertices.find(vp + Vector2(64, 0)) >= 0, "a grid step to the right")
 	ed.undo()
-	ed.set_mode("sectors")
+	ed.set_mode("blocks")
 	# THE WHEEL ZOOMS, CTRL+WHEEL LIGHTS
 	var s0 := v.scale_
 	mb(v, P.call(768, 768), true, MOUSE_BUTTON_WHEEL_UP)
 	ok(v.scale_ > s0, "the wheel zooms in")
-	room = ed.sector_at(768, 768)
+	room = ed.block_at(768, 768)
 	var b0 := MewdEditor.bright_of(room)
 	mb(v, P.call(768, 768), true, MOUSE_BUTTON_WHEEL_DOWN, {"ctrl": true})
-	room = ed.sector_at(768, 768)
-	ok(MewdEditor.bright_of(room) == b0 - 16, "Ctrl+wheel darkens the sector 16 (%d → %d)" % [b0, MewdEditor.bright_of(room)])
+	room = ed.block_at(768, 768)
+	ok(MewdEditor.bright_of(room) == b0 - 16, "Ctrl+wheel darkens the block's light 16 (%d → %d)" % [b0, MewdEditor.bright_of(room)])
 	# FINGERS: two pinch the plan, and the pad of keys a tablet has not got
 	var st0 := v.scale_
 	var t1 := InputEventScreenTouch.new()
@@ -295,35 +299,35 @@ func run() -> void:
 	key(ed, KEY_G)
 	key(ed, KEY_K)
 	ok(ed.plan_view == "light", "K shows the plan by brightness")
-	key(ed, KEY_K); key(ed, KEY_K); key(ed, KEY_K)
+	key(ed, KEY_K); key(ed, KEY_K)
 	key(ed, KEY_TAB)
 	ok(ed.layout == "only3d", "Tab flips the plan for the 3D view")
 	key(ed, KEY_TAB)
-	# THE INSPECTOR: the Floor field, typed into
+	# THE INSPECTOR: the Height field, typed into
 	click(v, P.call(768, 768))
 	await frames(4)
-	var floor_f := find_field(ed.ui.panels.insp, "Floor")
-	ok(floor_f is SpinBox, "the inspector has a Floor field")
-	if floor_f is SpinBox:
-		floor_f.value = 32
-		room = ed.sector_at(768, 768)
-		ok(EdDoc.num(room.floor) == 32, "typing 32 in it raises the floor (%s)" % room.floor)
+	var h_f := find_field(ed.ui.panels.insp, "Height")
+	ok(h_f is SpinBox, "the inspector has a Height field")
+	if h_f is SpinBox:
+		h_f.value = 32
+		room = ed.block_at(768, 768)
+		ok(EdDoc.h_of(room) == 32, "typing 32 in it makes the block 32 high (%s)" % EdDoc.h_of(room))
 	# A TEXTURE, PICKED FOR A FIELD
-	ed.ui.panels.picking = {"field": "floorTex", "label": "Floor", "allow_none": false}
+	ed.ui.panels.picking = {"field": "top", "label": "Top", "allow_none": false}
 	ed.ui.panels.pick_texture("CONC_1")
-	room = ed.sector_at(768, 768)
-	ok(room.floorTex == "CONC_1", "a texture picked for the floor goes on the floor")
+	room = ed.block_at(768, 768)
+	ok(room.top == "CONC_1", "a texture picked for the top goes on the top")
 	# DELETE
-	var ns: int = ed.doc.sectors.size()
+	var ns: int = ed.doc.blocks.size()
 	key(ed, KEY_DELETE)
-	ok(ed.doc.sectors.size() == ns - 1, "Delete removes the selected sector")
+	ok(ed.doc.blocks.size() == ns - 1, "Delete removes the selected block")
 	ed.undo()
 	# COPY AND PASTE
 	click(v, P.call(768, 768))
 	key(ed, KEY_C, {"ctrl": true})
 	ed.set_cursor(Vector2(1536, 2560))
 	key(ed, KEY_V, {"ctrl": true})
-	ok(ed.doc.sectors.size() == ns + 1, "Ctrl+C, Ctrl+V pastes the room")
+	ok(ed.doc.blocks.size() == ns + 1, "Ctrl+C, Ctrl+V pastes the block")
 
 	# THE TEXTURE EDITOR: a new texture from CONC_1, a second layer, saved
 	ed.ui.open_texture_editor(null, "CONC_1")
@@ -343,26 +347,25 @@ func run() -> void:
 	te.save()
 	await frames(2)
 	ok(ed.doc.textures[0].name == "MYWALL" and ed.map_texture_names.has("MYWALL"), "renamed, it is MYWALL")
-	# THE 3D VIEW: the floor under the crosshair, the wheel raises it
+	# THE 3D VIEW: the block's top under the crosshair, the wheel raises it
 	ed.set_layout("only3d")
 	await frames(4)
 	var v3: EdView3D = ed.view3d
 	ok(v3.size.x > 100, "the 3D view has a size (%s)" % v3.size)
-	room = ed.sector_at(768, 768)
+	room = ed.block_at(768, 768)
 	v3.cam = {"x": 768.0, "y": 300.0, "z": 400.0, "yaw": PI / 2.0, "pitch": -0.9}
 	v3.mouse = v3.size / 2.0
 	v3._hover_dirty = true
-	await frames(3)
-	ok(v3.hover != null and v3.hover.kind == "surface" and v3.hover.part == "floor", "the 3D view picks the floor it looks at (%s)" % [v3.hover])
-	if v3.hover != null and v3.hover.kind == "surface":
-		var hs: Dictionary = ed.doc.sectors[v3.hover.sector]
-		var f0 := EdDoc.num(hs.get("floor"), 0)
+	await frames(6)
+	ok(v3.hover != null and v3.hover.kind == "surface" and v3.hover.part == "top" and v3.hover.block == room.id, "the 3D view picks the block's top it looks at (%s)" % [v3.hover])
+	if v3.hover != null and v3.hover.kind == "surface" and v3.hover.part == "top":
+		var f0 := EdDoc.h_of(ed.block_by_id(v3.hover.block))
 		mb(v3, v3.size / 2.0, true, MOUSE_BUTTON_WHEEL_UP)
-		hs = ed.doc.sectors[v3.hover.sector]
-		ok(EdDoc.num(hs.get("floor"), 0) == f0 + 8, "the wheel raises it 8 (%s → %s)" % [f0, hs.get("floor")])
+		var hs = ed.block_by_id(v3.hover.block)
+		ok(EdDoc.h_of(hs) == f0 + 8, "the wheel raises it 8 (%s → %s)" % [f0, EdDoc.h_of(hs)])
 		mb(v3, v3.size / 2.0, true, MOUSE_BUTTON_LEFT)
 		mb(v3, v3.size / 2.0, false, MOUSE_BUTTON_LEFT)
-		ok(ed.surf != null and ed.surf.part == "floor", "a click picks the surface")
+		ok(ed.surf != null and ed.surf.part == "top", "a click picks the surface")
 		var e2 := InputEventKey.new()
 		e2.keycode = KEY_C
 		e2.ctrl_pressed = true
@@ -377,7 +380,7 @@ func run() -> void:
 	ok(v3.level_node != null and v3.level_node.get_child_count() > 0, "the 3D view built the level (%d meshes)" % (v3.level_node.get_child_count() if v3.level_node else 0))
 
 	# PLAY, AND BACK — from where the 3D camera stands, looking its way
-	var sectors: int = ed.doc.sectors.size()
+	var sectors: int = ed.doc.blocks.size()
 	var start_was = null
 	for t in ed.doc.things:
 		if t.type == "START":
@@ -387,7 +390,7 @@ func run() -> void:
 	await frames(10)
 	ok(main.game != null and main.editor == null, "PLAY starts the game on the map")
 	if main.game != null:
-		ok(main.game.level.sectors.size() >= sectors, "the game built the edited map (%d sectors)" % main.game.level.sectors.size())
+		ok(main.game.level.sectors.size() >= sectors, "the game built the edited map (%d storeys)" % main.game.level.sectors.size())
 		var pl = main.game.player
 		ok(absf(pl.x - 900.0) < 1.0 and absf(pl.y - 770.0) < 1.0 and absf(pl.angle - 1.0) < 1e-3 and absf(pl.pitch + 0.2) < 1e-3,
 			"and from where the 3D camera stood, looking its way (%.0f, %.0f, %.2f, %.2f)" % [pl.x, pl.y, pl.angle, pl.pitch])
@@ -406,7 +409,7 @@ func run() -> void:
 				start_now = Vector2(t.x, t.y)
 		ok(start_now == start_was, "and the map's own START is where it was (the game got a copy)")
 	if main != null and main.editor != null:
-		ok(main.editor.doc.sectors.size() == sectors, "on the same map (%d sectors)" % main.editor.doc.sectors.size())
+		ok(main.editor.doc.blocks.size() == sectors, "on the same map (%d blocks)" % main.editor.doc.blocks.size())
 	# BACK TO THE TITLE (the MEWD main menu), and MAP EDITOR again
 	if main != null and main.editor != null:
 		main.editor.quit_requested.emit()

@@ -151,7 +151,7 @@ static func scatter_at(d: Dictionary, x: float, y: float):
 			size = absf((a.x1 - a.x0) * (a.y1 - a.y0))
 		else:
 			var ids: Array = a.get("ids", [])
-			for s in d.sectors:
+			for s in d.blocks:
 				if not ids.has(s.id):
 					continue
 				var r := EdDoc.ring_of(d, s)
@@ -172,7 +172,7 @@ static func scatter_box(d: Dictionary, c: Dictionary) -> Rect2:
 		return Rect2(minf(a.x0, a.x1), minf(a.y0, a.y1), absf(a.x1 - a.x0), absf(a.y1 - a.y0))
 	var pts := PackedVector2Array()
 	var ids: Array = a.get("ids", [])
-	for s in d.sectors:
+	for s in d.blocks:
 		if ids.has(s.id):
 			pts.append_array(EdDoc.ring_of(d, s))
 	return EdDoc.bbox(pts)

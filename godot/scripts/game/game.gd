@@ -11,6 +11,13 @@ const BASE_FOV := 72.0
 const LOD_FAR := 1200.0
 const MOUSE_SENS := 0.0022
 const MAX_TICS := 6
+## SLOW MOTION (at the user's request): the world runs one tic in this
+## many of yours — T, Y on the pad, SLO on the glass toggle it. Your own
+## body ticks at full rate inside it, so you walk and fire as fast as
+## ever while everything else crawls (bullet time). Not in a match,
+## whose worlds must agree.
+const SLOW_MO := 4
+var slow_mo := false
 
 var doors: Doors = null
 var nav: Nav = null
@@ -75,6 +82,7 @@ var gore_decals: GoreDecals
 var real_decals: RealDecals
 var fx: Effects
 var giblets: Giblets
+var trophies: Trophies
 var beam: BeamSystem
 var scope: Scope
 ## and the quad launcher's thermal sight (render/thermal.gd), the same kind of thing
@@ -246,6 +254,8 @@ func start_map(doc: Dictionary) -> void:
 	add_child(fx)
 	giblets = Giblets.new(self)
 	add_child(giblets)
+	trophies = Trophies.new(self)
+	add_child(trophies)
 	beam = BeamSystem.new(self)
 	add_child(beam)
 	# under the Game, so the scope's feed draws this world
@@ -359,6 +369,7 @@ func _bind_keys() -> void:
 		"turn_left": [KEY_LEFT], "turn_right": [KEY_RIGHT],
 		"run": [KEY_SHIFT], "jump": [KEY_SPACE], "use": [KEY_F],
 		"attack": [KEY_CTRL], "pause": [KEY_ESCAPE, KEY_P], "zoom": [KEY_Z, KEY_C],
+		"slow": [KEY_T],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -389,6 +400,8 @@ func handle_input(event: InputEvent) -> void:
 		_jump = true
 	if event.is_action_pressed("zoom"):
 		_zoom = true
+	if event.is_action_pressed("slow"):
+		toggle_slow_mo()
 	if event.is_action_pressed("prev_weapon"):
 		_cycle = -1
 	elif event.is_action_pressed("next_weapon"):
@@ -433,7 +446,7 @@ func _process(dt: float) -> void:
 	else:
 		player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
 	_look = Vector2()
-	_acc += dt
+	_acc += dt / float(SLOW_MO) if slow_mo else dt
 	var n := 0
 	var t0 := Time.get_ticks_usec()
 	while _acc >= U.SEC and n < MAX_TICS:
@@ -455,6 +468,9 @@ func _process(dt: float) -> void:
 	if touch != null:
 		touch.scope_on = sighted != null
 		touch.scope_up = sighted != null and sighted.zoom_index > 0
+		if touch.slow_pulse:
+			touch.slow_pulse = false
+			toggle_slow_mo()
 		if touch.aim_pulse:
 			touch.aim_pulse = false
 			if sighted != null:
@@ -506,6 +522,7 @@ func _process(dt: float) -> void:
 	t0 = Time.get_ticks_usec()
 	fx.draw()
 	giblets.draw()
+	trophies.draw()
 	_prof_add("draw.fx", t0)
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
@@ -602,15 +619,25 @@ func tic() -> void:
 	# from its session — this machine's own input, rounded as the wire
 	# rounds it, or a client's off the wire — so the simulation cannot tell
 	# a player here from a player on another machine (js/game.js)
-	for i in players.size():
-		var p: Player = players[i]
-		var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
-		var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
-		p.tic(cmd)
-		if doors != null:
-			doors.command(p, cmd)
-		if back.is_valid():
-			back.call()
+	# in slow motion the players take SLOW_MO tics to the world's one, and
+	# are drawn sliding from where they stood before the first of them
+	var reps: int = SLOW_MO if slow_mo and net == null else 1
+	var stood: Array = []
+	for p: Player in players:
+		stood.append(Vector4(p.x, p.y, p.view_z, 0))
+	for r in reps:
+		for i in players.size():
+			var p: Player = players[i]
+			var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
+			var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
+			p.tic(cmd)
+			if doors != null:
+				doors.command(p, cmd)
+			if back.is_valid():
+				back.call()
+	if reps > 1:
+		for i in players.size():
+			players[i].prev = stood[i]
 	if doors != null:
 		doors.tic()
 	weather.tic()
@@ -662,6 +689,7 @@ func tic() -> void:
 	_prof_add("tic.fx", t0)
 	t0 = Time.get_ticks_usec()
 	giblets.tic()
+	trophies.tic()
 	_prof_add("tic.giblets", t0)
 	if big_message_tics > 0:
 		big_message_tics -= 1
@@ -918,6 +946,17 @@ func on_player_died(p, source) -> void:
 		rules.died(p, source)
 
 ## The gun's own notices: a line in the corner that fades, four at most.
+## T: slow motion on or off (see SLOW_MO); the music slows with it
+func toggle_slow_mo() -> void:
+	if net != null:
+		toast("NO SLOW MOTION IN A MATCH")
+		return
+	slow_mo = not slow_mo
+	toast("SLOW MOTION" if slow_mo else "FULL SPEED")
+	var m = get_parent().get("music") if get_parent() != null else null
+	if m != null and m.has_method("set_rate"):
+		m.set_rate(0.5 if slow_mo else 1.0)
+
 func toast(text: String) -> void:
 	toasts.append({"text": text, "tics": TOAST_LIFE})
 	while toasts.size() > TOAST_MAX:

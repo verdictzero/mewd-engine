@@ -1,9 +1,7 @@
-## MEWD Editor — the edits a person makes, on the document itself (the
-## document helpers of js/editor/editor.js): a vertex put down that
-## splits the wall it lands on, a new sector cut out of the one it is
-## drawn in, a sector split along a path, two merged across a line,
-## linedefs closing into sectors, a selection moved, and the shapes the
-## Shape tool draws.
+## MEWD Editor — the edits a person makes, on the document itself: a
+## vertex put down that splits the edge it lands on, a new block cut out
+## of the one it is drawn in, a block split along a path, two merged
+## across a line, a selection moved, and the shapes the Shape tool draws.
 class_name EdOps
 
 ## how near a line a point is ON it
@@ -104,7 +102,7 @@ static func vertex_for(d: Dictionary, x: float, y: float) -> int:
 	var i := V.size()
 	V.append(Vector2(x, y))
 	var p := Vector2(x, y)
-	for s in d.sectors:
+	for s in d.blocks:
 		var vs: Array = s.verts
 		for k in vs.size():
 			var a: Vector2 = V[vs[k]]
@@ -119,54 +117,9 @@ static func vertex_for(d: Dictionary, x: float, y: float) -> int:
 					d.lines[EdDoc.line_key(i, vs[(k + 2) % vs.size()])] = o.duplicate(true)
 					d.lines.erase(old)
 				break
-	split_linedefs_at(d, i)
 	return i
 
-## Vertex i, lying along a linedef of its own, splits it in two.
-static func split_linedefs_at(d: Dictionary, i: int) -> void:
-	if i < 0 or i >= d.vertices.size() or d.get("linedefs", []).is_empty():
-		return
-	var p: Vector2 = d.vertices[i]
-	var L: Array = d.linedefs
-	for k in L.size():
-		var pa: int = L[k][0]
-		var qb: int = L[k][1]
-		if pa == i or qb == i:
-			continue
-		var st := EdDoc.seg_dist(d.vertices[pa], d.vertices[qb], p)
-		if st.x < ON_LINE and st.y > 0.0001 and st.y < 0.9999:
-			L.remove_at(k)
-			L.insert(k, [i, qb])
-			L.insert(k, [pa, i])
-			var o = d.lines.get(EdDoc.line_key(pa, qb))
-			if o != null:
-				d.lines[EdDoc.line_key(pa, i)] = o.duplicate(true)
-				d.lines[EdDoc.line_key(i, qb)] = o.duplicate(true)
-				d.lines.erase(EdDoc.line_key(pa, qb))
-			return
-
-## A drawn path with a corner wherever it crosses a line of the map.
-static func with_crossings(d: Dictionary, points: PackedVector2Array, closed := true) -> PackedVector2Array:
-	var segs := []
-	for l in EdDoc.lines_of(d):
-		segs.append([d.vertices[l.a], d.vertices[l.b]])
-	for e in d.get("linedefs", []):
-		segs.append([d.vertices[e[0]], d.vertices[e[1]]])
-	var out := PackedVector2Array()
-	var n := points.size()
-	for k in n:
-		var p := points[k]
-		out.append(p)
-		if not closed and k == n - 1:
-			break
-		var q := points[(k + 1) % n]
-		var hits := _hits(p, q, segs)
-		for h in hits:
-			out.append(Vector2(h[1], h[2]))
-	return out
-
-## Where p-q properly crosses each segment: [t, x, y] in order along it,
-## the point kept to three places as the web build keeps it.
+## Where the segment p-q crosses each of segs: [[t, x, y]], along it.
 static func _hits(p: Vector2, q: Vector2, segs: Array) -> Array:
 	var hits := []
 	for sg in segs:
@@ -190,94 +143,6 @@ static func _hits(p: Vector2, q: Vector2, segs: Array) -> Array:
 static func _fix3(v: float) -> float:
 	return float("%.3f" % v)
 
-## CLOSING LOOPS: wherever linedefs of their own close a shape — among
-## themselves or against sector walls — that shape becomes a sector.
-static func close_loops(d: Dictionary) -> Array:
-	if d.get("linedefs", []).is_empty():
-		return []
-	var free := {}
-	for e in d.linedefs:
-		free[EdDoc.line_key(e[0], e[1])] = true
-	var adj := {}
-	var link := func(a: int, b: int) -> void:
-		if a == b:
-			return
-		if not adj.has(a):
-			adj[a] = {}
-		if not adj.has(b):
-			adj[b] = {}
-		adj[a][b] = true
-		adj[b][a] = true
-	for l in EdDoc.lines_of(d):
-		link.call(l.a, l.b)
-	for e in d.linedefs:
-		link.call(e[0], e[1])
-	var V: Array = d.vertices
-	var order := {}
-	for v in adj:
-		var ns: Array = adj[v].keys()
-		var pv: Vector2 = V[v]
-		ns.sort_custom(func(p, q):
-			var a1 := atan2(V[p].y - pv.y, V[p].x - pv.x)
-			var a2 := atan2(V[q].y - pv.y, V[q].x - pv.x)
-			return a1 < a2)
-		order[v] = ns
-	var faces := _faces(order)
-	var made := []
-	for ring0 in faces:
-		var ring: Array = _despur(ring0)
-		if ring.size() < 3 or _has_dupes(ring):
-			continue
-		var pts := PackedVector2Array()
-		for i in ring:
-			pts.append(V[i])
-		if EdDoc.signed_area(pts) <= 0.25 or EdDoc.self_crosses(pts):
-			continue
-		var touches := false
-		for k in ring.size():
-			if free.has(EdDoc.line_key(ring[k], ring[(k + 1) % ring.size()])):
-				touches = true
-				break
-		if not touches:
-			continue
-		var sk := _sorted_key(ring)
-		var exists := false
-		for s in d.sectors:
-			if _sorted_key(s.verts) == sk:
-				exists = true
-				break
-		if exists:
-			continue
-		var s = insert_sector(d, ring)
-		if s != null:
-			made.append(s.id)
-	return made
-
-## Every face of a plane graph, walked with the face on the left.
-static func _faces(order: Dictionary) -> Array:
-	var seen := {}
-	var faces := []
-	for u0 in order:
-		for v0 in order[u0]:
-			if seen.has("%d>%d" % [u0, v0]):
-				continue
-			var ring := []
-			var u: int = u0
-			var v: int = v0
-			var guard := 0
-			while not seen.has("%d>%d" % [u, v]) and guard < 100000:
-				guard += 1
-				seen["%d>%d" % [u, v]] = true
-				ring.append(u)
-				var around: Array = order[v]
-				var i := around.find(u)
-				var w: int = around[(i - 1 + around.size()) % around.size()]
-				u = v
-				v = w
-			if u == u0 and v == v0:
-				faces.append(ring)
-	return faces
-
 ## A spur into a ring and straight back out of it is not an edge of it.
 static func _despur(ring: Array) -> Array:
 	var r := ring.duplicate()
@@ -297,26 +162,13 @@ static func _despur(ring: Array) -> Array:
 				break
 	return r
 
-static func _has_dupes(a: Array) -> bool:
-	var s := {}
-	for v in a:
-		if s.has(v):
-			return true
-		s[v] = true
-	return false
-
-static func _sorted_key(a: Array) -> String:
-	var b := a.duplicate()
-	b.sort()
-	return ",".join(b.map(func(x): return str(x)))
-
 ## Vertex i, lying on an edge of a sector it is not a corner of, made a
 ## corner of it there.
 static func split_lines_at(d: Dictionary, i: int) -> void:
 	if i < 0 or i >= d.vertices.size():
 		return
 	var p: Vector2 = d.vertices[i]
-	for s in d.sectors:
+	for s in d.blocks:
 		var vs: Array = s.verts
 		if vs.has(i):
 			continue
@@ -408,7 +260,7 @@ static func cut_from(d: Dictionary, P: Dictionary, ring: Array) -> bool:
 
 ## Split sector S along path (vertex indices, ends on S's edge): S keeps
 ## one side, a new sector the other.
-static func split_sector(d: Dictionary, S, path: Array):
+static func split_block(d: Dictionary, S, path: Array):
 	if S == null or path.size() < 2:
 		return null
 	var u: int = path[0]
@@ -439,13 +291,14 @@ static func split_sector(d: Dictionary, S, path: Array):
 	made["name"] = ""
 	made["id"] = EdDoc.take_id(d)
 	made["verts"] = two
-	d.sectors.append(made)
+	d.blocks.append(made)
 	return made
 
-## A NEW SECTOR on a ring of vertex indices: wound anticlockwise, taking
-## the heights and textures of the sector it is drawn in, and cut out of
-## that one where it runs along its wall.
-static func insert_sector(d: Dictionary, idx: Array):
+## A NEW BLOCK on a ring of vertex indices: wound anticlockwise, in the
+## textures of the block it is drawn inside (it will stand on it), the
+## rest of `props` (the tool's height, say) over that, and cut out of
+## the block round it where it runs along its edge.
+static func insert_block(d: Dictionary, idx: Array, props := {}):
 	var ring := []
 	for k in idx.size():
 		if idx[k] != idx[(k + 1) % idx.size()]:
@@ -458,22 +311,20 @@ static func insert_sector(d: Dictionary, idx: Array):
 	var c := Vector2.ZERO
 	for p in pts:
 		c += p / pts.size()
-	var parent = sector_containing(d, c.x, c.y)
-	var base: Dictionary
+	var parent = block_containing(d, c.x, c.y)
+	var base: Dictionary = EdDoc.BLOCK_DEFAULTS.duplicate(true)
 	if parent != null:
-		base = EdDoc.copy_without(parent, ["id", "verts", "storeys"])
-		base["name"] = ""
-	else:
-		base = EdDoc.SECTOR_DEFAULTS.duplicate(true)
-		var lb = EdDoc.layer_base(d, int(d.get("layer", 0)), c.x, c.y)
-		if lb != null:
-			base.merge(lb, true)
+		for k in ["top", "side", "light"]:
+			if parent.get(k) != null:
+				base[k] = parent[k]
+	base["name"] = ""
+	base.merge(props, true)
 	var made := base
 	made["id"] = EdDoc.take_id(d)
 	made["verts"] = ring
 	if parent != null and not EdDoc.strictly_inside(pts, EdDoc.ring_of(d, parent)):
 		cut_from(d, parent, ring)
-	d.sectors.append(made)
+	d.blocks.append(made)
 	return made
 
 ## Does an outline properly cross any line of the map?
@@ -494,10 +345,10 @@ static func seg_dist_ring(r: PackedVector2Array, p: Vector2) -> float:
 	return m
 
 ## The smallest sector round a point, or null.
-static func sector_containing(d: Dictionary, x: float, y: float):
+static func block_containing(d: Dictionary, x: float, y: float):
 	var best = null
 	var ba := INF
-	for s in d.sectors:
+	for s in d.blocks:
 		var r := EdDoc.ring_of(d, s)
 		if r.size() < 3 or not EdDoc.pip(r, x, y):
 			continue
@@ -516,13 +367,6 @@ static func move_things(d: Dictionary, kind: String, ids: Dictionary, dx: float,
 			if ids.has(t.id):
 				t.x = EdDoc.num(t.x) + dx
 				t.y = EdDoc.num(t.y) + dy
-	if kind == "prop":
-		for p in d.props:
-			if ids.has(p.id):
-				p.x0 += dx
-				p.x1 += dx
-				p.y0 += dy
-				p.y1 += dy
 	if kind == "scatter":
 		for c in d.scatters:
 			if not ids.has(c.id):
@@ -540,8 +384,8 @@ static func move_things(d: Dictionary, kind: String, ids: Dictionary, dx: float,
 	if kind == "vertex":
 		for i in ids:
 			verts[int(i)] = true
-	if kind == "sector":
-		for s in d.sectors:
+	if kind == "block":
+		for s in d.blocks:
 			if ids.has(s.id):
 				for v in s.verts:
 					verts[v] = true
@@ -554,9 +398,9 @@ static func move_things(d: Dictionary, kind: String, ids: Dictionary, dx: float,
 	for i in verts:
 		if i >= 0 and i < d.vertices.size():
 			d.vertices[i] += off
-	if kind == "sector":
+	if kind == "block":
 		var lay := int(d.get("layer", 0))
-		for s in d.sectors:
+		for s in d.blocks:
 			if not ids.has(s.id):
 				continue
 			var r := PackedVector2Array()
@@ -567,14 +411,14 @@ static func move_things(d: Dictionary, kind: String, ids: Dictionary, dx: float,
 					t.x = EdDoc.num(t.x) + dx
 					t.y = EdDoc.num(t.y) + dy
 
-## Delete a line: join the two sectors on it into one, or remove the
-## sector a one-sided line bounds.
+## Delete a line: join the two blocks on it into one, or remove the
+## block whose edge it is.
 static func merge_across(d: Dictionary, key: String) -> void:
 	var ab := EdDoc.key_verts(key)
 	var a := ab.x
 	var b := ab.y
 	var on := []
-	for s in d.sectors:
+	for s in d.blocks:
 		var vs: Array = s.verts
 		for k in vs.size():
 			var v: int = vs[k]
@@ -583,7 +427,7 @@ static func merge_across(d: Dictionary, key: String) -> void:
 				on.append(s)
 				break
 	if on.size() == 1:
-		d.sectors.erase(on[0])
+		d.blocks.erase(on[0])
 		return
 	if on.size() != 2:
 		return
@@ -612,5 +456,5 @@ static func merge_across(d: Dictionary, key: String) -> void:
 			ring.append(merged[k])
 	ring = _despur(ring)
 	s1.verts = ring
-	d.sectors.erase(s2)
+	d.blocks.erase(s2)
 	d.lines.erase(EdDoc.line_key(a, b))

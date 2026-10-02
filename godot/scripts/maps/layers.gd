@@ -1,75 +1,116 @@
-## MEWD — THE ANNEXE: a map in two storeys, for the engine's room over
-## room (--map=layers; godot/tests/layers_test.gd plays it).
+## MEWD — THE ANNEXE: a map in storeys, for the engine's room over room
+## (--map=layers; godot/tests/layers_test.gd plays it).
 ##
-## A yard under the sky, and a building in it drawn in the editor's
-## LAYERS (godot/scripts/editor/ed_doc.gd, js/editor/doc.js):
+## THE FIRST MAP IN BLOCKS (BlockCompile): a yard, which is the ground
+## plane itself, and a building on it put up block by block the way the
+## editor puts one up, in three layers:
 ##
-##   LAYER 0, THE GROUND   the yard (0..2048 x 0..1536, floor 0); a
-##                         ground-floor room, the SHOP (768..1152 x
-##                         512..1024, ceiling 128, roofed), with a door on
-##                         its west side; and a flight of stairs (1216..
-##                         1472 x 1024..1344) cut by the step generator
-##                         (EdSteps.make_stairs) from the yard up to the
-##                         terrace, a sixteen-unit step at a time
-##   LAYER 1, UPSTAIRS     the OFFICE over the shop (floor 128, ceiling
-##                         320, roofed) and the TERRACE beside it (1152..
-##                         1536 x 512..1024, floor 128, open to the sky)
-##                         over open yard, with a door between the two
+##   LAYER 0, THE GROUND   the SHOP: a concrete floor patch (768..1152 x
+##                         512..1024, no height), four wall blocks 16
+##                         thick round it, 128 high, the west wall cut
+##                         for a door (the piece over the doorway a
+##                         LINTEL block floating at 96); and a flight of
+##                         seven STAIRS east of it (1216..1472 x 1024..
+##                         1344), a strip of block for each step, 16
+##                         higher than the last, the terrace one more
+##   LAYER 1, UPSTAIRS     the OFFICE's floor, a slab over the whole shop
+##                         (its walls included, so it stands on them at
+##                         112, 16 thick to 128, its underside the shop's
+##                         ceiling); the office's walls on the slab, up
+##                         to 320, the east wall cut for a sliding door;
+##                         and the TERRACE beside it (1168..1536 x 496..
+##                         1040), a slab floating at 112 over open yard,
+##                         its top at 128, the office floor's height
+##   LAYER 2, THE ROOF     a slab over the office's walls
 ##
 ## So the yard runs on under the terrace (its ceiling there the
-## terrace's underside), the office's walls stand on the edge of the
-## terrace deck and over the shop's, and one point of the plan can be in
-## the yard, under the deck, or up on it. A shopper downstairs under the
-## terrace, one on the terrace, a townie in the office.
+## terrace's underside), the office's walls stand on its floor on the
+## shop's walls, and one point of the plan can be in the yard, under the
+## deck, or up on it. A shopper downstairs under the terrace, one on the
+## terrace, a townie in the office.
 class_name LayersMap
 
-const DECK := 128.0
+const WALL_H := 112.0
+const SLAB := 16.0
+const OFFICE_H := 192.0
+const DOOR_H := 96.0
+## the office's floor: the shop's walls, and the slab on them
+const DECK := WALL_H + SLAB
 
-static func _sector(id: int, verts: Array, p: Dictionary) -> Dictionary:
-	var s := {"id": id, "verts": verts, "light": 0.8, "name": ""}
-	s.merge(p, true)
-	return s
+class Layer:
+	var V: Array = []
+	var blocks: Array = []
+	var lines := {}
+	var next_id: int
+	func _init(first_id: int) -> void:
+		next_id = first_id
+	func vert(p: Vector2) -> int:
+		for i in V.size():
+			if V[i].distance_to(p) < 0.49:
+				return i
+		V.append(p)
+		return V.size() - 1
+	## a block over the rectangle x0..x1, y0..y1; p: its fields
+	func rect(x0: float, y0: float, x1: float, y1: float, p: Dictionary) -> Dictionary:
+		var b := {"id": next_id, "verts": [vert(Vector2(x0, y0)), vert(Vector2(x1, y0)), vert(Vector2(x1, y1)), vert(Vector2(x0, y1))],
+			"h": 128.0, "base": null, "top": "CONC_1", "side": "GRIDWALL", "under": null, "light": 0.72, "name": ""}
+		b.merge(p, true)
+		next_id += 1
+		blocks.append(b)
+		return b
+	func line_key(a: Vector2, b: Vector2) -> String:
+		return "%d,%d" % [mini(vert(a), vert(b)), maxi(vert(a), vert(b))]
+	func out() -> Dictionary:
+		return {"vertices": V, "blocks": blocks, "lines": lines}
 
 static func build() -> Dictionary:
-	# THE GROUND
-	var V0 := [
-		Vector2(0, 0), Vector2(2048, 0), Vector2(2048, 1536), Vector2(0, 1536),                 # 0-3 the yard
-		Vector2(768, 512), Vector2(1152, 512), Vector2(1152, 1024), Vector2(768, 1024),         # 4-7 the shop
-		Vector2(768, 704), Vector2(768, 832),                                                    # 8-9 its door
-		Vector2(1216, 1024), Vector2(1472, 1024), Vector2(1472, 1344), Vector2(1216, 1344),     # 10-13 the stairs
-	]
-	var yard := _sector(1, [0, 1, 2, 3], {"floor": 0, "ceil": 512, "floorTex": "LAWN2", "ceilTex": "SKY",
-		"wallTex": "CITYCON1", "outdoor": true, "name": "yard", "light": 0.9})
-	var shop := _sector(2, [4, 5, 6, 7, 9, 8], {"floor": 0, "ceil": DECK, "floorTex": "CONC_2", "ceilTex": "OFCCEIL1",
-		"wallTex": "CITYMET1", "outdoor": false, "sky": 0, "name": "shop", "light": 0.7})
-	var stairs := _sector(3, [10, 11, 12, 13], {"floor": 0, "ceil": 512, "floorTex": "CONC_1", "ceilTex": "SKY",
-		"wallTex": "CITYCON1", "lowerTex": "CITYCON1", "outdoor": true, "name": "stairs", "light": 0.9})
+	var wall := {"h": WALL_H, "side": "CITYMET1", "top": "CITYMET1", "name": "wall"}
+	# THE GROUND: the shop and the stairs
+	var g0 := Layer.new(1)
+	g0.rect(768, 512, 1152, 1024, {"h": 0.0, "top": "CONC_2", "name": "shop"})
+	g0.rect(752, 496, 768, 704, wall)
+	g0.rect(752, 704, 768, 832, {"h": WALL_H - DOOR_H, "base": DOOR_H, "side": "CITYMET1", "top": "CITYMET1", "under": "CITYMET1", "name": "lintel"})
+	g0.rect(752, 832, 768, 1040, wall)
+	g0.rect(1152, 496, 1168, 1040, wall)
+	g0.rect(768, 496, 1152, 512, wall)
+	g0.rect(768, 1024, 1152, 1040, wall)
+	# the shop's door: on the lintel's inner edge, swinging into the shop
+	g0.lines[g0.line_key(Vector2(768, 704), Vector2(768, 832))] = {"door": {"h": DOOR_H}}
+	# THE STAIRS: seven steps up from the yard, the terrace's edge the eighth
+	for k in 7:
+		var y1 := 1344.0 - roundf(320.0 * k / 7.0)
+		var y0 := 1344.0 - roundf(320.0 * (k + 1) / 7.0)
+		g0.rect(1216, y0, 1472, y1, {"h": 16.0 * (k + 1), "top": "CONC_1", "side": "CITYCON1", "name": "step %d" % (k + 1)})
+	# UPSTAIRS: the office's floor on the shop's walls, its walls on that,
+	# and the terrace beside it
+	var g1 := Layer.new(100)
+	g1.rect(752, 496, 1168, 1040, {"h": SLAB, "top": "OFCCARP1", "under": "OFCCEIL1", "side": "CITYMET1", "light": 0.7, "name": "office floor"})
+	var owall := {"h": OFFICE_H, "side": "CITYMET2", "top": "CITYMET2", "name": "office wall"}
+	g1.rect(752, 496, 768, 1040, owall)
+	g1.rect(1152, 496, 1168, 704, owall)
+	g1.rect(1152, 704, 1168, 832, {"h": OFFICE_H - DOOR_H, "base": DECK + DOOR_H, "side": "CITYMET2", "top": "CITYMET2", "under": "CITYMET2", "name": "office lintel"})
+	g1.rect(1152, 832, 1168, 1040, owall)
+	g1.rect(768, 496, 1152, 512, owall)
+	g1.rect(768, 1024, 1152, 1040, owall)
+	g1.rect(1168, 496, 1536, 1040, {"h": SLAB, "base": WALL_H, "top": "CONC_3", "under": "CONC_3", "side": "CITYCON1", "light": 0.8, "name": "terrace"})
+	# the office's door: on the lintel's inner edge, sliding, into the office
+	g1.lines[g1.line_key(Vector2(1152, 704), Vector2(1152, 832))] = {"door": {"h": DOOR_H, "style": "slide"}}
+	# THE ROOF
+	var g2 := Layer.new(200)
+	g2.rect(752, 496, 1168, 1040, {"h": SLAB, "top": "CONC_3", "under": "OFCCEIL1", "side": "CITYMET2", "light": 0.75, "name": "roof"})
 	var doc := {
-		"format": EdDoc.DOC_FORMAT, "version": EdDoc.DOC_VERSION, "name": "THE ANNEXE",
-		"vertices": V0, "sectors": [yard, shop, stairs],
-		"lines": {"8,9": {"opening": true, "door": {"h": 96}}},
-		"linedefs": [], "textures": [], "props": [], "scatters": [],
+		"format": BlockCompile.FORMAT, "version": BlockCompile.VERSION, "name": "THE ANNEXE",
+		"ground": {"tex": "LAWN2", "light": 0.9},
+		"vertices": g0.V, "blocks": g0.blocks, "lines": g0.lines,
+		"layers": {"1": g1.out(), "2": g2.out()},
 		"things": [
 			{"id": 20, "type": "START", "x": 320.0, "y": 768.0, "angle": 0.0},
 			{"id": 21, "type": "SHOPPER", "x": 1344.0, "y": 640.0, "angle": PI},
 			{"id": 22, "type": "SHOPPER", "x": 1344.0, "y": 640.0, "angle": PI, "layer": 1},
 			{"id": 23, "type": "TOWNIE", "x": 960.0, "y": 900.0, "angle": 0.0, "layer": 1},
 		],
+		"textures": [], "scatters": [],
 		"world": DocCompile.default_world(),
-		"nextId": 30,
+		"nextId": 300,
 	}
-	# THE STAIRS, as the editor's step generator cuts them: from the yard
-	# up towards the terrace's edge, the last step a step under its deck
-	var st := EdSteps.make_stairs(doc, stairs, {"from": 0.0, "to": DECK, "dir": Vector2(0, -1), "headroom": false})
-	assert(not st.has("error"), str(st.get("error", "")))
-	# UPSTAIRS
-	var V1 := [
-		Vector2(768, 512), Vector2(1152, 512), Vector2(1152, 704), Vector2(1152, 832), Vector2(1152, 1024), Vector2(768, 1024),
-		Vector2(1536, 512), Vector2(1536, 1024),
-	]
-	var office := _sector(10, [0, 1, 2, 3, 4, 5], {"floor": DECK, "ceil": 320, "floorTex": "OFCCARP1", "ceilTex": "OFCCEIL1",
-		"wallTex": "CITYMET2", "outdoor": false, "sky": 0, "name": "office", "light": 0.75})
-	var terrace := _sector(11, [1, 6, 7, 4, 3, 2], {"floor": DECK, "ceil": 512, "floorTex": "CONC_3", "ceilTex": "SKY",
-		"wallTex": "CITYCON1", "outdoor": true, "name": "terrace", "light": 0.9})
-	doc["layers"] = {"1": {"vertices": V1, "sectors": [office, terrace], "lines": {"2,3": {"opening": true, "door": {"h": 96, "style": "slide"}}}, "linedefs": []}}
 	return doc

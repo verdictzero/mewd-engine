@@ -1,9 +1,9 @@
 ## MEWD Editor — the plan (js/editor/view2d.js).
 ##
 ## The Doom Builder half: the map from above on a grid, north up. Every
-## mode edits one kind of thing — vertices, lines, sectors, things,
-## props, scatters — and two draw: DRAW clicks out a sector a corner at a
-## time and SHAPE drags one out. Drag anything to move it; drag on
+## mode edits one kind of thing — vertices, lines, blocks, things,
+## scatters — and two draw: DRAW clicks out a block a corner at a time
+## and SHAPE drags one out; a drag on the bare ground pulls one up too. Drag anything to move it; drag on
 ## nothing to box-select; the wheel zooms about the cursor and the right
 ## or middle button pans; Ctrl and the wheel is a sector's brightness. A
 ## drag is ONE undo, welded when it is let go. Fingers: one draws (or,
@@ -89,15 +89,16 @@ func _on_resize() -> void:
 # --- A TEXTURE DRAGGED IN from the browser -------------------------------
 
 ## What a texture let go at `at` would land on: the line within a few
-## pixels (the wall of the room the cursor is on that side of), or the
-## room under the cursor's floor — its ceiling with Shift held.
+## pixels (one side of the block it is an edge of — the line's skin),
+## or the block under the cursor's top (its underside with Shift held),
+## or the bare ground.
 func tex_target(at: Vector2):
 	var w := Vector2(mx(at.x), my(at.y))
 	var d: Dictionary = ed.doc
 	var best = null
 	var bd := 8.0 / scale_
 	for l in ed.lines():
-		if l.get("free", false) or l.sectors.is_empty():
+		if l.blocks.is_empty():
 			continue
 		var A: Vector2 = d.vertices[l.a]
 		var B: Vector2 = d.vertices[l.b]
@@ -105,17 +106,15 @@ func tex_target(at: Vector2):
 		if dist < bd:
 			bd = dist
 			best = l
-	var room = ed.sector_at(w.x, w.y)
+	var blk = ed.block_at(w.x, w.y)
 	if best != null:
-		var si: int = best.sectors[0]
-		if room != null:
-			var ri := ed.sector_index(room.id)
-			if ri in best.sectors:
-				si = ri
-		return {"kind": "surface", "part": "wall", "line": best.key, "sector": si, "band": "lower" if best.sectors.size() > 1 else "middle"}
-	if room != null:
-		return {"kind": "surface", "part": "ceiling" if Input.is_key_pressed(KEY_SHIFT) else "floor", "sector": ed.sector_index(room.id)}
-	return null
+		var bi: int = best.blocks[0]
+		if blk != null and ed.block_index(blk.id) in best.blocks:
+			bi = ed.block_index(blk.id)
+		return {"kind": "surface", "part": "side", "line": best.key, "block": d.blocks[bi].id}
+	if blk != null:
+		return {"kind": "surface", "part": "under" if Input.is_key_pressed(KEY_SHIFT) else "top", "block": blk.id}
+	return {"kind": "surface", "part": "ground", "block": null}
 
 func _can_drop_tex(at: Vector2, data) -> bool:
 	if not (data is Dictionary and data.has("mewd_tex")):
@@ -124,10 +123,12 @@ func _can_drop_tex(at: Vector2, data) -> bool:
 	if t == null:
 		ed.set_hover(null)
 		return false
-	if t.part == "wall":
+	if t.part == "side":
 		ed.set_hover({"kind": "line", "id": t.line})
+	elif t.get("block") != null:
+		ed.set_hover({"kind": "block", "id": t.block})
 	else:
-		ed.set_hover({"kind": "sector", "id": ed.doc.sectors[t.sector].id})
+		ed.set_hover(null)
 	return true
 
 func _drop_tex(at: Vector2, data) -> void:
@@ -191,19 +192,14 @@ func sel_points() -> PackedVector2Array:
 				for i in [ab.x, ab.y]:
 					if i >= 0 and i < d.vertices.size():
 						out.append(d.vertices[i])
-		"sector":
-			for s in d.sectors:
+		"block":
+			for s in d.blocks:
 				if ed.sel_ids.has(s.id):
 					out.append_array(EdDoc.ring_of(d, s))
 		"thing":
 			for t in d.things:
 				if ed.sel_ids.has(t.id):
 					out.append(Vector2(t.x, t.y))
-		"prop":
-			for p in d.props:
-				if ed.sel_ids.has(p.id):
-					out.append(Vector2(p.x0, p.y0))
-					out.append(Vector2(p.x1, p.y1))
 		"scatter":
 			for c in d.scatters:
 				if ed.sel_ids.has(c.id):
@@ -213,7 +209,7 @@ func sel_points() -> PackedVector2Array:
 	return out
 
 static func mode_kind(mode: String) -> String:
-	return MewdEditor.MODE_KIND.get(mode, "sector")
+	return MewdEditor.MODE_KIND.get(mode, "block")
 
 # ---------------------------------------------------------------------
 # WHAT IS UNDER THE MOUSE, in the current mode
@@ -247,8 +243,8 @@ func pick(x: float, y: float, kind := ""):
 					bd = dist
 					best = l.key
 			return {"kind": kind, "id": best} if best != null else null
-		"sector":
-			var s = ed.sector_at(x, y)
+		"block":
+			var s = ed.block_at(x, y)
 			return {"kind": kind, "id": s.id} if s != null else null
 		"thing":
 			var best = null
@@ -261,21 +257,6 @@ func pick(x: float, y: float, kind := ""):
 				if q < rad and q < bd:
 					bd = q
 					best = t.id
-			return {"kind": kind, "id": best} if best != null else null
-		"prop":
-			var best = null
-			var ba := INF
-			for pr in d.props:
-				var x0 := minf(pr.x0, pr.x1)
-				var x1 := maxf(pr.x0, pr.x1)
-				var y0 := minf(pr.y0, pr.y1)
-				var y1 := maxf(pr.y0, pr.y1)
-				if x < x0 - r or x > x1 + r or y < y0 - r or y > y1 + r:
-					continue
-				var a := (x1 - x0) * (y1 - y0)
-				if a < ba:
-					ba = a
-					best = pr.id
 			return {"kind": kind, "id": best} if best != null else null
 	return null
 
@@ -402,13 +383,14 @@ func _down(e: InputEventMouseButton) -> void:
 	var kind := mode_kind(mode)
 	var hit = null if (mode == "scatter" and e.alt_pressed) else pick(m.x, m.y, kind)
 	if hit == null:
-		if mode == "props":
-			var a := ed.snap_pt(m)
-			drag = {"type": "prop", "a": a, "b": a}
-			return
 		if mode == "scatter":
 			var a := ed.snap_pt(m)
 			drag = {"type": "brush", "a": a, "b": a}
+			return
+		# BLOCKS MODE, ON THE BARE GROUND: a drag pulls up a block
+		if mode == "blocks" and not e.shift_pressed:
+			var a := snap_point(m.x, m.y)
+			drag = {"type": "rect", "a": a, "b": a, "ground": true, "px": p}
 			return
 		drag = {"type": "box", "a": m, "b": m, "add": e.shift_pressed}
 		return
@@ -427,11 +409,6 @@ func _down(e: InputEventMouseButton) -> void:
 	if e.shift_pressed or e.ctrl_pressed:
 		ed.select(kind, [hit.id], true)
 		return
-	# A DRAG ON THE GROUND DRAWS; Alt-drag moves it
-	if mode == "sectors" and not e.alt_pressed and ed.is_ground(hit.id):
-		var a := snap_point(m.x, m.y)
-		drag = {"type": "rect", "a": a, "b": a, "ground": hit.id, "px": p}
-		return
 	if not ed.is_sel(kind, hit.id):
 		ed.select(kind, [hit.id])
 	drag = {"type": "move", "mv": ed.begin_move(ed.grab_point(m), m), "px": p, "moved": false}
@@ -449,8 +426,8 @@ func _move(e: InputEventMouseMotion) -> void:
 	var dr = drag
 	if dr == null:
 		hover = null if ed.mode in ["draw", "rect"] else pick(m.x, m.y)
-		var s = ed.sector_at(m.x, m.y)
-		ed.set_hover(hover if hover != null else ({"kind": "sector", "id": s.id} if s != null else null))
+		var s = ed.block_at(m.x, m.y)
+		ed.set_hover(hover if hover != null else ({"kind": "block", "id": s.id} if s != null else null))
 		_over()
 		return
 	match dr.type:
@@ -473,7 +450,7 @@ func _move(e: InputEventMouseMotion) -> void:
 			dr.b = m
 		"rect":
 			dr.b = snap_point(m.x, m.y)
-		"prop", "brush":
+		"brush":
 			dr.b = ed.snap_pt(m)
 		"move":
 			if not dr.moved and p.distance_to(dr.px) < slop:
@@ -512,12 +489,10 @@ func _up(e: InputEventMouseButton) -> void:
 				ed.select(kind, in_box(kind, x0, y0, x1, y1), dr.add)
 		"rect":
 			if dr.get("ground") != null and e.position.distance_to(dr.px) < slop:
-				ed.select("sector", [dr.ground])
-				ed.say("the ground — drag on it to draw a new sector; Alt-drag moves it")
+				ed.clear_sel()
+				ed.say("the ground — drag on it to pull up a block; the Map tab has its texture")
 			else:
 				ed.add_rect(dr.a, dr.b)
-		"prop":
-			ed.add_prop(dr.a.x, dr.a.y, dr.b.x, dr.b.y)
 		"brush":
 			ed.paint_brush(dr.a, dr.b)
 		"move":
@@ -549,10 +524,10 @@ func _wheel(e: InputEventMouseButton) -> void:
 	var m := to_map(p)
 	var up := e.button_index == MOUSE_BUTTON_WHEEL_UP
 	if e.ctrl_pressed or e.meta_pressed:
-		var s = ed.sector_at(m.x, m.y)
+		var s = ed.block_at(m.x, m.y)
 		if s == null:
 			return
-		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "sector" and ed.sel_ids.has(s.id) else {s.id: true}
+		var ids: Dictionary = ed.sel_ids if ed.sel_kind == "block" and ed.sel_ids.has(s.id) else {s.id: true}
 		ed.nudge_light((1 if e.shift_pressed else 16) * (1 if up else -1), ids)
 		return
 	var k := exp((1.0 if up else -1.0) * 100.0 * 0.0015 * maxf(1.0, e.factor))
@@ -574,8 +549,8 @@ func in_box(kind: String, x0: float, y0: float, x1: float, y1: float) -> Array:
 			for l in ed.lines():
 				if inb.call(d.vertices[l.a]) and inb.call(d.vertices[l.b]):
 					out.append(l.key)
-		"sector":
-			for s in d.sectors:
+		"block":
+			for s in d.blocks:
 				var all := true
 				for v in EdDoc.ring_of(d, s):
 					if not inb.call(v):
@@ -587,10 +562,6 @@ func in_box(kind: String, x0: float, y0: float, x1: float, y1: float) -> Array:
 			for t in d.things:
 				if ed.on_layer(t) and inb.call(Vector2(t.x, t.y)):
 					out.append(t.id)
-		"prop":
-			for p in d.props:
-				if inb.call(Vector2(p.x0, p.y0)) and inb.call(Vector2(p.x1, p.y1)):
-					out.append(p.id)
 		"scatter":
 			for c in d.scatters:
 				var r := EdScatter.scatter_box(d, c)
@@ -725,21 +696,17 @@ func _draw() -> void:
 
 func _line_style(d: Dictionary, l: Dictionary, is_sel: bool) -> Array:
 	var o = d.lines.get(l.key)
-	var free: bool = l.get("free", false)
-	var ext := EdView3D.exterior_wall(d, l)
-	var door: bool = not ext and o != null and o.get("opening", false)
 	var has_door: bool = o != null and o.get("door") is Dictionary
+	var fill: bool = o != null and EdDoc.tex(o, "midTex") != ""
 	var c: Color
 	if is_sel: c = Color("#ff9d3d")
 	elif has_door: c = Color("#ff5fd2")
-	elif free: c = Color("#ffd23d")
 	elif o != null and o.get("blocking", false): c = Color("#ff6b6b")
-	elif ext: c = Color("#f0dcb4")
-	elif door: c = Color("#c9a46a")
-	elif l.sectors.size() > 1: c = Color("#6d7a86")
+	elif fill: c = Color("#c9a46a")
+	elif l.blocks.size() > 1: c = Color("#6d7a86")
 	else: c = Color("#e6edf0")
-	var w := 2.5 if is_sel else (3.0 if free or has_door else (2.0 if ext else (1.0 if l.sectors.size() > 1 else 1.6)))
-	return [c, w, door]
+	var w := 2.5 if is_sel else (3.0 if has_door else (1.0 if l.blocks.size() > 1 else 1.6))
+	return [c, w, fill]
 
 ## THE MODEL: every sector's fill as triangles, the lines grouped by how
 ## they are drawn, the scatters' dots, the vertices — in map units.
@@ -748,24 +715,22 @@ func _build_model() -> void:
 	_model_scale = scale_
 	var d := ed.doc
 	var M := {}
-	# THE SECTORS, filled by floor height so the plan reads like a relief
-	# map; inside hatched; or shaded by a plan view
+	# THE BLOCKS, filled by the height of their top so the plan reads
+	# like a relief map (the ground is the dark background); or shaded
+	# by brightness
 	var lo := 0.0
 	var hi := 1.0
-	var clo := INF
-	var chi := -INF
-	for s in d.sectors:
-		lo = minf(lo, EdDoc.num(s.get("floor"), 0))
-		hi = maxf(hi, EdDoc.num(s.get("floor"), 0))
-		clo = minf(clo, EdDoc.num(s.get("ceil"), 0))
-		chi = maxf(chi, EdDoc.num(s.get("ceil"), 0))
+	for s in d.blocks:
+		var t: float = ed.top_of(s.id).top
+		lo = minf(lo, t)
+		hi = maxf(hi, t)
 	var order := []
-	for s in d.sectors:
+	for s in d.blocks:
 		var r := EdDoc.ring_of(d, s)
 		order.append([s, absf(EdDoc.signed_area(r)), r])
 	order.sort_custom(func(a, b): return a[1] > b[1])
 	var view := ed.plan_view
-	var sel_s: bool = ed.sel_kind == "sector"
+	var sel_s: bool = ed.sel_kind == "block"
 	var fill_p := PackedVector2Array()
 	var fill_c := PackedColorArray()
 	var hatch_p := PackedVector2Array()
@@ -779,42 +744,39 @@ func _build_model() -> void:
 		var n0 := fill_p.size()
 		_expand(r, tris, fill_p)
 		var is_sel: bool = sel_s and ed.sel_ids.has(s.id)
-		var f := EdDoc.num(s.get("floor"), 0)
-		var t := (f - lo) / (hi - lo if hi - lo != 0 else 1.0)
-		var inside := MewdEditor.is_inside(s)
+		var bt := ed.top_of(s.id)
+		var t := (float(bt.top) - lo) / (hi - lo if hi - lo != 0 else 1.0)
+		var floats: bool = EdDoc.base_of(s) != null
 		var fc: Color
 		if view != "normal":
 			var v := 0.0
 			if view == "light":
 				v = MewdEditor.bright_of(s) / 255.0
-			elif view == "floor":
-				v = t
 			else:
-				v = (EdDoc.num(s.get("ceil"), 0) - clo) / (chi - clo if chi - clo != 0 else 1.0)
+				v = t
 			fc = Color(v, v, v, 0.85) if view == "light" else Color((40 + v * 215) / 255.0, (60 + (1 - absf(v - 0.5) * 2) * 120) / 255.0, (255 - v * 215) / 255.0, 0.6)
 			if is_sel:
 				fc = Color(1, 157 / 255.0, 61 / 255.0, 0.55)
-			numbers.append([EdDoc.centroid(r), str(MewdEditor.bright_of(s) if view == "light" else int(EdDoc.num(s.get("floor") if view == "floor" else s.get("ceil"), 0)))])
+			numbers.append([EdDoc.centroid(r), str(MewdEditor.bright_of(s) if view == "light" else int(bt.top))])
 		elif is_sel:
 			fc = Color(1, 157 / 255.0, 61 / 255.0, 0.28)
-		elif EdDoc.num(s.get("ceil"), 256) <= f:
-			fc = Color(90 / 255.0, 90 / 255.0, 90 / 255.0, 0.35)
-		elif inside:
+		elif EdDoc.h_of(s) < 0:
+			fc = Color(40 / 255.0, 60 / 255.0, 90 / 255.0, 0.4)
+		elif floats:
 			fc = Color((120 + t * 60) / 255.0, (90 + t * 40) / 255.0, (55 + t * 20) / 255.0, 0.32)
 		else:
-			fc = Color((30 + t * 40) / 255.0, (60 + t * 90) / 255.0, (50 + t * 40) / 255.0, 0.22)
+			fc = Color((60 + t * 120) / 255.0, (70 + t * 110) / 255.0, (60 + t * 80) / 255.0, 0.28 + t * 0.25)
 		fill_c.resize(fill_p.size())
 		for i in range(n0, fill_p.size()):
 			fill_c[i] = fc
-		if inside and view == "normal":
+		if floats and view == "normal":
 			_expand(r, tris, hatch_p)
 	M.fill_p = fill_p
 	M.fill_c = fill_c
 	M.hatch_p = hatch_p
 	M.numbers = numbers
-	# THE LINES: one-sided white, two-sided grey, blocking red, a linedef
-	# of its own yellow and thick, a building's outside wall tan, a
-	# doorway in one dashed
+	# THE LINES: an edge against the ground white, between two blocks
+	# grey, blocking red, a door pink and thick, a fill across it dashed
 	var groups := {}
 	var dashed := []
 	var ticks := PackedVector2Array()
@@ -903,19 +865,6 @@ func _draw_map() -> void:
 		stat.draw_dashed_line(tf * dl[0], tf * dl[1], dl[2], dl[3], 5)
 	if not M.ticks.is_empty():
 		stat.draw_multiline(tf * M.ticks, Color("#6d7a86"), 1.0)
-	# THE PROPS: boxes with their height written on them
-	var sel_p: bool = ed.sel_kind == "prop"
-	for p in d.props:
-		var a: Vector2 = tf * Vector2(minf(p.x0, p.x1), maxf(p.y0, p.y1))
-		var b: Vector2 = tf * Vector2(maxf(p.x0, p.x1), minf(p.y0, p.y1))
-		if b.x < 0 or b.y < 0 or a.x > size.x or a.y > size.y:
-			continue
-		var rr := Rect2(a, b - a)
-		var is_sel: bool = sel_p and ed.sel_ids.has(p.id)
-		stat.draw_rect(rr, Color(1, 157 / 255.0, 61 / 255.0, 0.3) if is_sel else Color(80 / 255.0, 190 / 255.0, 1, 0.14))
-		_dash_rect(rr, Color("#ff9d3d") if is_sel else Color("#58b9ff"), 2.0 if is_sel else 1.0, 4, stat)
-		if rr.size.x > 40 and rr.size.y > 14:
-			_text(rr.position + Vector2(3, 11), "%s–%s" % [EdUI.coord(p.z0), EdUI.coord(p.z1)], Color("#9fd6ff"), 10, HORIZONTAL_ALIGNMENT_LEFT, stat)
 	# THE SCATTERS: each rule's area, dashed, and its name
 	var sel_c: bool = ed.sel_kind == "scatter"
 	for c in d.get("scatters", []):
@@ -953,7 +902,7 @@ func _draw_scatter_area(c: Dictionary, is_sel: bool, hov: bool, ci: CanvasItem) 
 			ci.draw_rect(rr, fc)
 		_dash_rect(rr, sc, w, 6, ci)
 	else:
-		for s in d.sectors:
+		for s in d.blocks:
 			if a.get("ids", []).has(s.id):
 				var r := EdDoc.ring_of(d, s)
 				if fc.a > 0:
@@ -988,9 +937,9 @@ func _draw_over() -> void:
 	# THE HOVER, green, over what it is on
 	if hover != null:
 		match hover.kind:
-			"sector":
-				var s = ed.sector_by_id(hover.id)
-				if s != null and not ed.is_sel("sector", s.id):
+			"block":
+				var s = ed.block_by_id(hover.id)
+				if s != null and not ed.is_sel("block", s.id):
 					var r := EdDoc.ring_of(d, s)
 					if r.size() >= 3:
 						_fill(r, _tris(d, s, r), Color(61 / 255.0, 220 / 255.0, 132 / 255.0, 0.16), o)
@@ -1007,12 +956,6 @@ func _draw_over() -> void:
 					if t.id == hover.id:
 						_draw_thing(t, sp(Vector2(t.x, t.y)), false, true, o)
 						break
-			"prop":
-				for p in d.props:
-					if p.id == hover.id and not ed.is_sel("prop", p.id):
-						var a := sp(Vector2(minf(p.x0, p.x1), maxf(p.y0, p.y1)))
-						var b := sp(Vector2(maxf(p.x0, p.x1), minf(p.y0, p.y1)))
-						_dash_rect(Rect2(a, b - a), Color("#3ddc84"), 2.0, 4, o)
 			"scatter":
 				for c in d.get("scatters", []):
 					if c.id == hover.id and not ed.is_sel("scatter", c.id):
@@ -1048,12 +991,7 @@ func _draw_over() -> void:
 		for q in pts:
 			var s := sp(q)
 			o.draw_rect(Rect2(s.x - 2, s.y - 2, 4, 4), Color("#ffb454"))
-		_text(Vector2(sx(minf(dr.a.x, dr.b.x)) + 4, sy(maxf(dr.a.y, dr.b.y)) - 4), "%s × %s" % [EdUI.coord(absf(dr.b.x - dr.a.x)), EdUI.coord(absf(dr.b.y - dr.a.y))], Color("#ffd9a6"), 11, HORIZONTAL_ALIGNMENT_LEFT, o)
-	if dr != null and dr.type == "prop":
-		var rr := Rect2(sx(minf(dr.a.x, dr.b.x)), sy(maxf(dr.a.y, dr.b.y)), absf(dr.b.x - dr.a.x) * scale_, absf(dr.b.y - dr.a.y) * scale_)
-		o.draw_rect(rr, Color(88 / 255.0, 185 / 255.0, 1, 0.12))
-		o.draw_rect(rr, Color("#58b9ff"), false, 1.5)
-		_text(rr.position + Vector2(4, -4), "%s × %s" % [EdUI.coord(absf(dr.b.x - dr.a.x)), EdUI.coord(absf(dr.b.y - dr.a.y))], Color("#ffd9a6"), 11, HORIZONTAL_ALIGNMENT_LEFT, o)
+		_text(Vector2(sx(minf(dr.a.x, dr.b.x)) + 4, sy(maxf(dr.a.y, dr.b.y)) - 4), "%s × %s · %s high%s" % [EdUI.coord(absf(dr.b.x - dr.a.x)), EdUI.coord(absf(dr.b.y - dr.a.y)), EdUI.coord(ed.pull_h), " · room" if ed.make_kind == "room" else ""], Color("#ffd9a6"), 11, HORIZONTAL_ALIGNMENT_LEFT, o)
 	var path := ed.path
 	if not path.is_empty() or (ed.mode == "draw" and ed.cursor != null):
 		var pts := PackedVector2Array(path)
@@ -1074,7 +1012,7 @@ func _draw_over() -> void:
 	_draw_axes()
 	# the snapped cursor, in the drawing modes, and what it snapped to
 	var moving: bool = dr != null and dr.type == "move" and dr.moved
-	if ed.cursor != null and ((ed.mode in ["draw", "rect", "props", "things", "scatter", "vertices"] and dr == null) or moving):
+	if ed.cursor != null and ((ed.mode in ["draw", "rect", "blocks", "things", "scatter", "vertices"] and dr == null) or moving):
 		var q := sp(ed.cursor)
 		o.draw_line(q - Vector2(8, 0), q + Vector2(8, 0), Color("#ffb454"), 1.0)
 		o.draw_line(q - Vector2(0, 8), q + Vector2(0, 8), Color("#ffb454"), 1.0)
@@ -1118,10 +1056,10 @@ func _draw_layers() -> void:
 		var near: bool = absi(L.k - me) == 1
 		var sc := Color(150 / 255.0, 170 / 255.0, 200 / 255.0, 0.5 if near else 0.25) if under else Color(1, 200 / 255.0, 120 / 255.0, 0.45 if near else 0.22)
 		var fc := Color(120 / 255.0, 140 / 255.0, 170 / 255.0, 0.1 if near else 0.05)
-		for s in L.sectors:
+		for s in L.blocks:
 			var r := PackedVector2Array()
 			for i in s.verts:
-				r.append(L.vertices[i])
+				r.append(L.vertices[int(i)])
 			if r.size() < 3:
 				continue
 			if under:

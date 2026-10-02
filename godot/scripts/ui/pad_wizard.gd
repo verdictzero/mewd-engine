@@ -39,6 +39,7 @@ const STEPS := [
 	["prev_weapon", "PREVIOUS GUN\n(L1?)", "any"],
 	["run", "RUN\n(a stick pressed in?)", "any"],
 	["pause", "PAUSE\n(START?)", "any"],
+	["slow", "SLOW MOTION\n(the right stick pressed in?)", "any"],
 ]
 const OPPOSITE := {"fwd": ["back", "MOVE BACK\npush the D-pad DOWN"], "left": ["right", "MOVE RIGHT\npush the D-pad RIGHT"]}
 

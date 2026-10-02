@@ -21,6 +21,8 @@ var mode_btns := {}
 var layout_btns := {}
 var shape_sel: OptionButton
 var sides_in: SpinBox
+var pull_in: SpinBox
+var make_sel: OptionButton
 var grid_sel: OptionButton
 var snap_btn: Button
 var tabs_btn: Button
@@ -36,12 +38,11 @@ var pad: HFlowContainer
 
 const HELP2D := {
 	"vertices": "click select · drag move · shift add · Del delete\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid",
-	"lines": "click select · drag move · Del joins sectors (or removes a yellow linedef) · D draws new linedefs\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid",
-	"sectors": "drag on the ground: new sector · drag a room: move it · Insert/D: draw any shape\nclick select · dbl-click inspect · wheel zoom · right-drag/MMB pan · [ ] grid",
+	"lines": "click select · drag move · Alt+click / dbl-click: every side of the block · Del joins the two blocks\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light · [ ] grid",
+	"blocks": "drag on the ground: pull up a block (Pull sets how high) · drag a block: move it · PgUp/PgDn height · Insert/D: draw any shape\nclick select · dbl-click inspect · wheel zoom · right-drag/MMB pan · [ ] grid",
 	"things": "dbl-click / Insert place · drag move · , . turn\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light",
-	"props": "drag empty to draw a box · drag to move\nwheel zoom · right-drag/MMB pan · Ctrl+wheel light",
-	"draw": "click corners · click the first to close a sector · Backspace undoes a corner\nEnter / right-click / dbl-click: finish as linedefs — they close into a sector, split a room wall to wall, or stand as a wall · Esc cancel",
-	"rect": "drag out the shape chosen beside the Shape button (rectangle, ellipse, circle, polygon, star…)\nthe number sets a round shape's sides · Esc cancel",
+	"draw": "click corners · click the first to close a block · Backspace undoes a corner\nEnter / right-click / dbl-click: finish — a path edge to edge across a block splits it · Esc cancel",
+	"rect": "drag out the shape chosen beside the Shape button (rectangle, ellipse, circle, polygon, star…) — a block, or a room with Make: Room\nthe number sets a round shape's sides · Esc cancel",
 	"scatter": "drag a circle out from its middle to scatter the chosen mix · click a scatter to select it\nwheel zoom · right-drag/MMB pan",
 }
 
@@ -144,11 +145,11 @@ func _build_top() -> void:
 	top.add_child(_menu("File", [
 		["New map", "", func(): _confirm_dirty("Start a new map? The current one is autosaved and can be undone back to.", func(): ed.file_new(false))],
 		["New from THE GRID", "", func(): _confirm_dirty("Start a new map? The current one is autosaved and can be undone back to.", func(): ed.file_new(true))],
-		["Open demo: a new MAZE", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("maze"))],
-		["Open THE SPRAWL", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("sprawl"))],
-		["Open a new JESSE (PvP maze)", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("jesse"))],
+		["Open THE ANNEXE (a building in three layers)", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("layers"))],
 		["Open THE GRID", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("grid"))],
-		["Open THE ANNEXE (two storeys)", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("layers"))],
+		["Open THE MAZE", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("maze"))],
+		["Open JESSE", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("jesse"))],
+		["Open THE SPRAWL", "", func(): _confirm_dirty("Open the demo level? The current map is autosaved and can be undone back to.", func(): ed.file_demo("sprawl"))],
 		"-",
 		["Open…", "Ctrl+O", open_dialog],
 		["Save", "Ctrl+S", ed.file_save],
@@ -179,17 +180,26 @@ func _build_top() -> void:
 		"-",
 		["Frame the map", "F", func(): ed.frame_req.emit()],
 	]))
+	var view := [
+		["UI bigger", "Ctrl+=", func(): ed.ui_scale_step(1)],
+		["UI smaller", "Ctrl+-", func(): ed.ui_scale_step(-1)],
+		"-",
+	]
+	for sc in MewdEditor.UI_SCALES:
+		var scc: float = sc
+		view.append(["UI scale %d%%" % int(roundf(scc * 100.0)), "Ctrl+0" if scc == 1.0 else "", func(): ed.set_ui_scale(scc)])
+	top.add_child(_menu("View", view))
 	var help := []
 	for h in ["2D: drag to move, box-select on empty", "2D: middle / right drag pans, wheel zooms",
 			"D: click points, click the first to close", "R: drag a rectangle into a sector",
 			"X: drag a circle to scatter the chosen mix", "Every mode works in the 3D view too",
 			"Q: visual mode — mouselook, WASD, crosshair", "Ctrl+wheel: sector brightness (2D and 3D)",
-			"Wheel in 3D: raise/lower floor or ceiling", "Right-click: properties · right-drag: move",
+			"Wheel in 3D over a block: raise/lower it (Alt: its base)", "Right-click: properties · right-drag: move",
 			"Insert: thing / vertex at the cursor", "Ctrl+C / Ctrl+V: copy / paste selection",
-			"PgUp/PgDn: floor ±8 (Shift: ceiling)", "[ ] grid size · G snap · Shift+G snap selection",
+			"PgUp/PgDn: height ±8 (Shift: base)", "[ ] grid size · G snap · Shift+G snap selection",
 			"Alt+PgUp / Alt+PgDn: the layer up or down (storeys)", "Corners snap to vertices (□), lines (◇), then grid",
 			"Arrows nudge a grid step (1 with snap off), Shift ×4", "Tab swaps the big view and the inset",
-			"3D: hold right mouse to look, WASD QE fly", "3D: wheel raises the floor/ceiling under it",
+			"3D: hold right mouse to look, WASD QE fly", "3D: wheel raises the block under it; Pull sets how high new ones stand",
 			"3D: click a texture to paint the pick", "3D: Ctrl+C copies a texture, Ctrl+V pastes",
 			"3D: B toggles fullbright, H the grid, F goes to start", "F5 plays the map from where you stand in 3D · F2 in the game comes back"]:
 		help.append([h, "", Callable()])
@@ -216,6 +226,15 @@ func _build_top() -> void:
 	sides_in = EdStyle.num(ed.shape_sides if ed.shape_sides != null else 4, on_sides, 1.0, "Sides of a round shape, or a star's points")
 	sides_in.custom_minimum_size.x = 48
 	top.add_child(sides_in)
+	# THE PULL: how high a drawn shape stands; and block or room
+	top.add_child(EdStyle.label("Pull", EdStyle.DIM, 11))
+	pull_in = EdStyle.num(ed.pull_h, func(v): ed.set_pull(v), 8.0, "How high a new block is pulled up (below zero: pushed down into what it is drawn on)")
+	pull_in.custom_minimum_size.x = 64
+	top.add_child(pull_in)
+	make_sel = EdStyle.option([["block", "Make: Block"], ["room", "Make: Room"]], ed.make_kind, func(v): ed.set_make(v),
+		"What a drawn shape becomes: one block, or a room — walls round it, a floor, and a roof on the layer above")
+	make_sel.custom_minimum_size.x = 112
+	top.add_child(make_sel)
 	top.add_child(EdStyle.hsep())
 	grid_sel = OptionButton.new()
 	grid_sel.focus_mode = Control.FOCUS_NONE
@@ -305,6 +324,10 @@ func refresh_bar() -> void:
 	sides_in.visible = ed.shape_sides != null
 	if ed.shape_sides != null:
 		sides_in.set_value_no_signal(float(ed.shape_sides))
+	if pull_in != null and absf(pull_in.value - ed.pull_h) > 1e-6:
+		pull_in.set_value_no_signal(ed.pull_h)
+	if make_sel != null:
+		make_sel.select(["block", "room"].find(ed.make_kind))
 	EdStyle.set_on(snap_btn, ed.snap)
 	EdStyle.set_text(snap_btn, "Snap" if ed.snap else "No snap")
 	EdStyle.set_on(tabs_btn, not ed.tabs_hidden)
@@ -320,7 +343,7 @@ func refresh_bar() -> void:
 	st.sel.text = ("[b]%d[/b] %s%s%s" % [n, ed.sel_kind, "s" if n > 1 else "", (" · " + ed.surf.part) if ed.surf != null else ""]) if n > 0 else ""
 	help2d.text = HELP2D.get(ed.mode, "")
 	if plan_sel != null:
-		plan_sel.select(["normal", "light", "floor", "ceil"].find(ed.plan_view))
+		plan_sel.select(["normal", "light", "top"].find(ed.plan_view))
 
 # ---------------------------------------------------------------------
 # THE WORKSPACE
@@ -356,7 +379,7 @@ func _build_main() -> void:
 	wrap3d.add_child(v3)
 	wrap3d.move_child(v3, 0)
 	ed.view3d = v3
-	help3d = _help(wrap3d, "Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel height · Ctrl+wheel brightness · Ctrl+C/V texture · B fullbright · H grid")
+	help3d = _help(wrap3d, "Q visual mode · hold RMB look + WASD fly · every mode works here\nwheel over a block: its height (Alt: base) · Ctrl+wheel light · Ctrl+C/V texture · B fullbright · H grid")
 	cross = _crosshair()
 	wrap3d.add_child(cross)
 	wrap2d = _wrap("MAP  2D")
@@ -368,8 +391,8 @@ func _build_main() -> void:
 	var on_plan := func(v):
 		ed.plan_view = v
 		ed.grid_changed.emit()
-	plan_sel = EdStyle.option([["normal", "Plan: normal"], ["light", "Plan: brightness"], ["floor", "Plan: floor heights"], ["ceil", "Plan: ceilings"]],
-		ed.plan_view, on_plan, "What the plan shades sectors by (Doom Builder's brightness view)")
+	plan_sel = EdStyle.option([["normal", "Plan: normal"], ["light", "Plan: brightness"], ["top", "Plan: heights"]],
+		ed.plan_view, on_plan, "What the plan shades blocks by (Doom Builder's brightness view)")
 	plan_sel.position = Vector2(62, 3)
 	plan_sel.add_theme_font_size_override("font_size", 10)
 	plan_sel.custom_minimum_size = Vector2(112, 18)
@@ -577,23 +600,25 @@ func _show_hover() -> void:
 	var t := ""
 	if hv != null:
 		match hv.kind:
-			"sector":
-				var x = ed.sector_by_id(hv.id)
+			"block":
+				var x = ed.block_by_id(hv.id)
 				if x != null:
-					var ins := MewdEditor.is_inside(x)
-					t = "[color=#ffffff][b]Sector %d[/b][/color]%s · %s · floor [b]%s[/b] · %s [b]%s[/b] · brightness [b]%d[/b] · %s%s" % [
-						x.id, (" " + str(x.name)) if str(x.get("name", "")) != "" else "", "inside" if ins else "outside",
-						coord(EdDoc.num(x.get("floor"), 0)), "ceiling" if ins else "walls", coord(EdDoc.num(x.get("ceil"), 0)),
-						MewdEditor.bright_of(x), EdDoc.tex(x, "floorTex"), (" / " + EdDoc.tex(x, "ceilTex")) if ins else ""]
+					var bt := ed.top_of(x.id)
+					t = "[color=#ffffff][b]Block %d[/b][/color]%s · %s to [b]%s[/b] (%s high%s) · light [b]%d[/b] · %s / %s%s" % [
+						x.id, (" " + str(x.name)) if str(x.get("name", "")) != "" else "",
+						coord(bt.base), coord(bt.top), coord(EdDoc.h_of(x)), ", floating" if EdDoc.base_of(x) != null else "",
+						MewdEditor.bright_of(x), EdDoc.tex(x, "top"), EdDoc.tex(x, "side"), (" · " + hv.part) if hv.has("part") else ""]
+			"ground":
+				var g := EdDoc.ground_of(d)
+				t = "[color=#ffffff][b]The ground[/b][/color] · %s · daylight [b]%d[/b]" % [EdDoc.tex(g, "tex"), int(EdDoc.jsround(EdDoc.num(g.get("light"), 0.9) * 255.0))]
 			"line":
 				var l = ed.line_info(hv.id)
 				var ab := EdDoc.key_verts(str(hv.id))
 				if l != null and ab.x >= 0 and ab.x < d.vertices.size() and ab.y < d.vertices.size():
-					var free: bool = l.get("free", false)
-					t = "[color=#ffffff][b]%s %s[/b][/color] · %d long · %s%s" % ["Linedef" if free else "Line", hv.id,
+					t = "[color=#ffffff][b]Line %s[/b][/color] · %d long · %s%s" % [hv.id,
 						roundi(d.vertices[ab.x].distance_to(d.vertices[ab.y])),
-						"on its own (a wall)" if free else ("two-sided" if l.sectors.size() > 1 else "one-sided"),
-						" · doorway" if d.lines.get(hv.id, {}).get("opening", false) else ""]
+						"between two blocks" if l.blocks.size() > 1 else "an edge against the ground",
+						" · door" if d.lines.get(hv.id, {}).get("door") is Dictionary else ""]
 			"thing":
 				for x in d.things:
 					if x.id == hv.id:
@@ -604,11 +629,6 @@ func _show_hover() -> void:
 				if hv.id >= 0 and hv.id < d.vertices.size():
 					var v: Vector2 = d.vertices[hv.id]
 					t = "[color=#ffffff][b]Vertex %d[/b][/color] · %s, %s" % [hv.id, coord(v.x), coord(v.y)]
-			"prop":
-				for x in d.props:
-					if x.id == hv.id:
-						t = "[color=#ffffff][b]Prop %d[/b][/color] · %s–%s · %s" % [x.id, coord(x.z0), coord(x.z1), x.get("tex", "")]
-						break
 			"scatter":
 				for x in d.scatters:
 					if x.id == hv.id:
@@ -649,9 +669,9 @@ func _refresh_pad() -> void:
 		b.mouse_filter = Control.MOUSE_FILTER_STOP
 		pad.add_child(b)
 	if n >= 3:
-		mk.call("✓ Close", "Close the shape into a sector", func(): ed.close_path())
+		mk.call("✓ Close", "Close the shape into a block", func(): ed.close_path())
 	if n >= 2:
-		mk.call("⏎ Lines", "Finish as linedefs, or a split wall to wall (Enter)", func(): ed.close_path(true))
+		mk.call("⏎ Finish", "Finish: a split edge to edge, or the shape closed (Enter)", func(): ed.close_path(true))
 	if n > 0:
 		mk.call("⌫", "Take back the last corner (Backspace)", func(): ed.path.pop_back(); ed.path_changed.emit())
 		mk.call("✕", "Give up the drawing (Esc)", func(): ed.cancel_path(); ed.after_draw())

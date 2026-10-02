@@ -80,6 +80,10 @@ static func compile(doc: Dictionary) -> Level:
 	problems = []
 	last_scattered = []
 	last_grown = {}
+	# A MAP IN BLOCKS (the editor's own, BlockCompile): the ground plane
+	# and what is pulled up out of it, laid over each other as storeys
+	if BlockCompile.is_block_doc(doc):
+		return BlockCompile.compile(doc)
 	var lays := layers_of(doc)
 	if lays.size() > 1:
 		return _compile_layers(doc, lays)
@@ -276,9 +280,10 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			continue
 		var holes := _hole_outlines(kids_of.get(i, []), ring_idx, V, s)
 		var poly: PackedVector2Array = bridge(rings[i], holes) if holes.size() else rings[i]
-		if s.has("__stack"):
+		if s.has("__stack") or s.has("__storeys"):
 			# A PIECE OF A MAP IN LAYERS: the room of every layer over it
-			var st := _stack_props(s.__stack)
+			# (or, of a map in blocks, the storeys BlockCompile worked out)
+			var st: Array = s.__storeys if s.has("__storeys") else _stack_props(s.__stack)
 			if st.is_empty():
 				continue
 			var got := PackedInt32Array()
@@ -308,12 +313,12 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			for g in ctx.layers:
 				if int(g.k) == 0:
 					G = g
-			var gdoc := {"sectors": G.sectors, "props": doc.get("props", []), "things": doc.get("things", []),
-				"scatters": doc.scatters}
+			var gdoc := {"sectors": ctx.ground_blocks if ctx.has("ground_blocks") else G.sectors, "props": doc.get("props", []),
+				"things": doc.get("things", []), "scatters": doc.scatters}
 			var gplain := []
 			var gareas := PackedFloat64Array()
 			var gboxes := []
-			for sd in G.sectors:
+			for sd in gdoc.sectors:
 				var pl := _pts(G.vertices, PackedInt32Array(sd.verts))
 				gplain.append(pl)
 				gboxes.append(_bbox(pl))
@@ -333,7 +338,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 			started = true
 		# A THING ON AN UPPER LAYER stands on the floor of that layer's
 		# room: the game puts it in the storey at that height
-		if layered and int(t.get("layer", 0) if t.get("layer") != null else 0) != 0:
+		if layered and not ctx.get("blocks", false) and int(t.get("layer", 0) if t.get("layer") != null else 0) != 0:
 			for g in ctx.layers:
 				if int(g.k) != int(t.layer):
 					continue
@@ -358,6 +363,8 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	lv.things = things
 	if layered:
 		lv.layered = true
+	if doc.get("__bounds") is Rect2:
+		lv.bounds_hint = doc.__bounds
 	lv.finish()
 	for pc in pieces:
 		lv.sectors[pc[1]].doc_id = pc[0].get("id")
@@ -393,7 +400,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# a roof on one side and the open air on the other (as the rooms were
 	# drawn, not as the stacking roofed them) — a terrace over a house is
 	# open air beside open air.
-	if layered:
+	if layered and not ctx.get("blocks", false):
 		var src_of := {}
 		var layer_of := {}
 		for pc in pieces:
@@ -464,7 +471,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# from above as well, a roof, instead
 	var w_all := default_world()
 	w_all.merge(lv.world, true)
-	if not w_all.get("skyWalls", false):
+	if not w_all.get("skyWalls", false) and not ctx.get("blocks", false):
 		for l in lv.lines:
 			if l.back == -1:
 				continue
@@ -483,7 +490,7 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 				l.upper = "NONE"
 		for pc in pieces:
 			var L := lv.sectors[pc[1]]
-			if L.ceil_tex == "SKY" or L.ceil_tex == "NONE":
+			if L.ceil_tex == "SKY" or L.ceil_tex == "NONE" or ctx.get("blocks", false):
 				continue
 			# a storey with another over it has that one's floor for a roof
 			if L.above != -1:
@@ -546,7 +553,10 @@ static func _compile_core(doc: Dictionary, ctx: Dictionary) -> Level:
 	# the plants, placed and spread, one tree to a forest cell
 	lv.plants = Forest.plants_from_things(lv.things, lv.bounds)
 	# 7. THE DOORS: each line override `door`, on the level lines along it
-	_build_doors(lv, ctx.layers if layered else [{"vertices": V, "sectors": S, "lines": doc.get("lines", {})}])
+	if ctx.get("blocks", false):
+		BlockCompile.build_doors(lv, ctx.built)
+	else:
+		_build_doors(lv, ctx.layers if layered else [{"vertices": V, "sectors": S, "lines": doc.get("lines", {})}])
 	return lv
 
 # ------------------------------------------------------------------
@@ -1863,12 +1873,43 @@ static func _weld(P: Array, cell: Dictionary, x: float, y: float) -> int:
 	cell[key].append(P.size() - 1)
 	return P.size() - 1
 
+## A COARSE GRID OF BOXES, so a point asks only the boxes of its own
+## cell (a box over more than BIG cells is asked for every point).
+class BoxGrid:
+	const CELL := 512.0
+	const BIG := 4096
+	var cells := {}
+	var always := []
+	func _init(boxes: Array) -> void:
+		for i in boxes.size():
+			var b: Rect2 = boxes[i]
+			var x0 := floori(b.position.x / CELL)
+			var y0 := floori(b.position.y / CELL)
+			var x1 := floori(b.end.x / CELL)
+			var y1 := floori(b.end.y / CELL)
+			if (x1 - x0 + 1) * (y1 - y0 + 1) > BIG:
+				always.append(i)
+				continue
+			for cy in range(y0, y1 + 1):
+				for cx in range(x0, x1 + 1):
+					var k := Vector2i(cx, cy)
+					if not cells.has(k):
+						cells[k] = []
+					cells[k].append(i)
+	## the boxes a point may be in: the big ones, then its cell's
+	func at(p: Vector2) -> Array:
+		return always + cells.get(Vector2i(floori(p.x / CELL), floori(p.y / CELL)), [])
+
 ## Every edge of every layer's sectors in one plane, cut wherever two
 ## cross or a corner of one lands on another, and walked face by face.
 ## Each face any layer covers is one piece of the built map, with the
 ## room of each layer over it, bottom-up; a face none covers is a hole.
 ## lays: [{k, vertices, sectors}] bottom-up. Returns {vertices (Vector2),
-## faces: [{verts, stack: [{li, s}]}]}.
+## faces: [{verts, stack: [{li, s}]}]}. The segments are hashed into a
+## grid so each asks only its neighbours (a map of thousands of blocks
+## — JESSE, THE SPRAWL — is cut in a second, not a minute), and a face
+## walk that comes back through a vertex (two blocks meeting at a
+## corner) is split there into the loops either side.
 static func overlay(lays: Array) -> Dictionary:
 	var rings := []
 	for li in lays.size():
@@ -1889,6 +1930,20 @@ static func overlay(lays: Array) -> Dictionary:
 			if a == b:
 				continue
 			segs.append([a, b, Rect2(a.min(b) - Vector2.ONE, (a.max(b) - a.min(b)) + Vector2.ONE * 2.0)])
+	# the segments by cell
+	const SC := 256.0
+	var sgrid := {}
+	for si in segs.size():
+		var bx: Rect2 = segs[si][2]
+		for cy in range(floori(bx.position.y / SC), floori(bx.end.y / SC) + 1):
+			for cx in range(floori(bx.position.x / SC), floori(bx.end.x / SC) + 1):
+				var k := Vector2i(cx, cy)
+				if not sgrid.has(k):
+					sgrid[k] = PackedInt32Array()
+				sgrid[k].append(si)
+	var mark := PackedInt32Array()
+	mark.resize(segs.size())
+	mark.fill(-1)
 	# each segment cut at every crossing, and at every end of another that
 	# lies on it
 	var edges := {}
@@ -1896,25 +1951,29 @@ static func overlay(lays: Array) -> Dictionary:
 		var S: Array = segs[si]
 		var sa: Vector2 = S[0]
 		var sb: Vector2 = S[1]
+		var bx: Rect2 = S[2]
 		var d := sb - sa
 		var cuts := [[0.0, sa.x, sa.y, 0], [1.0, sb.x, sb.y, 1]]
-		for ti in segs.size():
-			if ti == si:
-				continue
-			var T: Array = segs[ti]
-			if not (T[2] as Rect2).intersects(S[2], true):
-				continue
-			for q in [T[0], T[1]]:
-				var t := _seg_t(sa, sb, q)
-				if (sa + d * t).distance_to(q) < EPS and t > 1e-6 and t < 1.0 - 1e-6:
-					cuts.append([t, q.x, q.y, cuts.size()])
-			if seg_cross(sa, sb, T[0], T[1]):
-				var e: Vector2 = T[1] - T[0]
-				var den := d.x * e.y - d.y * e.x
-				if absf(den) < 1e-9:
-					continue
-				var t: float = ((T[0].x - sa.x) * e.y - (T[0].y - sa.y) * e.x) / den
-				cuts.append([t, snappedf(sa.x + d.x * t, 0.001), snappedf(sa.y + d.y * t, 0.001), cuts.size()])
+		for cy in range(floori(bx.position.y / SC), floori(bx.end.y / SC) + 1):
+			for cx in range(floori(bx.position.x / SC), floori(bx.end.x / SC) + 1):
+				for ti in sgrid.get(Vector2i(cx, cy), PackedInt32Array()):
+					if ti == si or mark[ti] == si:
+						continue
+					mark[ti] = si
+					var T: Array = segs[ti]
+					if not (T[2] as Rect2).intersects(bx, true):
+						continue
+					for q in [T[0], T[1]]:
+						var t := _seg_t(sa, sb, q)
+						if (sa + d * t).distance_to(q) < EPS and t > 1e-6 and t < 1.0 - 1e-6:
+							cuts.append([t, q.x, q.y, cuts.size()])
+					if seg_cross(sa, sb, T[0], T[1]):
+						var e: Vector2 = T[1] - T[0]
+						var den := d.x * e.y - d.y * e.x
+						if absf(den) < 1e-9:
+							continue
+						var t: float = ((T[0].x - sa.x) * e.y - (T[0].y - sa.y) * e.x) / den
+						cuts.append([t, snappedf(sa.x + d.x * t, 0.001), snappedf(sa.y + d.y * t, 0.001), cuts.size()])
 		cuts.sort_custom(func(u, v): return u[0] < v[0] or (u[0] == v[0] and u[3] < v[3]))
 		var prev := -1
 		for c in cuts:
@@ -1939,53 +1998,46 @@ static func overlay(lays: Array) -> Dictionary:
 		order[v] = ns
 	var seen := {}
 	var faces := []
+	var keep := func(ring: Array) -> void:
+		if ring.size() < 3:
+			return
+		var pts := PackedVector2Array()
+		for q in ring:
+			pts.append(P[q])
+		if signed_area(pts) > 0.25:
+			faces.append(ring)
 	for u0 in order:
 		for v0 in order[u0]:
 			if seen.has(Vector2i(u0, v0)):
 				continue
 			var ring := []
+			var where := {}        # vertex -> its place in the ring
 			var u: int = u0
 			var v: int = v0
 			var guard := 0
 			while not seen.has(Vector2i(u, v)) and guard < 1000000:
 				guard += 1
 				seen[Vector2i(u, v)] = true
+				if where.has(u):
+					# back through a vertex: the loop since it is a face of
+					# its own (a spur in and straight out is no face)
+					var i: int = where[u]
+					var loop := ring.slice(i)
+					ring = ring.slice(0, i)
+					for q in loop:
+						where.erase(q)
+					keep.call(loop)
+				where[u] = ring.size()
 				ring.append(u)
 				var around: Array = order[v]
 				var i := around.find(u)
 				var w: int = around[(i - 1 + around.size()) % around.size()]
 				u = v
 				v = w
-			# spurs in and straight back out are not edges of it
-			var again := true
-			while again and ring.size() > 3:
-				again = false
-				for k in ring.size():
-					var n := ring.size()
-					if ring[(k - 1 + n) % n] == ring[(k + 1) % n]:
-						var k2 := (k + 1) % n
-						var keep := []
-						for q in n:
-							if q != k and q != k2:
-								keep.append(ring[q])
-						ring = keep
-						again = true
-						break
-			if ring.size() < 3:
-				continue
-			var uniq := {}
-			for q in ring:
-				uniq[q] = true
-			if uniq.size() != ring.size():
-				continue
-			var pts := PackedVector2Array()
-			for q in ring:
-				pts.append(P[q])
-			if signed_area(pts) <= 0.25:
-				continue
-			faces.append(ring)
+			keep.call(ring)
 	# WHAT IS OVER EACH FACE: a point just inside it, off its longest
 	# edge, and the smallest room of each layer round that point
+	var rgrid := BoxGrid.new(rings.map(func(r): return r.box))
 	var out := []
 	for ring in faces:
 		var pts := PackedVector2Array()
@@ -2010,15 +2062,16 @@ static func overlay(lays: Array) -> Dictionary:
 				break
 		if at == null:
 			at = centroid(pts)
+		var best := {}
+		var ba := {}
+		for ri in rgrid.at(at):
+			var r: Dictionary = rings[ri]
+			if r.area < ba.get(r.li, INF) and (r.box as Rect2).grow(0.01).has_point(at) and pip(r.pts, at.x, at.y):
+				ba[r.li] = r.area
+				best[r.li] = r.s
 		var stack := []
 		for li in lays.size():
-			var best = null
-			var ba := INF
-			for r in rings:
-				if r.li == li and r.area < ba and (r.box as Rect2).grow(0.01).has_point(at) and pip(r.pts, at.x, at.y):
-					ba = r.area
-					best = r.s
-			if best != null:
-				stack.append({"li": li, "s": best})
+			if best.has(li):
+				stack.append({"li": li, "s": best[li]})
 		out.append({"verts": ring, "stack": stack})
 	return {"vertices": P, "faces": out}

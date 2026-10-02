@@ -869,5 +869,8 @@ func bore_burst() -> void:
 	# THE HEAD GOES, and everything else after it (Giblets.bore_explode)
 	if game.giblets != null:
 		game.giblets.bore_explode(self)
+	# and what it was after drops out of the head, for the taking
+	if game.get("trophies") != null and info.get("boreable", true):
+		game.trophies.drop(x, y, z + height * 0.9)
 	health = mini(0, int(info.get("gibHealth", 0)) - 1)
 	die(by, 100)

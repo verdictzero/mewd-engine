@@ -26,6 +26,9 @@ const MATCH_BARS := 8
 
 var volume := 0.5
 var decks: Array[AudioStreamPlayer] = []
+## the whole thing slowed (the game's slow motion): a factor on every
+## deck's pitch
+var rate := 1.0
 var current := -1
 ## the handover under way: {deck, from, start, rate, fade_end, rate_end, out}
 var plan := {}
@@ -61,11 +64,17 @@ func start(i := 0) -> void:
 	current = i
 	var d := decks[0]
 	d.stream = load(TRACKS[i].url)
-	d.pitch_scale = 1.0
+	d.pitch_scale = rate
 	d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
 	d.play()
 	_clock = 0.0
 	plan = {}
+
+func set_rate(r: float) -> void:
+	r = maxf(0.05, r)
+	for d in decks:
+		d.pitch_scale = d.pitch_scale / rate * r
+	rate = r
 
 func stop() -> void:
 	for d in decks:
@@ -93,7 +102,7 @@ func _process(dt: float) -> void:
 	var g := _gain(volume)
 	if not plan.started and _clock >= plan.start:
 		in_deck.stream = load(TRACKS[plan.next].url)
-		in_deck.pitch_scale = plan.rate
+		in_deck.pitch_scale = plan.rate * rate
 		in_deck.volume_db = linear_to_db(0.0001)
 		in_deck.play()
 		plan.started = true
@@ -102,7 +111,7 @@ func _process(dt: float) -> void:
 		out_deck.volume_db = linear_to_db(maxf(0.0001, g * (1.0 - f)))
 		in_deck.volume_db = linear_to_db(maxf(0.0001, g * f))
 		var r: float = clampf((_clock - plan.fade_end) / (plan.rate_end - plan.fade_end), 0.0, 1.0)
-		in_deck.pitch_scale = lerpf(plan.rate, 1.0, r)
+		in_deck.pitch_scale = lerpf(plan.rate, 1.0, r) * rate
 		if _clock >= plan.fade_end and out_deck.playing:
 			out_deck.stop()
 		if _clock >= plan.rate_end:

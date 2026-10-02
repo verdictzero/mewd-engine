@@ -47,13 +47,13 @@ const STANDARD := "a:b0,b:b1,x:b2,y:b3,leftshoulder:b4,rightshoulder:b5,lefttrig
 const DEAD := 0.18
 const MAP_FILE := "user://pad_map.cfg"
 ## the actions a pad plays, in the order the wizard asks for them
-const ACTIONS := ["fwd", "back", "left", "right", "attack", "jump", "use", "zoom", "next_weapon", "prev_weapon", "run", "pause"]
+const ACTIONS := ["fwd", "back", "left", "right", "attack", "jump", "use", "zoom", "next_weapon", "prev_weapon", "run", "pause", "slow"]
 ## the defaults, as the wizard's own words: b = button, a = axis and
 ## its direction
 const DEFAULTS := {
 	"fwd": ["b11", "a1-"], "back": ["b12", "a1+"], "left": ["b13", "a0-"], "right": ["b14", "a0+"],
 	"attack": ["a5+", "a6+", "b16"], "jump": ["b2", "a4+", "a7+", "b15"], "use": ["b0"], "zoom": ["b1"],
-	"next_weapon": ["b10", "b3"], "prev_weapon": ["b9"], "run": ["b7", "b8"], "pause": ["b6", "b4"],
+	"next_weapon": ["b10", "b3"], "prev_weapon": ["b9"], "run": ["b7"], "pause": ["b6", "b4"], "slow": ["b8"],
 }
 const LOOK_DEFAULT := {"x": 2, "sx": 1.0, "y": 3, "sy": 1.0}
 ## the triggers' other forms (see the top): a map saved before they came
