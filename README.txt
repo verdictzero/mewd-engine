@@ -53,7 +53,7 @@ Then:
 Arguments after `--`:
 
     --play                skip the title
-    --map=NAME            which island (island0)
+    --map=NAME            which island: island0, island-1, island-2
     --seed=N              where the crowd is dropped
     --weapon=NAME         start holding FLAMER, EXTINGUISHER, BORE,
                           MINIGUN, LANCE, LAUNCHER, ARC or POTATO
@@ -138,6 +138,10 @@ build; NEW GAME lists them.
                  2.5 km of hills, firs, bushes, ferns and grass, a cliff
                  all round dropping into a sea of cloud, and 360 people
                  dropped on it with you (--seed=N moves them)
+    ISLAND -1    ISLAND 0 at half the size (1.25 km across), the same
+                 360 people
+    ISLAND -2    ISLAND 0 at a quarter of the size (625 m across), the
+                 same 360 people, so a crowd wherever you look
 
 THE VEGETATION IS VISUAL COVER, and stays that way: you, the crowd and
 every round go through trees, bushes, ferns and grass. A tree you walk

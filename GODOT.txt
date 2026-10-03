@@ -31,7 +31,7 @@ RUNNING IT
     --seed=N             the crowd for seed N (where the townsfolk are
                          dropped on the island; the island is the same)
     --map=NAME           which island (godot/scripts/level/islands.gd):
-                         island0, the only one yet
+                         island0, island-1 or island-2
     --at=X,Y,DEG         stand somewhere else (for pictures), in the
                          game's units (32 to the metre)
     --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
@@ -926,6 +926,21 @@ memory; where the game's time goes (Game.prof_text); real decals and
 how many were laid as quads; the window, the grid the world is drawn at
 and the refresh rate; and what it is running on — the renderer and its
 API, the GPU, the CPU and its cores, the OS and the device.
+
+ISLAND -1 AND ISLAND -2
+
+  At the user's request, two more islands, each ISLAND 0 with every
+  setting the same but its size: ISLAND -1 at half (hub_radius 625 m
+  against 1250; ISLANDFIELD_island-1.tres, scenes/island_-1.tscn) and
+  ISLAND -2 at a quarter (312.5 m; ISLANDFIELD_island-2.tres,
+  scenes/island_-2.tscn). The hills, the forest's density, the cliffs
+  and the coast's wobble are the same settings on less ground; so is the
+  crowd, 360 on each, so the smaller the island the thicker the crowd.
+  They are in Islands.LIST (keys island-1 and island-2), so NEW GAME
+  lists them under ISLAND 0, and the builds bake them with the rest:
+  21 + 3 + 1 MB for -1 and 5 + 1 + 0.3 MB for -2 (terrain, plants,
+  ground), 23 and 5 seconds to bake here. The island suite now runs on
+  all three (its ranges are the island's own reach, not ISLAND 0's).
 
 ANDROID AND LINUX ONLY (there was a web build)
 

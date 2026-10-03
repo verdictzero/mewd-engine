@@ -19,6 +19,8 @@ run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
 # rounds and blasts into the ground — needs the island baked first:
 #   godot --headless --script res://tools/bake_island.gd
 run island  --script res://godot/tests/island_test.gd
+run island-1 --script res://godot/tests/island_test.gd -- --map=island-1
+run island-2 --script res://godot/tests/island_test.gd -- --map=island-2
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd

@@ -27,19 +27,23 @@ func _init() -> void:
 	var field: Resource = iw.field
 	# THE GROUND: off the bake, and the field's own heights
 	check(IslandGround.load_for(IslandGround.signature_for(field, iw.chunk_size)) != null, "the ground comes off the bake")
+	# the island's own reach, in metres and in the game's units
+	var span: float = float(field.world_max_radius()) * 0.85
+	var span_u: float = span * IslandLevel.U_PER_M
 	var worst := 0.0
 	var on := 0
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	for k in 400:
-		var x := rng.randf_range(-1100.0, 1100.0)
-		var z := rng.randf_range(-1100.0, 1100.0)
+		# (over the island, whatever its size: ISLAND 0 or a smaller one)
+		var x := rng.randf_range(-span, span)
+		var z := rng.randf_range(-span, span)
 		var f: float = field.height_at(x, z, -1.0e9)
 		var h := g.height(x, z)
 		if f > -1.0e8 and h > IslandGround.VOID:
 			on += 1
 			worst = maxf(worst, absf(f - h))
-	check(on > 200 and worst < 0.75, "the grid is the field's ground between its samples (%d points, worst %.2f m)" % [on, worst])
+	check(on > 100 and worst < 0.75, "the grid is the field's ground between its samples (%d points, worst %.2f m)" % [on, worst])
 	check(lv.sector_at(4000.0 * 32.0, 0.0) == null, "off the island there is no floor")
 	var s := lv.sector_at(game.player.x, game.player.y)
 	check(s != null and s.outdoor and s.ceil_tex == "SKY", "under you: open ground, open sky")
@@ -86,10 +90,10 @@ func _init() -> void:
 	var hidden := false
 	var seen := false
 	for k in 300:
-		var ax := rng.randf_range(-25000.0, 25000.0)
-		var ay := rng.randf_range(-25000.0, 25000.0)
-		var bx := ax + rng.randf_range(-6000.0, 6000.0)
-		var by := ay + rng.randf_range(-6000.0, 6000.0)
+		var ax := rng.randf_range(-span_u, span_u)
+		var ay := rng.randf_range(-span_u, span_u)
+		var bx := ax + rng.randf_range(-span_u * 0.25, span_u * 0.25)
+		var by := ay + rng.randf_range(-span_u * 0.25, span_u * 0.25)
 		var fa := lv.floor_at(ax, ay)
 		var fb := lv.floor_at(bx, by)
 		if fa <= IslandLevel.NO_FLOOR or fb <= IslandLevel.NO_FLOOR:

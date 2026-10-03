@@ -101,6 +101,7 @@ The old sections of GODOT.txt are kept as the record.
 ## 7. Open threads / next steps
 
 - **Waiting on the user's RG557 test** of the island apk. Check the load time and the frame rate with 360 people.
+- **Islands so far:** ISLAND 0, ISLAND -1 (half size) and ISLAND -2 (quarter size), the same settings otherwise.
 - **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
 - **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
 - **Real decals are off**, so marks are quads. The island's terrain isn't cut into the tiles RealDecals wants.
