@@ -1,6 +1,6 @@
 ; MEWD, the Godot 4 port. The project is the repository's root so the
-; game's own assets/ are res://assets/ without a copy; the web build's
-; folders (js/, vendor/, tools/, css/, art/) carry a .gdignore.
+; game's own assets/ are res://assets/ without a copy; tools/ carries a
+; .gdignore.
 
 config_version=5
 

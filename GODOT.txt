@@ -4,10 +4,11 @@ MEWD — THE GODOT PORT
 (MEWD: Made Entirely Without Doom.)
 
 At the user's request: the whole game rewritten in Godot 4 (4.3, now
-4.7), in GDScript, on the branch claude/godot-rewrite. The web build in js/ stays
-where it is and keeps working; it is the reference every file here was
-ported from, and the ported files say which JS file they came from in
-their first lines.
+4.7), in GDScript, on the branch claude/godot-rewrite. It was ported
+from the JavaScript build that was in js/, and the ported files still
+say which JS file they came from in their first lines; that build has
+since been deleted at the user's request (it is in the git history).
+Where this file says "the web build" it means that one.
 
 
 RUNNING IT
@@ -23,9 +24,7 @@ RUNNING IT
 
     godot --headless --script res://tools/bake_island.gd -- --all --if-missing
 
-  The web build's folders (js/, vendor/, tools/, css/, art/) carry a
-  .gdignore, so Godot sees assets/ and godot/ and nothing else. The
-  game's own assets are res://assets/ exactly as the web build has them.
+  tools/ carries a .gdignore. The game's own assets are res://assets/.
 
   Arguments after `--`:
     --play               skip the title
@@ -936,9 +935,10 @@ ANDROID AND LINUX ONLY (there was a web build)
   Pages workflow (.github/workflows/pages.yml) and its GitLab twin
   (.gitlab-ci.yml) are gone, and the project no longer names a web
   renderer. The two release workflows, android.yml and linux.yml, are
-  the only CI. The JavaScript build in js/ stays in the repository as
-  the reference the port was made from; it is not built or published.
-  The Pages site already up is whatever the last publish left there,
+  the only CI. And the JavaScript build itself — js/, css/, vendor/,
+  art/, index.html and the node tools that served, tested and baked it —
+  is deleted, at the user's request; the git history has it. The Pages
+  site already up is whatever the last publish left there,
   until Pages is switched off in the repository's settings.
 
 TESTS

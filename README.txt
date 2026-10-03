@@ -18,9 +18,9 @@ a phone) and LINUX x86_64. There is no web build.
 
   godot/            the game: Godot 4.7, GDScript
   godot/island/     the island system, from golf
-  js/               the original JavaScript build: kept as the
-                    reference the Godot build was ported from, not built
-                    or published
+
+(The original JavaScript build the Godot one was ported from has been
+deleted; it is in the git history before the island.)
 
 
 GET IT
@@ -58,7 +58,7 @@ Arguments after `--`:
     --weapon=NAME         start holding FLAMER, EXTINGUISHER, BORE,
                           MINIGUN, LANCE, LAUNCHER, ARC or POTATO
     --at=X,Y,DEG          start somewhere else
-    --terminal            the classic build's terminal first
+    --terminal            the terminal first
     --touch               the phone's controls, without a touch screen
     --pause               open the pause menu
     --prof                print where each frame's time goes
@@ -223,8 +223,7 @@ THE PAUSE MENU keeps its settings in user://prefs.cfg:
 NETWORK PLAY
 ------------
 
-LAN play, on the same wire as the classic build, so either kind of
-client joins either kind of host:
+LAN play, a Godot host and Godot clients:
 
     godot --headless --path . -- --server[=PORT] [--map=island0]
           [--seed=N] [--max=16] [--frags=N]
@@ -261,24 +260,16 @@ THE REPOSITORY
     godot/shaders/                      the shaders
     godot/data/                         palette, LUT, texture list
     godot/tests/                        the headless suites
-    assets/                             art both builds load: people,
-                                        forest, models, textures, skies,
-                                        fonts, music, sfx, logo
-    js/, index.html, css/, vendor/      the classic build (reference only)
-    art/                                source art baked into the
-                                        classic build
+    assets/                             the game's art: people, models,
+                                        textures, skies, fonts, music,
+                                        sfx, logo
     tools/                              build, bake and test scripts
-    GODOT.txt                           the Godot build in detail:
-                                        every system and where each
-                                        piece of the classic build went
-    HISTORY.txt                         the previous README: the whole
-                                        design diary of the classic
-                                        build, kept as it was
+    GODOT.txt                           the Godot build in detail
+    HISTORY.txt                         the old README: the design diary
+                                        of the JavaScript build, kept
     TOWN.txt, SIGHT.txt                 design notes for the town and
                                         for fog, sky and occlusion
 
-The classic build's folders carry a .gdignore, so Godot sees assets/
-and godot/ and nothing else.
 
 
 TOOLS
@@ -292,12 +283,8 @@ TOOLS
     tools/build-linux.sh       export the Linux x86_64 build (the linux
                                workflow puts it up as a release)
     tools/make-icons.py        every icon from the MEWD logo
-    tools/godot-data.mjs       write godot/data/ from the classic
-                               build's tables (palette, LUT, textures)
-    tools/build-texpack.py     the texture pack from assets/textures
-    tools/bake-*.mjs           art/ into source: logo, plants, sky,
-                               icons, models
-    tools/prep-*.mjs, .py, .sh crunch outside art into assets/
+    tools/prep-*.mjs, .py      crunch outside art into assets/ (people,
+                               troops, models)
 
 
 TESTS
@@ -349,8 +336,6 @@ WHAT IS NOT DONE
   the fire that spread — fuel grid, haze, the wood catching, the
     brigade — was taken out of the Godot build at the user's request;
     people and cars still burn
-  the town, the gunship, breaches and ruins are the classic build's
-    and are not being ported
   no save, no second level, no level flow; CONTINUE and LOAD GAME on
     the title shake their heads
   only the SWAT and the army fight back
@@ -363,4 +348,4 @@ WHAT IS NOT DONE
     controller the engine does not know; SET UP PAD fixes a strange one
 
 Everything else the Godot build leaves out is listed at the end of
-GODOT.txt. The classic build's own list is at the end of HISTORY.txt.
+GODOT.txt.

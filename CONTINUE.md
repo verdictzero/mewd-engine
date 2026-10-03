@@ -16,7 +16,7 @@ Written 2026-10-03. It describes the island version on `claude/godot-rewrite`. `
 | **Island source** | `verdictzero/golf` (the user's other project). Its island system was copied into `godot/island/`. Read it, but don't change it without being asked. |
 | **Old repo** | `verdictzero/sellwrong`. **Do not touch it.** |
 | **Engine** | Godot **4.7-stable** (it was 4.3). Mobile renderer on Vulkan, for Android and Linux. |
-| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. **Android and Linux x86_64 only: no web build** (the user's decision; the web export, Pages and GitLab CI were removed). |
+| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. **Android and Linux x86_64 only: no web build** (the user's decision; the web export, Pages and GitLab CI were removed, and the old JavaScript build in js/ was deleted). |
 
 Builds are rolling GitHub releases on mewd-engine, replaced on each push to `main` or `claude/godot-rewrite`:
 - **`android`**: `.github/workflows/android.yml`. A signed apk; the key comes from the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS` and `MEWD_KEY_PASS`.
