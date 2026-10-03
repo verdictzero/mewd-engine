@@ -89,6 +89,12 @@ var net_team := -1
 ## you again; `hello`, tics she has stood in front of you saying it
 var wary := false
 var hello := 0
+## A CANDY UNICORN's herd ground (CANDY LAND): where she grazes about,
+## the foal's mother, and where she is ambling to
+var home := Vector2.ZERO
+var mother = null
+var amble := Vector2.ZERO
+var amble_tics := 0
 
 func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> void:
 	info = States.actor(type_name)
@@ -593,6 +599,9 @@ func A_Scare(fx: float, fy: float, tics := -1) -> void:
 	flee_x = fx
 	flee_y = fy
 	if first:
+		# (a unicorn gallops)
+		if info.has("runSpeed"):
+			speed = float(info.runSpeed)
 		game.play_sound(info.get("painSound"), self)
 		if info.has("see"):
 			set_state(info.see)
@@ -624,6 +633,7 @@ const FLEE_TRIES := 3
 func A_Flee() -> void:
 	panic -= 1
 	if panic <= 0 and not burning:
+		speed = float(info.get("speed", speed))
 		set_state(info.spawn)
 		return
 	exit_tic -= 1
@@ -775,6 +785,74 @@ func A_Hello() -> void:
 	if hello == 0 and p == game.player:
 		game.candy_hello(self)
 	hello += 1
+
+# ------------------------------------------------------------------
+# THE CANDY UNICORNS, at the user's request (CANDY LAND): herds in the
+# meadows. Grazing, now and then one ambles to another patch of her
+# herd's ground (`home`, HERD_RANGE across); a foal keeps near her mother
+# instead. Frightened, they gallop (A_Scare: `runSpeed`) and, when it is
+# over, wander back to their ground.
+# ------------------------------------------------------------------
+
+## how far about her herd's middle a unicorn grazes
+const HERD_RANGE := 520.0
+## how far a foal strays from her mother
+const FOAL_RANGE := 110.0
+
+func A_Graze() -> void:
+	A_Watch()
+	if panic > 0 or held():
+		return
+	# (just back from a walk: a beat's rest first, so a walk that cannot
+	# be taken never turns into another one in the same tic)
+	if amble_tics < 0:
+		amble_tics = 0
+		return
+	var follow: bool = mother != null and not mother.removed and not mother.dead
+	if follow:
+		var m := Vector2(mother.x, mother.y)
+		if Vector2(x, y).distance_to(m) > FOAL_RANGE:
+			_amble_to(m + Vector2(U.p_random() - 128, U.p_random() - 128) * 0.4)
+		return
+	if Vector2(x, y).distance_to(home) > HERD_RANGE:
+		_amble_to(home)
+	elif (U.p_random() & 7) == 0:
+		var a := U.p_random() / 256.0 * TAU
+		_amble_to(home + Vector2(cos(a), sin(a)) * HERD_RANGE * (U.p_random() / 256.0))
+
+func _amble_to(p: Vector2) -> void:
+	amble = p
+	amble_tics = 35 * 6
+	set_state(info.spawn.replace("_GRAZE", "_WALK1"))
+
+## Ambling: a step at a time, the eight directions scored toward where she
+## is going, until she is there (or has been at it long enough).
+func A_Amble() -> void:
+	A_Watch()
+	if panic > 0 or held():
+		return
+	amble_tics -= 4
+	var d0 := Vector2(x, y).distance_to(amble)
+	if d0 < speed * 3.0 + 8.0 or amble_tics <= 0:
+		amble_tics = -1
+		set_state(info.spawn)
+		return
+	var best := -1
+	var best_d := d0
+	for d in 8:
+		var ang: float = DIR_ANGLE[d]
+		var dd := Vector2(x + cos(ang) * speed, y + sin(ang) * speed).distance_to(amble)
+		if d == movedir:
+			dd -= 0.5
+		if dd < best_d:
+			best_d = dd
+			best = d
+	if best >= 0 and try_walk(best):
+		movedir = best
+		angle = DIR_ANGLE[best]
+	else:
+		amble_tics = -1
+		set_state(info.spawn)
 
 func A_Pain() -> void:
 	game.play_sound(info.get("painSound"), self)

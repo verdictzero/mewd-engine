@@ -4,6 +4,7 @@
 ## candy sun's bearing), and the picture.
 ## --scare: a body comes apart beside you first, so they run — to see their
 ## backs. --road: you stand on the middle of a road, looking down it.
+## --herd: you stand 14 m off the nearest herd of unicorns, looking at it.
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 \
 ##   --script res://godot/tests/candy_shot.gd -- --map=candyland out.png [pitch] [tics] [turn] [--scare] [--road]
@@ -58,6 +59,27 @@ func _frame() -> void:
 				p.angle = (b - a).angle()
 				p.sector = game.level.sector_at(p.x, p.y)
 				p.z = game.level.floor_at(p.x, p.y)
+	if "--herd" in args and game.tics - _start >= wait - 2 and not has_meta("herd"):
+		set_meta("herd", true)
+		var best = null
+		for a in game.actors:
+			if a.type == "UNICORN" and (best == null or U.dist2(a.x, a.y, p.x, p.y) < U.dist2(best.x, best.y, p.x, p.y)):
+				best = a
+		if best != null:
+			var h: Vector2 = best.home
+			var off := Vector2(450.0, 0.0).rotated(randf() * TAU)
+			for k in 24:
+				var q := h + off.rotated(k * TAU / 24.0)
+				if game.level.on_land(q.x, q.y, 32.0):
+					p.x = q.x
+					p.y = q.y
+					break
+			p.sector = game.level.sector_at(p.x, p.y)
+			p.z = game.level.floor_at(p.x, p.y)
+			p.angle = (h - Vector2(p.x, p.y)).angle()
+			for a in game.actors:
+				if a.type == "CANDYGIRL":
+					a.remove()
 	if "--scare" in args and not _scared and game.tics - _start >= wait - 70:
 		_scared = true
 		game.scare(p.x + cos(p.angle) * 60.0, p.y + sin(p.angle) * 60.0, 900.0)

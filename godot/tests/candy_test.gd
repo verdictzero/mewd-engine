@@ -56,11 +56,29 @@ func _init() -> void:
 		elif a.type == "CANDYGIRL":
 			girls.append(a)
 			flavours[a.variant] = true
-		elif a.monster:
+		elif a.monster and not (a.type == "UNICORN" or a.type == "FOAL"):
 			others += 1
 	check(lamps > 20, "street lamps along the roads (%d)" % lamps)
 	check(girls.size() == 360 and others == 0, "the crowd is all candy girls (%d, %d others)" % [girls.size(), others])
 	check(flavours.size() == States.CANDY_FLAVOURS.size(), "in every flavour (%d of %d)" % [flavours.size(), States.CANDY_FLAVOURS.size()])
+	# THE HERDS: unicorns and foals in the meadows, the foal a little over
+	# half her mother's size and beside her
+	var unis := []
+	var foals := []
+	for a in game.actors:
+		if a.type == "UNICORN":
+			unis.append(a)
+		elif a.type == "FOAL":
+			foals.append(a)
+	var homes := {}
+	for a in unis:
+		homes[a.home] = true
+	check(homes.size() >= 6 and unis.size() >= homes.size() * 3, "herds of unicorns (%d herds, %d unicorns, %d foals)" % [homes.size(), unis.size(), foals.size()])
+	var meadow: Callable = game._meadow_of(game.island.get_node("IslandWorld").field)
+	check(homes.keys().all(func(h): return meadow.call(h.x, h.y)), "every herd's ground is a meadow")
+	var fa: Actor = foals[0]
+	check(fa.height < unis[0].height * 0.6 and fa.radius < unis[0].radius * 0.6 and fa.mother != null and fa.mother.type == "UNICORN",
+		"a foal is a little over half her mother's size (%d against %d), and has one" % [fa.height, unis[0].height])
 	# THEY COME TO SAY HELLO
 	var near0 := 0
 	for a in girls:
@@ -80,6 +98,26 @@ func _init() -> void:
 	check(near1 > near0 + 5, "they walk up to you (%d within 9 m, from %d)" % [near1, near0])
 	check(hello >= 5 and facing == hello, "and stand saying hello, facing you (%d, %d facing)" % [hello, facing])
 	check(game._hello_tic > 0, "and one says so, in the toasts")
+	# the herds graze about their ground; the foals keep by their mothers
+	var strays := 0
+	for a in unis:
+		if Vector2(a.x, a.y).distance_to(a.home) > Actor.HERD_RANGE + 400.0:
+			strays += 1
+	var lost := 0
+	for a in foals:
+		if a.mother != null and Vector2(a.x, a.y).distance_to(Vector2(a.mother.x, a.mother.y)) > Actor.FOAL_RANGE * 3.0:
+			lost += 1
+	var moved := unis.filter(func(a): return a.state.get("name", "").begins_with("UNI_WALK")).size()
+	check(strays == 0 and lost == 0, "after 12 s the herds are on their ground (%d strays) and the foals by their mothers (%d lost)" % [strays, lost])
+	# the drawing: front head on, back going away, the side across, turned for the other flank
+	var u: Actor = unis[0]
+	var eye := Vector2(u.x + 300.0, u.y)
+	var views := []
+	for ang in [0.0, PI, PI / 2.0, -PI / 2.0]:
+		u.angle = ang
+		views.append(game.standees._cell_of(u, eye))
+	check(views[0][1] == 0 and views[1][1] == 2 and views[2][1] == 1 and views[3][1] == 1 and views[2][2] != views[3][2],
+		"a unicorn drawn from the front, the back and either side (%s)" % [views])
 	# FRONT AND BACK: the cell for the way she faces against the eye
 	var st: Standees = game.standees
 	var g = girls[0]
@@ -116,5 +154,20 @@ func _init() -> void:
 			again += 1
 	check(d1 > d0 * 1.5, "away from you (%.0f to %.0f units on average)" % [d0 / greeters.size(), d1 / greeters.size()])
 	check(wary == greeters.size() and again == 0, "and they do not come back (%d wary, %d coming)" % [wary, again])
+	# A FRIGHTENED HERD GALLOPS
+	var h: Vector2 = unis[0].home
+	var herd := unis.filter(func(a): return a.home == h)
+	var d0h := 0.0
+	for a in herd:
+		d0h += Vector2(a.x, a.y).distance_to(h)
+	game.scare(h.x, h.y, 1500.0)
+	_tics(35 * 3)
+	var d1h := 0.0
+	var fast := 0
+	for a in herd:
+		d1h += Vector2(a.x, a.y).distance_to(h)
+		if a.panic > 0 and a.speed > float(a.info.speed):
+			fast += 1
+	check(fast == herd.size() and d1h > d0h + herd.size() * 300.0, "a frightened herd gallops off (%d of %d, %.0f units further on average)" % [fast, herd.size(), (d1h - d0h) / herd.size()])
 	print("candy: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)

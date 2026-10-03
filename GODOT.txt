@@ -1030,6 +1030,17 @@ MARKS THAT LIE ON THE GROUND: PROJECTED DECALS
   --under puts a crater at your feet). godot/tests/island_shot.gd takes
   a sixth argument, the pitch the gun is held at.
 
+THE BUILDS BAKE ONE ISLAND AT A TIME
+
+  With four islands, the Linux build on CI died twice in its build step
+  with a segfault (exit 139). The Android build of the same commit
+  passed. Locally the bake and the export both run clean. So
+  tools/build-linux.sh and tools/build-android.sh now bake each island
+  (Islands.LIST) in a process of its own, and try a crashed island
+  again, three tries at most. A crash costs that island's bake and
+  nothing else.
+
+
 THE PICTURE: SQUARE PIXELS, AND ONLY WHOLE-NUMBER SCALES
 
   At the user's request ("square pixels at 480p, render at 720p, the
@@ -1160,6 +1171,29 @@ CANDY LAND
                      good: when she stops running she stays where she is.
   Otherwise she is a townie: as easily hurt, burnt, frozen, bored and
   blown apart.
+
+  THE CANDY UNICORNS (at the user's request: "herds of these roaming in
+  fields, make sure the foal is appropriately smaller"), from the
+  user's pictures (candy/source/creature; tools/candy-unicorn-strips.py
+  makes assets/people/candy_unicorn.png and candy_foal.png):
+    herds      12 herds of 3 to 6 grown unicorns, each with 1 to 3
+               foals. Every herd is in a MEADOW: open grass, no wood,
+               not on or beside a road or a square, gentle ground
+               (Game._meadow_of asks the field). Herds are 75 m apart at
+               least, and away from your start.
+    sizes      a grown unicorn is 2.5 m to the tip of her horn (80
+               units, radius 26). A foal is 1.4 m (44 units, radius 14),
+               a little over half her mother.
+    drawing    front head on, back going away, side across. The side
+               picture faces right and is mirrored for the other flank
+               (Standees "UNI"/"FOAL").
+    grazing    a unicorn grazes about her herd's ground (16 m round its
+               middle), now and then ambling to another patch of it. A
+               foal keeps within 3.5 m of her mother (A_Graze, A_Amble).
+    frightened anything that frightens a person frightens them, and
+               they gallop off (runSpeed). When it is over they wander
+               back to their ground. They can be shot, burnt, frozen and
+               blown apart like anything else.
 
   YOU START IN A SQUARE, the one nearest the middle. The crowd is
   gathered round every square and a few places out in the country.

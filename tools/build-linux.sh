@@ -47,7 +47,17 @@ fi
 "$GODOT" --headless --editor --quit >/dev/null 2>&1 || true   # import, and register the class names
 # THE ISLANDS, BAKED (tools/bake_island.gd), unless they are already, for
 # this code: the build carries them, so the game reads its world off disk
-"$GODOT" --headless --script res://tools/bake_island.gd -- --all --if-missing
+# ONE ISLAND TO A PROCESS, and a crashed one tried again (twice at most):
+# a fresh bake of every island in one process segfaulted on CI (exit
+# 139) once there were four of them, and took the whole build with it
+for key in $(grep -o '"key": "[^"]*"' godot/scripts/level/islands.gd | cut -d'"' -f4); do
+  tries=0
+  until "$GODOT" --headless --script res://tools/bake_island.gd -- --map="$key" --if-missing; do
+    tries=$((tries + 1))
+    [ "$tries" -lt 3 ] || { echo "bake of $key failed $tries times" >&2; exit 1; }
+    echo "bake of $key failed (try $tries), again" >&2
+  done
+done
 mkdir -p "$(dirname "$OUT")"
 "$GODOT" --headless --export-release "Linux" "$OUT"
 chmod +x "$OUT"

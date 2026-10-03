@@ -81,6 +81,21 @@ static func build() -> void:
 	_s("CANDY_ASH1", "CANDY", "A", 4, "A_BurnAway", "CANDY_ASH2", {"fullbright": true})
 	_s("CANDY_ASH2", "CANDY", "A", 4, "A_BurnAway", "CANDY_ASH1", {"fullbright": true})
 	_s("CANDY_BORE", "CANDY", "A", -1, null, "CANDY_BORE")
+	# THE CANDY UNICORNS (CANDY LAND, at the user's request): grazing and
+	# wandering in the meadows by herds, galloping off when frightened
+	for k in ["UNI", "FOAL"]:
+		_s(k + "_GRAZE", k, "A", 10, "A_Graze", k + "_GRAZE")
+		_s(k + "_WALK1", k, "A", 4, "A_Amble", k + "_WALK2")
+		_s(k + "_WALK2", k, "A", 4, "A_Amble", k + "_WALK1")
+		_s(k + "_RUN1", k, "A", 2, "A_Flee", k + "_RUN2")
+		_s(k + "_RUN2", k, "A", 2, "A_Flee", k + "_RUN1")
+		_s(k + "_BURN1", k, "A", 2, "A_Torch", k + "_BURN2", {"fullbright": true})
+		_s(k + "_BURN2", k, "A", 2, "A_Torch", k + "_BURN1", {"fullbright": true})
+		_s(k + "_GIB", k, "A", 1, "A_Gib", null)
+		_s(k + "_FROZE", k, "A", -1, null, k + "_FROZE")
+		_s(k + "_ASH1", k, "A", 4, "A_BurnAway", k + "_ASH2", {"fullbright": true})
+		_s(k + "_ASH2", k, "A", 4, "A_BurnAway", k + "_ASH1", {"fullbright": true})
+		_s(k + "_BORE", k, "A", -1, null, k + "_BORE")
 	# and the street lamp that lines CANDY LAND's roads
 	_s("LAMP_STAND", "LAMP", "A", -1, null, null)
 
@@ -124,6 +139,22 @@ static func build() -> void:
 		"burnAway": "CANDY_ASH1", "bored": "CANDY_BORE", "variants": CANDY_FLAVOURS.size(),
 		"height": 60, "greets": true, "speed": 12}, true)
 	ACTORS["CANDYGIRL"] = candy
+	# A CANDY UNICORN and her FOAL: drawn from the front, the side or the
+	# back by the way they face (Standees "UNI", "FOAL"); they graze about
+	# their herd's ground (`herd`, Actor.A_Graze) and gallop when
+	# frightened (`runSpeed`); the foal is a little over half her size
+	for k in ["UNICORN", "FOAL"]:
+		var s: String = "UNI" if k == "UNICORN" else "FOAL"
+		var big: bool = k == "UNICORN"
+		var u: Dictionary = townie.duplicate()
+		u.erase("sway")
+		u.merge({"name": "Candy unicorn" if big else "Candy foal", "spawn": s + "_GRAZE", "see": s + "_RUN1",
+			"death": s + "_GIB", "burn": s + "_BURN1", "frozen": s + "_FROZE", "freezeReturn": s + "_RUN1",
+			"burnAway": s + "_ASH1", "bored": s + "_BORE", "painSound": null,
+			"health": 60 if big else 20, "radius": 26 if big else 14, "height": 80 if big else 44,
+			"mass": 400 if big else 120, "speed": 3 if big else 2, "runSpeed": 22 if big else 18,
+			"scareRange": 520, "panicTics": 7 * TICRATE, "herd": true}, true)
+		ACTORS[k] = u
 	ACTORS["LAMP"] = {"name": "Street lamp", "spawn": "LAMP_STAND", "radius": 6, "height": 140, "solid": true}
 	ACTORS["SWAT"] = {
 		"name": "SWAT", "spawn": "SWAT_STAND", "see": "SWAT_RUN1", "pain": "SWAT_PAIN",

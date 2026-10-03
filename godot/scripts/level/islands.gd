@@ -15,6 +15,8 @@
 ##   exposure (optional) the picture's exposure on this island, 1 as is
 ##   knee     (optional) where the tonemap's shoulder starts rolling the
 ##            highlights off instead of clipping them; 0 none (lofi.gdshader)
+##   herds    (optional) herds of candy unicorns in the meadows:
+##            {count, adults: [least, most], foals: [least, most]}
 ##   lamps    (optional) street lamps along the island's roads, this far
 ##            apart in metres
 class_name Islands
@@ -37,6 +39,7 @@ const LIST := [
 	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 360,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
 		"exposure": 0.8, "knee": 0.65,
+		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
 ]
 

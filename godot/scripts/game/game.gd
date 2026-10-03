@@ -205,7 +205,8 @@ func start_map(which: String) -> void:
 		ground = IslandGround.build(field)
 	level = IslandLevel.new(ground, spec.title)
 	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))),
-		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)))
+		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)),
+		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null)
 	add_child(island)
 	# (the island's plants are its own: the old forest is there, empty,
 	# for what still asks it)
@@ -698,13 +699,26 @@ func _roads_of(field: Resource) -> Dictionary:
 			out.squares.append([a, float(z.width) * k])
 	return out
 
+## WHERE A HERD MAY GRAZE (CANDY LAND's unicorns): open grass — no
+## wood, no road, square or their banks, gentle ground — asked of a copy
+## of the island's field at the game's (x, y).
+func _meadow_of(field: Resource) -> Callable:
+	var f: Resource = field.clone()
+	return func(x: float, y: float) -> bool:
+		var s: Dictionary = f.sample(x / IslandLevel.U_PER_M, -y / IslandLevel.U_PER_M)
+		return bool(s.get("on_land", false)) and float(s.get("forest", 1.0)) < 0.05 \
+			and float(s.get("flatten", 1.0)) < 0.05 and float(s.get("slope", 1.0)) < 0.25
+
 ## The map's things that are actors, into the world.
 const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY",
 	"GRAVESTONE": "GRAVESTONE",   # the sprawl's headstones
-	"CANDYGIRL": "CANDYGIRL", "LAMP": "LAMP"}   # CANDY LAND's
+	"CANDYGIRL": "CANDYGIRL", "LAMP": "LAMP", "UNICORN": "UNICORN", "FOAL": "FOAL"}   # CANDY LAND's
 
 func _spawn_things() -> void:
-	for t in level.things:
+	# (by the thing's place in the list, for a foal to find her mother)
+	var made := {}
+	for i in level.things.size():
+		var t: Dictionary = level.things[i]
 		var type: String = THING_ACTORS.get(t.type, "")
 		if type == "":
 			continue
@@ -712,6 +726,11 @@ func _spawn_things() -> void:
 		if t.get("z") != null:
 			o["z"] = float(t.z)
 		var a := Actor.new(self, type, float(t.x), float(t.y), float(t.get("angle", 0.0)), o)
+		if t.has("home"):
+			a.home = t.home
+		if t.has("mother"):
+			a.mother = made.get(int(t.mother))
+		made[i] = a
 		actors.append(a)
 
 func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:

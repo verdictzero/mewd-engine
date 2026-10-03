@@ -71,6 +71,10 @@ func _ready() -> void:
 	# 44 x 66 units in the world), and the street lamp
 	_strip("CANDY", "res://assets/people/candy_girls.png", Vector2(44, 66), Vector2(192, 287))
 	_strip("LAMP", "res://assets/people/candy_lamp.png", Vector2(80, 144), Vector2(256, 459))
+	# the candy unicorns: front, side, back; the foal at 55% of her mother
+	# (2.5 m to the horn's tip, and 1.4 m)
+	_strip("UNI", "res://assets/people/candy_unicorn.png", Vector2(70.4, 80), Vector2(338, 384))
+	_strip("FOAL", "res://assets/people/candy_foal.png", Vector2(33.3, 44), Vector2(189, 250))
 
 ## `texel`: the cell in the strip's own pixels, where that is not the
 ## cell in the world (one unit to the pixel) — a strip drawn finer than
@@ -126,6 +130,16 @@ func _cell_of(a: Actor, cam: Vector2) -> Array:
 		return [strip, a.variant % 3, false]
 	if kind == -4:
 		return [strip, a.variant % 8, false]
+	if kind == -6:
+		# AN ANIMAL SEEN FROM THREE SIDES: her front head on, her back going
+		# away, her side across — the drawing faces right, so it is turned
+		# for the other flank
+		var rel := U.angle_norm(a.angle - atan2(cam.y - a.y, cam.x - a.x))
+		if absf(rel) < PI / 4.0:
+			return [strip, 0, false]
+		if absf(rel) > 3.0 * PI / 4.0:
+			return [strip, 2, false]
+		return [strip, 1, rel < 0.0]
 	if kind == -5:
 		# A CANDY GIRL HAS A FRONT AND A BACK: her back when she faces away
 		# from the eye — running from you, you see her run — her front
@@ -151,6 +165,8 @@ static func _state_draw(st: Dictionary) -> Array:
 		return ["CANDY", -5, 0, 0]
 	if sprite == "LAMP":
 		return ["LAMP", 0, 0, 0]
+	if sprite == "UNI" or sprite == "FOAL":
+		return [sprite, -6, 0, 0]
 	if sprite == "BLST":
 		return ["BLST", LETTERS.find(frame), 0, 0]
 	if sprite == "BLUD":

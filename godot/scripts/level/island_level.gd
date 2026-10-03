@@ -214,7 +214,7 @@ func flat_run(x: float, y: float, most := 2000.0, bearings := 32) -> Vector2:
 ## ROADS (`roads`, Game._roads_of) the groups are the town squares — you
 ## start in one — and a street lamp stands every `lamps` metres along
 ## each side of every road, staggered.
-func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0.0) -> void:
+func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0.0, herds := {}, meadow = null) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	things = []
@@ -262,6 +262,42 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 			c += q
 		c /= minf(6.0, near.size())
 		things[0].angle = (c - start).angle()
+	# THE HERDS (CANDY LAND's unicorns, Islands "herds"): `count` herds,
+	# each in a MEADOW — open grass, no wood, no road or square, gentle
+	# ground (`meadow`, Game._meadow_of) — well apart and away from your
+	# start, a few grown unicorns round the herd's middle and a foal or
+	# two each beside one of them, her mother
+	if not herds.is_empty():
+		var centres: Array[Vector2] = []
+		var reach := e * 0.85
+		for h in int(herds.get("count", 0)):
+			var c := Vector2.INF
+			for k in 300:
+				var a := rng.randf() * TAU
+				var q := Vector2(cos(a), sin(a)) * sqrt(rng.randf()) * reach
+				if not on_land(q.x, q.y, 400.0) or q.distance_to(start) < 1600.0:
+					continue
+				if centres.any(func(o): return o.distance_to(q) < 2400.0):
+					continue
+				if meadow != null and not meadow.call(q.x, q.y):
+					continue
+				c = q
+				break
+			if c == Vector2.INF:
+				continue
+			centres.append(c)
+			var ad: Array = herds.get("adults", [3, 5])
+			var fo: Array = herds.get("foals", [1, 3])
+			var mothers := []
+			for i in rng.randi_range(int(ad[0]), int(ad[1])):
+				var p := _find_ground(rng, c, 320.0, 0.4)
+				mothers.append(things.size())
+				things.append({"type": "UNICORN", "x": p.x, "y": p.y, "angle": rng.randf() * TAU, "home": c})
+			for i in rng.randi_range(int(fo[0]), int(fo[1])):
+				var m: int = mothers[rng.randi() % mothers.size()]
+				var mp := Vector2(things[m].x, things[m].y)
+				var p := _find_ground(rng, mp, 90.0, 0.5)
+				things.append({"type": "FOAL", "x": p.x, "y": p.y, "angle": rng.randf() * TAU, "home": c, "mother": m})
 	# THE STREET LAMPS, along both kerbs, half a step out of phase
 	if lamps > 0.0:
 		var step := lamps * U_PER_M

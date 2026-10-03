@@ -106,7 +106,9 @@ The old sections of GODOT.txt are kept as the record.
   - Its pack lives in `godot/island/candy/`; the original pictures are in `godot/island/candy/source/` (`.gdignore`).
   - It is ISLAND 0's field with golf's build pads (the town squares) and paths (the roads) switched on.
   - The crowd is candy girls (`CANDYGIRL`), nine flavours with a front and a back. They greet you until frightened, then they are wary for good.
+  - Herds of candy unicorns and foals graze the meadows (`UNICORN`, `FOAL`).
   - The pack's GLB (a wall and corner turret) is not used yet: the user said to leave it for now.
+- **Display defaults:** square pixels, a 480-row grid, the world drawn at 720 rows. The screen only ever scales by whole numbers (`Lofi._resize`).
 - **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
 - **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
 - **Marks are projected decals** (`godot/shaders/decal_project.gdshaderinc`). Each mark is a box that paints whatever surface is inside it, using the depth buffer. RealDecals and the quads are gone. `godot/tests/mark_shot.gd` takes a picture of every kind.
