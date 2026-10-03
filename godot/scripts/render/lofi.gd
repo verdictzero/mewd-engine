@@ -1,7 +1,7 @@
 ## MEWD — the lo-fi picture (js/lofi.js, LofiPipeline, and its settings
 ## in js/main.js).
 ##
-## The world drawn into a buffer of its own (720 rows by default); the
+## The world drawn into a buffer of its own (960 rows by default); the
 ## finished frame put onto a chunky grid of PIXELS, 480 rows of square
 ## pixels by default, whole screen pixels each (_resize); the Bayer DITHER, one
 ## step; and every pixel SNAPPED to the earth palette (lofi.gdshader).
@@ -20,8 +20,8 @@ extends CanvasLayer
 ## the world's buffer as wide as the chunky grid (the default)
 const RENDER_GRID := -1
 ## the defaults, at the user's request: square pixels, 480 rows, the
-## world drawn at 720 (pause.gd DEFAULTS)
-const RENDER := 720
+## world drawn at 960 (pause.gd DEFAULTS, at the user's request)
+const RENDER := 960
 const PIXELS := 480
 const PIXEL_ASPECT := 1.0
 
@@ -138,7 +138,7 @@ func _ready() -> void:
 ## scale; what is left over (less than one chunky pixel each way) is a
 ## black border, centred. A non-square PIXEL ASPECT is a whole number of
 ## screen pixels across too, the nearest to the asked ratio. The world is
-## then drawn RENDER rows (720 by default, never more than the screen's
+## then drawn RENDER rows (960 by default, never more than the screen's
 ## own) at exactly the grid's aspect, and the filter boxes it down.
 func _resize() -> void:
 	var vp := get_viewport()

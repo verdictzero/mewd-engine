@@ -41,7 +41,7 @@ void fragment() {
 		vec3 lens = side > 0.0 ? left_lens : right_lens;
 		// the lens lit, pushed toward white the way the bloom's core does
 		ALBEDO = mix(lens * 0.16, mix(lens, vec3(1.0), 0.28) * 1.6, on);
-		// through the thermal sight a lamp is a lamp: warm, and hot when lit
-		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(0.55 + 0.35 * on);
+		// through the thermal sight a lamp is cold, lit or not: only people are hot
+		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(lens, 0.0));
 	}
 }

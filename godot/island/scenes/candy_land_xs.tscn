@@ -1,0 +1,182 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_island_world.gd" id="1_world"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_terrain.tres" id="4_terrain"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_sky.tres" id="5_sky"]
+
+
+
+[ext_resource type="Resource" path="res://godot/island/data/ISLANDFIELD_candyland-xs.tres" id="8_field"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_cliff.tres" id="12_cliff"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_scatter.gd" id="13_veg"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_sky_cycle_controller.gd" id="14_todbus"]
+
+[ext_resource type="Resource" path="res://godot/island/candy/data/SKYCYCLE_candy_day.tres" id="42_skypreset"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea.gd" id="15_cloudsea"]
+
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_cloud_sea.tres" id="16_cloudmat"]
+
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_grass_scatter.gd" id="18_grass"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_grass.tres" id="19_grassmat"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_burn.gd" id="20_vegburn"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_veg.tres" id="27_vegmat"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_understory.tres" id="28_undermat"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_fern.tres" id="29_fernmat"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_horizon_clouds.gd" id="25_horizonclouds"]
+
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_horizon_clouds.tres" id="26_horizoncloudmat"]
+
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_01.png" id="c_tree_01"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_02.png" id="c_tree_02"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_03.png" id="c_tree_03"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_04.png" id="c_tree_04"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_05.png" id="c_tree_05"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_06.png" id="c_tree_06"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_07.png" id="c_tree_07"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_08.png" id="c_tree_08"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_09.png" id="c_tree_09"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_10.png" id="c_tree_10"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_tree_11.png" id="c_tree_11"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_01.png" id="c_bush_01"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_02.png" id="c_bush_02"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_03.png" id="c_bush_03"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_04.png" id="c_bush_04"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_05.png" id="c_bush_05"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_bush_06.png" id="c_bush_06"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_01.png" id="c_grass_01"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_02.png" id="c_grass_02"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_03.png" id="c_grass_03"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_04.png" id="c_grass_04"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_05.png" id="c_grass_05"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_06.png" id="c_grass_06"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/sprites/foliage/SPRITE_foliage_grass_07.png" id="c_grass_07"]
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_sun_flare.gdshader" id="c_flare_shader"]
+
+[sub_resource type="QuadMesh" id="Quad_flare"]
+size = Vector2(2, 2)
+
+[sub_resource type="ShaderMaterial" id="Mat_flare"]
+render_priority = 120
+shader = ExtResource("c_flare_shader")
+shader_parameter/sun_radius = 0.16
+
+[sub_resource type="Sky" id="Sky_w3"]
+sky_material = ExtResource("5_sky")
+process_mode = 2
+
+[sub_resource type="Environment" id="Env_w3"]
+background_mode = 2
+sky = SubResource("Sky_w3")
+ambient_light_source = 2
+ambient_light_color = Color(0.62, 0.72, 0.88, 1)
+ambient_light_energy = 1.2
+reflected_light_source = 2
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.6
+glow_strength = 1.1
+glow_bloom = 0.05
+glow_hdr_threshold = 1.0
+glow_blend_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.62, 0.8, 1, 1)
+fog_density = 0.0012
+fog_sky_affect = 0.0
+fog_height = -45.0
+fog_height_density = 2.0
+
+[node name="CandyLand" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_w3")
+
+[node name="SunPivot" type="Node3D" parent="."]
+transform = Transform3D(-0.939612, -0.089102, 0.330440, 0.342243, -0.244625, 0.907209, 0.000000, 0.965515, 0.260347, 0, 800, 0)
+
+[node name="IslandWorld" type="Node3D" parent="."]
+script = ExtResource("1_world")
+field = ExtResource("8_field")
+terrain_material = ExtResource("4_terrain")
+cliff_material = ExtResource("12_cliff")
+view_distance = 3600.0
+prewarm = true
+generate_collision = false
+
+[node name="VegScatter" type="Node3D" parent="."]
+script = ExtResource("13_veg")
+island_world_path = NodePath("../IslandWorld")
+material = ExtResource("27_vegmat")
+understory_material = ExtResource("28_undermat")
+fern_material = ExtResource("29_fernmat")
+tree_sprites = [ExtResource("c_tree_01"), ExtResource("c_tree_02"), ExtResource("c_tree_03"), ExtResource("c_tree_04"), ExtResource("c_tree_05"), ExtResource("c_tree_06"), ExtResource("c_tree_07"), ExtResource("c_tree_08"), ExtResource("c_tree_09"), ExtResource("c_tree_10"), ExtResource("c_tree_11")]
+tree_height = Vector2(9, 16)
+bush_sprites = [ExtResource("c_bush_01"), ExtResource("c_bush_02"), ExtResource("c_bush_03"), ExtResource("c_bush_04"), ExtResource("c_bush_05"), ExtResource("c_bush_06")]
+fern_sprites = [ExtResource("c_grass_05"), ExtResource("c_grass_06"), ExtResource("c_grass_07")]
+prescatter = true
+
+[node name="GrassScatter" type="Node3D" parent="."]
+script = ExtResource("18_grass")
+island_world_path = NodePath("../IslandWorld")
+sprites = [ExtResource("c_grass_01"), ExtResource("c_grass_02"), ExtResource("c_grass_03"), ExtResource("c_grass_04")]
+material = ExtResource("19_grassmat")
+
+[node name="VegBurn" type="Node3D" parent="."]
+script = ExtResource("20_vegburn")
+burn = 0.0
+advance = false
+burn_rate = 0.02
+stump = 0.0
+stump_rate = 0.0
+front_radius = 0.0
+front_speed = 0.0
+
+[node name="TimeOfDay" type="Node3D" parent="." node_paths=PackedStringArray("sun_pivot", "world_environment")]
+script = ExtResource("14_todbus")
+sun_pivot = NodePath("../SunPivot")
+world_environment = NodePath("../WorldEnvironment")
+sky_material = ExtResource("5_sky")
+preset = ExtResource("42_skypreset")
+drive_sun_transform = false
+advance_with_time = false
+use_nightmare_switch = false
+nightmare = false
+nightmare_seconds = 3.0
+normal_phase = 0.45
+nightmare_phase = 0.85
+manual_time_of_day = 0.45
+fog_light_base = Color(0.62, 0.8, 1, 1)
+drive_void_sky = true
+sky_haze_base = Color(0.62, 0.8, 1, 1)
+sky_glow_base = Color(0.9, 0.95, 1, 1)
+sky_sun_glow_base = Color(1, 0.99, 0.95, 1)
+sky_vortex_base = Color(1, 1, 1, 1)
+
+[node name="CloudSea" type="Node3D" parent="."]
+script = ExtResource("15_cloudsea")
+cloud_material = ExtResource("16_cloudmat")
+
+
+[node name="HorizonClouds" type="Node3D" parent="."]
+script = ExtResource("25_horizonclouds")
+material = ExtResource("26_horizoncloudmat")
+
+[node name="SunFlare" type="MeshInstance3D" parent="."]
+mesh = SubResource("Quad_flare")
+surface_material_override/0 = SubResource("Mat_flare")
+cast_shadow = 0
+extra_cull_margin = 16384.0
+custom_aabb = AABB(-100000, -100000, -100000, 200000, 200000, 200000)

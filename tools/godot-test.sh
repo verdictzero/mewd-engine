@@ -2,7 +2,11 @@
 # MEWD — the Godot port's headless suites (see GODOT.txt). Exits non-zero
 # if any of them fails.
 cd "$(dirname "$0")/.." || exit 1
-GODOT=${GODOT:-godot}
+# (Godot 4.7: `godot47` where both are installed, as here, where a plain
+# `godot` is an older one whose islands hash to other bakes)
+if [ -z "$GODOT" ]; then
+  if command -v godot47 >/dev/null 2>&1; then GODOT=godot47; else GODOT=godot; fi
+fi
 fail=0
 run() {
   echo "== $1"
@@ -22,8 +26,12 @@ run island  --script res://godot/tests/island_test.gd
 run island-1 --script res://godot/tests/island_test.gd -- --map=island-1
 run island-2 --script res://godot/tests/island_test.gd -- --map=island-2
 run candyland --script res://godot/tests/island_test.gd -- --map=candyland
+run candyland-xs --script res://godot/tests/island_test.gd -- --map=candyland-xs
 # CANDY LAND: roads, lamps, the candy girls greeting you and running (godot/tests/candy_test.gd)
 run candy   --script res://godot/tests/candy_test.gd -- --map=candyland
+# WHAT ROUNDS AND BLASTS DO TO SPRITES: bites out of people, lamps shot to
+# pieces, plants blown up, set alight and shot through (godot/tests/damage_test.gd)
+run damage  --script res://godot/tests/damage_test.gd -- --map=candyland
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd

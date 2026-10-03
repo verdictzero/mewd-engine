@@ -75,6 +75,16 @@ var state_tics := 0
 var shots := 0
 ## the actor blockmap's cell, see ActorGrid
 var bm_key := -1
+## THE BITES OUT OF IT (at the user's request: rounds "take chunks out of
+## sprites"): each a hole in its picture, (across, up, radius) in units
+## from its feet as the one who fired saw it (Standees draws them, the
+## latest HOLES of them), and `holes_rev` counted up at each so a row is
+## written again only when it has a new one
+const HOLES := 8
+var holes := PackedVector3Array()
+var holes_rev := 0
+## how many rounds it has taken (of its `wounds`)
+var bites := 0
 ## THREE CYLINDERS ARE ONE VAN (js/actor.js): a CARBODY carries a pointer
 ## back to the Vehicle it is a third of, and its damage and its catching
 ## are the vehicle's — added for the vehicles port (godot/scripts/game/vehicle.gd)
@@ -375,6 +385,22 @@ func damage(amount: float, source, opts := {}) -> void:
 	var friendly: bool = source != null and source is Actor and info.has("team") and source.info.get("team") == info.team
 	if friendly and opts.get("shot", false):
 		return
+	# A ROUND TAKES A BITE (`wounds`, at the user's request): a body — or a
+	# lamp — that takes this many rounds to finish has each one take its
+	# share of it, a hole out of its picture where it went in, and a gout
+	# of blood (Game.wound); the last comes apart as it always did
+	if opts.get("shot", false) and info.has("wounds"):
+		# (counted, not divided: 12 health is not ten whole bites) — every
+		# bite but the last leaves them standing, the last takes the rest
+		bites += 1
+		game.wound(self, opts)
+		if bites >= int(info.wounds):
+			amount = float(maxi(health, 1))
+			# and the bite that finishes them blows them apart
+			opts = opts.duplicate()
+			opts["gib"] = true
+		else:
+			amount = clampf(floorf(float(info.get("health", 100)) / float(info.wounds)), 0.0, float(health - 1))
 	health -= int(amount)
 	if health <= 0:
 		die(source, amount, opts)
@@ -395,6 +421,16 @@ func die(source, _overkill := 0.0, opts := {}) -> void:
 		return
 	if frozen:
 		shatter(source)
+		return
+	# A THING THAT BREAKS (a street lamp): it goes to pieces of its own
+	# picture, and is gone (Game.break_apart)
+	if info.get("breaks", false):
+		dead = true
+		solid = false
+		shootable = false
+		game.blockmap.remove(self)
+		game.break_apart(self, opts)
+		remove()
 		return
 	if ash > 0.0:
 		collapse(source)
@@ -528,6 +564,14 @@ func A_ArmyFire() -> void:
 
 func A_Gib() -> void:
 	game.gib(self)
+
+## A hole in the picture at (across, up), `r` across, the oldest given up
+## past HOLES.
+func take_hole(across: float, up: float, r: float) -> void:
+	if holes.size() >= HOLES:
+		holes.remove_at(0)
+	holes.append(Vector3(across, up, r))
+	holes_rev += 1
 
 ## alight and still going: they run, they do not calm down, and then they go off
 func A_Torch() -> void:

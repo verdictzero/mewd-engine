@@ -112,11 +112,8 @@ void fragment() {
 		c += coal;
 	}
 	ALBEDO = world_fog(world_air(c, depth), depth);
-	// the thermal sight's feed: the body as a surface, the engine by its
-	// warmth with the paint giving it its shape, the coals as heat
-	if (thermal_on(VIEWPORT_SIZE)) {
-		float h = thermal_of(t.rgb, band, depth, wpos, 0.0);
-		h = max(h, warmth * (0.64 + 0.14 * dot(thermal_srgb(t.rgb), vec3(0.30, 0.59, 0.11))));
-		ALBEDO = thermal_out(h + thermal_glow(coal));
-	}
+	// the thermal sight's feed: only people are hot, so a vehicle is a
+	// cold surface, its engine and its coals with it (`warmth` is still
+	// written by ThermalScope, and no longer read)
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(t.rgb, band, depth, wpos, 0.0));
 }

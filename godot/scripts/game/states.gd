@@ -124,6 +124,8 @@ static func build() -> void:
 		"burnAway": "SHOP_ASH1", "ashTics": [3.0 * TICRATE, 4.5 * TICRATE],
 		"bored": "SHOP_BORE", "burnTrail": 8, "burnFuel": 14, "burnRadius": 1, "burnScare": 520,
 		"scareRange": 320, "panicTics": 8 * TICRATE, "variants": SHOPPERS, "flat": true, "sway": true,
+		# a round a bite, ten to finish one (Actor.damage `wounds`)
+		"wounds": 10,
 	}
 	var townie: Dictionary = ACTORS["SHOPPER"].duplicate()
 	townie.name = "Townsfolk"
@@ -153,9 +155,16 @@ static func build() -> void:
 			"burnAway": s + "_ASH1", "bored": s + "_BORE", "painSound": null,
 			"health": 60 if big else 20, "radius": 26 if big else 14, "height": 80 if big else 44,
 			"mass": 400 if big else 120, "speed": 3 if big else 2, "runSpeed": 22 if big else 18,
-			"scareRange": 520, "panicTics": 7 * TICRATE, "herd": true}, true)
+			"scareRange": 520, "panicTics": 7 * TICRATE, "herd": true, "wounds": 14 if big else 8}, true)
 		ACTORS[k] = u
-	ACTORS["LAMP"] = {"name": "Street lamp", "spawn": "LAMP_STAND", "radius": 6, "height": 140, "solid": true}
+	# (sunk 12 units — the clear margin under the post in its picture, and a
+	# little for the kerb's slope under its foot — so it always stands IN
+	# the ground, at the user's request; Standees reads "sink")
+	# A lamp can be shot to pieces (at the user's request: rounds blow holes
+	# in every sprite before they destroy it): eight rounds a hole each, the
+	# eighth and it goes to pieces of itself (`breaks`, Game.break_apart)
+	ACTORS["LAMP"] = {"name": "Street lamp", "spawn": "LAMP_STAND", "radius": 6, "height": 140, "solid": true, "sink": 12.0,
+		"shootable": true, "health": 80, "wounds": 8, "breaks": true}
 	ACTORS["SWAT"] = {
 		"name": "SWAT", "spawn": "SWAT_STAND", "see": "SWAT_RUN1", "pain": "SWAT_PAIN",
 		"missile": "SWAT_ATK1", "death": "SWAT_DIE1", "xdeath": "SWAT_XDIE1",
@@ -164,6 +173,7 @@ static func build() -> void:
 		"monster": true, "team": "law", "fireproof": true,
 		"seeSound": "swatsee", "painSound": "swatpain", "deathSound": "swatdie", "attackSound": "shot",
 		"freezable": true, "frozen": "SWAT_FROZE", "freezeReturn": "SWAT_RUN1", "bored": "SWAT_BORE", "lit": 1.3,
+		"wounds": 8,
 	}
 	ACTORS["ARMY"] = {
 		"name": "Soldier", "spawn": "ARMY_STAND", "see": "ARMY_RUN1", "pain": "ARMY_PAIN",
@@ -173,6 +183,7 @@ static func build() -> void:
 		"monster": true, "team": "law", "fireproof": true,
 		"seeSound": "armysee", "painSound": "armypain", "deathSound": "armydie", "attackSound": "rifle",
 		"freezable": true, "frozen": "ARMY_FROZE", "freezeReturn": "ARMY_RUN1", "bored": "ARMY_BORE", "lit": 1.1,
+		"wounds": 12,
 	}
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
 	# A HEADSTONE: granite, thirty-two tall — it stops you and you can see

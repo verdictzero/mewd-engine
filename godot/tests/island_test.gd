@@ -116,11 +116,16 @@ func _init() -> void:
 	check(hidden, "a hill hides one point from another")
 	check(seen, "and a near one is in sight")
 	# A ROUND INTO THE GROUND stops on it
+	# (nobody in the way, nor a street lamp, nor a house: it is the ground
+	# being asked)
 	for a in game.actors:
-		if a.monster:
+		if a.monster or a.shootable:
 			a.remove()
+	var kept_houses: Array = lv.houses
+	lv.houses = []
 	p.pitch = -0.6
 	game.hitscan(p, p.angle, 2000.0, 1.0, {"pitch": -0.6})
+	lv.houses = kept_houses
 	var hit: Vector3 = game.last_hit
 	var under := lv.floor_at(hit.x, hit.y)
 	check(absf(hit.z - under) < 4.0 and sqrt(U.dist2(hit.x, hit.y, p.x, p.y)) < 1000.0,

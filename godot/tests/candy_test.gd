@@ -59,6 +59,43 @@ func _init() -> void:
 		elif a.monster and not (a.type == "UNICORN" or a.type == "FOAL"):
 			others += 1
 	check(lamps > 20, "street lamps along the roads (%d)" % lamps)
+	# THE HOUSES round the squares: a good many, each by a square and off
+	# every road, none inside another, nobody stood in one
+	var hs: Array = lv.houses
+	var by_square := 0
+	var on_road := 0
+	for h in hs:
+		var c := Vector2(h.x, h.y)
+		for sq in roads.squares:
+			if c.distance_to(sq[0]) < float(sq[1]) + 12.0 * 32.0:
+				by_square += 1
+				break
+		for r in roads.paths:
+			if Geometry2D.get_closest_point_to_segment(c, r[0], r[1]).distance_to(c) < float(r[2]) + float(h.hw):
+				on_road += 1
+	check(hs.size() >= 3 * roads.squares.size() and by_square == hs.size() and on_road == 0,
+		"gingerbread houses round the squares (%d houses, %d by a square, %d on a road)" % [hs.size(), by_square, on_road])
+	var inside := 0
+	for a in game.actors:
+		if lv.in_house(a.x, a.y, 0.0):
+			inside += 1
+	check(inside == 0 and not lv.in_house(p.x, p.y, p.radius), "nobody starts inside a house (%d)" % inside)
+	check(game.island.get_node("Houses").multimesh.instance_count == hs.size(), "and every one drawn")
+	# A HOUSE IS SOLID: you cannot walk into one, an eye cannot see through
+	# one, a round stops on its wall — and one over its roof flies on
+	var hh: Dictionary = hs[0]
+	var door := Vector2(cos(hh.angle), sin(hh.angle))
+	var out := Vector2(hh.x, hh.y) + door * (float(hh.front) + 120.0)
+	var mid := Vector2(hh.x, hh.y)
+	var z0: float = lv.floor_at(out.x, out.y)
+	var step := out + (mid - out).normalized() * 130.0
+	check(not lv.can_move(out.x, out.y, step.x, step.y, 16.0, z0, 56.0, false), "a house stops you walking into it")
+	var far := mid - door * (float(hh.back) + 120.0)
+	var w: Dictionary = lv.ray_hit_wall(out.x, out.y, z0 + 41.0, far.x, far.y, z0 + 41.0)
+	check(not w.is_empty() and w.line == hh.lines[2], "a round stops on its front wall")
+	check(lv.sight_blocked(out.x, out.y, z0 + 41.0, far.x, far.y, z0 + 41.0), "and an eye cannot see through it")
+	var up: float = hh.z + hh.top + 64.0
+	check(lv.ray_hit_wall(out.x, out.y, up, far.x, far.y, up).is_empty(), "a round over its roof flies on")
 	check(girls.size() == 360 and others == 0, "the crowd is all candy girls (%d, %d others)" % [girls.size(), others])
 	check(flavours.size() == States.CANDY_FLAVOURS.size(), "in every flavour (%d of %d)" % [flavours.size(), States.CANDY_FLAVOURS.size()])
 	# THE HERDS: unicorns and foals in the meadows, the foal a little over
@@ -181,9 +218,14 @@ func _init() -> void:
 	# AND A UNICORN CAN BE KILLED: shot to pieces like anybody
 	var victim: Actor = unis[unis.size() - 1]
 	var foal_v: Actor = foals[foals.size() - 1]
-	victim.damage(1000.0, game.player, {"shot": true})
-	foal_v.damage(1000.0, game.player, {"shot": true})
+	# (a round a bite now: enough of them, and they come apart)
+	var rounds := 0
+	while rounds < 40 and not ((victim.dead or victim.removed) and (foal_v.dead or foal_v.removed)):
+		victim.damage(1000.0, game.player, {"shot": true})
+		foal_v.damage(1000.0, game.player, {"shot": true})
+		rounds += 1
 	_tics(3)
-	check((victim.dead or victim.removed) and (foal_v.dead or foal_v.removed), "a unicorn and a foal shot down come apart")
+	check((victim.dead or victim.removed) and (foal_v.dead or foal_v.removed) and rounds > 1,
+		"a unicorn and a foal shot down come apart (%d rounds)" % rounds)
 	print("candy: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)

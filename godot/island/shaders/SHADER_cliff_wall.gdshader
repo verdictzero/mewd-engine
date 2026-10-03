@@ -1,5 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled, unshaded;
+#include "res://godot/shaders/thermal_base.gdshaderinc"
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
@@ -76,6 +77,19 @@ uniform vec3 rock_mean = vec3(1.0);
 /// shading before `SHADER_post_dither.gdshader` snaps the result to an RGB332 palette
 /// whose darkest step is 36/255.
 uniform float rock_contrast : hint_range(0.0, 1.5) = 0.70;
+
+group_uniforms turf;
+// THE GRASS OVER THE EDGE (at the user's request, CANDY LAND: "take the grass
+// texture to the edge of the island, beyond the edge, then the rock cliff
+// texture for the island's sides"): the top `turf_depth` metres of the wall
+// are the ground's own grass, hanging over the lip with a scalloped hem
+// (`turf_wobble` metres of it either way, along the wall), and rock below.
+// 0 (the default) leaves the wall rock to its top, as every other island's.
+uniform sampler2D turf_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
+uniform float turf_scale = 4.0;
+uniform vec3 turf_tint = vec3(1.0);
+uniform float turf_depth = 0.0;
+uniform float turf_wobble = 0.8;
 
 group_uniforms lighting;
 uniform float normal_strength : hint_range(0.0, 2.0) = 0.6;
@@ -234,6 +248,20 @@ void fragment() {
 			+ texture(rock_albedo, world_pos.xy / rs).rgb * bw.z;
 	vec3 albedo = mix(rock_mean, rock, rock_contrast) * rock_tint;
 
+	// ---- the turf over the lip: grass down to a scalloped hem ---------------
+	if (turf_depth > 0.0) {
+		float ts = max(turf_scale, 1e-4);
+		vec3 turf = texture(turf_albedo, world_pos.zy / ts).rgb * bw.x
+				+ texture(turf_albedo, world_pos.xz / ts).rgb * bw.y
+				+ texture(turf_albedo, world_pos.xy / ts).rgb * bw.z;
+		// the hem: two waves along the wall (in whichever of x and z it runs)
+		// and a finer third, so it hangs in tufts and not in a ruled line
+		float a = world_pos.x + world_pos.z;
+		float hem = turf_depth + turf_wobble * (0.55 * sin(a * 0.73) + 0.3 * sin(a * 1.91 + 1.3)
+				+ 0.15 * sin(a * 4.7 + 0.4));
+		albedo = v_depth < hem ? turf * turf_tint : albedo;
+	}
+
 	// UDN-style perturbation: each projection's tangent xy drives the two world
 	// axes that projection spans.
 	vec3 rnx = texture(rock_normal, world_pos.zy / rs).xyz * 2.0 - 1.0;
@@ -308,4 +336,7 @@ void fragment() {
 	albedo = golf_wall_drain(albedo, world_pos.xz, SCREEN_UV, TIME);
 
 	ALBEDO = albedo;
+	// THE THERMAL SIGHT's feed (godot/shaders/thermal_base.gdshaderinc):
+	// only people are hot, and this is not one
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(ALBEDO, clamp((length(VERTEX) - 700.0) / 2500.0, 0.0, 1.0)));
 }

@@ -47,10 +47,19 @@ class Strip:
 	var dirty := false
 	var cells := 1
 	var cell := Vector2.ONE
+	## the strip's picture, for the pieces torn out of it (SpriteChunks)
+	var tex: Texture2D
+	## THE HOLES (Actor.holes): a row of Actor.HOLES texels a slot, each
+	## (across, up, radius, 0) in units, read by standee.gdshader
+	var holes: Image
+	var holes_tex: ImageTexture
+	var holes_dirty := false
 
 var strips := {}
 ## actor id -> [strip key, slot]
 var slots := {}
+## actor id -> the holes_rev its holes were last written at
+var _hole_rev := {}
 var _last_tic := -1
 ## how many rows were written last tic (for the frame-rate readout)
 var written := 0
@@ -85,6 +94,7 @@ func _strip(key: String, path: String, cell: Vector2, texel := Vector2.ZERO) -> 
 	var tex: Texture2D = TexBank.decoded(load(path), fine)
 	var s := Strip.new()
 	s.cell = cell
+	s.tex = tex
 	s.cells = int(tex.get_width() / (texel.x if fine else cell.x))
 	var quad := ArrayMesh.new()
 	var arr := []
@@ -99,6 +109,9 @@ func _strip(key: String, path: String, cell: Vector2, texel := Vector2.ZERO) -> 
 	mat.set_shader_parameter("cells", U.col(float(s.cells)))
 	mat.set_shader_parameter("cell", U.col(cell))
 	quad.surface_set_material(0, mat)
+	s.holes = Image.create_empty(Actor.HOLES, 64, false, Image.FORMAT_RGBAF)
+	s.holes_tex = ImageTexture.create_from_image(s.holes)
+	mat.set_shader_parameter("holes", s.holes_tex)
 	s.mm = MultiMesh.new()
 	s.mm.transform_format = MultiMesh.TRANSFORM_3D
 	s.mm.use_custom_data = true
@@ -193,6 +206,12 @@ func _alloc(s: Strip) -> int:
 		s.rows.resize(s.cap * 16)
 		for j in range(s.high * 16, s.cap * 16):
 			s.rows[j] = 0.0
+		if s.holes.get_height() < s.cap:
+			var grown := Image.create_empty(Actor.HOLES, s.cap, false, Image.FORMAT_RGBAF)
+			grown.blit_rect(s.holes, Rect2i(0, 0, Actor.HOLES, s.holes.get_height()), Vector2i.ZERO)
+			s.holes = grown
+			s.holes_tex = ImageTexture.create_from_image(s.holes)
+			(s.mm.mesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter("holes", s.holes_tex)
 	s.high += 1
 	return s.high - 1
 
@@ -209,6 +228,12 @@ func _drop(aid: int) -> void:
 	s.free.append(i)
 	s.dirty = true
 	slots.erase(aid)
+	# and its holes, so the next one in the slot is whole
+	if _hole_rev.has(aid):
+		_hole_rev.erase(aid)
+		for k in Actor.HOLES:
+			s.holes.set_pixel(k, i, Color(0, 0, 0, 0))
+		s.holes_dirty = true
 
 ## Once a tic (a second call in the same tic does nothing): every row
 ## that is due, written; the strips that changed, uploaded. `look`, the
@@ -264,8 +289,10 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		var sky: float = sec.sky if sec else 0.0
 		var flags := (1.0 if c[2] else 0.0) + (2.0 if (a.state.fullbright or info.get("fullbright", false)) else 0.0)
 		# and what only the launcher's thermal sight reads (standee.gdshader):
-		# a BODY is warm, a frozen one cold, a burning one white
-		if a.monster or a.puppet:
+		# a BODY is warm, a frozen one cold, a burning one white — and only a
+		# PERSON's body: a herd beast (CANDY LAND's unicorns) is as cold as
+		# the ground (only people are hot, at the user's request)
+		if (a.monster or a.puppet) and not info.get("herd", false):
 			flags += 8.0 if a.frozen else (4.0 if a.ash <= 0.0 else 0.0)
 		if a.burning > 0:
 			flags += 16.0
@@ -277,7 +304,8 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		flags += 128.0 * float(aid % 4096)
 		var rows: Array = s.rows
 		rows[i] = 1.0; rows[i + 1] = 0.0; rows[i + 2] = 0.0; rows[i + 3] = a.x
-		rows[i + 4] = 0.0; rows[i + 5] = 1.0; rows[i + 6] = 0.0; rows[i + 7] = a.z
+		# (a thing that must stand IN the ground, sunk: Actor info "sink")
+		rows[i + 4] = 0.0; rows[i + 5] = 1.0; rows[i + 6] = 0.0; rows[i + 7] = a.z - float(info.get("sink", 0.0))
 		rows[i + 8] = 0.0; rows[i + 9] = 0.0; rows[i + 10] = 1.0; rows[i + 11] = -a.y
 		# the cell, and HOW FROZEN in its fraction (standee.gdshader's ice
 		# map): frost building up to solid, 0.9 at most so the cell stays
@@ -285,12 +313,23 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		rows[i + 12] = float(c[1]) + ice * 0.9; rows[i + 13] = light; rows[i + 14] = sky; rows[i + 15] = flags
 		s.dirty = true
 		written += 1
+		# THE HOLES, when it has a new one (or a slot of its own to put them in)
+		if a.holes_rev != int(_hole_rev.get(aid, 0)):
+			_hole_rev[aid] = a.holes_rev
+			var slot: int = sl[1]
+			for k in Actor.HOLES:
+				var h: Vector3 = a.holes[k] if k < a.holes.size() else Vector3.ZERO
+				s.holes.set_pixel(k, slot, Color(h.x, h.y, h.z, 0.0))
+			s.holes_dirty = true
 	# the gone and the far: their rows scaled away
 	for aid in slots.keys():
 		if not seen.has(aid):
 			_drop(aid)
 	for k in strips:
 		var s: Strip = strips[k]
+		if s.holes_dirty:
+			s.holes_dirty = false
+			s.holes_tex.update(s.holes)
 		if not s.dirty:
 			continue
 		s.dirty = false
@@ -299,3 +338,16 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		if s.cap > 0:
 			s.mm.buffer = PackedFloat32Array(s.rows)
 		s.mm.visible_instance_count = s.high
+
+## THE PICTURE an actor is drawn from now, for the pieces torn out of it
+## (SpriteChunks): {tex, uv (its cell, 0..1), size (units), mirror}, or {}.
+func picture_of(a: Actor, cam: Vector2) -> Dictionary:
+	if a.state.is_empty():
+		return {}
+	var c := _cell_of(a, cam)
+	var key: String = c[0]
+	if key == "" or not strips.has(key):
+		return {}
+	var s: Strip = strips[key]
+	var cell := floorf(float(c[1]))
+	return {"tex": s.tex, "uv": Rect2(cell / s.cells, 0.0, 1.0 / s.cells, 1.0), "size": s.cell, "mirror": bool(c[2])}

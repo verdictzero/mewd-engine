@@ -1,6 +1,7 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded,
 		shadows_disabled, specular_disabled, fog_disabled;
+#include "res://godot/shaders/thermal_base.gdshaderinc"
 
 #include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 
@@ -510,4 +511,7 @@ void fragment() {
 
 	ALBEDO = golf_wall_drain(col, wp.xz, SCREEN_UV, TIME);
 	ALPHA = a;
+	// THE THERMAL SIGHT's feed (godot/shaders/thermal_base.gdshaderinc):
+	// only people are hot, and this is not one
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(ALBEDO, clamp((length(VERTEX) - 700.0) / 2500.0, 0.0, 1.0)));
 }

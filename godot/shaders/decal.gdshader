@@ -124,7 +124,7 @@ void fragment() {
 		ALPHA = ((kind > 2.5 && kind < 3.5) ? a : 1.0) * dfade;
 		ALBEDO = glow > 0.0 ? col : world_air(col, depth);
 		// the thermal sight's feed: how warm the mark is (a hot rim is, a hot spot more)
-		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = glow > 0.0 ? thermal_out(clamp(0.6 + 0.4 * glow, 0.0, 1.0))
-			: thermal_out(thermal_of(col, lit, depth, wp, 0.0));
+		// (a glowing scorch once hot: only people are hot now)
+		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, wp, 0.0));
 	}
 }

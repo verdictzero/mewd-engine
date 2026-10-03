@@ -35,7 +35,8 @@ void fragment() {
 	// the air: an added light fades out rather than toward a colour
 	float at = clamp((depth - air_near) / max(1.0, air_far - air_near), 0.0, 1.0);
 	ALBEDO = c.rgb * (1.0 - at * at);
-	// the thermal sight's feed: fire is the hottest thing there is
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(1.0 - at * at);
+	// the thermal sight's feed: only people are hot, so a flame (added
+	// light) adds nothing to it
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = vec3(0.0);
 	ALPHA = c.a;
 }

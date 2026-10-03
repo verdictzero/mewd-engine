@@ -459,6 +459,10 @@ func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 				D.blast(Vector3(at.x, at.y, under.floor), Vector3(0, 0, 1))
 	game.scare(at.x, at.y, 700.0)
 	game.noise(at, 1600.0)
+	# THE PLANTS: blown to pieces close in, set alight round it (VegDamage);
+	# the potato cannon's nuke reaches twice as far
+	if game.veg_damage != null:
+		game.veg_damage.blast(at, WARHEAD.radius * (2.0 if mark == "nuke" else 1.0))
 	var hit := {}
 	var blown := []
 	var R: float = WARHEAD.radius

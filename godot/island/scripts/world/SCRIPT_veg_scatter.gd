@@ -153,7 +153,15 @@ extends Node3D
 ## Plants are sunk this far into the ground, in METRES, so a sprite's soil base is
 ## buried rather than floating a hair above the surface on a slope. Applied to the
 ## position rather than to the quad's pivot, so it does not scale with the plant.
+## AND BY HOWEVER FAR THE GROUND FALLS AWAY UNDER THE QUAD'S EDGES (at the
+## user's request: "make sure tree, bush and grass sprites always intersect the
+## ground"): a billboard turns to face the eye, so from some side its bottom edge
+## runs straight down the slope, and half its width times the ground's gradient
+## is how far a corner would hang in the air. That is added, up to `sink_most`
+## of the plant's height, so on a hillside every plant's whole base is in it.
 @export var sink := 0.15
+## The most a plant is sunk for the slope, as a fraction of its height.
+@export var sink_most := 0.3
 
 @export_group("Density")
 ## Fraction of cells that grow a FIR deep inside a wood, and out on open ground,
@@ -648,6 +656,9 @@ var _instances: Array[MultiMeshInstance3D] = []
 var _class_span: Array[Vector2i] = []
 # Class -> quad height range, indexed the same way.
 var _class_height: Array[Vector2] = []
+# Flat sprite index -> its quad's width over its height, so `_evaluate_cell`
+# knows how far a plant's quad reaches either side of its base (see `sink`).
+var _sprite_aspect := PackedFloat32Array()
 # Class -> SQUARED cull distance, resolved once in `_build_multimeshes` from the
 # `Distance` exports and, where those are 0, from the class material's own
 # `far_end`. This is what makes the cull and the fade the same number.
@@ -722,6 +733,7 @@ func _ready() -> void:
 func _build_multimeshes() -> void:
 	_class_span.resize(3)
 	_class_height.resize(3)
+	_sprite_aspect.clear()
 	_class_view_sq.resize(3)
 	_fill_fp.resize(3)
 	var sets := [tree_sprites, bush_sprites, fern_sprites]
@@ -784,6 +796,7 @@ func _build_multimeshes() -> void:
 			add_child(inst)
 
 			_meshes.append(mm)
+			_sprite_aspect.append(quad.size.x)
 			_instances.append(inst)
 		_class_span[cls] = Vector2i(first, _meshes.size() - first)
 		_class_height[cls] = heights[cls]
@@ -2200,6 +2213,10 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 		if span.y > 0:
 			sprite = span.x + int(_rand(hx, 5 + lane) * float(span.y)) % span.y
 		var h := lerpf(hr.x, hr.y, _rand(hx, 4 + lane))
+		var wj := lerpf(width_jitter.x, width_jitter.y, _rand(hx, 6 + lane))
+		# the slope's share of the sink: half the quad's width down the gradient
+		var aspect := _sprite_aspect[sprite] if sprite >= 0 and sprite < _sprite_aspect.size() else 1.0
+		var down := minf(0.5 * h * wj * aspect * grad.length(), h * sink_most)
 		# Sub-plant 0 sits on the cell's own jittered point; the rest spread across
 		# the cell. They read as a CLUMP at the grid scale, which is what both
 		# classes using this want — a thicket and a patch of understory.
@@ -2212,13 +2229,13 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 			"sprite": sprite,
 			# Sunk in METRES, off the position rather than the pivot, so a 22 m fir
 			# and a 1.3 m fern bury their bases by the same amount.
-			"pos": Vector3(wx + ox, h0 + grad.x * ox + grad.y * oz, wz + oz),
+			"pos": Vector3(wx + ox, h0 - down + grad.x * ox + grad.y * oz, wz + oz),
 			# Y-billboards ignore yaw, so scale is the whole basis. The quad is a
 			# metre tall and the sprite's own aspect wide (see
 			# `_build_multimeshes`), so X and Y both take the height and X
 			# additionally takes the width jitter.
 			"basis": Basis.IDENTITY.scaled(Vector3(
-					h * lerpf(width_jitter.x, width_jitter.y, _rand(hx, 6 + lane)), h, h)),
+					h * wj, h, h)),
 			# Every sub-plant of a cell shares the cell's crater burn — it is a property
 			# of the ground the clump stands on. 0 off a crash site. Into
 			# `INSTANCE_CUSTOM.x` via `_pack_tile`.

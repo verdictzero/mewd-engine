@@ -76,6 +76,15 @@ var decals: Decals
 var gore_decals: GoreDecals
 var fx: Effects
 var giblets: Giblets
+## pieces torn out of sprites (render/sprite_chunks.gd)
+var chunks: SpriteChunks
+## the island's plants shot, blown up and burnt (game/veg_damage.gd)
+var veg_damage: VegDamage
+## WHO IS BLEEDING from the holes in them, and for how many tics more
+## (Game.wound): actor -> tics
+var bleeders := {}
+const BLEED_TICS := 70
+const BLEEDERS_MOST := 48
 var trophies: Trophies
 var beam: BeamSystem
 var scope: Scope
@@ -199,15 +208,21 @@ func start_map(which: String) -> void:
 		island = null
 	# THE GROUND the game walks on, off the bake (IslandGround) — or, with
 	# none, sampled now on every core, which is slow
-	var ground := IslandGround.load_for(IslandGround.signature_for(field, chunk))
+	var gsig := IslandGround.signature_for(field, chunk)
+	var ground := IslandGround.load_for(gsig)
 	if ground == null:
-		print("MEWD: %s has no baked ground — sampling it now (tools/bake_island.gd makes one)" % spec.title)
+		print("MEWD: %s has no baked ground (%s) — sampling it now (tools/bake_island.gd makes one)"
+			% [spec.title, BakeStore.file_name(IslandGround.STORE, gsig)])
 		ground = IslandGround.build(field)
 	level = IslandLevel.new(ground, spec.title)
 	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))),
 		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)),
-		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null)
+		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null,
+		spec.get("houses", {}), _clear_of(field) if spec.has("houses") else null)
 	add_child(island)
+	# the houses round the squares (CANDY LAND's), in the island's world
+	if island != null and not level.houses.is_empty():
+		island.add_child(HouseView.new(level, spec.houses.model))
 	# (the island's plants are its own: the old forest is there, empty,
 	# for what still asks it)
 	forest = Forest.new(level, {"bounds": Rect2(0, 0, 256, 256), "plants": []})
@@ -252,6 +267,12 @@ func start_map(which: String) -> void:
 	add_child(fx)
 	giblets = Giblets.new(self)
 	add_child(giblets)
+	chunks = SpriteChunks.new(self)
+	add_child(chunks)
+	if island != null:
+		var scatter = VegDamage.find_scatter(island)
+		if scatter != null:
+			veg_damage = VegDamage.new(self, scatter)
 	trophies = Trophies.new(self)
 	add_child(trophies)
 	beam = BeamSystem.new(self)
@@ -469,6 +490,7 @@ func _process(dt: float) -> void:
 	t0 = Time.get_ticks_usec()
 	fx.draw()
 	giblets.draw()
+	chunks.draw()
 	trophies.draw()
 	_prof_add("draw.fx", t0)
 	if weapon3d != null:
@@ -631,6 +653,10 @@ func tic() -> void:
 	_prof_add("tic.fx", t0)
 	t0 = Time.get_ticks_usec()
 	giblets.tic()
+	chunks.tic()
+	_bleed_tic()
+	if veg_damage != null:
+		veg_damage.tic()
 	trophies.tic()
 	_prof_add("tic.giblets", t0)
 	if big_message_tics > 0:
@@ -709,6 +735,14 @@ func _meadow_of(field: Resource) -> Callable:
 		return bool(s.get("on_land", false)) and float(s.get("forest", 1.0)) < 0.05 \
 			and float(s.get("flatten", 1.0)) < 0.05 and float(s.get("slope", 1.0)) < 0.25
 
+## WHERE A HOUSE MAY STAND (CANDY LAND's, IslandLevel.place_houses):
+## out of the wood, so no tree grows through its roof.
+func _clear_of(field: Resource) -> Callable:
+	var f: Resource = field.clone()
+	return func(x: float, y: float) -> bool:
+		var s: Dictionary = f.sample(x / IslandLevel.U_PER_M, -y / IslandLevel.U_PER_M)
+		return bool(s.get("on_land", false)) and float(s.get("forest", 1.0)) < 0.05
+
 ## The map's things that are actors, into the world.
 const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY",
 	"GRAVESTONE": "GRAVESTONE",   # the sprawl's headstones
@@ -786,10 +820,97 @@ func scare(x: float, y: float, r: float) -> void:
 			a.A_Scare(x, y)
 
 ## A person coming apart: the fireball where they stood (js/people.js
-## Giblets.burst — the pieces come with the gore port).
+## Giblets.burst — the pieces come with the gore port). And, at the
+## user's request, the body's own picture blown into pieces with it.
 func gib(a: Actor) -> void:
 	giblets.burst(a)
+	_burst_picture(a, 14, 1.0, 1.0)
+	bleeders.erase(a)
 	a.remove()
+
+## THE PICTURE OF `a` IN PIECES (SpriteChunks.burst), thrown out from its
+## middle: `wet` for a body.
+func _burst_picture(a: Actor, pieces: int, force: float, wet: float) -> void:
+	if chunks == null or standees == null or camera == null:
+		return
+	var pic: Dictionary = standees.picture_of(a, Vector2(camera.position.x, -camera.position.z))
+	if pic.is_empty():
+		return
+	var size: Vector2 = pic.size
+	chunks.burst(pic.tex, pic.uv, Vector3(a.x, a.y, a.z), size.x, size.y,
+		Vector3(a.x, a.y, a.z + size.y * 0.4), pieces, force, wet)
+
+## A ROUND TAKES A BITE (at the user's request: "chunks taken out of
+## sprites that are shooting copious campy amounts of blood"): where it
+## went in (`opts.at`, along `opts.dir`, Game.hitscan) a hole is cut in
+## the picture (Actor.take_hole, drawn by Standees), the piece that was
+## there flies off (SpriteChunks), and a body throws out a great deal of
+## blood — a gout out of the hole and on through it, a mist, and a run
+## of spurts after (bleeders). A lamp throws its piece and a spark.
+func wound(a: Actor, opts: Dictionary) -> void:
+	var at: Vector3 = opts.get("at", Vector3(a.x, a.y, a.z + a.height * 0.6))
+	var dir: Vector3 = opts.get("dir", Vector3(cos(a.angle), sin(a.angle), 0.0))
+	var d2 := Vector2(dir.x, dir.y).normalized()
+	if d2 == Vector2.ZERO:
+		d2 = Vector2.RIGHT
+	# across the card as the one firing sees it: their right, (dir.y, -dir.x)
+	var across := (at.x - a.x) * d2.y - (at.y - a.y) * d2.x
+	var up := clampf(at.z - a.z, 2.0, a.height + 6.0)
+	var body: bool = a.monster or a.puppet
+	var r := randf_range(3.0, 5.5) * (a.radius / 18.0 if body else 1.0)
+	a.take_hole(across, up, r)
+	# the piece that was there, thrown on the way the round was going
+	if chunks != null and standees != null and camera != null:
+		var pic: Dictionary = standees.picture_of(a, Vector2(camera.position.x, -camera.position.z))
+		if not pic.is_empty():
+			var size: Vector2 = pic.size
+			var u := clampf(across / size.x + 0.5, 0.0, 1.0)
+			var v := 1.0 - clampf(up / size.y, 0.0, 1.0)
+			var uv: Rect2 = pic.uv
+			var pw := r * 2.4 / size.x
+			var ph := r * 2.4 / size.y
+			var sub := Rect2(uv.position.x + uv.size.x * (u - pw * 0.5), uv.position.y + uv.size.y * (v - ph * 0.5),
+				uv.size.x * pw, uv.size.y * ph)
+			var sp := randf_range(4.0, 9.0)
+			chunks.spawn(pic.tex, sub, at, r * 2.4, r * 2.4,
+				Vector3(d2.x * sp + randf_range(-2, 2), d2.y * sp + randf_range(-2, 2), randf_range(3.0, 8.0)),
+				90, 1.0 if body else 0.0)
+	if body:
+		# CAMPY: out of the back of the hole, a gout along the round's way
+		# and a burst every way from the hole, and it keeps on coming
+		fx.blood_spray(at.x, at.y, at.z, dir.x, dir.y, dir.z * 0.3 + 0.35, 26, 1.6)
+		fx.blood_spray(at.x, at.y, at.z, 0.0, 0.0, 0.0, 14, 1.1)
+		fx.blood_puff(at.x, at.y, at.z)
+		if bleeders.size() < BLEEDERS_MOST or bleeders.has(a):
+			bleeders[a] = BLEED_TICS
+	else:
+		fx.ember(at.x, at.y, at.z, 3, 0.6)
+
+## THE WOUNDED BLEED: every few tics, a spurt out of one of their holes.
+func _bleed_tic() -> void:
+	if bleeders.is_empty():
+		return
+	for a in bleeders.keys():
+		var t: int = bleeders[a] - 1
+		if t <= 0 or a.removed or (a.dead and not a.monster) or a.holes.is_empty():
+			bleeders.erase(a)
+			continue
+		bleeders[a] = t
+		if (tics + a.id) % 3 != 0:
+			continue
+		var h: Vector3 = a.holes[(tics / 3 + a.id) % a.holes.size()]
+		# (the hole's height on them; across, round them by the way they face)
+		var side := Vector2(-sin(a.angle), cos(a.angle)) * h.x * 0.5
+		fx.blood_spray(a.x + side.x, a.y + side.y, a.z + h.y, randf_range(-1, 1), randf_range(-1, 1), 0.9,
+			4 + int(6.0 * t / BLEED_TICS), 1.0)
+
+## A THING THAT BREAKS (a street lamp shot or blown to bits): its picture
+## in pieces, a spray of sparks, and it is gone.
+func break_apart(a: Actor, _opts := {}) -> void:
+	_burst_picture(a, 18, 1.2, 0.0)
+	fx.ember(a.x, a.y, a.z + a.height * 0.8, 10, 1.0)
+	fx.puff(a.x, a.y, a.z + a.height * 0.5, 30.0, 60)
+	bleeders.erase(a)
 
 ## Everything alive within `radius` of `at` (map space), players included.
 func actors_in_cone_around(at, radius: float) -> Array:
@@ -818,6 +939,9 @@ func explode(a, opts := {}) -> void:
 	under = level.span_at(a.x, a.y, az)
 	if under and az - under.floor < 64.0:
 		decals.hole(Vector3(a.x, a.y, under.floor), Vector3(0, 0, 1), true)
+	# the plants round it blown up and set alight (VegDamage)
+	if veg_damage != null:
+		veg_damage.blast(Vector3(a.x, a.y, az), radius)
 	for o in actors_in_cone_around(a, radius):
 		if typeof(a) == TYPE_OBJECT and o == a:
 			continue
@@ -1033,8 +1157,22 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		best_t = t
 		best = a
 		bp = Vector3(px, py, pz)
+	# A PLANT IN THE WAY first (VegDamage.ray): the round goes into it, and
+	# shoots it through a little more
+	if opts.get("shot", false) and veg_damage != null:
+		var ph := veg_damage.ray(Vector3(ox, oy, z), Vector3(tx, ty, tz), best_t)
+		if not ph.is_empty():
+			var pt: float = ph.t
+			var at := Vector3(ox + dx * pt, oy + dy * pt, z + (tz - z) * pt)
+			veg_damage.shoot(ph.plant, at, Vector3(dx, dy, tz - z))
+			last_hit = at
+			return null
 	if best != null:
-		best.damage(rules.scale(from, best, dmg) if rules != null else dmg, from, opts)
+		# (where it went in and which way it was going, for the bite it takes)
+		var hit_opts := opts.duplicate()
+		hit_opts["at"] = bp
+		hit_opts["dir"] = Vector3(dx, dy, tz - z)
+		best.damage(rules.scale(from, best, dmg) if rules != null else dmg, from, hit_opts)
 		# a round into a van is a hole in the van, not blood
 		if opts.get("shot", false) and not ("vehicle" in best and best.vehicle != null):
 			gore_decals.bleed(best, bp, Vector3(dx, dy, tz - z))

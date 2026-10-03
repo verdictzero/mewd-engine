@@ -1,7 +1,8 @@
-[gd_resource type="ShaderMaterial" load_steps=6 format=3]
+[gd_resource type="ShaderMaterial" load_steps=7 format=3]
 
 [ext_resource type="Shader" path="res://godot/island/shaders/SHADER_cliff_wall.gdshader" id="1_wall"]
-[ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_cliff_dirt_01.png" id="2_rock_a"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_cliff_rock_01.png" id="2_rock_a"]
+[ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_ground_grass.png" id="3_turf_a"]
 [ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2.png" id="4_envball"]
 [ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2_night.png" id="4_envballn"]
 
@@ -21,6 +22,15 @@ shader = ExtResource("1_wall")
 shader_parameter/rock_albedo = ExtResource("2_rock_a")
 shader_parameter/rock_scale = 8.0
 shader_parameter/rock_tint = Color(1.2, 1.2, 1.2, 1)
+; THE SIDES ARE ROCK, THE TOP IS GRASS TO THE EDGE AND OVER IT (at the
+; user's request): the rock cliff texture (grey, so its mean below is a cool
+; dark grey), and the ground's own grass hanging 1.6 m over the lip, at the
+; ground's own scale and tint (MAT_candy_terrain's grass_*)
+shader_parameter/turf_albedo = ExtResource("3_turf_a")
+shader_parameter/turf_scale = 4.0
+shader_parameter/turf_tint = Color(1, 1, 1, 1)
+shader_parameter/turf_depth = 1.6
+shader_parameter/turf_wobble = 0.8
 shader_parameter/triplanar_sharpness = 4.0
 shader_parameter/normal_strength = 0.6
 ; Zero, and the four below match MAT_terrain_splat_w2.tres exactly — see that
@@ -50,7 +60,7 @@ shader_parameter/env_ball_night = ExtResource("4_envballn")
 ; Re-measure after re-running `scripts/SCRIPT_crunch_art.gd` or after swapping the
 ; texture. It is the anchor `rock_contrast` mixes toward, so a wrong figure here
 ; does not merely shift the level — it tilts the hue as contrast comes down.
-shader_parameter/rock_mean = Color(0.043, 0.034, 0.025, 1)
+shader_parameter/rock_mean = Color(0.036, 0.04, 0.045, 1)
 shader_parameter/rock_contrast = 0.7
 shader_parameter/flat_shading = false
 

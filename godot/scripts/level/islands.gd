@@ -40,7 +40,28 @@ const LIST := [
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
 		"exposure": 0.8, "knee": 0.65,
 		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
+		# the gingerbread houses round the squares (IslandLevel.place_houses):
+		# the model's footprint in metres (half its width, its back and its
+		# front from its middle, how high a round has to go to clear it)
+		"houses": {"model": "res://godot/island/candy/models/MODEL_candyLandHouse.glb",
+			"footprint": {"hw": 3.45, "back": 3.1, "front": 3.7, "top": 5.6},
+			"scale": [0.9, 1.15], "inner": 0.85, "outer": 0.65, "gap": 4.0},
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
+	# CANDY LAND XS, at the user's request: CANDY LAND at a quarter of the
+	# size (hub_radius 312.5 m against 1250, as ISLAND -2 is to ISLAND 0),
+	# every other setting the same — so the towns, the herds and the crowd
+	# are as many as will fit, on less ground
+	{"key": "candyland-xs", "title": "CANDY LAND XS", "scene": "res://godot/island/scenes/candy_land_xs.tscn", "people": 360,
+		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
+		"exposure": 0.8, "knee": 0.65,
+		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
+		# the gingerbread houses round the squares (IslandLevel.place_houses):
+		# the model's footprint in metres (half its width, its back and its
+		# front from its middle, how high a round has to go to clear it)
+		"houses": {"model": "res://godot/island/candy/models/MODEL_candyLandHouse.glb",
+			"footprint": {"hw": 3.45, "back": 3.1, "front": 3.7, "top": 5.6},
+			"scale": [0.9, 1.15], "inner": 0.85, "outer": 0.65, "gap": 4.0},
+		"blurb": "CANDY LAND at a quarter of the size"}
 ]
 
 ## The island called `key`, or the first.

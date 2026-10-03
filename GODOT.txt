@@ -1048,7 +1048,11 @@ THE PICTURE: SQUARE PIXELS, AND ONLY WHOLE-NUMBER SCALES
   won't result in distortion"), the defaults are now square pixels
   (PIXEL ASPECT SQUARE) on a 480-row grid (PIXELS 480), with the world
   drawn at 720 rows (RENDER 720). The prefs' version went up (15), so a
-  saved set from before is put back to these.
+  saved set from before is put back to these. Later, also at the user's
+  request ("new default 960 render 480 pixel filter"), the world is drawn
+  at 960 rows by default (RENDER 960, Lofi.RENDER and pause.gd
+  DEFAULTS), still filtered onto the 480-row grid; the prefs' version is
+  16, so saved prefs go back to the new defaults.
 
   NO FRACTIONAL SCALE, ANYWHERE (Lofi._resize). Every chunky pixel is a
   whole number of the screen's own pixels across and down, so no column
@@ -1205,7 +1209,213 @@ CANDY LAND
   seed (before this the shoppers were all one).
 
   The pictures: godot/tests/candy_shot.gd (the girls come to you, the
-  sun, --scare, --road). The test: godot/tests/candy_test.gd.
+  sun, --scare, --road, --house). The test: godot/tests/candy_test.gd.
+
+THE GINGERBREAD HOUSES
+
+  At the user's request ("scatter these around 'town' areas", then the
+  second cut of the model), CANDY LAND's town squares are ringed with
+  the user's gingerbread house.
+
+  THE MODEL (tools/candy-house-glb.py, from
+  godot/island/candy/source/model/MODEL_candyLandHouse.glb to
+  godot/island/candy/models/MODEL_candyLandHouse.glb). The second cut
+  paints the house on a 512 x 512 sheet, cut out (clear round the
+  paintings). The tool keeps the cut-out but makes it an alpha MASK
+  rather than BLEND, so it needs no sorting. It fills the colour under
+  the clear part with the painting's own edge colour, so the cut's edge
+  and its mipmaps never show black. It also takes the "-col" off the
+  node name, so Godot makes no physics body for it. The mesh is
+  untouched: about 7 m across, 7 m deep and 6.6 m to the chimney, with
+  the door on its +Z.
+
+  WHERE THEY STAND (IslandLevel.place_houses, Islands "houses"). Every
+  square gets two rings of plots, each house facing the square's
+  middle. One ring is 4.5 m inside the rim, on the flat the square is
+  cut into. The other is 6.5 m outside it, on the bank, staggered into
+  the gaps of the first ring. A plot is built on (85% / 65% odds) only
+  where it is:
+    - clear of every road and its kerb, so the streets still run in;
+    - clear of every other house, and of your start;
+    - on ground level to within 0.8 m across its corners;
+    - out of the wood (Game._clear_of), so no tree grows through a roof.
+  Each house is 0.9 to 1.15 of the model's size. The houses come off
+  their own seed, so the crowd and the herds are where they were. On
+  this seed there are 72, round 10 squares. They are placed before
+  anybody else, and nobody (girl, lamp or you) is put inside one.
+
+  THEY ARE SOLID. A house is the only wall on an island. It is a box
+  the model's footprint (Islands "footprint", in metres) up to the
+  eaves (5.6 m): can_move will not take a body a step further into one,
+  sight_blocked and ray_hit_wall stop an eye and a round on its walls,
+  and a round over its roof flies on. Each wall is a Level.Line, so a
+  bullet hole, a splash of blood or a ricochet lands on a house as it
+  would on a wall. The houses sit in a 32 m grid, so a short look only
+  asks the ones near it.
+
+  THEY ARE DRAWN (render/house_view.gd) as one MultiMesh under the
+  island: one draw per surface for all of them. Their materials are
+  the model's own, redrawn by SHADER_house so the thermal sight sees
+  them cold.
+
+CANDY LAND XS
+
+  At the user's request, CANDY LAND at 25% of its size: hub_radius
+  312.5 m against 1250 (ISLANDFIELD_candyland-xs.tres,
+  scenes/candy_land_xs.tscn). That is the same "quarter of the size"
+  ISLAND -2 is of ISLAND 0, and as there, everything else is the same:
+  the same crowd of 360, the same herds, houses and lamps, as many as
+  will fit on less ground. It is in Islands.LIST (key candyland-xs), so
+  NEW GAME lists it, the builds bake it, and the island suite runs on
+  it.
+
+THE EDGE OF THE ISLAND: GRASS TO THE LIP, ROCK BELOW
+
+  At the user's request ("take the grass texture to the edge of the
+  island, beyond the edge, and then use the rock cliff texture for the
+  island's sides"):
+    - CANDY LAND's field has no bare rock band round the coast any more
+      (coast_rock_width 0), so the grass runs right to the edge.
+    - Its cliff (MAT_candy_cliff) is the pack's rock cliff texture
+      (TEXTURE_cliff_rock_01) and no longer its dirt.
+    - The cliff shader's new TURF lets the top 1.6 m of the wall be the
+      ground's own grass, hanging over the lip with a scalloped hem.
+      Every other island leaves turf_depth at 0, rock to the top.
+
+PLANTS AND LAMPS STAND IN THE GROUND
+
+  At the user's request ("make sure tree and lamp sprites intersect the
+  ground", "bushes and grass too"). A billboard turns to face the eye,
+  so from some side its bottom edge runs straight down the slope, and a
+  corner can hang in the air. So every plant is sunk by however far
+  the ground falls away under its edges: half its quad's width times
+  the ground's gradient. This applies to trees, bushes and ferns
+  (SCRIPT_veg_scatter.gd, at most sink_most, 0.3, of the plant's
+  height) and to grass (SCRIPT_grass_scatter.gd, at most a third of a
+  tuft). It comes on top of the fixed sink each one already had. The
+  street lamp (Actor info "sink", read by Standees) is sunk 12 units:
+  that covers the clear margin under the post in its picture and a
+  little more for the kerb.
+
+THE THERMAL SIGHT: ONLY PEOPLE ARE HOT
+
+  At the user's request ("recalibrate thermal sight so only people show
+  up hot"). Through the launcher's sight and the potato cannon's,
+  nothing is warm but a person. That means the crowd, troopers and
+  players, and a burning person is still white.
+
+  Everything else sits in one narrow cold band:
+    - the ground and the island's plants, cliffs and clouds;
+    - the houses, the lamps, CANDY LAND's unicorns and foals;
+    - vehicles and their engines, fire and flames, scorches and glows.
+  Its own light and dark only give it a shape to read, and it goes
+  colder with distance (thermal_cold, in the new
+  shaders/thermal_base.gdshaderinc, which thermal.gdshaderinc
+  includes). The band's top (0.24) is far under the coldest body
+  (0.66).
+
+  The island's shaders (terrain, cliff, plants, cloud sea, horizon
+  clouds) never knew about the sight. Before this they drew their own
+  colours into the feed, so bright candy ground read as heat. They now
+  include the base and draw the cold band. A flame or the sun's flare
+  adds nothing.
+
+  The launcher's seeker is unchanged: it still locks running vehicles
+  (MissileSystem.is_hot), even though they now look cold.
+
+ROUNDS TAKE BITES: HOLES, PIECES AND A GREAT DEAL OF BLOOD
+
+  At the user's request ("I want stuff like the minigun to blow holes in
+  sprites, before destroying them ... with people and creatures, chunks
+  taken out of sprites shooting copious campy amounts of blood
+  particles, eventually leading to their death / explosion").
+
+  A ROUND IS A BITE (Actor.damage, "wounds" in States). A person, a
+  trooper, a unicorn, a foal or a street lamp takes a fixed number of
+  rounds to finish, whatever the gun:
+    shoppers, townsfolk, candy girls  10
+    SWAT                               8
+    soldiers                          12
+    unicorns                          14
+    foals                              8
+    street lamps                       8
+  Each round takes its share of the health. Before this, one minigun
+  round killed a person outright (24 to 48 against 12). The round that
+  finishes a body blows it apart: the gib death, never the fall.
+
+  EACH BITE (Game.wound, from where Game.hitscan saw the round go in):
+    - A HOLE in the picture, where it went in, as the one who fired saw
+      it (Actor.take_hole, the latest 8). Standees keeps a little table
+      of them per strip, 8 texels a slot, and standee.gdshader cuts them
+      out ragged, with a wet red rim on a body and a scorched one on
+      anything else.
+    - THE PIECE that was there flies off the way the round was going: a
+      ragged card cut from the sprite's own picture, run red at its
+      edge (SpriteChunks).
+    - BLOOD, campy: a gout along the round's way, a burst every way from
+      the hole and a mist. Then the body keeps spurting out of its holes
+      for two seconds after (Game.bleeders, at most 48 bodies at once).
+  A lamp throws its piece and a few sparks instead.
+
+  THE END: a body blown apart throws pieces of its own picture as well
+  as the gibs (Game.gib). A lamp, shot or blown up, breaks into pieces
+  of itself and a puff, and is gone (Game.break_apart, "breaks").
+
+  THE PIECES (render/sprite_chunks.gd, shaders/sprite_chunk.gdshader)
+  are cards cut from a picture: a strip's cell or a plant's sprite.
+  They tumble, bounce on the ground, come to rest and dissolve away.
+  There is one MultiMesh per picture, so a tree in a hundred pieces is
+  one draw, and at most 700 pieces in all (the oldest go first).
+
+THE PLANTS: BLOWN UP, SET ALIGHT, SHOT THROUGH
+
+  At the user's request ("reintroduce burning vegetation and fire
+  spread in a controlled, efficient way: vegetation hit by explosives
+  like the rocket blows up in chunks, stops existing, and the
+  surrounding vegetation goes alight and spreads, to a point, and
+  eventually self-extinguishes"). See game/veg_damage.gd.
+
+  The island's trees, bushes and ferns are the plant scatter's
+  (SCRIPT_veg_scatter.gd). VegDamage does not keep a plant list of its
+  own, and does not change how the scatter places anything: an edit to
+  that file would throw away every island's plant bake. It finds the
+  rows near a point in the scatter's live tile buffers (indexed in 8 m
+  buckets, built once per tile) and rewrites just those rows. Each
+  row's custom vec4 is shared with SHADER_veg_billboard:
+    x  the crash-site burn it always had
+    y  DAMAGE, 0 to 1: the shader cuts that many holes in it, with
+       scorched rims
+    z  when it caught, on the new `veg_clock` global (seconds)
+    w  how long it burns
+  A plant blown away has its row scaled to nothing. Every change is
+  also kept and put back if the tile is ever built again.
+
+  A BLAST (a rocket, the potato cannon's nuke at twice the reach, any
+  Game.explode):
+    - the plants inside 45% of its reach are blown to pieces of their
+      own picture (SpriteChunks) with a puff, and are gone;
+    - of the plants out to 125% of its reach, 40% catch fire (15 at
+      most, so the fire has its budget left to spread).
+  THE FIRE IS THE GPU'S TO DRAW. A plant that catches has its row
+  written once. The shader then runs it through green, scorched,
+  alight and charred on the clock, and it comes partly down as the fire
+  goes out. Trees burn 16 to 24 s, bushes 9 to 13 s, ferns 5 to 8 s.
+  VEGDAMAGE ONLY SPREADS IT. Every 18 tics, a plant that is properly
+  alight sets fire to each neighbour within 5.5 m at 30% odds. Each fire
+  has a budget of 70 plants and a limit of six hops from the blast, so
+  it spreads to a point and then burns itself out. Smoke and embers
+  come off the burning plants nearest you, a few a tic. Anybody stood
+  in a fire catches.
+
+  A ROUND (Game.hitscan) that meets a tree or a bush before anything
+  else goes into it (VegDamage.ray, the plants as upright cylinders
+  walked bucket by bucket along the line). It shoots the plant through
+  a little more and throws a scrap of it. Past fully shot through, the
+  plant is blown to pieces.
+
+  NOT YET: the grass (its own scatter) does not burn or take holes.
+
+  The test: godot/tests/damage_test.gd.
 
 
 TESTS

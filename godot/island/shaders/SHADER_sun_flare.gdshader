@@ -17,6 +17,7 @@
 // across the sun dims it, and a canopy puts it out.
 shader_type spatial;
 render_mode unshaded, blend_add, depth_test_disabled, depth_draw_never, cull_disabled, skip_vertex_transform, fog_disabled, shadows_disabled;
+#include "res://godot/shaders/thermal_base.gdshaderinc"
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 // toward the sun, in the world: the time-of-day bus's, off the scene's
@@ -77,4 +78,6 @@ void fragment() {
 	float glare = smoothstep(0.02, 0.09, rq) * exp(-rq / 0.09) * 0.45;
 	vec3 col = streak_color * (line + sheath) * smoothstep(0.03, 0.12, abs(q.x)) + core_color * glare;
 	ALBEDO = col * strength * seen;
+	// the thermal sight's feed: a flare is light, not heat
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = vec3(0.0);
 }

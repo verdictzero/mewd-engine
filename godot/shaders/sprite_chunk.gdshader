@@ -1,0 +1,67 @@
+// MEWD — a piece torn out of a sprite (render/sprite_chunks.gd): a little
+// card cut from a sprite's own picture, flying and tumbling, turned to the
+// eye as a standee is. One MultiMesh per picture; each instance is
+//   origin       the piece's middle, in the game's world (as Standees)
+//   basis x.x    its width, x.y its height (units), x.z its spin (radians)
+//   basis y.x    how far gone, 0 whole .. 1 faded away
+//   basis y.y    how wet: 0 its own colours .. 1 run red (a body's piece)
+//   custom       the rectangle of the picture it was cut from (u0, v0, du, dv)
+// and the piece is cut ROUND, ragged at the edge, so it reads as torn and
+// not as a square of picture.
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
+
+#include "res://godot/shaders/world_light.gdshaderinc"
+#include "res://godot/shaders/thermal.gdshaderinc"
+
+uniform sampler2D picture : filter_nearest_mipmap;
+// 1: the picture is sRGB as loaded (a plant's); 0: decoded already (a strip's)
+uniform bool srgb = false;
+
+varying float depth;
+varying float gone;
+varying float wet;
+varying vec2 local;
+varying float seed;
+
+void vertex() {
+	// (the rows are under the Game, scaled by game_unit like everything in
+	// it: a size comes out of the matrix in the world's units already, and
+	// the spin and the two fractions are taken back out of it)
+	vec3 mid = MODEL_MATRIX[3].xyz;
+	float w = MODEL_MATRIX[0].x;
+	float h = MODEL_MATRIX[0].y;
+	float spin = MODEL_MATRIX[0].z / game_unit;
+	gone = MODEL_MATRIX[1].x / game_unit;
+	wet = MODEL_MATRIX[1].y / game_unit;
+	vec3 right = INV_VIEW_MATRIX[0].xyz;
+	vec3 up = INV_VIEW_MATRIX[1].xyz;
+	vec2 q = vec2(VERTEX.x * w, (VERTEX.y - 0.5) * h);
+	float c = cos(spin);
+	float s = sin(spin);
+	q = vec2(q.x * c - q.y * s, q.x * s + q.y * c);
+	vec3 world = mid + right * q.x + up * q.y;
+	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
+	depth = -VERTEX.z;
+	local = UV * 2.0 - 1.0;
+	seed = fract(sin(dot(mid.xz, vec2(12.9898, 78.233))) * 43758.5453);
+	vec4 r = INSTANCE_CUSTOM;
+	UV = r.xy + UV * r.zw;
+}
+
+void fragment() {
+	// ragged and round: the edge wanders with the angle round the middle
+	float a = atan(local.y, local.x);
+	float edge = 0.78 + 0.16 * sin(a * 5.0 + seed * 20.0) + 0.08 * sin(a * 11.0 + seed * 7.0);
+	if (length(local) > edge) discard;
+	vec4 c = texture(picture, UV);
+	if (srgb) c.rgb = mix(c.rgb / 12.92, pow((c.rgb + 0.055) / 1.055, vec3(2.4)), step(0.04045, c.rgb));
+	if (c.a < 0.5) discard;
+	// fading away: a dissolve, not a blend
+	if (fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453) < gone) discard;
+	// a body's piece runs red, darkest at its torn edge
+	float rim = smoothstep(edge - 0.3, edge, length(local));
+	c.rgb = mix(c.rgb, mix(vec3(0.32, 0.0, 0.0), vec3(0.12, 0.0, 0.0), rim), wet * (0.35 + 0.6 * rim));
+	ALBEDO = world_fog(world_air(c.rgb * world_lit(world_band(1.0, depth, 1.0)), depth), depth);
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(c.rgb, 1.0, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+}

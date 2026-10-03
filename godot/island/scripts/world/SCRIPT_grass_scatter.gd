@@ -912,13 +912,23 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 		return {"valid": false}
 
 	var scale := lerpf(min_scale, max_scale, _rand(hx, 4))
+	var wj := lerpf(0.85, 1.15, _rand(hx, 6))
+	# AND DOWN BY HOWEVER FAR THE GROUND FALLS AWAY under the tuft's edges (at
+	# the user's request: grass always in the ground): the billboard turns to
+	# the eye, so its bottom edge can run straight down the slope, and half its
+	# width times the gradient is how far a corner would hang — up to a third
+	# of the tuft. (`sink` is in the quad, and scales with it.)
+	var n3: Vector3 = s.get("normal", Vector3.UP)
+	var grad := 0.0
+	if absf(n3.y) > 1e-3:
+		grad = Vector2(n3.x, n3.z).length() / absf(n3.y)
+	var down := minf(0.5 * tuft_size.x * scale * wj * grad, tuft_size.y * scale * 0.33)
 	return {
 		"valid": true,
-		"pos": Vector3(wx, s["height"], wz),
+		"pos": Vector3(wx, s["height"] - down, wz),
 		# Y-billboards ignore yaw, so scale is the whole basis. Width is jittered
 		# independently of height so a field does not read as one sprite resized.
-		"basis": Basis.IDENTITY.scaled(
-				Vector3(scale * lerpf(0.85, 1.15, _rand(hx, 6)), scale, scale)),
+		"basis": Basis.IDENTITY.scaled(Vector3(scale * wj, scale, scale)),
 		"variant": int(_rand(hx, 5) * float(maxi(_meshes.size(), 1))) % maxi(_meshes.size(), 1),
 		# How burnt this tuft looks, off the same remap and the same weight as the ground
 		# under it, scaled by `crater_burn_peak` for the same reason `veg_scatter` scales
