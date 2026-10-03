@@ -209,24 +209,47 @@ func flat_run(x: float, y: float, most := 2000.0, bearings := 32) -> Vector2:
 ## open, gentle ground near the middle, and `people` townsfolk — most of
 ## them in groups round the island, a share of them near the start so
 ## there is somebody to meet. Everything on land, nothing on a crag.
-func populate(seed: int, people: int) -> void:
+## `crowd`, the actor types they are (Islands.LIST's "crowd"; shoppers and
+## townsfolk if empty), each in one of its drawings. On an island with
+## ROADS (`roads`, Game._roads_of) the groups are the town squares — you
+## start in one — and a street lamp stands every `lamps` metres along
+## each side of every road, staggered.
+func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0.0) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	things = []
-	var start := _find_ground(rng, Vector2.ZERO, 6000.0, 0.35)
+	var squares: Array = roads.get("squares", [])
+	var start: Vector2
+	if squares.is_empty():
+		start = _find_ground(rng, Vector2.ZERO, 6000.0, 0.35)
+	else:
+		# the square nearest the middle, somewhere inside it
+		var sq: Array = squares[0]
+		for s in squares:
+			if (s[0] as Vector2).length() < (sq[0] as Vector2).length():
+				sq = s
+		start = _find_ground(rng, sq[0], float(sq[1]) * 0.5, 0.35)
 	things.append({"type": "START", "x": start.x, "y": start.y, "angle": rng.randf() * TAU})
-	# GROUPS: a few places on the island, a crowd round each
+	# GROUPS: a few places on the island, a crowd round each (on a roaded
+	# island, every square, and a few places out in the country)
 	var groups := []
+	var spreads := []
 	groups.append(start)
+	spreads.append(1400.0)
+	for s in squares:
+		groups.append(s[0])
+		spreads.append(maxf(1200.0, float(s[1]) * 1.2))
 	var e := ground.half * U_PER_M
-	for i in 7:
+	for i in (7 if squares.is_empty() else 3):
 		groups.append(_find_ground(rng, Vector2.ZERO, e * 0.7, 0.45))
-	var types := ["SHOPPER", "SHOPPER", "TOWNIE"]
+		spreads.append(2400.0)
+	var types: Array = crowd if not crowd.is_empty() else ["SHOPPER", "SHOPPER", "TOWNIE"]
 	for i in people:
-		var c: Vector2 = groups[i % groups.size()]
-		var spread := 1400.0 if i % groups.size() == 0 else 2400.0
-		var p := _find_ground(rng, c, spread, 0.6)
-		things.append({"type": types[rng.randi() % types.size()], "x": p.x, "y": p.y, "angle": rng.randf() * TAU})
+		var g := i % groups.size()
+		var p := _find_ground(rng, groups[g], float(spreads[g]), 0.6)
+		var type: String = types[rng.randi() % types.size()]
+		var n := int(States.actor(type).get("variants", 1))
+		things.append({"type": type, "x": p.x, "y": p.y, "angle": rng.randf() * TAU, "variant": rng.randi() % maxi(1, n)})
 	# and you start facing the nearest of them, so there is somebody to see
 	var near := []
 	for t in things:
@@ -239,6 +262,22 @@ func populate(seed: int, people: int) -> void:
 			c += q
 		c /= minf(6.0, near.size())
 		things[0].angle = (c - start).angle()
+	# THE STREET LAMPS, along both kerbs, half a step out of phase
+	if lamps > 0.0:
+		var step := lamps * U_PER_M
+		for r in roads.get("paths", []):
+			var a: Vector2 = r[0]
+			var b: Vector2 = r[1]
+			var len := a.distance_to(b)
+			if len < step * 0.5:
+				continue
+			var dir := (b - a) / len
+			var side := Vector2(-dir.y, dir.x) * (float(r[2]) + 40.0)
+			for k in range(1, int(len / step) + 1):
+				for s in [1.0, -1.0]:
+					var q: Vector2 = a + dir * (k * step - (step * 0.5 if s < 0.0 else 0.0)) + side * s
+					if on_land(q.x, q.y, 32.0):
+						things.append({"type": "LAMP", "x": q.x, "y": q.y, "angle": 0.0})
 
 ## A point on land within `r` of `c`, whose ground rises no more than
 ## `max_slope` (rise over run) — the first of a few hundred tries that is,

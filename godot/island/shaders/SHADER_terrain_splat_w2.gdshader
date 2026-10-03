@@ -169,6 +169,12 @@ group_uniforms path;
 uniform sampler2D path_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
 uniform float path_scale = 5.0;
 uniform vec3 path_tint = vec3(1.0);
+// MEWD — PAVED SQUARES, at the user's request for CANDY LAND: how far a
+// build pad's ground is `build_albedo` instead of bare earth. 0 (every
+// island before it) leaves the pads soil, as golf drew them.
+uniform float build_paving : hint_range(0.0, 1.0) = 0.0;
+uniform sampler2D build_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
+uniform float build_scale = 4.0;
 
 group_uniforms rock;
 // `dark_rock_02` -- fractured slabs. Full triplanar; it is the only layer that
@@ -610,6 +616,10 @@ void fragment() {
 	if (path > 0.0) {
 		vec3 path_a = texture(path_albedo, p / max(path_scale, 1e-4)).rgb * path_tint;
 		soil_a = mix(soil_a, path_a, path);
+	}
+	if (build_paving > 0.0 && build > 0.0) {
+		vec3 pave_a = texture(build_albedo, p / max(build_scale, 1e-4)).rgb;
+		soil_a = mix(soil_a, pave_a, build * build_paving);
 	}
 
 	// ---- rock: full triplanar, it has to cover the cliffs -----------------

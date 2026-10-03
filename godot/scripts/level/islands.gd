@@ -6,6 +6,14 @@
 ##   title    what the level select says
 ##   scene    the island's scene: its field, its sky, its plants
 ##   people   how many townsfolk are dropped on it with you
+##   crowd    (optional) who they are, actor types picked from at random;
+##            townsfolk and shoppers if not given
+##   air      (optional) the colour the air goes far off — the game's own
+##            fog on people, marks and effects — matched to the island's sky
+##   palette  (optional) false: the picture keeps the island's own colours
+##            instead of being snapped to the earth palette (the dither stays)
+##   lamps    (optional) street lamps along the island's roads, this far
+##            apart in metres
 class_name Islands
 extends RefCounted
 
@@ -19,6 +27,13 @@ const LIST := [
 		"blurb": "ISLAND 0 at half the size"},
 	{"key": "island-2", "title": "ISLAND -2", "scene": "res://godot/island/scenes/island_-2.tscn", "people": 360,
 		"blurb": "ISLAND 0 at a quarter of the size"},
+	# CANDY LAND, at the user's request: ISLAND 0's size and hills, the
+	# candy pack's ground and plants, roads between town squares, a blue
+	# sky with a candy sun at the top of it, and the candy girls — who come
+	# to say hello (Actor.A_Greet) until something frightens them
+	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 360,
+		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0, "palette": false,
+		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
 ]
 
 ## The island called `key`, or the first.

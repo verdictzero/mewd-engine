@@ -32,6 +32,7 @@ func _init() -> void:
 	var span_u: float = span * IslandLevel.U_PER_M
 	var worst := 0.0
 	var on := 0
+	var errs := []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	for k in 400:
@@ -43,7 +44,17 @@ func _init() -> void:
 		if f > -1.0e8 and h > IslandGround.VOID:
 			on += 1
 			worst = maxf(worst, absf(f - h))
-	check(on > 100 and worst < 0.75, "the grid is the field's ground between its samples (%d points, worst %.2f m)" % [on, worst])
+			errs.append(absf(f - h))
+	errs.sort()
+	# (an island with ROADS — CANDY LAND — has their cut banks, a crease a
+	# 2 m grid rounds over: there the test is that almost all of it is
+	# within the 0.75 m and a crease within 2.5 m)
+	var roads := bool(field.get("path_enabled"))
+	var p99: float = errs[int(errs.size() * 0.99)] if not errs.is_empty() else 0.0
+	if roads:
+		check(on > 100 and p99 < 0.75 and worst < 2.5, "the grid is the field's ground between its samples (%d points, 99%% within %.2f m, worst %.2f m at a road's bank)" % [on, p99, worst])
+	else:
+		check(on > 100 and worst < 0.75, "the grid is the field's ground between its samples (%d points, worst %.2f m)" % [on, worst])
 	check(lv.sector_at(4000.0 * 32.0, 0.0) == null, "off the island there is no floor")
 	var s := lv.sector_at(game.player.x, game.player.y)
 	check(s != null and s.outdoor and s.ceil_tex == "SKY", "under you: open ground, open sky")

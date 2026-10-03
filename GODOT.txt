@@ -1030,6 +1030,101 @@ MARKS THAT LIE ON THE GROUND: PROJECTED DECALS
   --under puts a crater at your feet). godot/tests/island_shot.gd takes
   a sixth argument, the pitch the gun is held at.
 
+CANDY LAND
+
+  At the user's request: an island made from the candy pack the user
+  provided ("same vegetation distribution as the current islands, but
+  with road networks, and the new npcs"), to set a happy, idyllic candy
+  land against the violence and gore of the game. It is the fourth entry
+  in the level select: CANDY LAND, godot/island/scenes/candy_land.tscn.
+
+  THE GROUND is ISLAND 0's: the same field (seed 1337, 1250 m, the same
+  hills, forest and coast), copied to ISLANDFIELD_candyland.tres with
+  golf's zones switched back on and its golf left off (holes_max 0). So
+  the zones are only build pads, and they are the TOWN SQUARES: 7 of
+  them, from 30 to 113 m across. golf's PATHS join them: a minimum
+  spanning tree over the squares, 9 m wide, graded into the hillside
+  and bent round hills. Those are THE ROADS, 12 legs and about 1.8 km.
+  The scatters already keep plants off groomed ground, so trees, bushes
+  and grass are spread exactly as on ISLAND 0 everywhere else.
+
+  THE PACK (godot/island/candy/): the textures, the plants, the sun.
+  The original pictures are in candy/source (git-ignored, so they are
+  never exported). The pack's model (the wall and corner turret GLB) is
+  not used yet, as asked.
+    ground   candy grass for the turf, the forest mosaic under the woods,
+             purple-and-yellow tiles for bare earth, turquoise-and-pink
+             for the shore, the brown candy cliff for rock and the cliff
+             wall, grey cobbles for the roads, and rainbow tiles for the
+             squares. That last one is new to the terrain shader:
+             `build_paving` / `build_albedo` pave a build pad. It is 0
+             on every other island, so they are drawn as before.
+             There are no normal maps; the pack has none.
+    plants   the 11 candy trees, the 6 bushes, and 7 grass tufts, four
+             for the grass and three for the forest floor's ferns. The
+             trees are 9 to 16 m, against the firs' 11 to 22, because
+             they are as wide as they are tall. Burn maps for all of
+             them, made with golf's tools/TOOL_gen_burn_maps.py.
+    lamps    the candy street lamp, every 40 m down both kerbs of every
+             road, staggered (84 of them). Each one is a solid standee
+             (Standees "LAMP").
+
+  THE SKY is the void sky turned sky blue: deep blue overhead, pale blue
+  at the horizon, with the fog, the air and the horizon clouds the same
+  pale blue (Islands "air"). There is no vortex, no eye and no black cap.
+  The cloud sea is bluer: powder blue on top, deep blue underneath. The
+  island is held at midday by its own day (SKYCYCLE_candy_day.tres): a
+  warm sun, a sky-blue ambient light and a pinkish bounce.
+
+  THE CANDY SUN is the user's picture, drawn by the sky shader
+  (`apex_sun`) with a halo and a wide bloom. The halo is over 1, so the
+  Environment's glow blooms it. Its flare is a screen pass of its own,
+  SHADER_sun_flare: a long horizontal anamorphic streak and a ring of
+  glare, added over the frame at the sun. It is dimmed by five reads of
+  the depth buffer round the sun, so a tree or a hill across the sun puts
+  it out. The sun is HIGH, not straight up: 65 degrees up, 25 off the
+  apex. The eye looks no more than 41 degrees up (Player.MAX_PITCH), so
+  the top of the screen is at most 77 degrees up, and a sun at the very
+  apex could never be seen. Light and picture come from the same place,
+  the scene's SunPivot, so moving that moves both.
+
+  NOT IN THE EARTH PALETTE: the picture keeps the island's own colours
+  (Islands "palette": false). The dither stays. Under the palette the
+  candy came out grey-teal.
+
+  THE CANDY GIRLS are the whole crowd, 360 of them, in nine flavours:
+  blueberry, cherry cola, grape, lemon, lime, mint, strawberry, vanilla,
+  and orange (added at the user's request after the pack). Each flavour
+  has a front and a back, and the strip assets/people/candy_girls.png
+  holds every flavour's front then her back, at 192 x 287 pixels a cell
+  and 44 x 66 units in the world. tools/candy-girls-strip.py rebuilds it
+  from candy/source/npc.
+    front and back   the standee shows her back when she faces away from
+                     the eye, and her front otherwise. So one running
+                     from you is seen from behind.
+    greeting         at first they are drawn to you. One who can see you
+                     within 50 m walks up to you (A_Approach: the eight
+                     directions scored toward you). In front of you she
+                     stops, faces you, bounces and says hello (A_Hello);
+                     one of them says it in the toasts, a few seconds
+                     apart at most ("MINT GIRL: HI!!").
+    frightened       anything that frightens a shopper frightens her:
+                     somebody alight, somebody running past, a body
+                     coming apart nearby, a hit that does not kill.
+                     Then she runs like anybody, and she is `wary` for
+                     good: when she stops running she stays where she is.
+  Otherwise she is a townie: as easily hurt, burnt, frozen, bored and
+  blown apart.
+
+  YOU START IN A SQUARE, the one nearest the middle. The crowd is
+  gathered round every square and a few places out in the country.
+  Every island's crowd now comes in all of its drawings, chosen from the
+  seed (before this the shoppers were all one).
+
+  The pictures: godot/tests/candy_shot.gd (the girls come to you, the
+  sun, --scare, --road). The test: godot/tests/candy_test.gd.
+
+
 TESTS
 
     tools/godot-test.sh
@@ -1066,6 +1161,13 @@ TESTS
   a ninth mark on a tile mesh and the refused ones laid as quads, a sear
   all three layers or none, a hot spot real and gone when it cools, the
   caps, and the web's way untouched.
+  CANDY LAND (godot/tests/candy_test.gd): roads and squares off the
+  field, every road level across, you in a square, the lamps, all 360
+  candy girls in all nine flavours, the girls walking up and saying
+  hello facing you, the front cell facing the eye and the back facing
+  away, a fright sending every one near you running, and none of them
+  coming back. island_test runs on it too; there, the grid's error is
+  allowed past 0.75 m only on a road bank's crease.
   The dead (godot/tests/death_test.gd): shot, struck frozen, burnt to
   ash, shot down and blown apart, each removed and its sprite let go.
   The pad (godot/tests/pad_test.gd): the bindings answering to every

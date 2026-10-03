@@ -101,7 +101,12 @@ The old sections of GODOT.txt are kept as the record.
 ## 7. Open threads / next steps
 
 - **Waiting on the user's RG557 test** of the island apk. Check the load time and the frame rate with 360 people.
-- **Islands so far:** ISLAND 0, ISLAND -1 (half size) and ISLAND -2 (quarter size), the same settings otherwise.
+- **Islands so far:** ISLAND 0, ISLAND -1 (half size) and ISLAND -2 (quarter size), the same settings otherwise; and **CANDY LAND** (GODOT.txt, "CANDY LAND"), the first made from the user's own assets.
+- **CANDY LAND:**
+  - Its pack lives in `godot/island/candy/`; the original pictures are in `godot/island/candy/source/` (`.gdignore`).
+  - It is ISLAND 0's field with golf's build pads (the town squares) and paths (the roads) switched on.
+  - The crowd is candy girls (`CANDYGIRL`), nine flavours with a front and a back. They greet you until frightened, then they are wary for good.
+  - The pack's GLB (a wall and corner turret) is not used yet: the user said to leave it for now.
 - **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
 - **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
 - **Marks are projected decals** (`godot/shaders/decal_project.gdshaderinc`). Each mark is a box that paints whatever surface is inside it, using the depth buffer. RealDecals and the quads are gone. `godot/tests/mark_shot.gd` takes a picture of every kind.

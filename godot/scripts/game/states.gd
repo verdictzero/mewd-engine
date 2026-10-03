@@ -20,6 +20,9 @@ static var _built := false
 ## a person's drawing: 17 in a strip of 40x64 cells
 const SHOPPERS := 17
 const BLASTS := 26
+## the candy girls' flavours, in their strip's order (assets/people/
+## candy_girls.png: each one's front, then her back)
+const CANDY_FLAVOURS := ["Blueberry", "Cherry Cola", "Grape", "Lemon", "Lime", "Mint", "Strawberry", "Vanilla", "Orange"]
 
 ## the troops: five views mirrored to eight for the turned frames, one
 ## drawing for the floor frames (js/people.js TROOPS)
@@ -61,6 +64,26 @@ static func build() -> void:
 	_s("SHOP_ASH2", "SHOP", "A", 4, "A_BurnAway", "SHOP_ASH1", {"fullbright": true})
 	_s("SHOP_BORE", "SHOP", "A", -1, null, "SHOP_BORE")
 
+	# ---- THE CANDY GIRLS (CANDY LAND, at the user's request): a shopper's
+	# table on their own strip, and two more things to do — walk up to you
+	# (A_Approach) and stand in front of you saying hello (A_Hello) — until
+	# something frightens them; then they run like anybody, for good
+	_s("CANDY_STAND", "CANDY", "A", 6, "A_Greet", "CANDY_STAND")
+	_s("CANDY_WALK1", "CANDY", "A", 3, "A_Approach", "CANDY_WALK2")
+	_s("CANDY_WALK2", "CANDY", "A", 3, "A_Approach", "CANDY_WALK1")
+	_s("CANDY_HELLO", "CANDY", "A", 6, "A_Hello", "CANDY_HELLO")
+	_s("CANDY_RUN1", "CANDY", "A", 3, "A_Flee", "CANDY_RUN2")
+	_s("CANDY_RUN2", "CANDY", "A", 3, "A_Flee", "CANDY_RUN1")
+	_s("CANDY_BURN1", "CANDY", "A", 2, "A_Torch", "CANDY_BURN2", {"fullbright": true})
+	_s("CANDY_BURN2", "CANDY", "A", 2, "A_Torch", "CANDY_BURN1", {"fullbright": true})
+	_s("CANDY_GIB", "CANDY", "A", 1, "A_Gib", null)
+	_s("CANDY_FROZE", "CANDY", "A", -1, null, "CANDY_FROZE")
+	_s("CANDY_ASH1", "CANDY", "A", 4, "A_BurnAway", "CANDY_ASH2", {"fullbright": true})
+	_s("CANDY_ASH2", "CANDY", "A", 4, "A_BurnAway", "CANDY_ASH1", {"fullbright": true})
+	_s("CANDY_BORE", "CANDY", "A", -1, null, "CANDY_BORE")
+	# and the street lamp that lines CANDY LAND's roads
+	_s("LAMP_STAND", "LAMP", "A", -1, null, null)
+
 	# ---- THE TROOPS: the Zombieman's table with the numbers looked at again
 	_troop("SWAT", "SWAT", "A_SwatFire")
 	_troop("ARMY", "ARMY", "A_ArmyFire")
@@ -92,6 +115,16 @@ static func build() -> void:
 	townie.scareRange = 420
 	townie.panicTics = 11 * TICRATE
 	ACTORS["TOWNIE"] = townie
+	# A CANDY GIRL: a townie's body (as easily hurt, as quick to catch,
+	# as quick to run) in one of nine flavours, drawn from the front or
+	# the back (Standees "CANDY"); `greets` is what sends her to you
+	var candy: Dictionary = townie.duplicate()
+	candy.merge({"name": "Candy girl", "spawn": "CANDY_STAND", "see": "CANDY_RUN1", "death": "CANDY_GIB",
+		"burn": "CANDY_BURN1", "frozen": "CANDY_FROZE", "freezeReturn": "CANDY_RUN1",
+		"burnAway": "CANDY_ASH1", "bored": "CANDY_BORE", "variants": CANDY_FLAVOURS.size(),
+		"height": 60, "greets": true, "speed": 12}, true)
+	ACTORS["CANDYGIRL"] = candy
+	ACTORS["LAMP"] = {"name": "Street lamp", "spawn": "LAMP_STAND", "radius": 6, "height": 140, "solid": true}
 	ACTORS["SWAT"] = {
 		"name": "SWAT", "spawn": "SWAT_STAND", "see": "SWAT_RUN1", "pain": "SWAT_PAIN",
 		"missile": "SWAT_ATK1", "death": "SWAT_DIE1", "xdeath": "SWAT_XDIE1",

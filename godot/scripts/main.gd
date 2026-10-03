@@ -310,7 +310,11 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.pixel_aspect = float(p.pixar)
 	lofi._resize()
 	lofi.set_picture(float(p.bright), float(p.contrast), float(p.gamma))
-	lofi.mat.set_shader_parameter("snap", U.col(1.0 if p.snap else 0.0))
+	# (an island may keep its own colours — CANDY LAND, at the user's
+	# request, is not pressed into the earth palette: Islands "palette")
+	var keep: bool = game != null and not bool(game.island_spec.get("palette", true))
+	lofi._snap = 1.0 if (p.snap and not keep) else 0.0
+	lofi.mat.set_shader_parameter("snap", U.col(lofi._snap))
 	lofi.mat.set_shader_parameter("dither", U.col(1.0 if p.snap else 0.0))
 	music.set_volume(float(p.music))
 	fps_label.visible = bool(p.fps)

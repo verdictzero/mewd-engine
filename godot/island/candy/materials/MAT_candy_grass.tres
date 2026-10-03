@@ -1,0 +1,62 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+; Ground-cover tufts for SCENE_test_zone_W2. `SCRIPT_grass_scatter.gd` DUPLICATES this
+; per sprite variant and sets `albedo_tex` on each copy, so the texture is
+; deliberately not assigned here -- assigning it would just be overwritten, and
+; would make it look as though one sprite were the default.
+;
+; THE SAME SHADER THE FIRS USE. Everything that made this a separate program --
+; the per-instance ground tint, the `up_bias` normal fudge, a second copy of the
+; billboard construction -- is gone, and what is left is two numbers set
+; differently. See `shaders/SHADER_veg_billboard.gdshader`.
+;
+; NO NEAR FADE: `near_solid` at or below `near_gone` disables the term outright.
+; MAT_veg_understory.tres does the same, for the same reason and in the same
+; words -- THE FADE IS A TREE FEATURE. The firs dither away as you approach them
+; because a wood at a ~6.7 m spacing is otherwise a wall; grass is ankle-high and
+; occludes nothing, and a bald ring following the player across a meadow would be
+; far more obvious than the tuft you clip through.
+;
+; The fog block is copied from MAT_terrain_splat_w2.tres and has to stay in step
+; with it: a tuft that hazed out at a different rate than the ground it stands on
+; would float off the surface in the distance.
+;
+; `far_end` must stay at or under `GrassScatter.view_distance` (90 m) -- the
+; shader dithers a tuft away over [far_start, far_end] while the scatter simply
+; stops emitting it past view_distance, so a longer fade would pop.
+;
+; TINT is higher than the firs' because the grass sprite is the darkest of the
+; ten and is seen against the ground rather than against sky. Both are pure
+; exposure now that the shader is `unshaded` -- there is no light term left to
+; carry it. See MAT_terrain_splat_w2.tres for the whole story of the grade these
+; sit in.
+
+;
+; NO BURN BLOCK, DELIBERATELY. `SHADER_veg_billboard.gdshader` ships `burn = -1.0`, which
+; means "follow the island-wide `veg_burn` bus", and the bus sits at 0 — so this
+; material draws exactly what it drew before the vegetation could burn, and one
+; write from `scripts/world/SCRIPT_veg_burn.gd` takes the whole island through the fire
+; without touching a material. Listing the burn parameters here would only pin
+; them to their own defaults and add another block that has to stay in step.
+
+; CANDY LAND, at the user's request: MAT_grass_billboard.tres in the blue haze, lit a little brighter for the candy plants.
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.4
+shader_parameter/tint = Color(0.95, 0.95, 0.95, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.055
+shader_parameter/wind_speed = 0.9
+shader_parameter/wind_scale = 11.0
+shader_parameter/near_gone = 0.0
+shader_parameter/near_solid = 0.0
+shader_parameter/far_start = 65.0
+shader_parameter/far_end = 90.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.8, 1, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

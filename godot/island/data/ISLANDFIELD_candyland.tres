@@ -1,0 +1,146 @@
+[gd_resource type="Resource" script_class="IslandField" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_island_field.gd" id="1_field"]
+
+; MEWD's CANDY LAND, at the user's request: ISLAND 0's ground (golf's
+; island_0, seed 1337, the same size and hills) with a road network on
+; it. Copied from ISLANDFIELD_island0.tres with these changed:
+;   * zone_enabled = true, holes_max = 0   zones on, but no golf: only
+;     build pads, which are the towns' squares
+;   * build_pads_max = 10, build_area_fraction = 0.10   fewer, smaller squares
+;   * path_enabled = true   golf's graded tracks joining the squares (a
+;     minimum spanning tree over them), 9 m wide: the roads
+; Plants stay off both (the scatters skip groomed ground), so the forest,
+; the bushes and the grass are spread as on ISLAND 0 everywhere else.
+
+[resource]
+script = ExtResource("1_field")
+world_seed = 1337
+crater_enabled = false
+divot_enabled = false
+hub_enabled = true
+hub_center = Vector2(0, 0)
+hub_lattice = 12
+hub_radius = 1250.0
+hub_base_y = 0.0
+hub_peak = 1.0
+hub_base_spread = 45.0
+hub_clearance = 240.0
+island_spacing = 900.0
+satellite_radius_near = 250.0
+satellite_radius_far = 85.0
+satellite_density_near = 0.0
+satellite_density_far = 0.0
+satellite_reach = 4500.0
+coast_irregularity = 0.2
+coast_noise_scale = 130.0
+coast_jagged = true
+coast_jag_scale = 520.0
+vertical_spread = 90.0
+shore_width = 0.22
+hill_height = 24.0
+hill_scale = 640.0
+hill_octaves = 2
+hill_sparsity = 0.32
+hill_ramp = 0.62
+ridge_height = 5.0
+ridge_scale = 700.0
+ridge_octaves = 2
+ridge_on_hills = 0.85
+micro_height = 0.6
+micro_scale = 34.0
+zone_enabled = true
+golf_hub_only = true
+golf_min_radius = 400.0
+holes_max = 0
+hole_length_min = 180.0
+hole_length_max = 450.0
+hole_length_floor = 70.0
+hole_width_ratio = 0.11
+hole_width_min = 14.0
+hole_width_max = 40.0
+dogleg_angle_min = 45.0
+dogleg_angle_max = 75.0
+dogleg_split_min = 0.35
+dogleg_split_max = 0.6
+dogleg_leg_min = 20.0
+golf_area_fraction = 0.3
+par3_max = 230.0
+par4_max = 400.0
+build_pads_max = 10
+build_pad_radius_min = 30.0
+build_pad_radius_max = 140.0
+build_pad_radius_ratio = 0.45
+build_area_fraction = 0.1
+zone_irregularity = 0.25
+zone_noise_scale = 70.0
+zone_apron = 55.0
+zone_apron_ratio = 2.0
+zone_apron_min = 34.0
+zone_skirt = 40.0
+zone_separation = 165.0
+zone_separation_ratio = 0.4
+zone_coast_margin = 0.25
+zone_lift_spread = 9.0
+golf_inset = 7.0
+golf_groom_lo = 0.72
+golf_groom_hi = 0.94
+green_undulation = 0.55
+green_scale = 42.0
+green_micro = 0.5
+fairway_grooming = 0.85
+pad_grooming = 0.9
+zone_label_min = 0.88
+buildable_flatten = 0.96
+zone_place_attempts = 40
+path_enabled = true
+path_width = 4.5
+path_apron = 8.0
+path_waypoint_tries = 4
+path_waypoint_spread = 0.32
+path_grade_samples = 5
+path_grooming = 1.0
+forest_enabled = true
+forest_scale = 520.0
+forest_coverage = 0.38
+forest_edge = 0.06
+forest_max_slope = 0.42
+forest_coast_margin = 0.14
+forest_litter = 0.34
+sand_enabled = false
+sand_spacing = 108.0
+sand_radius = 13.0
+sand_jitter = 0.7
+sand_wobble = 3.5
+sand_wobble_scale = 26.0
+sand_edge_m = 5.0
+sand_depth = 1.4
+sand_rim = 0.7
+sand_max_slope = 0.28
+sand_coast_margin = 0.18
+sand_end_clear = 20.0
+sand_rough_gain = 0.0
+rock_follows_veg = true
+rock_slope_lo = 0.42
+rock_slope_hi = 0.68
+curvature_radius = 4.0
+soil_concavity = 0.9
+rock_convexity = 1.2
+rock_convex_gain = 0.5
+coast_rock_width = 0.1
+chunk_skirt_depth = 3.0
+cliff_depth_ratio = 4.0
+cliff_depth_min = 600.0
+cliff_cutoff_y = -600.0
+cliff_terraces = 5
+cliff_rings_per_terrace = 4
+cliff_taper = 3.4
+cliff_ring_bias = 2.4
+cliff_depth_variance = 0.1
+cliff_noise_scale = 90.0
+ruin_enabled = false
+ruin_ring_count = 7
+ruin_ring_radius = 0.64
+ruin_ring_spin = 0.75
+ruin_ring_slide = 80.0
+ruin_ring_earthwork_max = 5.5

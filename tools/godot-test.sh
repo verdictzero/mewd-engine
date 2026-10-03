@@ -21,6 +21,9 @@ run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
 run island  --script res://godot/tests/island_test.gd
 run island-1 --script res://godot/tests/island_test.gd -- --map=island-1
 run island-2 --script res://godot/tests/island_test.gd -- --map=island-2
+run candyland --script res://godot/tests/island_test.gd -- --map=candyland
+# CANDY LAND: roads, lamps, the candy girls greeting you and running (godot/tests/candy_test.gd)
+run candy   --script res://godot/tests/candy_test.gd -- --map=candyland
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd

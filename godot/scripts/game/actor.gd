@@ -85,6 +85,10 @@ var vehicle = null
 var puppet := false
 var net_id := 0
 var net_team := -1
+## A CANDY GIRL (CANDY LAND): frightened once, and she never comes to
+## you again; `hello`, tics she has stood in front of you saying it
+var wary := false
+var hello := 0
 
 func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> void:
 	info = States.actor(type_name)
@@ -369,6 +373,9 @@ func damage(amount: float, source, opts := {}) -> void:
 	if health <= 0:
 		die(source, amount, opts)
 		return
+	# a candy girl hurt and not killed knows now what you are
+	if info.get("greets", false) and source != null and source != self:
+		A_Scare(float(source.x), float(source.y))
 	if source != null and source != self and not friendly and (target == null or threshold <= 0):
 		target = source
 		threshold = 100
@@ -572,6 +579,9 @@ func A_Watch() -> void:
 func A_Scare(fx: float, fy: float, tics := -1) -> void:
 	if held():
 		return
+	# (a candy girl, once frightened, is done with greeting anybody)
+	wary = true
+	hello = 0
 	var full := int(info.get("panicTics", 280))
 	var want := full if tics < 0 else mini(full, tics)
 	if want <= panic:
@@ -655,6 +665,116 @@ func A_Flee() -> void:
 			angle = DIR_ANGLE[best]
 			return
 	movedir = DI.NODIR
+
+# ------------------------------------------------------------------
+# THE CANDY GIRLS, at the user's request (CANDY LAND): sweet, and pleased
+# to see you. Standing about, one who can see you within GREET_RANGE
+# walks up to you; in front of you she stops, faces you, bounces and says
+# hello. Anything that would frighten a shopper frightens her — somebody
+# alight, somebody running, a body coming apart nearby (A_Watch, A_Scare)
+# — and then she runs like anybody, and is `wary` for good: when she has
+# stopped running she stays where she is.
+# ------------------------------------------------------------------
+
+## how far off she sees you and comes (50 m)
+const GREET_RANGE := 1600.0
+## how close she comes: this, past your two radii
+const HELLO_GAP := 40.0
+
+## The player she would go to: the nearest living one in range, or null.
+func _greet_whom():
+	var best = null
+	var bd := GREET_RANGE * GREET_RANGE
+	for p in game.players:
+		if p.dead:
+			continue
+		var d2 := U.dist2(x, y, p.x, p.y)
+		if d2 < bd:
+			bd = d2
+			best = p
+	return best
+
+func _hello_near(p) -> bool:
+	var r: float = radius + p.radius + HELLO_GAP + float(id % 5) * 10.0
+	return U.dist2(x, y, p.x, p.y) <= r * r
+
+## Standing (CANDY_STAND): smelling the air as a shopper does, and if
+## nothing is wrong and you are about, off to meet you.
+func A_Greet() -> void:
+	A_Watch()
+	if panic > 0 or wary or held() or not info.get("greets", false):
+		return
+	var p = _greet_whom()
+	if p == null:
+		return
+	if _hello_near(p):
+		angle = atan2(p.y - y, p.x - x)
+		set_state("CANDY_HELLO")
+	elif not game.level.sight_blocked(x, y, z + 52.0, p.x, p.y, p.z + 41.0):
+		set_state("CANDY_WALK1")
+
+## Walking to you: the eight directions scored by how much nearer each
+## brings her, the best few tried (as A_Flee does, the other way).
+func A_Approach() -> void:
+	A_Watch()
+	if panic > 0:
+		return
+	var p = _greet_whom()
+	if wary or p == null:
+		hello = 0
+		set_state(info.spawn)
+		return
+	if _hello_near(p):
+		angle = atan2(p.y - y, p.x - x)
+		set_state("CANDY_HELLO")
+		return
+	var d0 := sqrt(U.dist2(x, y, p.x, p.y))
+	var score := PackedFloat32Array()
+	score.resize(8)
+	for d in 8:
+		var ang: float = DIR_ANGLE[d]
+		var s := -(sqrt(U.dist2(x + cos(ang) * speed, y + sin(ang) * speed, p.x, p.y)) - d0) * 3.0
+		if d == movedir:
+			s += 6.0
+		s += (U.p_random() / 255.0 - 0.5) * 4.0
+		score[d] = s
+	for k in FLEE_TRIES:
+		var best := -1
+		var best_s := -INF
+		for d in 8:
+			if score[d] > best_s:
+				best_s = score[d]
+				best = d
+		if best < 0:
+			break
+		score[best] = -INF
+		if try_walk(best):
+			movedir = best
+			angle = DIR_ANGLE[best]
+			return
+	movedir = DI.NODIR
+
+## In front of you: facing you, bouncing, and the first time, saying so.
+func A_Hello() -> void:
+	A_Watch()
+	if panic > 0:
+		return
+	var p = _greet_whom()
+	if wary or p == null:
+		hello = 0
+		set_state(info.spawn)
+		return
+	if not _hello_near(p):
+		# you walked off: after you
+		var r: float = radius + p.radius + HELLO_GAP + 80.0
+		if U.dist2(x, y, p.x, p.y) > r * r:
+			hello = 0
+			set_state("CANDY_WALK1")
+			return
+	angle = atan2(p.y - y, p.x - x)
+	if hello == 0 and p == game.player:
+		game.candy_hello(self)
+	hello += 1
 
 func A_Pain() -> void:
 	game.play_sound(info.get("painSound"), self)

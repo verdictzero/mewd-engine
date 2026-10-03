@@ -1,0 +1,76 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+; The BUSHES of SCENE_test_zone_W3, and W3's alone. `SCRIPT_veg_scatter.gd`
+; DUPLICATES this once per bush sprite and sets `albedo_tex` on each copy, so the
+; texture is deliberately not assigned here.
+;
+; A COPY OF MAT_veg_understory.tres THAT DIFFERS IN THE NEAR FADE AND NOTHING
+; ELSE -- same shader, same tint, same wind, same far band (330..450, which is
+; also the cull), same fog. If you change one of those there, change it here.
+;
+; WHY THE FORK EXISTS AT ALL. The vegetation materials are SHARED between W2 and
+; W3, so a parameter retuned through MAT_veg_understory.tres moves both scenes.
+; SCENE_test_zone_W3's own header sets the rule: to diverge a material, fork the
+; .tres and repoint W3's ExtResource at the fork. That is what this is, and the
+; `_w3` tag is the convention travelling with it (docs/DOC_conventions.md).
+;
+; ------------------------------------------------------------------------------
+; THE NEAR FADE IS ON HERE, AND MAT_veg_understory.tres SAYS IT SHOULD NOT BE.
+;
+; That file is not wrong about W2 and it is left exactly as it was. What it
+; records is a real failure, and it is worth reading before touching these two
+; numbers: giving the bushes the FIRS' band (3..10 m at the time) scooped a
+; ten-metre bald circle out of the forest floor that followed the player around,
+; which is the opposite of the dense understory it was standing in. "THE NEAR
+; FADE IS A TREE FEATURE" is the conclusion that was drawn, and for a per-fragment
+; band at a tree's radius it is the right one.
+;
+; TWO THINGS ARE DIFFERENT HERE. The first is that the band is measured PER PLANT
+; (`near_fade_whole_plant`, see MAT_veg_billboard_w3.tres and the shader): a bush
+; is either dithering away or it is not, rather than having a sphere of eye-height
+; geometry carved out of it while its crown and its skirt stay. On a 3 m plant
+; that difference is smaller than it is on a 22 m fir, but it is the same
+; difference, and it is what makes a clearing here a clearing rather than a hole
+; through the middle of the scrub. The second is that the band is a BUSH's and not
+; a fir's -- 2.0 .. 3.5 against the firs' 3.0 .. 4.5 -- which is the whole of what
+; the old failure was about. The bald circle came from running a 10 m radius on a
+; 3 m plant; this reaches barely past arm's length, so a bush dissolves as you
+; walk into it and the one beyond it does not.
+;
+; THE COLLAR IS THE FIRS' 1.5 m, DELIBERATELY. It is a snap rather than a ramp for
+; the reason MAT_veg_billboard.tres gives at length: a wide band leaves every near
+; plant in the frame permanently half-dithered and the woods read as gauzy. That
+; argument is stronger under per-plant measurement, not weaker, because what sits
+; half-dithered is now a whole bush rather than a slice of one.
+;
+; WHAT TO WATCH FOR is the failure MAT_veg_understory.tres names -- a ring of
+; thinning scrub travelling with the camera on open ground, where there is no
+; relief to hide the edge. If it appears, bring `near_gone` and `near_solid` in
+; together rather than widening the collar. TO SWITCH THE TERM OFF ENTIRELY, set
+; `near_solid` at or below `near_gone`, which is what MAT_veg_understory.tres,
+; MAT_veg_fern.tres and MAT_grass_billboard.tres all do -- the ferns and the grass
+; in W3 still draw through the shared materials and so still have no near fade at
+; all.
+
+; CANDY LAND, at the user's request: MAT_veg_understory_w3.tres in the blue haze, lit a little brighter for the candy plants.
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.4
+shader_parameter/tint = Color(0.9, 0.9, 0.9, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.06
+shader_parameter/wind_speed = 0.55
+shader_parameter/wind_scale = 17.0
+shader_parameter/near_gone = 2.0
+shader_parameter/near_solid = 3.5
+shader_parameter/near_fade_whole_plant = true
+shader_parameter/far_start = 330.0
+shader_parameter/far_end = 450.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.8, 1, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

@@ -96,6 +96,8 @@ var _slot := 0
 var paused := false
 ## which island (Islands.LIST's key)
 var map_name := "island0"
+## and its whole entry (Islands.LIST): the air's colour, the crowd
+var island_spec := {}
 var look_sens := 1.0
 var invert := false
 var _set_hour := 2.0
@@ -180,6 +182,7 @@ func start_map(which: String) -> void:
 	var t0 := Time.get_ticks_msec()
 	var spec: Dictionary = Islands.find(which)
 	map_name = spec.key
+	island_spec = spec
 	scale = Vector3.ONE / IslandLevel.U_PER_M
 	U.set_unit(1.0 / IslandLevel.U_PER_M)
 	island = (load(spec.scene) as PackedScene).instantiate()
@@ -188,6 +191,7 @@ func start_map(which: String) -> void:
 	iw.pregen_finished.connect(func(): _island_built = true)
 	var field: Resource = iw.field
 	var chunk: float = iw.chunk_size
+	var roads := _roads_of(field)
 	# A WORLD NOBODY LOOKS AT (a dedicated server, a bot) walks on the
 	# ground and draws none of it
 	if not draw_world:
@@ -200,7 +204,8 @@ func start_map(which: String) -> void:
 		print("MEWD: %s has no baked ground — sampling it now (tools/bake_island.gd makes one)" % spec.title)
 		ground = IslandGround.build(field)
 	level = IslandLevel.new(ground, spec.title)
-	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))))
+	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))),
+		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)))
 	add_child(island)
 	# (the island's plants are its own: the old forest is there, empty,
 	# for what still asks it)
@@ -286,7 +291,7 @@ func _island_light() -> void:
 	U.gset("light_falloff", 1.0e6)
 	U.gset("air_near", 700.0)
 	U.gset("air_far", 3200.0)
-	U.gset("air_color", Color(0.3, 0.3, 0.3))
+	U.gset("air_color", island_spec.get("air", Color(0.3, 0.3, 0.3)))
 	U.gset("light_color", Color.WHITE)
 	U.gset("ambient_light", Color(0, 0, 0, 1))
 	U.gset("map_fog", Vector4(0, 0, 0, 0))
@@ -672,9 +677,31 @@ func _place_camera(f: float) -> void:
 		camera.rotation.x += k * (0.017 * sin(t * 41.7 + 0.9) + 0.010 * sin(t * 23.3 + 2.4))
 		camera.position += U.v3(k * 5.5 * sin(t * 53.1 + 0.3), k * 5.5 * cos(t * 44.9 + 1.9), k * 4.0 * sin(t * 61.7 + 2.6))
 
+## THE ROADS AND SQUARES on the island's field (golf's paths and build
+## pads, IslandField.zones_for), in the game's units: {"paths": [[a, b,
+## half-width]], "squares": [[centre, radius]]} — empty on an island
+## without them. A copy of the field is asked, so the one the world
+## streams from is left alone.
+func _roads_of(field: Resource) -> Dictionary:
+	var out := {"paths": [], "squares": []}
+	if field == null or not bool(field.get("zone_enabled")):
+		return out
+	var f: Resource = field.clone()
+	var isl = f.island_in_cell(f.hub_cell())
+	var k := IslandLevel.U_PER_M
+	for z in f.zones_for(isl):
+		var a := Vector2(z.a.x, -z.a.y) * k
+		var b := Vector2(z.b.x, -z.b.y) * k
+		if z.kind == f.ZONE_PATH:
+			out.paths.append([a, b, float(z.width) * k])
+		elif z.kind == f.ZONE_BUILD:
+			out.squares.append([a, float(z.width) * k])
+	return out
+
 ## The map's things that are actors, into the world.
 const THING_ACTORS := {"SHOPPER": "SHOPPER", "TOWNIE": "TOWNIE", "SWAT": "SWAT", "ARMY": "ARMY",
-	"GRAVESTONE": "GRAVESTONE"}   # the sprawl's headstones
+	"GRAVESTONE": "GRAVESTONE",   # the sprawl's headstones
+	"CANDYGIRL": "CANDYGIRL", "LAMP": "LAMP"}   # CANDY LAND's
 
 func _spawn_things() -> void:
 	for t in level.things:
@@ -892,6 +919,18 @@ func toggle_slow_mo() -> void:
 	var m = get_parent().get("music") if get_parent() != null else null
 	if m != null and m.has_method("set_rate"):
 		m.set_rate(0.5 if slow_mo else 1.0)
+
+## A CANDY GIRL SAYS HELLO (Actor.A_Hello), at the user's request: in
+## the toasts, a few seconds apart at most, so a crowd of them is not a
+## wall of text.
+var _hello_tic := -1000
+const HELLOS := ["HI!!", "HELLO!", "HIIII!", "WELCOME TO CANDY LAND!", "YAY, A VISITOR!", "HI THERE, FRIEND!"]
+func candy_hello(a) -> void:
+	if tics - _hello_tic < 3 * U.TICRATE:
+		return
+	_hello_tic = tics
+	var who: String = States.CANDY_FLAVOURS[a.variant % States.CANDY_FLAVOURS.size()].to_upper()
+	toast("%s GIRL: %s" % [who, HELLOS[(a.id + tics) % HELLOS.size()]])
 
 func toast(text: String) -> void:
 	toasts.append({"text": text, "tics": TOAST_LIFE})

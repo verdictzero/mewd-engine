@@ -210,6 +210,22 @@ uniform float eye_yaw = 0.0;
 uniform float eye_fade_low : hint_range(-1.0, 1.0) = 0.06;
 uniform float eye_fade_high : hint_range(-1.0, 1.0) = 0.40;
 
+group_uniforms apex_sun;
+// MEWD — A SUN AT THE APEX, at the user's request for CANDY LAND: a
+// picture (the candy sun) pinned in the sky where the sun is (the light's
+// direction, or the time-of-day bus's — the scene's SunPivot), at
+// infinity like the vortex, with a halo and a wide bloom round it. High,
+// not straight up: the eye looks no more than 41 degrees up
+// (Player.MAX_PITCH), so a sun at the very top could never be seen. `apex_sun_size` is its
+// angular radius in radians; 0 (every other sky) draws none of it. The
+// halo is HDR (over 1), so the Environment's glow blooms it; the
+// anamorphic streak is a screen pass of its own (SHADER_sun_flare).
+uniform sampler2D apex_sun : source_color, filter_linear_mipmap, repeat_disable;
+uniform float apex_sun_size : hint_range(0.0, 0.8) = 0.0;
+uniform float apex_sun_energy : hint_range(0.0, 8.0) = 1.4;
+uniform vec3 apex_glow_color : source_color = vec3(1.0, 0.85, 0.45);
+uniform float apex_halo : hint_range(0.0, 8.0) = 1.6;
+uniform float apex_bloom : hint_range(0.0, 4.0) = 0.35;
 group_uniforms;
 
 
@@ -359,5 +375,24 @@ void sky() {
 	// on a low shot with a lot of sky in frame is most of the picture disagreeing
 	// with the effect. Draining it commits the wall to being a DOME rather than a
 	// fence; that is a look decision and it is this one line.
+	// THE CANDY SUN (see `apex_sun`): halo, bloom, then the picture over
+	// them. Uniform branch; the picture's UV is the eye ray projected onto
+	// a ceiling overhead, so it is round and upright from anywhere.
+	if (apex_sun_size > 0.0) {
+		vec3 sd = LIGHT0_ENABLED ? LIGHT0_DIRECTION : tod_sun_dir;
+		sd = length(sd) > 0.5 ? normalize(sd) : vec3(0.0, 1.0, 0.0);
+		float c = dot(EYEDIR, sd);
+		float polar = acos(clamp(c, -1.0, 1.0));
+		float rr = polar / apex_sun_size;
+		col += apex_glow_color * (apex_halo * exp(-rr * rr * 0.9) + apex_bloom * exp(-rr * 0.55));
+		// the picture's own right and down on the sky round the sun
+		vec3 sx = normalize(cross(vec3(0.0, 1.0, 0.0), sd) + vec3(1e-4, 0.0, 0.0));
+		vec3 sy = cross(sx, sd);
+		vec2 suv = vec2(0.5) + 0.5 * vec2(dot(EYEDIR, sx), dot(EYEDIR, sy)) / max(c, 0.05) / tan(apex_sun_size);
+		vec4 s = textureLod(apex_sun, suv, 0.0);
+		float inside = step(0.0, c) * step(abs(suv.x - 0.5), 0.5) * step(abs(suv.y - 0.5), 0.5);
+		col = mix(col, s.rgb * apex_sun_energy, s.a * inside);
+	}
+
 	COLOR = golf_wall_drain_all(col, SCREEN_UV, TIME);
 }

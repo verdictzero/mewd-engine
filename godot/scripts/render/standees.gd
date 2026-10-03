@@ -66,6 +66,11 @@ func _ready() -> void:
 	_strip("BLST", "res://assets/people/blast.png", Vector2(48, 96))
 	_strip("BLUD", "res://assets/people/splat.png", Vector2(56, 20))
 	_strip("GRV", "res://godot/data/stones.png", Vector2(32, 48))
+	# CANDY LAND, at the user's request: the candy girls, nine flavours
+	# drawn from the front and from the back (192 x 287 pixels a cell,
+	# 44 x 66 units in the world), and the street lamp
+	_strip("CANDY", "res://assets/people/candy_girls.png", Vector2(44, 66), Vector2(192, 287))
+	_strip("LAMP", "res://assets/people/candy_lamp.png", Vector2(80, 144), Vector2(256, 459))
 
 ## `texel`: the cell in the strip's own pixels, where that is not the
 ## cell in the world (one unit to the pixel) — a strip drawn finer than
@@ -121,6 +126,12 @@ func _cell_of(a: Actor, cam: Vector2) -> Array:
 		return [strip, a.variant % 3, false]
 	if kind == -4:
 		return [strip, a.variant % 8, false]
+	if kind == -5:
+		# A CANDY GIRL HAS A FRONT AND A BACK: her back when she faces away
+		# from the eye — running from you, you see her run — her front
+		# otherwise (walking up to you, saying hello)
+		var away := cos(a.angle) * (cam.x - a.x) + sin(a.angle) * (cam.y - a.y) < 0.0
+		return [strip, (a.variant % States.CANDY_FLAVOURS.size()) * 2 + (1 if away else 0), false]
 	if kind >= 0:
 		return [strip, kind, false]
 	# a troop turning: the view for the way it faces against the eye
@@ -136,6 +147,10 @@ static func _state_draw(st: Dictionary) -> Array:
 	var frame: String = st.frame
 	if sprite == "SHOP":
 		return ["SHOP", -1, 0, 0]
+	if sprite == "CANDY":
+		return ["CANDY", -5, 0, 0]
+	if sprite == "LAMP":
+		return ["LAMP", 0, 0, 0]
 	if sprite == "BLST":
 		return ["BLST", LETTERS.find(frame), 0, 0]
 	if sprite == "BLUD":
@@ -240,8 +255,9 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 			flags += 16.0
 		# the sway, for the shader: +32 standing, +64 running, and the
 		# phase (the actor's id) from 128 up
+		# (and a candy girl saying hello bounces as if running: she is pleased)
 		if info.get("sway", false) and not (a.frozen or a.ash > 0.0 or a.bored > 0):
-			flags += 64.0 if a.panic > 0 else 32.0
+			flags += 64.0 if (a.panic > 0 or a.hello > 0) else 32.0
 		flags += 128.0 * float(aid % 4096)
 		var rows: Array = s.rows
 		rows[i] = 1.0; rows[i + 1] = 0.0; rows[i + 2] = 0.0; rows[i + 3] = a.x

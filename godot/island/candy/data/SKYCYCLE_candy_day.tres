@@ -1,0 +1,137 @@
+[gd_resource type="Resource" script_class="SkyCyclePreset" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_sky_cycle_preset.gd" id="1_preset"]
+
+; NORMALCY, AND THE ONTOLOGICAL NIGHTMARE. The whole of SCENE_test_zone_W2's sky as
+; one resource, so it can be dropped on another scene instead of copied between
+; .tscn files. `docs/DOC_w2_blood_night.md` is the write-up.
+;
+; TWO STATES AND A FLIP BETWEEN THEM, not a day and a night. The "day" here is
+; ordinary overcast daylight and is supposed to be unremarkable; the "night" is the
+; world going wrong — the dome above blacks out, the cumulus ring and the cloud sea
+; stay lit and turn deep red, and everything takes its light from those two. The
+; controller crosses between them in about three seconds off a bool. Nothing is
+; meant to sit in between.
+;
+; THE TRANSITION BAND IS THE FLIP'S OWN MIDDLE. It is not a dusk anybody stands in:
+; at `nightmare_seconds` 3.0 across a span of 0.40 on the clock, the 0.12-wide
+; sunset band below is about 0.9 s of ember while the sky is crossing over. That is
+; why its colours are hot and slightly unreal rather than a plausible sunset — it
+; is only ever seen in motion, and it is the half-breath of warning before the red.
+;
+; ---------------------------------------------------------------------------
+; THE DAY IS 100% AND IT IS THE ANCHOR, so it is the block to be most careful with.
+; A white sun at full energy is what SCENE_test_zone_W2 rendered before any of this
+; existed — because its TimeOfDay bus was never wired and the island was lit by
+; project.godot's fallbacks — and it is what "normalcy" has to mean here. The whole
+; effect is a CONTRAST, and it only works if the thing being contrasted against is
+; the plain daylight everyone already knows this scene by.
+;
+; `day_sun_color` white and `day_sun_energy` 1.0 are therefore not a tuning, they
+; are a restoration, and they are why a fully-lit top face is 1.31 and not the 0.41
+; the scene's own comment derived. That derivation was correct about what the
+; authored values MEANT and wrong about what was on screen; the picture won. The
+; ambient and bounce COLOURS are still the ones it produced.
+;
+; THE AMBIENT'S LEVEL WAS NOT, and it lagged the sun for a long time. At 0.30 it
+; was the level that derivation set against a quarter-power sun, left in place when
+; the sun went back to full — so by day the sky gave a wall 0.1 of light against the
+; sun's 1.0, and every face the fixed sun never reaches (the pod's far side, the
+; wreck's, the ruin's door) drew black, which is not what "ordinary overcast
+; daylight" looks like. `day_ambient_energy` is 0.60 now, doubled when the shadows
+; were asked to come up, alongside the env ball's ambient floor going from 0.35 to
+; 0.6 (`SCRIPT_bake_env_ball.gd`). Measured in the island at the pod: its shadow
+; side's median palette entry went from 17 of 255 to 51, while flat sunlit grass
+; went up by a fifth (a mean of 85 to 103), because an ambient lights everything
+; the sky can see and grass sees the most of it. The sun is untouched.
+;
+; ---------------------------------------------------------------------------
+; THE NIGHT, multiplied out the way the scene comment does:
+;
+;   tod_sky_color    = night_ambient_color * 0.32 = (0.320, 0.024, 0.018)
+;   tod_ground_color = night_bounce_color  * 0.32 = (0.294, 0.027, 0.021)
+;   tod_sun_color    = night_sun_color     * 0.21 = (0.210, 0.018, 0.012)
+;
+; A fully-lit top face lands near 0.53 RED against 0.04 green and 0.03 blue, which
+; is 13:1 — the saturation, and the reason this reads as blood rather than as an
+; orange filter. Against a 1.31 day it is also about 40% of the light, and that
+; drop is wanted now: it is not a dark night, it is a much redder and somewhat
+; dimmer world, and the flip between the two has to be felt.
+;
+; WHY THE NIGHT'S BOUNCE IS BRIGHTER THAN ITS SKY, inverting the day: at noon the
+; dome overhead is the bright thing and the cloud sea below is darker, and
+; `SHADERINC_island_light.gdshaderinc` lerps between them by the world normal's Y. At night
+; the dome is BLACK and the lit things are the ring and the sea, so the light comes
+; from the horizon and from below and a cliff face picks up more of it than a
+; fairway does.
+;
+; SATURATION AND LEVEL ARE ONE DIAL, not two. Saturation of the light is
+; (max - min) / max and red is pinned at 1.0, so the only way up is taking green and
+; blue DOWN — which lowers luminance as a side effect, because green carries 71% of
+; it. Pushing the red further from here does not need a matching darkening; it is
+; one.
+;
+; ---------------------------------------------------------------------------
+; WHAT IS NOT IN HERE, and it is the reason this travels at all: `sky_haze_base`,
+; `sky_glow_base` and the rest stay on the controller node. W2 hazes to the exact
+; neutral 0.30 and SCENE_test_zone_W hazes to 0.089; both are right, each is a
+; property of that scene's own sky and fog, and neither is a property of the
+; weather. The tints below are MULTIPLIERS on whichever a scene holds, so this same
+; night lands correctly on either without knowing which it is in. To put it on W:
+; add a SkyCycleController, point `sky_haze_base` at W's 0.089, set `sky_material`
+; to MAT_sky_void.tres, turn on `drive_void_sky` and `use_nightmare_switch`, and
+; assign this. Nothing here has to change.
+
+; CANDY LAND's day, at the user's request: SKYCYCLE_w2_blood_night with its
+; day made candy — a warm white sun a little stronger, a sky-blue ambient, a
+; pinkish bounce off the ground, and a sky-blue dome at every phase (the
+; island is held at midday, manual_time_of_day 0.45, so only the day is seen).
+
+[resource]
+script = ExtResource("1_preset")
+
+day_start = 0.10
+day_end = 0.60
+night_start = 0.72
+night_end = 0.98
+
+day_sun_color = Color(1, 0.97, 0.9, 1)
+day_sun_energy = 1.1
+day_ambient_color = Color(0.62, 0.72, 0.88, 1)
+day_bounce_color = Color(0.5, 0.42, 0.5, 1)
+day_ambient_energy = 0.8
+day_sky_contribution = 1.0
+day_sky_brightness = 1.0
+day_shadow_opacity = 1.0
+day_sun_rotation_degrees = Vector3(-60, -30, 0)
+
+trans_sun_color = Color(1, 0.44, 0.16, 1)
+trans_sun_energy = 0.55
+trans_ambient_color = Color(0.82, 0.36, 0.28, 1)
+trans_bounce_color = Color(0.6, 0.24, 0.16, 1)
+trans_ambient_energy = 0.28
+trans_sky_contribution = 0.6
+trans_sky_brightness = 1.0
+trans_shadow_opacity = 0.7
+trans_sun_rotation_degrees = Vector3(-5, 30, 0)
+
+night_sun_color = Color(1, 0.085, 0.055, 1)
+night_sun_energy = 0.21
+night_ambient_color = Color(1, 0.075, 0.055, 1)
+night_bounce_color = Color(0.92, 0.085, 0.065, 1)
+night_ambient_energy = 0.32
+night_sky_contribution = 0.2
+night_sky_brightness = 1.0
+night_shadow_opacity = 0.0
+night_sun_rotation_degrees = Vector3(60, 150, 0)
+
+day_haze_tint = Color(1, 1, 1, 1)
+trans_haze_tint = Color(0.88, 0.48, 0.38, 1)
+night_haze_tint = Color(0.82, 0.135, 0.1, 1)
+day_art_tint = Color(1, 1, 1, 1)
+trans_art_tint = Color(1.05, 0.6, 0.46, 1)
+night_art_tint = Color(1.4, 0.17, 0.13, 1)
+
+day_sky_top = Color(0.3, 0.6, 0.98, 1)
+trans_sky_top = Color(0.3, 0.6, 0.98, 1)
+night_sky_top = Color(0.3, 0.6, 0.98, 1)
