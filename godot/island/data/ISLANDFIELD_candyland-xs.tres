@@ -13,6 +13,17 @@
 ;     squares (at the user's request): dead level, round, cut into the
 ;     hillside with a steep bank of half their radius (10 m at least),
 ;     the roads running into them; and the roads' edges straight
+;   * square_pads = true, square_apron 1.5 m, build_pad_radius 30..36 m
+;     THE TOWNS ARE SQUARES (at the user's request: "flat squares, a road
+;     intersection, no hills, cut out of the surrounding terrain using
+;     cliffs, divided into quadrants, 4 houses per quadrant"): each a dead
+;     level square 60 to 72 m across, its sides along the line to its
+;     nearest neighbour, banked over 1.5 m so where the ground round it is
+;     higher its edge is a cliff, with a cross of streets through its
+;     middle that every road leaves from (IslandField.square_pads); the
+;     houses four to a quadrant (IslandLevel.place_houses)
+;   * green_undulation 0, green_micro 0   the golf green's swell and grain
+;     left off every groomed shelf: the towns and the roads dead level
 ;   * path_enabled = true   golf's graded tracks joining the squares (a
 ;     minimum spanning tree over them), 9 m wide: the roads
 ; Plants stay off both (the scatters skip groomed ground), so the forest,
@@ -73,9 +84,11 @@ golf_area_fraction = 0.3
 par3_max = 230.0
 par4_max = 400.0
 build_pads_max = 10
-build_pad_radius_min = 18.0
-build_pad_radius_max = 32.0
+build_pad_radius_min = 30.0
+build_pad_radius_max = 36.0
 build_pad_radius_ratio = 0.45
+square_pads = true
+square_apron = 1.5
 build_area_fraction = 0.1
 zone_irregularity = 0.0
 zone_noise_scale = 70.0
@@ -90,9 +103,9 @@ zone_lift_spread = 0.0
 golf_inset = 7.0
 golf_groom_lo = 0.72
 golf_groom_hi = 0.94
-green_undulation = 0.55
+green_undulation = 0.0
 green_scale = 42.0
-green_micro = 0.5
+green_micro = 0.0
 fairway_grooming = 0.85
 pad_grooming = 0.9
 zone_label_min = 0.88

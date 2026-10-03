@@ -311,6 +311,13 @@ class Zone extends RefCounted:
 	## use for it.
 	var m := Vector2.ZERO
 	var bent := false
+	## A SQUARE build pad (`IslandField.square_pads`, at the user's request for
+	## CANDY LAND's towns): `width` is its half-side, `rot` the way its sides
+	## run, and a cross of streets `street` metres either side of its two
+	## middle lines splits it into four quadrants.
+	var square := false
+	var rot := 0.0
+	var street := 0.0
 
 	func length() -> float:
 		return a.distance_to(m) + m.distance_to(b) if bent else a.distance_to(b)
@@ -323,6 +330,11 @@ class Zone extends RefCounted:
 	## Distance from a point to the capsule's axis. Subtracting `width` from this
 	## gives the signed distance to the zone's (un-wobbled) boundary.
 	func axis_distance(p: Vector2) -> float:
+		if square:
+			# (the larger of the two distances along its sides, so `width` out
+			# from the middle is its square edge, not a circle)
+			var q := (p - a).rotated(-rot)
+			return maxf(absf(q.x), absf(q.y))
 		if bent:
 			return minf(_seg_distance(p, a, m), _seg_distance(p, m, b))
 		return _seg_distance(p, a, b)
@@ -339,6 +351,13 @@ class Zone extends RefCounted:
 	## Short-circuits for the level case, which is every zone but a path — and a
 	## path is never bent, so the straight-axis parameterisation below is always
 	## the right one for the case that reaches it.
+	## Whether a point is on one of a square pad's two cross streets.
+	func on_street(p: Vector2) -> bool:
+		if not square or street <= 0.0:
+			return false
+		var q := (p - a).rotated(-rot)
+		return absf(q.x) <= street or absf(q.y) <= street
+
 	func lift_at(p: Vector2) -> float:
 		if is_equal_approx(lift, lift_b):
 			return lift
@@ -624,6 +643,17 @@ class Hole extends RefCounted:
 ## The two work at different scales and both are needed: sparsity makes the WILD
 ## ground level, this makes more of it a deliberate, named, buildable clearing.
 @export_range(0.0, 1.0) var build_area_fraction := 0.30
+## SQUARE TOWNS (at the user's request, CANDY LAND: "flat squares, a road
+## intersection, no hills, cut out of the surrounding terrain with cliffs,
+## divided into quadrants"). Every build pad a square instead of a disc,
+## its sides run along the line to its nearest neighbour, its edge banked
+## over only `square_apron` metres — so where the ground round it is higher
+## it is a cliff — and a cross of streets `path_width` either side of its
+## middle lines. Every road leaves it from the end of one of those streets,
+## so a town is where the roads meet. Off by default: every other island's
+## pads stay discs.
+@export var square_pads := false
+@export var square_apron := 1.5
 
 @export_group("Zone shape")
 ## Boundary wobble as a fraction of a zone's width, which is what turns a
@@ -2886,9 +2916,11 @@ func _place_zones(isl: Island) -> Array:
 		var pr := rng.randf_range(pad_lo, pad_hi)
 		var pang := rng.randf() * TAU
 		var c := isl.center + Vector2(cos(pang), sin(pang)) * (safe_r * sqrt(rng.randf()))
-		if not _capsule_inside(isl.center, c, c, pr, safe_r):
+		# (a square reaches its corners: room for those, not just its sides)
+		var reach := pr * (1.42 if square_pads else 1.0)
+		if not _capsule_inside(isl.center, c, c, reach, safe_r):
 			continue
-		if not _zone_clear(c, c, pr, out, want_gap):
+		if not _zone_clear(c, c, reach, out, want_gap):
 			continue
 
 		var pad := Zone.new()
@@ -2899,9 +2931,31 @@ func _place_zones(isl: Island) -> Array:
 		pad.lift = rng.randf_range(-zone_lift_spread, zone_lift_spread)
 		pad.lift_b = pad.lift
 		pad.apron = zone_apron_for(pr)
+		if square_pads:
+			pad.square = true
+			pad.street = path_width
+			pad.apron = maxf(square_apron, 0.1)
+			# (the sides run along the line to the nearest zone already placed,
+			# or anywhere: corrected below once all the pads are down)
+			pad.rot = rng.randf() * TAU
 		pads += 1
 		pad.index = pads
 		out.append(pad)
+
+	# A SQUARE TOWN faces its nearest neighbour: its sides run along the line
+	# to the nearest other zone, so the first road out of it runs straight
+	# down one of its streets
+	if square_pads:
+		for entry in out:
+			var zn: Zone = entry
+			if not zn.square:
+				continue
+			var near := Vector2.INF
+			for other in out:
+				if other != zn and zn.a.distance_to((other.a + other.b) * 0.5) < zn.a.distance_to(near):
+					near = (other.a + other.b) * 0.5
+			if near != Vector2.INF:
+				zn.rot = (near - zn.a).angle()
 
 	# ---- paths -----------------------------------------------------------
 	# Built LAST and from a snapshot of everything above, so they can be routed
@@ -3040,6 +3094,18 @@ func _make_path(a: Vector2, b: Vector2, lift_a: float, lift_b: float,
 # the ground, and a port derived from it would move whenever `zone_irregularity`
 # was retuned while the track it anchors did not.
 static func _zone_port(zn: Zone, t: Vector2) -> Vector2:
+	# A SQUARE's ports are the ends of its two streets, the middle of each
+	# side: the one facing `t` most nearly
+	if zn.square:
+		var best := zn.a
+		var most := -INF
+		for k in 4:
+			var dir := Vector2.RIGHT.rotated(zn.rot + k * PI * 0.5)
+			var f := dir.dot((t - zn.a).normalized())
+			if f > most:
+				most = f
+				best = zn.a + dir * zn.width
+		return best
 	var ab := zn.b - zn.a
 	var d2 := ab.length_squared()
 	var q := zn.a
@@ -3427,6 +3493,9 @@ func zone_at(x: float, z: float, zones: Array, out: Array = []) -> float:
 				best = w
 				kind = zn.kind
 				index = zn.index
+				# a square town's cross streets are paved as roads
+				if zn.square and zn.on_street(p):
+					kind = ZONE_PATH
 				if want_end:
 					end_dist = minf(p.distance_to(zn.a), p.distance_to(zn.b))
 	if out.size() >= 2:

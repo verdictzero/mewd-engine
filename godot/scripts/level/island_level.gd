@@ -264,7 +264,8 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 		for s in squares:
 			if (s[0] as Vector2).length() < (sq[0] as Vector2).length():
 				sq = s
-		start = _find_ground(rng, sq[0], float(sq[1]) * 0.5, 0.35)
+		# (a square town's crossroads, its middle; a round one, somewhere in it)
+		start = sq[0] if _is_town(sq) else _find_ground(rng, sq[0], float(sq[1]) * 0.5, 0.35)
 	things.append({"type": "START", "x": start.x, "y": start.y, "angle": rng.randf() * TAU})
 	if not house_spec.is_empty():
 		place_houses(seed, squares, roads.get("paths", []), house_spec, clear, start)
@@ -378,6 +379,11 @@ func _find_ground(rng: RandomNumberGenerator, c: Vector2, r: float, max_slope: f
 # THE HOUSES
 # ------------------------------------------------------------------
 
+## A square town with streets (Game._roads_of: [centre, half-side, the way
+## its sides run, its streets' half-width]), not a round square.
+static func _is_town(sq: Array) -> bool:
+	return sq.size() > 3 and float(sq[3]) > 0.0
+
 ## HOUSES ROUND THE TOWN SQUARES (at the user's request: CANDY LAND's
 ## gingerbread house, scattered round the "town" areas). Each square has
 ## two rings of plots, every one facing the middle: one just inside its
@@ -406,6 +412,9 @@ func place_houses(seed: int, squares: Array, paths: Array, spec: Dictionary, cle
 	for sq in squares:
 		var c: Vector2 = sq[0]
 		var r: float = sq[1]
+		if _is_town(sq):
+			_town_houses(rng, sq, fp, sc, paths, spec, clear, start)
+			continue
 		var a0 := rng.randf() * TAU
 		for ring in [[r - float(spec.get("inset", 4.5)) * U_PER_M, float(spec.get("inner", 0.85)), 0.0],
 				[r + float(spec.get("outset", 6.5)) * U_PER_M, float(spec.get("outer", 0.6)), 0.5]]:
@@ -572,3 +581,37 @@ func _house_hit(h: Dictionary, ax: float, ay: float, az: float, bx: float, by: f
 	if z < h.z or z > h.z + h.top:
 		return {}
 	return {"t": t0, "line": h.lines[side]}
+
+## A SQUARE TOWN'S HOUSES (at the user's request: "divided into quadrants,
+## 4 houses per quadrant"): the cross of streets splits the square into
+## four, and each quarter takes a block of two by two, each house facing
+## the nearer of the two streets that bound its quarter — so every street
+## through the town is lined both sides. Between the kerb and the town's
+## edge the quarter is split in two each way, a house in the middle of each
+## half; the scale is drawn per house as elsewhere, but held down so four
+## fit (two rows of two need four house-widths and a metre between).
+func _town_houses(rng: RandomNumberGenerator, sq: Array, fp: Dictionary, sc: Array, paths: Array, spec: Dictionary, clear, start: Vector2) -> void:
+	var c: Vector2 = sq[0]
+	var half: float = sq[1]
+	var rot: float = sq[2]
+	var street: float = sq[3]
+	var along := Vector2.RIGHT.rotated(rot)
+	var across := Vector2.UP.rotated(rot)
+	var kerb := U_PER_M
+	# the room in a quarter, each way, from the kerb to a metre in from the edge
+	var room := half - street - kerb - U_PER_M
+	# the largest a house may be and four still fit
+	var r1 := Vector2(float(fp.get("hw", 3.4)), maxf(float(fp.get("back", 3.1)), float(fp.get("front", 3.7)))).length() * U_PER_M
+	var most := (room * 0.5 - U_PER_M) / (2.0 * r1)
+	for su in [-1.0, 1.0]:
+		for sv in [-1.0, 1.0]:
+			for i in 2:
+				for j in 2:
+					var u: float = su * (street + kerb + room * (0.25 + 0.5 * i))
+					var v: float = sv * (street + kerb + room * (0.25 + 0.5 * j))
+					var p := c + along * u + across * v
+					# facing the nearer street: the one along the town (v = 0) or
+					# the one across it (u = 0)
+					var face: Vector2 = (-across * sv) if absf(v) <= absf(u) else (-along * su)
+					var s := minf(rng.randf_range(float(sc[0]), float(sc[1])), most)
+					_try_house(p, face.angle(), s, fp, paths, spec, clear, start)

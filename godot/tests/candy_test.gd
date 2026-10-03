@@ -75,6 +75,33 @@ func _init() -> void:
 				on_road += 1
 	check(hs.size() >= 3 * roads.squares.size() and by_square == hs.size() and on_road == 0,
 		"gingerbread houses round the squares (%d houses, %d by a square, %d on a road)" % [hs.size(), by_square, on_road])
+	# THE TOWNS ARE SQUARES: streets through them, level from corner to
+	# corner, a crossroads to start at, four houses to a quadrant
+	var towns := 0
+	var level := 0
+	var full := 0
+	for sq in roads.squares:
+		if sq.size() < 4 or float(sq[3]) <= 0.0:
+			continue
+		towns += 1
+		var c: Vector2 = sq[0]
+		# (in from the corners by more than the ground's grid, which is what
+		# this reads, so the cliff round the edge is not counted)
+		var half: float = float(sq[1]) * 0.85
+		var f0 := lv.floor_at(c.x, c.y)
+		var flat_here := true
+		for k in 4:
+			var q := c + Vector2(half, half).rotated(float(sq[2]) + k * PI * 0.5)
+			if absf(lv.floor_at(q.x, q.y) - f0) > 8.0:
+				flat_here = false
+		if flat_here:
+			level += 1
+		var mine := hs.filter(func(h): return Vector2(h.x, h.y).distance_to(c) < float(sq[1]) * 1.42)
+		if mine.size() >= 12 and mine.size() <= 16:
+			full += 1
+	check(towns == roads.squares.size() and towns >= 3, "every town a square with streets (%d)" % towns)
+	check(level == towns, "level from corner to corner (%d of %d)" % [level, towns])
+	check(full >= towns - 1, "four houses or nearly to a quadrant (%d of %d towns with 12 to 16)" % [full, towns])
 	var inside := 0
 	for a in game.actors:
 		if lv.in_house(a.x, a.y, 0.0):

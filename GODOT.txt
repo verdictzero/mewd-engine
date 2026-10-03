@@ -1266,6 +1266,36 @@ THE GINGERBREAD HOUSES
   that light is taken at 60% (light_mix), and the island's distance
   haze is laid over it.
 
+THE TOWNS ARE SQUARES
+
+  At the user's request ("make sure town areas are flat squares, a road
+  intersection, no hills, cut out of the surrounding terrain using
+  cliffs, divided into quadrants, 4 houses per quadrant"). CANDY LAND's
+  field turns on IslandField.square_pads, and every build pad is then a
+  town:
+    - A DEAD-LEVEL SQUARE, 60 to 72 m across (build_pad_radius 30 to 36
+      m, its half-side). Zone.axis_distance measures it square: the
+      larger of the two distances along its sides.
+    - ITS SIDES run along the line to its nearest neighbour, so the first
+      road out of it runs straight down one of its streets.
+    - CUT OUT WITH CLIFFS. Its bank is only square_apron (1.5 m) wide, so
+      where the ground round it is higher its edge is a cliff, rock by
+      the slope rule. The island's hills only ever rise above its base,
+      so a town is always cut down into them, never raised over them.
+    - A CROSS OF STREETS, path_width either side of its two middle
+      lines. zone_at paves them as roads (ZONE_PATH) and Game._roads_of
+      hands them to the game as roads. Lamps line them and no house
+      stands on them.
+    - A ROAD INTERSECTION. Every road leaves a town from the end of one
+      of its streets (_zone_port), the middle of a side, so the roads
+      meet at the crossroads. You start there.
+    - FOUR HOUSES A QUADRANT (IslandLevel._town_houses), a block of two
+      by two in each quarter. Each faces the nearer of the two streets
+      that bound its quarter, so every street is lined on both sides.
+      They are held small enough that four always fit.
+  Both Candy Land islands are built this way. Every other island's pads
+  stay round.
+
 CANDY LAND XS
 
   At the user's request, CANDY LAND at 25% of its size: hub_radius

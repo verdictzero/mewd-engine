@@ -10,6 +10,8 @@
 ## --fire: a rocket goes off in the nearest wood, 15 to 40 m ahead of you,
 ## and the picture is taken while the plants round it burn.
 ## --wound: a candy girl 4 m ahead takes five rounds (not enough to finish her).
+## --above: the eye 40 m over the start, a town's crossroads, back from it
+## 30 m, to see the square, its quadrants and its cliffs.
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 \
 ##   --script res://godot/tests/candy_shot.gd -- --map=candyland out.png [pitch] [tics] [turn] [--scare] [--road]
@@ -155,6 +157,15 @@ func _frame() -> void:
 		_scared = true
 		game.scare(p.x + cos(p.angle) * 60.0, p.y + sin(p.angle) * 60.0, 900.0)
 		p.angle += PI
+	if "--above" in args and game.tics - _start >= wait - 1:
+		# (every tic up to the picture, so it does not fall)
+		if not has_meta("above"):
+			set_meta("above", Vector2(p.x, p.y) - Vector2(cos(p.angle), sin(p.angle)) * 30.0 * 32.0)
+		var at: Vector2 = get_meta("above")
+		p.x = at.x
+		p.y = at.y
+		p.z = game.level.floor_at(p.x, p.y) + 40.0 * 32.0
+		p.momz = 0.0
 	if game.tics - _start >= wait:
 		p.pitch = look
 		if turn != null:

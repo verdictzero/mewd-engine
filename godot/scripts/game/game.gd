@@ -722,7 +722,17 @@ func _roads_of(field: Resource) -> Dictionary:
 		if z.kind == f.ZONE_PATH:
 			out.paths.append([a, b, float(z.width) * k])
 		elif z.kind == f.ZONE_BUILD:
-			out.squares.append([a, float(z.width) * k])
+			# [centre, half-side or radius, the way its sides run (the game's
+			# angle), its streets' half-width (0: a round pad, no streets)]
+			var rot := -float(z.get("rot")) if bool(z.get("square")) else 0.0
+			var street := float(z.get("street")) * k if bool(z.get("square")) else 0.0
+			out.squares.append([a, float(z.width) * k, rot, street])
+			# A SQUARE TOWN's cross of streets, side to side through its middle:
+			# roads like any other (lamps along them, no house on them)
+			if street > 0.0:
+				var half := float(z.width) * k
+				for d in [Vector2.RIGHT.rotated(rot), Vector2.UP.rotated(rot)]:
+					out.paths.append([a - d * half, a + d * half, street])
 	return out
 
 ## WHERE A HERD MAY GRAZE (CANDY LAND's unicorns): open grass — no

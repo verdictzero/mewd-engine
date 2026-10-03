@@ -68,8 +68,13 @@ func save_to(path: String) -> bool:
 	f.close()
 	return true
 
-## SAMPLE THE FIELD, on every core: a row a task. `field` must be
-## prepared (IslandField.prepare) — its sample is thread-safe after.
+## SAMPLE THE FIELD, on every core: a row a task, EACH WORKER ON A FIELD
+## OF ITS OWN. A field fills caches as it is asked (the islands of each
+## lattice cell, their zones), and two threads filling one Dictionary at
+## once is a crash — which the Linux build met three times running in
+## _cell_island. So the field is cloned once a core before the workers
+## start (IslandField.clone, as SCRIPT_veg_scatter.gd's workers have
+## theirs), and each row takes a clone from the pool and gives it back.
 static func build(field: Resource) -> IslandGround:
 	if not bool(field.get("_ready")):
 		field.prepare()
@@ -84,14 +89,23 @@ static func build(field: Resource) -> IslandGround:
 	var lock := Mutex.new()
 	var nn := g.n
 	var hh := g.half
+	# (cloned here, before the workers start, so nothing reads the shared
+	# field while another thread is in it: one a core)
+	var pool := []
+	for k in maxi(1, OS.get_processor_count()):
+		pool.append(field.clone())
 	var task := WorkerThreadPool.add_group_task(func(row: int) -> void:
+		lock.lock()
+		var f: Resource = pool.pop_back()
+		lock.unlock()
 		var z := -hh + row * CELL
 		var out := PackedFloat32Array()
 		out.resize(nn)
 		for i in nn:
-			out[i] = field.height_at(-hh + i * CELL, z, VOID)
+			out[i] = f.height_at(-hh + i * CELL, z, VOID)
 		lock.lock()
 		rows[row] = out
+		pool.append(f)
 		lock.unlock(), g.n, -1, true, "island ground")
 	WorkerThreadPool.wait_for_group_task_completion(task)
 	for row_h in rows:

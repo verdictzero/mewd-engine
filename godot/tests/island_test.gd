@@ -51,7 +51,13 @@ func _init() -> void:
 	# within the 0.75 m and a crease within 2.5 m)
 	var roads := bool(field.get("path_enabled"))
 	var p99: float = errs[int(errs.size() * 0.99)] if not errs.is_empty() else 0.0
-	if roads:
+	# (and an island whose towns are cut out with CLIFFS — CANDY LAND's square
+	# towns, IslandField.square_pads — has a sheer step a grid cannot follow:
+	# a point on one can be a cliff's height out, so there it is the 99%
+	# that is held to the grid)
+	if bool(field.get("square_pads")):
+		check(on > 100 and p99 < 0.75 and worst < 12.0, "the grid is the field's ground between its samples (%d points, 99%% within %.2f m, worst %.2f m on a town's cliff)" % [on, p99, worst])
+	elif roads:
 		check(on > 100 and p99 < 0.75 and worst < 2.5, "the grid is the field's ground between its samples (%d points, 99%% within %.2f m, worst %.2f m at a road's bank)" % [on, p99, worst])
 	else:
 		check(on > 100 and worst < 0.75, "the grid is the field's ground between its samples (%d points, worst %.2f m)" % [on, worst])
