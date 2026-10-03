@@ -4,8 +4,9 @@
 ## one draw per surface for the lot. It hangs under the island, so it is in
 ## the island's metres and axes: the game's (x, y, z) is the island's
 ## (x, z, -y) over 32, and the model's door is on its +Z. Its materials are
-## the model's own, redrawn by SHADER_house so the thermal sight sees a
-## house as cold (only people are hot).
+## the model's own, redrawn by SHADER_house: lit by the island's own
+## lighting model as the ground and the cliffs are, and cold to the thermal
+## sight (only people are hot).
 class_name HouseView
 extends MultiMeshInstance3D
 
@@ -31,6 +32,8 @@ func _init(level: IslandLevel, model: String) -> void:
 	scene.free()
 
 const SHADER := preload("res://godot/island/shaders/SHADER_house.gdshader")
+const ENV_BALL := preload("res://godot/island/textures/TEX_env_ball_w2.png")
+const ENV_BALL_NIGHT := preload("res://godot/island/textures/TEX_env_ball_w2_night.png")
 
 ## The model's mesh with each of its materials as SHADER_house: the same
 ## sheet or colour, cold in the thermal sight.
@@ -45,5 +48,9 @@ static func _cold_mesh(src: Mesh) -> Mesh:
 			if std.albedo_texture != null:
 				sm.set_shader_parameter("tex", std.albedo_texture)
 				sm.set_shader_parameter("textured", true)
+		# the island's environment ball, as the cliff's (MAT_candy_cliff)
+		sm.set_shader_parameter("env_ball_enabled", true)
+		sm.set_shader_parameter("env_ball", ENV_BALL)
+		sm.set_shader_parameter("env_ball_night", ENV_BALL_NIGHT)
 		m.surface_set_material(i, sm)
 	return m

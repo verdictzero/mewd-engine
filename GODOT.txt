@@ -1256,7 +1256,15 @@ THE GINGERBREAD HOUSES
   THEY ARE DRAWN (render/house_view.gd) as one MultiMesh under the
   island: one draw per surface for all of them. Their materials are
   the model's own, redrawn by SHADER_house so the thermal sight sees
-  them cold.
+  them cold. AND LIT AS THE ISLAND IS (at the user's request: "houses
+  are kind of dark"). They were lit by the engine's own light, the
+  candy sun's DirectionalLight, which is turned well down, while the
+  ground, the cliffs and the plants are unshaded and take their light
+  from the island's one lighting model (SHADERINC_island_light). Now
+  the houses do too, at the cliff's numbers: the environment ball, the
+  banded sun and the rim. Because the sheet is painted already lit,
+  that light is taken at 60% (light_mix), and the island's distance
+  haze is laid over it.
 
 CANDY LAND XS
 
