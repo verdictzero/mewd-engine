@@ -74,8 +74,6 @@ var arc: ArcSystem
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
-## Godot's own decals, under Mobile (render/real_decals.gd); null on the web
-var real_decals: RealDecals
 var fx: Effects
 var giblets: Giblets
 var trophies: Trophies
@@ -609,9 +607,6 @@ func tic() -> void:
 		decals.tic()
 	_prof_add("tic.decals", t0)
 	t0 = Time.get_ticks_usec()
-	if real_decals != null:
-		real_decals.tic()
-	_prof_add("tic.real_decals", t0)
 	t0 = Time.get_ticks_usec()
 	forest.wind = weather.wind()
 	rain.tic()

@@ -10,9 +10,11 @@
 ## single-spatter kind), so nothing of decals.gd had to change: one
 ## MultiMesh, 480 slots, the oldest overwritten when it is full.
 ##
-## Each decal is a quad laid on its surface, lifted a hair off it along
-## the normal, and TURNED so that its +x is the way the blood was going
-## (Decals.throwAngle) — a spatter is a direction, not a blot.
+## Each decal is a PROJECTED one (godot/shaders/decal_project.gdshaderinc):
+## a box standing on its surface, painting the surface inside it, TURNED
+## so that its +x is the way the blood was going (Decals.throwAngle) — a
+## spatter is a direction, not a blot. On the ground it stands square to
+## the ground's own slope.
 ## Positions are map space (x, y, z up), through U.v3().
 class_name GoreDecals
 extends Node3D
@@ -36,8 +38,6 @@ const LIFT := 0.6
 const UP := Vector3(0, 0, 1)
 
 var game
-## REAL DECALS (RealDecals, under Mobile): the blood goes to them
-var real: RealDecals = null
 var mm: MultiMesh
 var mat: ShaderMaterial
 var next := 0
@@ -51,8 +51,10 @@ func _init(g) -> void:
 	game = g
 	mat = ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/gore_decal.gdshader")
-	var quad := QuadMesh.new()
-	quad.size = Vector2(1, 1)
+	mat.set_shader_parameter("thick", U.col(0.6))
+	mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
+	var quad := BoxMesh.new()
+	quad.size = Vector3(1, 1, 1)
 	quad.material = mat
 	mm = MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -99,11 +101,12 @@ func _light_at(x: float, y: float, z := 0.0) -> float:
 
 func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> int:
 	var b := surface_basis(n)
-	if real != null:
-		var along: Vector3 = b[0] * cos(rot) + b[1] * sin(rot)
-		if real.add(RealDecals.K.POOL if kind == KIND_POOL else RealDecals.K.SPATTER, at, n, size, along, _light_at(at.x, at.y, at.z)) != null:
-			bloods += 1
-			return -1
+	# on the ground: square to the ground's slope, the turn kept
+	var lv = game.level
+	if n.z > 0.99 and lv != null and lv.has_method("normal_at"):
+		var gn: Vector3 = lv.normal_at(at.x, at.y)
+		b = [(b[0] - gn * b[0].dot(gn)).normalized(), (b[1] - gn * b[1].dot(gn)).normalized()]
+		n = gn
 	var c := cos(rot)
 	var s := sin(rot)
 	var ax: Vector3 = b[0] * c + b[1] * s
@@ -111,9 +114,7 @@ func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> in
 	var bx := U.v3(ax.x, ax.y, ax.z) * size
 	var by := U.v3(ay.x, ay.y, ay.z) * size
 	var bz := U.v3(n.x, n.y, n.z)
-	# a small lift per slot too, so two spatters laid on each other do
-	# not fight for the pixel
-	var pos := U.v3(at.x, at.y, at.z) + bz * (LIFT + (next % 8) * 0.04)
+	var pos := U.v3(at.x, at.y, at.z)
 	var i := next
 	mm.set_instance_transform(i, Transform3D(Basis(bx, by, bz), pos))
 	mm.set_instance_custom_data(i, Color(kind, cosmetic(), _now(), _light_at(at.x, at.y, at.z)))
@@ -208,3 +209,24 @@ func spray_walls(h: Vector3, u: Vector3, rays: int, reach: float, cone: float, s
 		blood(Vector3(wall.x, wall.y, wz), Decals.wall_normal(wall.line, h.x, h.y), Vector3(c, s, rise - 0.35), size)
 		n += 1
 	return n
+
+## THE WARM-UP (Main): a spatter and a pool at `at` for a few frames, so
+## the shader compiles under the loading screen; then gone again.
+var _warm := []
+func warm_begin(at: Vector3) -> void:
+	_warm = [next, _count]
+	blood(at, UP, Vector3(1, 0, 0), 30.0)
+	pool(at.x, at.y, at.z, 40.0)
+
+func warm_end() -> void:
+	if _warm.is_empty():
+		return
+	var i: int = _warm[0]
+	while i != next:
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+		i = (i + 1) % CAP
+	next = _warm[0]
+	_count = _warm[1]
+	mm.visible_instance_count = _count
+	bloods = maxi(0, bloods - 2)
+	_warm = []

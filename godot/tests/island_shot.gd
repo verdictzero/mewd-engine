@@ -4,7 +4,7 @@
 ## ground and the gore on it, on a hillside.
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy \
-##   --resolution 1280x720 --script res://godot/tests/island_shot.gd -- out.png [GUN] [tics held] [tics after] [pitch after]
+##   --resolution 1280x720 --script res://godot/tests/island_shot.gd -- out.png [GUN] [tics held] [tics after] [pitch after] [pitch held]
 extends SceneTree
 
 var lofi: Lofi
@@ -17,6 +17,8 @@ var _start := -1
 var wait := 20
 ## where the eye is turned when the picture is taken (pitch, radians)
 var look := -0.08
+## where the gun is held while it fires (pitch, radians)
+var aim := -0.08
 
 func _init() -> void:
 	var pos := []
@@ -33,6 +35,8 @@ func _init() -> void:
 		wait = int(pos[3])
 	if pos.size() > 4:
 		look = float(pos[4])
+	if pos.size() > 5:
+		aim = float(pos[5])
 	lofi = Lofi.new()
 	root.add_child(lofi)
 	var w3d := Weapon3D.new()
@@ -63,7 +67,7 @@ func _frame() -> void:
 			var x: float = p.x + cos(run.x) * d - sin(run.x) * side
 			var y: float = p.y + sin(run.x) * d + cos(run.x) * side
 			game.spawn("SHOPPER" if k % 2 else "TOWNIE", x, y, run.x + PI)
-		p.pitch = -0.08
+		p.pitch = aim
 	game._autofire = game.tics - _start < hold
 	if game.tics - _start >= hold:
 		p.pitch = look

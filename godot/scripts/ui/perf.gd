@@ -105,9 +105,6 @@ func _process(dt: float) -> void:
 		var t: String = game.prof_text()
 		if t != "":
 			lines.append(t)
-		var rd = game.get("real_decals")
-		if rd != null:
-			lines.append("real decals %d (%d as quads)" % [rd.live, rd.overflow])
 	var win := DisplayServer.window_get_size()
 	var grid := ""
 	if lofi != null and lofi.world != null:

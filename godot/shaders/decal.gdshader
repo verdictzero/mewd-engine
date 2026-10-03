@@ -1,5 +1,6 @@
 // MEWD — what lies on the world (js/decals.js): holes, heat, blood.
-// Each decal is a quad laid on a surface; INSTANCE_CUSTOM carries
+// Each decal is a box projected onto the surface it stands on
+// (decal_project.gdshaderinc); INSTANCE_CUSTOM carries
 //   x  the kind: 0 a bullet hole, 1 a HOT one (the minigun's), 2 blood,
 //      3 a SCORCH (what a hot spot leaves), 4 HEAT (a spot the flame is
 //      on: the surface itself glowing)
@@ -8,7 +9,7 @@
 //   w  the light of the surface under it
 // Drawn procedurally, then snapped with everything else by the post pass.
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
+render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_mix, fog_disabled, shadows_disabled, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
@@ -27,12 +28,12 @@ vec3 bake_out(vec3 c, float a) {
 	c = clamp(c, 0.0, 1.0);
 	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
 }
+#include "res://godot/shaders/decal_project.gdshaderinc"
 varying vec4 cd;
-varying float depth;
 
 void vertex() {
 	cd = INSTANCE_CUSTOM;
-	depth = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;
+	DECAL_VERTEX
 }
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -55,7 +56,8 @@ vec3 hot_ramp(float h) {
 }
 
 void fragment() {
-	vec2 p = UV * 2.0 - 1.0;
+	DECAL_FRAGMENT
+	vec2 p = duv * 2.0 - 1.0;
 	float r = length(p);
 	float kind = cd.x;
 	float seed = cd.y;
@@ -119,10 +121,10 @@ void fragment() {
 	} else {
 		if (a < 0.5) discard;
 		// (a scorch is soft; a hot spot is its own light and takes no air)
-		if (kind > 2.5 && kind < 3.5) ALPHA = a;
+		ALPHA = ((kind > 2.5 && kind < 3.5) ? a : 1.0) * dfade;
 		ALBEDO = glow > 0.0 ? col : world_air(col, depth);
 		// the thermal sight's feed: how warm the mark is (a hot rim is, a hot spot more)
 		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = glow > 0.0 ? thermal_out(clamp(0.6 + 0.4 * glow, 0.0, 1.0))
-			: thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+			: thermal_out(thermal_of(col, lit, depth, wp, 0.0));
 	}
 }

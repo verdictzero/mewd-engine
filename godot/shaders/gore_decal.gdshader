@@ -1,5 +1,6 @@
 // MEWD — blood on the world (js/decals.js, kinds SPATTER and POOL).
-// A quad laid on a surface, turned about its normal so that +x is the
+// A box projected onto the surface it stands on (decal_project.
+// gdshaderinc), turned about its normal so that +x is the
 // way the blood was thrown. INSTANCE_CUSTOM carries
 //   x  the kind: 5 a spatter, 6 a pool (the JS's KIND numbers)
 //   y  a seed, for the shape
@@ -7,7 +8,7 @@
 //   w  the light of the surface under it
 // Drawn procedurally, then snapped with everything else by the post pass.
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
+render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_mix, fog_disabled, shadows_disabled, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
@@ -26,12 +27,12 @@ vec3 bake_out(vec3 c, float a) {
 	c = clamp(c, 0.0, 1.0);
 	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
 }
+#include "res://godot/shaders/decal_project.gdshaderinc"
 varying vec4 cd;
-varying float depth;
 
 void vertex() {
 	cd = INSTANCE_CUSTOM;
-	depth = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;
+	DECAL_VERTEX
 }
 
 float dh1(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -53,7 +54,8 @@ float rag(float ang, float seed, float amt) {
 }
 
 void fragment() {
-	vec2 p = UV * 2.0 - 1.0;
+	DECAL_FRAGMENT
+	vec2 p = duv * 2.0 - 1.0;
 	p.y = -p.y;
 	float r = length(p);
 	float ang = atan(p.y, p.x);
@@ -117,8 +119,9 @@ void fragment() {
 		ALPHA = 1.0;
 	} else {
 		if (a < 0.5) discard;
+		ALPHA = dfade;
 		ALBEDO = world_air(col, depth);
 		// the thermal sight's feed (thermal.gdshaderinc)
-		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0));
+		if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, wp, 0.0));
 	}
 }

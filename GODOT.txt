@@ -922,8 +922,7 @@ godot/tests/perf_bench.gd:
 THE PERFORMANCE OVERLAY (ui/perf.gd): FRAME RATE on the pause menu's
 DEBUG page, on by default. Frames a second, the frame's time and the
 last second's best and worst; draw calls, objects, primitives and video
-memory; where the game's time goes (Game.prof_text); real decals and
-how many were laid as quads; the window, the grid the world is drawn at
+memory; where the game's time goes (Game.prof_text); the window, the grid the world is drawn at
 and the refresh rate; and what it is running on — the renderer and its
 API, the GPU, the CPU and its cores, the OS and the device.
 
@@ -969,6 +968,67 @@ ANDROID AND LINUX ONLY (there was a web build)
   is deleted, at the user's request; the git history has it. The Pages
   site already up is whatever the last publish left there,
   until Pages is switched off in the repository's settings.
+
+MARKS THAT LIE ON THE GROUND: PROJECTED DECALS
+
+  At the user's request ("true decals, so that impact effects look good
+  and consistent"), every mark the game lays is now a projected decal,
+  one way for all of them. That covers a hole, a hot hole, blood and a
+  pool, gore's spatters, the flamer's hot spot and the scorch it leaves,
+  the lance's sear and slag, a rocket's crater, the potato's glass and
+  the arc gun's burn.
+
+  WHAT THEY WERE. Two kinds. Quads were flat squares laid on the
+  surface's normal and lifted a little off it. On the island's uneven
+  ground a quad hung in the air over a dip, was cut by a hummock, and
+  on a hillside laid flat at the hill's average slope. Real decals were
+  Godot's Decal nodes, one per mark. The Mobile renderer draws at most
+  eight decals on one mesh, and an island chunk is 128 m of hillside, so
+  they were switched off when the islands came in (see THE ISLAND).
+
+  WHAT THEY ARE (shaders/decal_project.gdshaderinc). Each mark is a box
+  standing on the point it landed on. Its x and y are the mark's picture
+  and its size; its z is the surface's normal. The box is drawn with
+  its own shader, which reads the depth already drawn under each of its
+  pixels and turns that depth back into a point in the world. It then
+  takes that point into the box's own space and paints the mark there,
+  or draws nothing if the point is outside the box. So the mark is
+  painted on whatever surface is inside the box, as that surface lies.
+  It follows a slope, wraps a hummock and stops where the ground drops
+  away, and nothing hangs in the air.
+
+  Some details:
+  - The box is half above the surface and half under it. Its depth is a
+    share of its width (THICK in render/decals.gd: a hole 1.0, blood and
+    heat 0.6, a sear 0.5, a crater 0.45).
+  - The last 40% of that depth either way fades out.
+  - Paint also fades out where the surface turns away from the mark's
+    normal, worked out from the depth per pixel. So a crater on the
+    ground does not smear up a cliff, or up anyone standing in it.
+  - The box is drawn from inside, with no depth test. Its back faces
+    cover every pixel of it whether the eye is outside the box or
+    standing in a crater. The depth read back decides what shows, so
+    something in front of a mark still hides it.
+  - A mark laid on the ground takes the terrain's own normal there
+    (Level.normal_at), not straight up. Gore's surface basis is turned
+    onto it the same way. The lifts off the surface are gone.
+
+  WHAT IT COSTS. Nothing new to draw: every pool was one MultiMesh of
+  quads and is now one MultiMesh of boxes (12 triangles a mark instead
+  of 2). There is no limit per mesh, nor tiles, nor an atlas. The
+  shaders are the same ones with a projection put in front; what each
+  mark looks like and how it cools is unchanged.
+
+  WHAT WENT. RealDecals (render/real_decals.gd), its count on the
+  performance overlay, and its warm-up. In its place, Decals.warm_begin
+  and GoreDecals.warm_begin lay one mark of every kind on the ground
+  ahead during WARMING UP THE SHADERS, so every decal shader is compiled
+  there and not at the first shot. warm_end takes them back.
+
+  A PICTURE: godot/tests/mark_shot.gd lays one of everything on the
+  ground ahead of you and looks at it (--nograss hides the plants,
+  --under puts a crater at your feet). godot/tests/island_shot.gd takes
+  a sixth argument, the pitch the gun is held at.
 
 TESTS
 

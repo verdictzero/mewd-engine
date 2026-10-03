@@ -21,23 +21,20 @@
 //   w  the light of the surface, plus two under the sky
 // Premultiplied: the paint at its alpha, the glow added on top.
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, blend_premul_alpha, fog_disabled, shadows_disabled, skip_vertex_transform;
+render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_premul_alpha, fog_disabled, shadows_disabled, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
-uniform bool gl_depth = false;
-uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+// (no bake for these: always projected)
+const float bake_part = -1.0;
+#include "res://godot/shaders/decal_project.gdshaderinc"
 varying vec4 cd;
-varying float depth;
 
 void vertex() {
 	cd = INSTANCE_CUSTOM;
-	vec4 mv = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-	depth = -mv.z;
-	VERTEX = mv.xyz * 0.995;
-	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	DECAL_VERTEX
 }
 
 // THE HASHES HAVE NO SINE IN THEM, which the web build's do: the
@@ -124,14 +121,9 @@ float branches(vec2 p, float n, float r0, float len, float w, float seed) {
 }
 
 void fragment() {
-	// on the surface under it, or nothing (see sear_decal.gdshader)
-	float dz = texture(depth_tex, SCREEN_UV).r;
-	vec3 ndc = gl_depth ? vec3(SCREEN_UV, dz) * 2.0 - 1.0 : vec3(SCREEN_UV * 2.0 - 1.0, dz);
-	vec4 vp = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-	float scene = -vp.z / vp.w;
-	if (abs(scene - depth) > 3.0 * game_unit + depth * 0.02) discard;
-
-	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	// on the surface inside its box, or nothing (decal_project.gdshaderinc)
+	DECAL_FRAGMENT
+	vec2 p = vec2(duv.x * 2.0 - 1.0, 1.0 - duv.y * 2.0);
 	float r = length(p);
 	float ang = atan(p.y, p.x);
 	float kind = cd.x;
@@ -297,7 +289,7 @@ void fragment() {
 	a *= edge;
 	glow *= edge;
 	if (a < 0.004 && dot(glow, vec3(1.0)) < 0.004) discard;
-	ALBEDO = col * a + glow;
-	ALPHA = a;
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0)) * a + thermal_out(thermal_glow(glow));
+	ALBEDO = (col * a + glow) * dfade;
+	ALPHA = a * dfade;
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, wp, 0.0)) * a + thermal_out(thermal_glow(glow));
 }

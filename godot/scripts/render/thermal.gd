@@ -88,8 +88,7 @@ func _init(g = null, is_green := false) -> void:
 	game = g
 	feed.name = "ThermalFeed"
 	# the brackets the world draws over the locks are not seen by the sensor
-	# (and no real decals: the heat picture is of surfaces, not their paint)
-	camera.cull_mask = camera.cull_mask & ~MissileSystem.RETICLE_LAYER & ~RealDecals.DECAL_LAYER
+	camera.cull_mask = camera.cull_mask & ~MissileSystem.RETICLE_LAYER
 	# and the sky is cold: this camera's own background, nothing else's
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR

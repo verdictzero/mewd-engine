@@ -241,23 +241,20 @@ func start_game() -> void:
 		# and everything the level has built but not shown yet (every gun,
 		# the rockets, the sparks, the scopes) drawn too (Warmup)
 		var warm := Warmup.begin([game, lofi.gun])
-		# and a real mark of every kind on the floor ahead, in view
-		var rd = game.get("real_decals")
-		var wait := 0
-		while rd != null and not rd.baked and wait < 12:
-			wait += 1
-			await RenderingServer.frame_post_draw
-		if rd != null and game.player != null:
-			var p = game.player
-			var ax: float = p.x + cos(p.angle) * 120.0
-			var ay: float = p.y + sin(p.angle) * 120.0
-			var s: Level.Sector = game.level.span_at(ax, ay, p.z + 1.0)
-			rd.warm_begin(Vector3(ax, ay, s.floor if s else p.z))
+		# and a mark of every kind on the ground ahead, in view, so every
+		# decal shader is compiled here and not at the first shot
+		var p = game.player
+		var ax: float = p.x + cos(p.angle) * 120.0
+		var ay: float = p.y + sin(p.angle) * 120.0
+		var s: Level.Sector = game.level.span_at(ax, ay, p.z + 1.0)
+		var wat := Vector3(ax, ay, s.floor if s else p.z)
+		game.decals.warm_begin(wat)
+		game.gore_decals.warm_begin(wat)
 		for i in 4:
 			loading.at("WARMING UP THE SHADERS", 0.6 + 0.1 * i)
 			await RenderingServer.frame_post_draw
-		if rd != null:
-			rd.warm_end()
+		game.decals.warm_end()
+		game.gore_decals.warm_end()
 		Warmup.end(warm)
 		loading.finish()
 

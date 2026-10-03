@@ -9,6 +9,12 @@
 ## for good. Pools, not a list: the hole pool is 400 at
 ## the user's request (a hundred, four times over) and blood 480; when a
 ## pool is full the oldest goes. One MultiMesh a pool.
+##
+## EVERY MARK IS A PROJECTED DECAL (godot/shaders/decal_project.
+## gdshaderinc, at the user's request): a box standing on the surface,
+## painting whatever surface is inside it, so a hole, a scorch or a
+## crater lies on a hillside as the hillside lies. How deep each pool's
+## box is along the surface's normal, as a share of its width, is THICK.
 class_name Decals
 extends Node3D
 
@@ -46,6 +52,8 @@ const BLAST_SIZE := 230.0
 const NUKE_SIZE := 300.0
 const STREAK_REACH := 260.0
 
+const THICK := {"hole": 1.0, "blood": 0.6, "heat": 0.6, "sear": 0.5, "blast": 0.45}
+
 class Pool:
 	var mm: MultiMesh
 	var next := 0
@@ -53,6 +61,9 @@ class Pool:
 
 var pools := {}
 var mat: ShaderMaterial
+## every pool's material (the holes', the blood's and the heat's are each
+## their own, for their depth): each told the time
+var _mats: Array = []
 var sear_mat: ShaderMaterial
 var blast_mat: ShaderMaterial
 var blasts := 0
@@ -73,19 +84,20 @@ var _hpeak := PackedFloat32Array()
 var _hseed := PackedFloat32Array()
 var _hlight := PackedFloat32Array()
 var _hlive := 0
-## REAL DECALS (RealDecals, under Mobile): blood, scorches, the hot spots
-## and the sears go to them; the holes stay here
-var real: RealDecals = null
-var _hmark: Array = []
 var _t0 := Time.get_ticks_msec()
 
 func _ready() -> void:
 	mat = ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/decal.gdshader")
-	var quad := QuadMesh.new()
-	quad.size = Vector2(1, 1)
-	quad.material = mat
+	mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
 	for k in POOLS:
+		# (a material a pool, for the pool's own depth)
+		var pm: ShaderMaterial = mat if k == "hole" else mat.duplicate()
+		pm.set_shader_parameter("thick", U.col(THICK[k]))
+		_mats.append(pm)
+		var quad := BoxMesh.new()
+		quad.size = Vector3(1, 1, 1)
+		quad.material = pm
 		var p := Pool.new()
 		p.cap = POOLS[k]
 		p.mm = MultiMesh.new()
@@ -106,14 +118,13 @@ func _ready() -> void:
 		arr.fill(0.0)
 	_hn.resize(hn)
 	_hn.fill(Vector3.ZERO)
-	_hmark.resize(hn)
-	_hmark.fill(null)
 	# the sears, on their own material
 	sear_mat = ShaderMaterial.new()
 	sear_mat.shader = preload("res://godot/shaders/sear_decal.gdshader")
 	sear_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
-	var squad := QuadMesh.new()
-	squad.size = Vector2(1, 1)
+	sear_mat.set_shader_parameter("thick", U.col(THICK.sear))
+	var squad := BoxMesh.new()
+	squad.size = Vector3(1, 1, 1)
 	squad.material = sear_mat
 	var sp := Pool.new()
 	sp.cap = SEAR_POOL
@@ -135,8 +146,9 @@ func _ready() -> void:
 	blast_mat = ShaderMaterial.new()
 	blast_mat.shader = preload("res://godot/shaders/blast_decal.gdshader")
 	blast_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
-	var bquad := QuadMesh.new()
-	bquad.size = Vector2(1, 1)
+	blast_mat.set_shader_parameter("thick", U.col(THICK.blast))
+	var bquad := BoxMesh.new()
+	bquad.size = Vector3(1, 1, 1)
 	bquad.material = blast_mat
 	var bp := Pool.new()
 	bp.cap = BLAST_POOL
@@ -155,7 +167,8 @@ func _ready() -> void:
 	pools["blast"] = bp
 
 func _process(_dt: float) -> void:
-	mat.set_shader_parameter("now", U.col(_now()))
+	for m in _mats:
+		m.set_shader_parameter("now", U.col(_now()))
 	if sear_mat != null:
 		sear_mat.set_shader_parameter("now", U.col(_now()))
 	if blast_mat != null:
@@ -191,19 +204,15 @@ func heat(at: Vector3, normal: Vector3) -> void:
 		_hseed[best] = U.p_random() / 255.0
 		_hlight[best] = _light_at(at)
 		_hlive += 1
-		_hmark[best] = real.add(RealDecals.K.HEAT, at, normal, HEAT.size, Vector3.ZERO, _hlight[best]) if real != null else null
-		if _hmark[best] == null:
-			var pos := U.v3(at.x, at.y, at.z) + n * 0.7
-			var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
-			var basis := Basis.looking_at(-n, up).rotated(n, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
-			p.mm.set_instance_transform(best, Transform3D(basis, pos))
-			p.mm.visible_instance_count = p.cap
+		var gn := U.v3(_ground(at, normal).x, _ground(at, normal).y, _ground(at, normal).z).normalized()
+		var pos := U.v3(at.x, at.y, at.z)
+		var up := Vector3.UP if absf(gn.y) < 0.95 else Vector3.FORWARD
+		var basis := Basis.looking_at(-gn, up).rotated(gn, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
+		p.mm.set_instance_transform(best, Transform3D(basis, pos))
+		p.mm.visible_instance_count = p.cap
 	_hs[best] = minf(1.0, _hs[best] + HEAT.per)
 	_hpeak[best] = maxf(_hpeak[best], _hs[best])
-	if _hmark[best] != null:
-		real.set_strength(_hmark[best], _hs[best])
-	else:
-		p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
+	p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
 
 ## Once a tic: every spot cools, and one gone cold leaves its scorch.
 func tic() -> void:
@@ -216,8 +225,6 @@ func tic() -> void:
 		_hs[i] -= HEAT.cool
 		if _hs[i] <= 0.0:
 			_expire(i)
-		elif _hmark[i] != null:
-			real.set_strength(_hmark[i], _hs[i])
 		else:
 			p.mm.set_instance_custom_data(i, Color(KIND_HEAT, _hseed[i], _hs[i], _hlight[i]))
 
@@ -228,18 +235,13 @@ func _expire(i: int) -> void:
 	var peak := _hpeak[i]
 	_hs[i] = 0.0
 	_hpeak[i] = 0.0
-	if _hmark[i] != null:
-		real.remove(_hmark[i])
-		_hmark[i] = null
-	else:
-		p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+	p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
 	if peak > HEAT.scorch_at:
 		var n := _hn[i]
 		var at := Vector3(_hx[i], _hy[i], _hz[i])
 		var nm := Vector3(n.x, -n.z, n.y)
 		var size := SCORCH_SIZE * (0.7 + 0.5 * peak)
-		if real == null or real.add(RealDecals.K.SCORCH, at, nm, size, Vector3.ZERO, _hlight[i]) == null:
-			_put("hole", at, nm, size, KIND_SCORCH, _hlight[i])
+		_put("hole", at, nm, size, KIND_SCORCH, _hlight[i])
 		scorches += 1
 
 ## Which way a wall faces the side a shot came from, in map space.
@@ -249,10 +251,20 @@ static func wall_normal(l: Level.Line, ox: float, oy: float) -> Vector3:
 		n = -n
 	return n
 
+## A MARK ON THE FLOOR LIES AS THE GROUND DOES: a normal straight up is
+## the ground's own under `at` (IslandLevel.normal_at), so the box stands
+## square to the slope and its picture is not stretched down it.
+func _ground(at: Vector3, normal: Vector3) -> Vector3:
+	var lv = get_parent().level
+	if normal.z > 0.99 and lv != null and lv.has_method("normal_at"):
+		return lv.normal_at(at.x, at.y)
+	return normal
+
 func _put(pool: String, at: Vector3, normal: Vector3, size: float, kind: float, light: float) -> void:
 	var p: Pool = pools[pool]
+	normal = _ground(at, normal)
 	var n := U.v3(normal.x, normal.y, normal.z).normalized()
-	var pos := U.v3(at.x, at.y, at.z) + n * 0.6
+	var pos := U.v3(at.x, at.y, at.z)
 	var up := Vector3.UP if absf(n.y) < 0.95 else Vector3.FORWARD
 	var basis := Basis.looking_at(-n, up)
 	basis = basis.rotated(n, U.p_random() / 255.0 * TAU)
@@ -286,8 +298,7 @@ func bleed(who, at: Vector3, dir: Vector3) -> void:
 		_blood(Vector3(at.x + d.x * 20.0, at.y + d.y * 20.0, who.sector.floor), Vector3(0, 0, 1), 16.0 + U.p_random() / 16.0, _light_at(at))
 
 func _blood(at: Vector3, n: Vector3, size: float, light: float) -> void:
-	if real == null or real.add(RealDecals.K.BLOOD, at, n, size, Vector3.ZERO, light) == null:
-		_put("blood", at, n, size, 2.0, light)
+	_put("blood", at, n, size, 2.0, light)
 
 ## A SEAR: where the positron lance's column landed — the crater,
 ## enormous, turned so its streaks lean the way the beam was going (`d`,
@@ -296,16 +307,14 @@ func _blood(at: Vector3, n: Vector3, size: float, light: float) -> void:
 func sear(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
 	var big := size * (0.9 + 0.2 * randf())
 	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
-	if real == null or real.add_sear(at, normal, big, d, s.light if s else 0.8, 1.0 if s != null and s.sky > 0.5 else 0.0) == null:
-		_put_thrown("sear", at, normal, big, d, KIND_SEAR)
+	_put_thrown("sear", at, normal, big, d, KIND_SEAR)
 	sears += 1
 
 ## And a gob of SLAG thrown out of it, landed at `at` on the same surface,
 ## thrown along `d`.
 func slag(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void:
 	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
-	if real == null or real.add(RealDecals.K.SLAG, at, normal, size, d, s.light if s else 0.8, 1.0 if s != null and s.sky > 0.5 else 0.0) == null:
-		_put_thrown("sear", at, normal, size, d, KIND_SLAG)
+	_put_thrown("sear", at, normal, size, d, KIND_SLAG)
 	slags += 1
 
 ## A ROCKET WENT OFF at `at`, against the surface facing `normal`: the
@@ -354,6 +363,7 @@ func shock(at: Vector3, normal: Vector3, size: float, d := Vector3.ZERO) -> void
 ## throwAngle). A `d` along the normal gets a random turn.
 func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vector3, kind: float) -> void:
 	var p: Pool = pools[pool]
+	normal = _ground(at, normal)
 	var n := U.v3(normal.x, normal.y, normal.z).normalized()
 	var g := U.v3(d.x, d.y, d.z)
 	var x := g - n * g.dot(n)
@@ -363,9 +373,7 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	x = x.normalized()
 	var y := n.cross(x)
 	var basis := Basis(x * size, y * size, n * size)
-	# lifted a little further than a hole: a sear is laid over holes and
-	# blood that are already there
-	var pos := U.v3(at.x, at.y, at.z) + n * (0.9 if kind == KIND_SEAR else (1.1 if kind >= KIND_BLAST else 1.3))
+	var pos := U.v3(at.x, at.y, at.z)
 	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
 	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
 	# w: the surface's light, plus two if it is under the sky
@@ -373,3 +381,31 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	p.mm.set_instance_custom_data(p.next, Color(kind, randf(), _now(), light))
 	p.next = (p.next + 1) % p.cap
 	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
+
+## THE WARM-UP (Main, under the loading screen): one mark of every kind
+## laid on the ground at `at` for a few frames, so each shader is compiled
+## there and not at the first shot; then taken up again as if never laid.
+var _warm := []
+func warm_begin(at: Vector3) -> void:
+	for k in pools:
+		var p: Pool = pools[k]
+		_warm.append([k, p.next, p.mm.visible_instance_count])
+	_put("hole", at, Vector3(0, 0, 1), 12.0, 1.0, 1.0)
+	_put("hole", at, Vector3(0, 0, 1), 40.0, KIND_SCORCH, 1.0)
+	_put("blood", at, Vector3(0, 0, 1), 30.0, 2.0, 1.0)
+	_put("heat", at, Vector3(0, 0, 1), HEAT.size, KIND_HEAT, 1.0)
+	for kind in [KIND_SEAR, KIND_SLAG]:
+		_put_thrown("sear", at, Vector3(0, 0, 1), 60.0, Vector3.ZERO, kind)
+	for kind in [KIND_BLAST, KIND_NUKE, KIND_SHOCK]:
+		_put_thrown("blast", at, Vector3(0, 0, 1), 60.0, Vector3.ZERO, kind)
+
+func warm_end() -> void:
+	for w in _warm:
+		var p: Pool = pools[w[0]]
+		var i: int = w[1]
+		while i != p.next:
+			p.mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+			i = (i + 1) % p.cap
+		p.next = w[1]
+		p.mm.visible_instance_count = w[2]
+	_warm.clear()

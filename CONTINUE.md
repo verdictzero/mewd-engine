@@ -104,7 +104,7 @@ The old sections of GODOT.txt are kept as the record.
 - **Islands so far:** ISLAND 0, ISLAND -1 (half size) and ISLAND -2 (quarter size), the same settings otherwise.
 - **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
 - **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
-- **Real decals are off**, so marks are quads. The island's terrain isn't cut into the tiles RealDecals wants.
+- **Marks are projected decals** (`godot/shaders/decal_project.gdshaderinc`). Each mark is a box that paints whatever surface is inside it, using the depth buffer. RealDecals and the quads are gone. `godot/tests/mark_shot.gd` takes a picture of every kind.
 - **Responders are off** (`world.noSquads`). Vans would need roads, or would need to drive on terrain.
 - `godot/tests/perf_bench.gd`, `decal_shot.gd`, `lance_shot.gd`, `potato_shot.gd` and `projectile_shot.gd` are older picture and benchmark tools. They still name the old maps; `--map` falls back to island0.
 

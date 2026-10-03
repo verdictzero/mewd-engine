@@ -33,9 +33,6 @@ func _init() -> void:
 	await process_frame
 	out["map"] = game.level.name
 	out["load_ms"] = Time.get_ticks_msec() - t0
-	out["sectors"] = game.level.sectors.size()
-	out["lines"] = game.level.lines.size()
-	out["real_decals"] = RealDecals.on()
 	var meshes := 0
 	var tris := 0
 	for c in game.get_children():
@@ -54,22 +51,18 @@ func _init() -> void:
 	# mark of every kind on the floor ahead), so the first explosion is
 	# measured as the game has it
 	if OS.get_cmdline_user_args().has("--warm"):
-		var rd = game.real_decals
-		var wait := 0
-		while rd != null and not rd.baked and wait < 12:
-			wait += 1
-			await process_frame
 		var warm := Warmup.begin([game])
 		var p0 = game.player
-		if rd != null:
-			var ax: float = p0.x + cos(p0.angle) * 120.0
-			var ay: float = p0.y + sin(p0.angle) * 120.0
-			var sc: Level.Sector = game.level.span_at(ax, ay, p0.z + 1.0)
-			rd.warm_begin(Vector3(ax, ay, sc.floor if sc else p0.z))
+		var ax: float = p0.x + cos(p0.angle) * 120.0
+		var ay: float = p0.y + sin(p0.angle) * 120.0
+		var sc: Level.Sector = game.level.span_at(ax, ay, p0.z + 1.0)
+		var wat := Vector3(ax, ay, sc.floor if sc else p0.z)
+		game.decals.warm_begin(wat)
+		game.gore_decals.warm_begin(wat)
 		for k in 4:
 			await process_frame
-		if rd != null:
-			rd.warm_end()
+		game.decals.warm_end()
+		game.gore_decals.warm_end()
 		Warmup.end(warm)
 		out["warmed"] = true
 	for k in 20:
@@ -202,11 +195,5 @@ func _frames(n: int) -> Dictionary:
 		"script_mean_ms": snappedf(script / 1000.0 / n, 0.1), "parts_mean_ms": parts}
 
 func _marks() -> Dictionary:
-	var R = game.real_decals
-	var real := 0
-	if R != null:
-		for c in R.get_children():
-			if c is Decal and c.visible:
-				real += 1
-	return {"real_decals": real, "gore_quads": game.gore_decals.get_child_count(), "giblets_live": game.giblets.live_count(),
+	return {"gore_marks": game.gore_decals.mm.visible_instance_count, "gore_quads": game.gore_decals.get_child_count(), "giblets_live": game.giblets.live_count(),
 		"fx_live": game.fx.live_count() if game.fx.has_method("live_count") else -1}

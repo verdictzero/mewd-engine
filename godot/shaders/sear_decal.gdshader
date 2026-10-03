@@ -16,14 +16,12 @@
 //
 // Premultiplied: the paint at its alpha, and the glow added on top.
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, blend_premul_alpha, fog_disabled, shadows_disabled, skip_vertex_transform;
+render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_premul_alpha, fog_disabled, shadows_disabled, skip_vertex_transform;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
-// set by Decals off the rendering method: see the depth read below
-uniform bool gl_depth = false;
 // THE BAKE (RealDecals): >= 0 draws the mark itself, lit at 1, with no
 // air, no depth test and no discard, for a real decal's texture (the
 // sears: 0 the scar, 1 its heat, 2 its embers) — opaque, its colour
@@ -37,21 +35,12 @@ vec3 bake_out(vec3 c, float a) {
 	c = clamp(c, 0.0, 1.0);
 	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
 }
-uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+#include "res://godot/shaders/decal_project.gdshaderinc"
 varying vec4 cd;
-varying float depth;
 
 void vertex() {
 	cd = INSTANCE_CUSTOM;
-	vec4 mv = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-	depth = -mv.z;
-	// AND PULLED A LITTLE TOWARD THE EYE, along the view ray, so it lands
-	// on the same pixels but half a per cent nearer: a lift of a unit off
-	// the surface is inside the depth buffer's precision a few hundred
-	// units away, and the decal fought the wall in bands. A fraction of
-	// the depth keeps the same margin at any range.
-	VERTEX = mv.xyz * 0.995;
-	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	DECAL_VERTEX
 }
 
 // THE HASHES HAVE NO SINE IN THEM, which the web build's do: the
@@ -107,16 +96,9 @@ vec3 hot_ramp(float h) {
 }
 
 void fragment() {
-	// on the surface under it, or nothing
-	float dz = texture(depth_tex, SCREEN_UV).r;
-	// the Compatibility renderer's depth is 0..1 and GL's clip z is -1..1;
-	// Forward+'s clip z is the depth as it is
-	vec3 ndc = gl_depth ? vec3(SCREEN_UV, dz) * 2.0 - 1.0 : vec3(SCREEN_UV * 2.0 - 1.0, dz);
-	vec4 vp = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-	float scene = -vp.z / vp.w;
-	if (bake_part < 0.0 && abs(scene - depth) > 3.0 * game_unit + depth * 0.02) discard;
-
-	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	// on the surface inside its box, or nothing (decal_project.gdshaderinc)
+	DECAL_FRAGMENT
+	vec2 p = vec2(duv.x * 2.0 - 1.0, 1.0 - duv.y * 2.0);
 	float r = length(p);
 	float ang = atan(p.y, p.x);
 	float kind = cd.x;
@@ -229,9 +211,9 @@ void fragment() {
 		ALPHA = 1.0;
 	} else {
 	if (a < 0.004 && dot(glow, vec3(1.0)) < 0.004) discard;
-	ALBEDO = col * a + glow;
-	ALPHA = a;
+	ALBEDO = (col * a + glow) * dfade;
+	ALPHA = a * dfade;
 	// the thermal sight's feed: the scar as a surface, its glow as heat
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, 0.0)) * a + thermal_out(thermal_glow(glow));
+	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_of(col, lit, depth, wp, 0.0)) * a + thermal_out(thermal_glow(glow));
 	}
 }
