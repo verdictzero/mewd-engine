@@ -927,6 +927,20 @@ how many were laid as quads; the window, the grid the world is drawn at
 and the refresh rate; and what it is running on — the renderer and its
 API, the GPU, the CPU and its cores, the OS and the device.
 
+THE GREY OVER THE HANDHELD'S PICTURE
+
+  The user's first island apk on the RG557 showed a flat, dithered,
+  static grey over the whole view but a sliver at the right, the world
+  plainly drawing behind it. Dithered means it was inside the world's
+  own picture, and the one thing the island put there was golf's
+  cloud-sea VEIL: a full-screen 2D rectangle, the colour of the inside
+  of the cloud deck, meant to come up only when the eye sinks below the
+  sea (45 m under the island). Nobody here can leave the island, so it
+  has nothing to do; it is taken out of all three island scenes and its
+  script deleted, rather than chased into why Android raised it (and
+  the sliver says it was sized to the picture before the handheld's
+  picture settings resized it). No 2D node is left in an island scene.
+
 ISLAND -1 AND ISLAND -2
 
   At the user's request, two more islands, each ISLAND 0 with every

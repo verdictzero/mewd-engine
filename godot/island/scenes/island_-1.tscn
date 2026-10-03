@@ -20,7 +20,6 @@
 
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea.gd" id="15_cloudsea"]
 
-[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea_veil.gd" id="15_seaveil"]
 
 [ext_resource type="Material" path="res://godot/island/materials/MAT_cloud_sea_volumetric.tres" id="16_cloudmat"]
 
@@ -151,8 +150,6 @@ sky_vortex_base = Color(1, 1, 1, 1)
 script = ExtResource("15_cloudsea")
 cloud_material = ExtResource("16_cloudmat")
 
-[node name="CloudSeaVeil" type="CanvasLayer" parent="."]
-script = ExtResource("15_seaveil")
 
 [node name="HorizonClouds" type="Node3D" parent="."]
 script = ExtResource("25_horizonclouds")
