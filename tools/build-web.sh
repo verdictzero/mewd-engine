@@ -5,12 +5,12 @@
 #
 #   tools/build-web.sh [outdir]          (default build/web)
 #
-# Godot 4.3's Web export (export_presets.cfg, "Web"): the Compatibility
+# Godot 4.7's Web export (export_presets.cfg, "Web"): the Compatibility
 # renderer on WebGL 2, and NO THREADS — a page gets threads only when
 # the server sends the cross-origin-isolation headers, and GitHub Pages
 # sends none (the editor compiles in place when there are no threads).
-# Needs Godot 4.3 on the path (or $GODOT) and its web export templates
-# in ~/.local/share/godot/export_templates/4.3.stable/ — the CI
+# Needs Godot 4.7 on the path (or $GODOT) and its web export templates
+# in ~/.local/share/godot/export_templates/4.7.stable/ — the CI
 # (.github/workflows/pages.yml) fetches both.
 #
 # The site (the CI's publish job) is this at the root and the web build

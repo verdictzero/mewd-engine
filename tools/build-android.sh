@@ -8,7 +8,7 @@
 #
 # export_presets.cfg's "Android" preset: the Mobile renderer on Vulkan,
 # landscape either way round, immersive, the network permission for a
-# match. Needs Godot 4.3 on the path (or $GODOT) with its Android export
+# match. Needs Godot 4.7 on the path (or $GODOT) with its Android export
 # templates installed, the Android SDK's build tools (the editor setting
 # export/android/android_sdk_path, or $ANDROID_HOME) and Java for
 # signing. Signed with the keystore in $MEWD_KEYSTORE (alias

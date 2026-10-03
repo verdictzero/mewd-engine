@@ -6,7 +6,7 @@
 #   tools/ci-android.sh [out.apk]
 #
 # What a fresh runner needs before tools/build-android.sh can run: Godot
-# 4.3's Android export templates (fetched once — the archive holds every
+# 4.7's Android export templates (fetched once — the archive holds every
 # platform's, only Android's are kept), the editor's settings pointing at
 # the Android SDK ($ANDROID_HOME, or $ANDROID_SDK_ROOT) and Java
 # ($JAVA_HOME), and a key to sign with: the keystore in $MEWD_KEYSTORE_B64
@@ -22,12 +22,12 @@ SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 JAVA="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/godot"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/godot"
-T="$DATA/export_templates/4.3.stable"
+T="$DATA/export_templates/4.7.stable"
 
 # the templates
 if [ ! -f "$T/android_release.apk" ]; then
   mkdir -p "$T"
-  curl -sSL -o /tmp/tpl.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+  curl -sSL -o /tmp/tpl.tpz https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_export_templates.tpz
   unzip -o -j /tmp/tpl.tpz templates/android_release.apk templates/android_debug.apk templates/version.txt -d "$T"
   rm /tmp/tpl.tpz
 fi
@@ -51,8 +51,8 @@ DKS="$WORK/debug.keystore"
 
 # the editor's settings: made by starting the editor once, then pointed
 # at the SDK, Java and the debug key
-[ -f "$CONF/editor_settings-4.3.tres" ] || "$GODOT" --headless --editor --quit > /dev/null 2>&1 || true
-python3 - "$CONF/editor_settings-4.3.tres" "$SDK" "$JAVA" "$DKS" <<'PY'
+[ -f "$CONF/editor_settings-4.7.tres" ] || "$GODOT" --headless --editor --quit > /dev/null 2>&1 || true
+python3 - "$CONF/editor_settings-4.7.tres" "$SDK" "$JAVA" "$DKS" <<'PY'
 import re, sys
 p, sdk, java, dks = sys.argv[1:]
 s = open(p).read()

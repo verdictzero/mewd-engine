@@ -6,7 +6,7 @@
 #
 #   tools/build-linux.sh [out.x86_64]
 #
-# Godot 4.3's Linux x86_64 templates are fetched if they are not there.
+# Godot 4.7's Linux x86_64 templates are fetched if they are not there.
 # Only those two files are read out of the 1 GB template archive, by
 # range request. The export is the "Linux" preset: the Mobile renderer on
 # Vulkan, with S3TC/BPTC textures. It runs on Ubuntu 20.04 or later with
@@ -16,12 +16,12 @@ set -eu
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
 OUT="${1:-build/linux/mewd.x86_64}"
-T="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates/4.3.stable"
+T="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates/4.7.stable"
 if [ ! -f "$T/linux_release.x86_64" ]; then
   mkdir -p "$T"
   python3 - "$T" <<'PY'
 import io, sys, urllib.request, zipfile
-url = "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz"
+url = "https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_export_templates.tpz"
 class Remote(io.RawIOBase):
     def __init__(s):
         r = urllib.request.urlopen(urllib.request.Request(url, method="HEAD"))
