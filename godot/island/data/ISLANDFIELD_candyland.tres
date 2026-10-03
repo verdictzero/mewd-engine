@@ -7,7 +7,12 @@
 ; it. Copied from ISLANDFIELD_island0.tres with these changed:
 ;   * zone_enabled = true, holes_max = 0   zones on, but no golf: only
 ;     build pads, which are the towns' squares
-;   * build_pads_max = 10, build_area_fraction = 0.10   fewer, smaller squares
+;   * build_pads_max = 10, build_area_fraction = 0.10   fewer squares
+;   * build_pad_radius 18..32 m, zone_apron_ratio 0.5, zone_apron_min 10 m,
+;     zone_lift_spread 0, zone_irregularity 0   SMALL, DELIBERATELY FLAT
+;     squares (at the user's request): dead level, round, cut into the
+;     hillside with a steep bank of half their radius (10 m at least),
+;     the roads running into them; and the roads' edges straight
 ;   * path_enabled = true   golf's graded tracks joining the squares (a
 ;     minimum spanning tree over them), 9 m wide: the roads
 ; Plants stay off both (the scatters skip groomed ground), so the forest,
@@ -68,20 +73,20 @@ golf_area_fraction = 0.3
 par3_max = 230.0
 par4_max = 400.0
 build_pads_max = 10
-build_pad_radius_min = 30.0
-build_pad_radius_max = 140.0
+build_pad_radius_min = 18.0
+build_pad_radius_max = 32.0
 build_pad_radius_ratio = 0.45
 build_area_fraction = 0.1
-zone_irregularity = 0.25
+zone_irregularity = 0.0
 zone_noise_scale = 70.0
 zone_apron = 55.0
-zone_apron_ratio = 2.0
-zone_apron_min = 34.0
+zone_apron_ratio = 0.5
+zone_apron_min = 10.0
 zone_skirt = 40.0
 zone_separation = 165.0
 zone_separation_ratio = 0.4
 zone_coast_margin = 0.25
-zone_lift_spread = 9.0
+zone_lift_spread = 0.0
 golf_inset = 7.0
 golf_groom_lo = 0.72
 golf_groom_hi = 0.94

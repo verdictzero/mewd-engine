@@ -46,10 +46,7 @@ func _frame() -> void:
 		_start = game.tics
 		p.health = 100000
 		# the island's own colours, as main.gd's prefs give them
-		lofi.set_filtered(true)
-		if not bool(game.island_spec.get("palette", true)):
-			lofi._snap = 0.0
-			lofi.mat.set_shader_parameter("snap", 0.0)
+		lofi.for_island(game.island_spec, true)
 		if "--road" in args:
 			var r: Array = game._roads_of(game.island.get_node("IslandWorld").field).paths
 			if not r.is_empty():

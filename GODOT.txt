@@ -1030,6 +1030,33 @@ MARKS THAT LIE ON THE GROUND: PROJECTED DECALS
   --under puts a crater at your feet). godot/tests/island_shot.gd takes
   a sixth argument, the pitch the gun is held at.
 
+THE PICTURE: SQUARE PIXELS, AND ONLY WHOLE-NUMBER SCALES
+
+  At the user's request ("square pixels at 480p, render at 720p, the
+  whole canvas only responding to mathematically acceptable ratios that
+  won't result in distortion"), the defaults are now square pixels
+  (PIXEL ASPECT SQUARE) on a 480-row grid (PIXELS 480), with the world
+  drawn at 720 rows (RENDER 720). The prefs' version went up (15), so a
+  saved set from before is put back to these.
+
+  NO FRACTIONAL SCALE, ANYWHERE (Lofi._resize). Every chunky pixel is a
+  whole number of the screen's own pixels across and down, so no column
+  or row is ever wider than its neighbours. The scale is worked out in
+  PHYSICAL pixels, because the window is stretched as canvas items and
+  the canvas's units are not the screen's. It is the whole number that
+  brings the grid's rows nearest the PIXELS asked for:
+    1080 screen   x2 = 540 rows
+     720 screen   x2 = 360 rows
+    1440 screen   x3 = 480 rows
+  The columns are as many as fit at that scale. Anything left over, less
+  than one chunky pixel each way, is a black border, centred. A
+  non-square PIXEL ASPECT is likewise a whole number of screen pixels
+  across, the nearest to the ratio asked for. The world's buffer is drawn
+  at exactly the grid's aspect: RENDER rows, never more than the
+  screen's own. The filter boxes it down onto the grid. Measured at 720
+  and 1080: every chunky pixel is exactly 2 x 2 screen pixels.
+
+
 CANDY LAND
 
   At the user's request: an island made from the candy pack the user
@@ -1041,10 +1068,18 @@ CANDY LAND
   THE GROUND is ISLAND 0's: the same field (seed 1337, 1250 m, the same
   hills, forest and coast), copied to ISLANDFIELD_candyland.tres with
   golf's zones switched back on and its golf left off (holes_max 0). So
-  the zones are only build pads, and they are the TOWN SQUARES: 7 of
-  them, from 30 to 113 m across. golf's PATHS join them: a minimum
+  the zones are only build pads, and they are the TOWN SQUARES, SMALL
+  AND DELIBERATELY FLAT (at the user's request: "roads converging into a
+  deliberately flattened area cut out of the terrain"):
+    size     18 to 32 m in radius
+    level    dead level, never raised or sunk at random
+             (zone_lift_spread 0)
+    shape    round, with no wobble on the edge (zone_irregularity 0,
+             which straightens the roads' edges too)
+    bank     cut into the hillside with a steep bank of half the radius,
+             10 m at least (zone_apron_ratio 0.5, zone_apron_min 10) golf's PATHS join them: a minimum
   spanning tree over the squares, 9 m wide, graded into the hillside
-  and bent round hills. Those are THE ROADS, 12 legs and about 1.8 km.
+  and bent round hills. Those are THE ROADS: 10 squares, 18 road legs.
   The scatters already keep plants off groomed ground, so trees, bushes
   and grass are spread exactly as on ISLAND 0 everywhere else.
 
@@ -1066,7 +1101,7 @@ CANDY LAND
              they are as wide as they are tall. Burn maps for all of
              them, made with golf's tools/TOOL_gen_burn_maps.py.
     lamps    the candy street lamp, every 40 m down both kerbs of every
-             road, staggered (84 of them). Each one is a solid standee
+             road, staggered (88 of them). Each one is a solid standee
              (Standees "LAMP").
 
   THE SKY is the void sky turned sky blue: deep blue overhead, pale blue
@@ -1088,13 +1123,23 @@ CANDY LAND
   apex could never be seen. Light and picture come from the same place,
   the scene's SunPivot, so moving that moves both.
 
-  NOT IN THE EARTH PALETTE: the picture keeps the island's own colours
-  (Islands "palette": false). The dither stays. Under the palette the
-  candy came out grey-teal.
+  ITS EXPOSURE (Islands "exposure" 0.8, "knee" 0.65), at the user's
+  request ("so it isn't overexposed"): the candy pack is graded bright,
+  and the picture's own brightness (1.35, the pause menu's) clipped it
+  to white. The lighting is not baked (the island's light is worked out
+  in its shaders from the time-of-day bus), so there was nothing to
+  re-bake: the fix is a TONEMAP in the post pass (lofi.gdshader). The
+  island's exposure goes on the picture, then a SHOULDER rolls the
+  brightest channel off smoothly above the knee instead of clipping it,
+  with the other two scaled to match, so a bright colour keeps its hue.
+  The island's sun and ambient light came down a step with it (1.0 and
+  0.65). The earth palette stays on, at the user's word: the tonemap
+  goes in before the snap. An island that sets neither is drawn as
+  before (Lofi.for_island).
 
   THE CANDY GIRLS are the whole crowd, 360 of them, in nine flavours:
   blueberry, cherry cola, grape, lemon, lime, mint, strawberry, vanilla,
-  and orange (added at the user's request after the pack). Each flavour
+  and orange creamsicle (added at the user's request after the pack). Each flavour
   has a front and a back, and the strip assets/people/candy_girls.png
   holds every flavour's front then her back, at 192 x 287 pixels a cell
   and 44 x 66 units in the world. tools/candy-girls-strip.py rebuilds it

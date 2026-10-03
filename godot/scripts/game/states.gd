@@ -22,7 +22,7 @@ const SHOPPERS := 17
 const BLASTS := 26
 ## the candy girls' flavours, in their strip's order (assets/people/
 ## candy_girls.png: each one's front, then her back)
-const CANDY_FLAVOURS := ["Blueberry", "Cherry Cola", "Grape", "Lemon", "Lime", "Mint", "Strawberry", "Vanilla", "Orange"]
+const CANDY_FLAVOURS := ["Blueberry", "Cherry Cola", "Grape", "Lemon", "Lime", "Mint", "Strawberry", "Vanilla", "Orange Creamsicle"]
 
 ## the troops: five views mirrored to eight for the turned frames, one
 ## drawing for the floor frames (js/people.js TROOPS)

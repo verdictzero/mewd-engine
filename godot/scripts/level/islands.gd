@@ -12,6 +12,9 @@
 ##            fog on people, marks and effects — matched to the island's sky
 ##   palette  (optional) false: the picture keeps the island's own colours
 ##            instead of being snapped to the earth palette (the dither stays)
+##   exposure (optional) the picture's exposure on this island, 1 as is
+##   knee     (optional) where the tonemap's shoulder starts rolling the
+##            highlights off instead of clipping them; 0 none (lofi.gdshader)
 ##   lamps    (optional) street lamps along the island's roads, this far
 ##            apart in metres
 class_name Islands
@@ -32,7 +35,8 @@ const LIST := [
 	# sky with a candy sun at the top of it, and the candy girls — who come
 	# to say hello (Actor.A_Greet) until something frightens them
 	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 360,
-		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0, "palette": false,
+		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
+		"exposure": 0.8, "knee": 0.65,
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
 ]
 

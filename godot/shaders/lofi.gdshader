@@ -26,6 +26,22 @@ uniform float snap = 1.0;
 uniform vec3 dither_levels = vec3(16.0);
 uniform vec3 picture = vec3(1.0);   // brightness, contrast, gamma
 uniform vec3 tint = vec3(1.0);
+// THE TONEMAP, at the user's request (CANDY LAND came out overexposed):
+// the island's own exposure on the picture, then a SHOULDER — above
+// `knee` the brightest channel is rolled off smoothly toward white
+// instead of clipping, and the other two scaled with it, so a bright
+// colour keeps its hue rather than washing out. knee 0 is off (every
+// island but the ones that ask: Islands "exposure", "knee").
+uniform float exposure = 1.0;
+uniform float knee = 0.0;
+
+vec3 shoulder(vec3 c) {
+	float m = max(c.r, max(c.g, c.b));
+	if (knee <= 0.0 || m <= knee) return c;
+	float w = 1.0 - knee;
+	float r = knee + w * (1.0 - exp(-(m - knee) / w));
+	return c * (r / m);
+}
 
 float bayer2(float x, float y) { return mod(2.0 * x + 3.0 * y, 4.0); }
 float bayer4(vec2 p) {
@@ -61,8 +77,9 @@ void fragment() {
 	}
 	vec3 c = sum / n;
 	c = (c - 0.5) * picture.y + 0.5;
-	c = max(c * picture.x, 0.0);
+	c = max(c * picture.x * exposure, 0.0);
 	c = pow(c, vec3(1.0 / max(picture.z, 0.05)));
+	c = shoulder(c);
 	if (dither > 0.0)
 		c += vec3((bayer4(cell) / 15.0 - 0.5) * dither) / dither_levels;
 	c = mix(c, pal_snap(c), snap);
