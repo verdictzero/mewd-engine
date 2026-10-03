@@ -16,7 +16,7 @@ Written 2026-10-03. It describes the island version on `claude/godot-rewrite`. `
 | **Island source** | `verdictzero/golf` (the user's other project). Its island system was copied into `godot/island/`. Read it, but don't change it without being asked. |
 | **Old repo** | `verdictzero/sellwrong`. **Do not touch it.** |
 | **Engine** | Godot **4.7-stable** (it was 4.3). Mobile renderer on Vulkan, for Android and Linux. |
-| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. |
+| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. **Android and Linux x86_64 only: no web build** (the user's decision; the web export, Pages and GitLab CI were removed). |
 
 Builds are rolling GitHub releases on mewd-engine, replaced on each push to `main` or `claude/godot-rewrite`:
 - **`android`**: `.github/workflows/android.yml`. A signed apk; the key comes from the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS` and `MEWD_KEY_PASS`.
@@ -102,10 +102,9 @@ The old sections of GODOT.txt are kept as the record.
 
 - **Waiting on the user's RG557 test** of the island apk. Check the load time and the frame rate with 360 people.
 - **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
-- **Trees aren't solid**, as in golf; walking into a wood dissolves the near ones.
+- **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
 - **Real decals are off**, so marks are quads. The island's terrain isn't cut into the tiles RealDecals wants.
 - **Responders are off** (`world.noSquads`). Vans would need roads, or would need to drive on terrain.
-- **The web build** (`pages.yml`, main only) would export without a bake and build the island in the browser.
 - `godot/tests/perf_bench.gd`, `decal_shot.gd`, `lance_shot.gd`, `potato_shot.gd` and `projectile_shot.gd` are older picture and benchmark tools. They still name the old maps; `--map` falls back to island0.
 
 ## 8. Key files

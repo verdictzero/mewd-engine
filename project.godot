@@ -43,7 +43,6 @@ window/handheld/orientation=4
 ; rule), and there the decals are the quads they were (Decals.real).
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
-renderer/rendering_method.web="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=true
 ; real decals (RealDecals) are chunky pixels like everything else
 textures/decals/filter=0

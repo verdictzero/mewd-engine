@@ -1,72 +1,63 @@
 MEWD
 ====
 
-MEWD stands for MADE ENTIRELY WITHOUT DOOM: a Doom-style engine built
-from scratch, with none of Doom's code or data in it. The engine is
-MEWD, the game is MEWD Demo, and the map editor is MEWD Editor.
+MEWD stands for MADE ENTIRELY WITHOUT DOOM. It was a Doom-style engine
+built from scratch; at the user's request it is now a game on
+procedurally generated islands (golf's island system, pre-baked), with
+the player, the crowd and the guns kept.
 
-The game: it is two in the morning, you have a flamethrower, and there
-is a hedge maze with five hundred people wandering it. Or a strip mall
-with a supermarket in the middle. Or a two-team maze with a fort at
-each end. You burn, freeze, bore, shred, lance, rocket, electrocute or
-potato whatever is in front of you, the SWAT arrive in vans, then the
-army in hover APCs, and the picture is 320 rows of chunky pixels
-snapped to an earth-tone palette the whole time.
+The game: you are dropped on an island with a few hundred people
+wandering its hills and woods. You burn, freeze, bore, shred, lance,
+rocket, electrocute or potato whatever is in front of you, and the
+picture is chunky pixels snapped to an earth-tone palette the whole
+time. The trees, bushes, ferns and grass are cover for the eye only:
+nothing in the vegetation stops a body or a round.
 
-Two builds live in this repository:
+It is built for two targets only: ANDROID (arm64, an Anbernic RG557 or
+a phone) and LINUX x86_64. There is no web build.
 
-  the Godot build   godot/ — Godot 4.3, GDScript. This is the game,
-                    the editor and the site. Everything below is about
-                    it unless it says otherwise.
-  the classic build js/ — the original, in JavaScript on three.js, no
-                    build step. It is the reference the Godot build was
-                    ported from, still runs, and is published under
-                    classic/ on the site.
+  godot/            the game: Godot 4.7, GDScript
+  godot/island/     the island system, from golf
+  js/               the original JavaScript build: kept as the
+                    reference the Godot build was ported from, not built
+                    or published
 
 
-PLAY IT
--------
+GET IT
+------
 
-  https://verdictzero.github.io/mewd-engine/            the Godot build
-  https://verdictzero.github.io/mewd-engine/classic/    the classic build
   https://github.com/verdictzero/mewd-engine/releases/tag/android
                                                         the Android APK
   https://github.com/verdictzero/mewd-engine/releases/tag/linux
                                                         Linux x86_64 (Ubuntu)
 
-The site opens on the MEWD title. NEW GAME is a fresh maze; MAP EDITOR
-is the editor; DOWNLOAD ZIP is the repository. The classic build opens
-on a terminal instead (black glass, a prompt reading INTERFACE 2037);
-type G or GAME for the game, JESSE for the two-team maze, E or EDIT for
-the editor, JOIN [host:port] to join a match, QUIT to leave. The
-classic build also takes ?seed=N, ?sprawl, ?jesse, ?grid, ?edit,
-?play and ?join=host:port on the URL.
-
-The site is built for WebGL 2 with no threads (GitHub Pages cannot
-send the headers a browser wants before it lends a page threads), so
-it runs on a phone, a handheld's browser or a desktop alike. A pad
-plugged in or built in is recognised on its first press.
+Both are rebuilt on every push to main or claude/godot-rewrite. NEW
+GAME on the title lists the islands.
 
 
 RUN IT LOCALLY
 --------------
 
-THE GODOT BUILD needs Godot 4.3 (the standard editor binary). The
-project is the repository root:
+Godot 4.7 (the standard editor binary). The project is the repository
+root. Once, and again whenever an island or its code changes, bake the
+islands (a couple of minutes; the builds do this themselves):
+
+    godot --headless --editor --quit
+    godot --headless --script res://tools/bake_island.gd -- --all --if-missing
+
+Then:
 
     godot                        # opens the editor; F5 runs the game
     godot --path . -- --play     # straight into the game
 
-A fresh clone should be imported once before a headless run:
-`godot --headless --import`. Arguments after `--`:
+Arguments after `--`:
 
     --play                skip the title
-    --map=NAME            maze (default), jesse, sprawl, grid, layers
-    --seed=N              the maze for seed N
+    --map=NAME            which island (island0)
+    --seed=N              where the crowd is dropped
     --weapon=NAME         start holding FLAMER, EXTINGUISHER, BORE,
                           MINIGUN, LANCE, LAUNCHER, ARC or POTATO
-    --at=X,Y,DEG[,LAYER]  start somewhere else
-    --edit                straight into MEWD Editor
+    --at=X,Y,DEG          start somewhere else
     --terminal            the classic build's terminal first
     --touch               the phone's controls, without a touch screen
     --pause               open the pause menu
@@ -75,18 +66,12 @@ A fresh clone should be imported once before a headless run:
     --server[=PORT]       host a match (see NETWORK PLAY)
     --join=HOST[:PORT]    join one; --name=NAME
 
-The web export is `sh tools/build-web.sh [outdir]`, with Godot's web
-export template installed. The Android APK (arm64, for a handheld like
-the Anbernic RG557 or a phone) is `sh tools/build-android.sh`, with the
-Android templates, the SDK's build tools and Java; see GODOT.txt. The
-Linux build is `sh tools/build-linux.sh`. It is one x86_64 file with
-the game packed inside, needs Vulkan, and runs on Ubuntu 20.04 or
-later: chmod +x mewd.x86_64 and run it. The script fetches its
-templates itself.
-
-THE CLASSIC BUILD has no install and no build step: open index.html,
-or serve the folder (`node tools/server.mjs` serves it and hosts a
-match on port 7777).
+The Android APK is `sh tools/build-android.sh`, with the Android
+templates, the SDK's build tools and Java; see GODOT.txt. The Linux
+build is `sh tools/build-linux.sh`: one x86_64 file with the game
+packed inside, needs Vulkan, runs on Ubuntu 20.04 or later (chmod +x
+mewd.x86_64 and run it). Both fetch their templates and bake the
+islands if they need to.
 
 
 CONTROLS
@@ -96,11 +81,10 @@ KEYBOARD AND MOUSE
 
     WASD / arrows   move (Q, E strafe)      mouse           look
     Shift           run                     Space           jump
-    F               use (doors)             Ctrl / left     fire
+    F               use                     Ctrl / left     fire
     Z, C / right    scope up, step its zoom (lance, launcher, potato)
     1-8 / wheel     weapons                 Esc / P         pause
-    F2              the map editor          Tab             match score
-    F5              (editor) play the map
+    Tab             match score
 
 Click the picture to capture the mouse; Esc gives it back.
 
@@ -146,20 +130,19 @@ them back. A phone held upright is told to ROTATE.
 THE GAME
 --------
 
-THE MAPS (godot/scripts/maps/). Each is generated as an editor
-document and compiled by the same compiler the editor uses.
+THE ISLANDS (godot/scripts/level/islands.gd). Every level is one of
+golf's procedural islands, generated ahead of time and baked into the
+build; NEW GAME lists them.
 
-    THE MAZE     the default: an 18x18 braided hedge maze with plazas,
-                 different every game (--seed=N repeats one), five
-                 hundred people in it
-    JESSE        two fortified bases joined by a multi-zone maze, a new
-                 one every time; team deathmatch on a network
-    THE SPRAWL   the strip mall, its car park and the wood: SellWrong,
-                 the supermarket, and its neighbours
-    THE GRID     a walled square with two hundred shoppers, for tests
-                 and pictures
-    THE ANNEXE   a yard, a shop with an office over it and a terrace:
-                 the room-over-room map, in two layers
+    ISLAND 0     golf's island_0 without its golf, ruins or crash site:
+                 2.5 km of hills, firs, bushes, ferns and grass, a cliff
+                 all round dropping into a sea of cloud, and 360 people
+                 dropped on it with you (--seed=N moves them)
+
+THE VEGETATION IS VISUAL COVER, and stays that way: you, the crowd and
+every round go through trees, bushes, ferns and grass. A tree you walk
+into dissolves as you reach it. What stops a body is the ground: a crag
+too steep to step up, or the cliff at the coast.
 
 THE WEAPONS, in slots 1 to 8:
 
@@ -210,19 +193,14 @@ it is built.
 The minigun is the network loadout. The pause menu's DEBUG page has
 INFINITE AMMO and INVINCIBLE, both on by default.
 
-THE PEOPLE. Shoppers watch, flee and panic contagiously; they burn,
-freeze, thaw and come apart. The SWAT arrive in vans and chase with
-Doom's chase, then the army in hover APCs; on a map with stairs and
-doors they find the way (A* over the level's rooms). A rocket takes
-people apart; blood goes up the walls; every impact is a decal. The
-dead do not stay: a shopper goes at once, a trooper after two seconds
-on the floor, and the blood is what is left.
+THE PEOPLE. Shoppers and townies watch, flee and panic contagiously;
+they burn, freeze, thaw and come apart. The police and the army (the
+responders) are off for now. A rocket takes people apart; every impact
+is a mark on the ground. The dead do not stay: a shopper goes at once,
+and the blood is what is left.
 
-THE RENDERER is Mobile on the desktop and on Android, for real decals:
-blood that wraps a corner, pools that run over a step, scorches and the
-lance's sears painted across whatever they land on. The web is always
-Compatibility, and there the marks are the flat quads they were. Both
-draw the same picture otherwise. Bullet holes are quads everywhere.
+THE RENDERER is Mobile on Vulkan, on Android and on Linux. On the
+island the marks are quads laid on the ground.
 
 THE PICTURE. The world is drawn at the chunky grid's own size (320
 rows of 2:3 pixels by default), Bayer-dithered one step and snapped to
@@ -248,61 +226,15 @@ NETWORK PLAY
 LAN play, on the same wire as the classic build, so either kind of
 client joins either kind of host:
 
-    godot --headless --path . -- --server[=PORT] [--map=jesse|maze]
+    godot --headless --path . -- --server[=PORT] [--map=island0]
           [--seed=N] [--max=16] [--frags=N]
     godot --path . -- --join=HOST[:PORT] [--name=NAME]
-    node tools/server.mjs --map maze --port 7777     the classic host
-    https://…/classic/?join=HOST:PORT                a page joining
 
-Or JOIN host:port at the terminal. JESSE is team deathmatch (SWAT
-black against army green), THE MAZE deathmatch. First to 40 (team) or
+Or JOIN host:port at the terminal. Deathmatch on an island: first to
 20, two-second respawns, spawn guard, infinite ammo. The simulation is
 35 tics a second; a client predicts and reconciles, the host rewinds
 to where you saw the others when it judges a shot. TAB shows the table.
-Hosting needs a machine; a browser page can only join.
-
-
-THE MAP EDITOR
---------------
-
-MEWD Editor is in the game: MAP EDITOR on the title, F2 from the game,
-`-- --edit`, or E at the terminal. It is in the mould of SLADE and
-Ultimate Doom Builder: a plan view and a 3D view (Tab swaps which is
-big; Split, 2D, 3D layouts), modes for vertices, lines, sectors,
-things, props, drawing, shapes, scatter and doors, an inspector, a
-texture browser and texture editor, a things tab, a step generator,
-scatters of plants and people, room styles, layers for room over room,
-undo and redo, copy and paste, snap, and Q for visual mode. PLAY (F5)
-hands the document to the game and starts you where the 3D camera
-stands; F2 comes back. Help in the menu lists the keys.
-
-DRAG A TEXTURE out of the texture browser onto a surface to put it there.
-In the 3D view, it lands on whatever wall, floor or ceiling is under the
-cursor, which lights up as you pass over it. In the plan, it lands on a
-wall if you let go near one, or else on the floor of the room under the
-cursor (hold Shift for the ceiling). Each drop is one undo step. A plain
-click on a texture still puts it on whatever is selected.
-
-The LAYERS tab is a layers panel in the style of Photoshop. The
-storeys are a stack, with the top one first, and each has a
-thumbnail of its plan, a name and an eye.
-  - Click a storey to edit it.
-  - The eye hides a storey from the plan and the 3D view; the map
-    still keeps it. Alt+click the eye to show that storey alone.
-  - Double-click to rename a storey.
-  - Drag a storey up or down the stack. It trades heights with the
-    storeys it passes.
-  - Right-click, or use the buttons along the bottom, to add,
-    duplicate, move or delete a storey.
-  - Open a storey to see its hierarchy. Each room sits under the room
-    it is cut from, and each thing under the room it stands in. Click
-    one to select it, or double-click to frame it.
-
-Files are JSON (.gssmap.json) and open in either build's editor.
-Ctrl+S saves into user://mewd-editor/maps/; File > Open… and Save as
-file… use the desktop's file dialog; an autosave is opened on start.
-File > Open demo gives a new MAZE, THE SPRAWL, a new JESSE, THE GRID
-or THE ANNEXE.
+Every machine has the island baked; the host draws none of it.
 
 
 THE REPOSITORY
@@ -310,20 +242,20 @@ THE REPOSITORY
 
     project.godot, export_presets.cfg   the Godot project (the root)
     godot/scenes/main.tscn              the one scene
-    godot/scripts/main.gd               boot, title, game, pause, editor
+    godot/scripts/main.gd               boot, title, game, pause
     godot/scripts/pad.gd                the pad: any device, the menus
     godot/scripts/core/                 U: maths, fonts, helpers
-    godot/scripts/level/                document -> Level: the compiler,
-                                        geometry, collision, textures
-    godot/scripts/maps/                 the map generators
+    godot/scripts/level/                the Level, and the island as one:
+                                        its ground, collision, sight
+    godot/island/                       golf's island system: field,
+                                        mesher, world, bakes, plants, sky
     godot/scripts/game/                 the simulation: actors, states,
                                         weapons, effects, vehicles,
-                                        doors, nav, weather
+                                        weather
     godot/scripts/render/               the picture: lofi, standees,
                                         decals, particles, tracers,
                                         the gun, scopes, HUD
     godot/scripts/net/                  the wire, host, client, match
-    godot/scripts/editor/               MEWD Editor
     godot/scripts/title/, ui/           title, pause, terminal, touch
     godot/scripts/audio/                sound and music
     godot/shaders/                      the shaders
@@ -332,7 +264,7 @@ THE REPOSITORY
     assets/                             art both builds load: people,
                                         forest, models, textures, skies,
                                         fonts, music, sfx, logo
-    js/, index.html, css/, vendor/      the classic build
+    js/, index.html, css/, vendor/      the classic build (reference only)
     art/                                source art baked into the
                                         classic build
     tools/                              build, bake and test scripts
@@ -352,22 +284,17 @@ and godot/ and nothing else.
 TOOLS
 -----
 
-    tools/godot-test.sh        the Godot build's test suites
-    tools/build-web.sh         export the Godot build for the web
+    tools/godot-test.sh        the test suites
+    tools/bake_island.gd       bake the islands (terrain, plants, ground)
     tools/build-android.sh     export the Android APK
-    tools/build-linux.sh       export the Linux x86_64 build (the linux
-                               workflow puts it up as a release)
-    tools/make-icons.py        every icon from the MEWD logo: icon.png
-                               (desktop, web, PWA) and Android's launcher
-                               and adaptive icons (godot/data/icons/)
     tools/ci-android.sh        the same on a clean machine (the android
                                workflow, which puts it up as a release)
-    tools/build-site.sh        assemble the classic build into public/
+    tools/build-linux.sh       export the Linux x86_64 build (the linux
+                               workflow puts it up as a release)
+    tools/make-icons.py        every icon from the MEWD logo
     tools/godot-data.mjs       write godot/data/ from the classic
                                build's tables (palette, LUT, textures)
     tools/build-texpack.py     the texture pack from assets/textures
-    tools/server.mjs           the classic dedicated server
-    tools/smoke-test.mjs       the classic build's checks, no browser
     tools/bake-*.mjs           art/ into source: logo, plants, sky,
                                icons, models
     tools/prep-*.mjs, .py, .sh crunch outside art into assets/
@@ -378,36 +305,28 @@ TESTS
 
     sh tools/godot-test.sh
 
-runs every headless suite in turn and exits non-zero if any fails:
+runs every headless suite in turn (bake the islands first) and exits
+non-zero if any fails:
 
-    weapons    every gun against real people in the maze
-    forest     the wood's collision and scatter
-    jesse      the JESSE generator against the classic build, 48 seeds
-    sprawl     THE SPRAWL and THE GRID against the classic build's counts
+    weapons    every gun against real people on the island
+    island     the ground off the bake, you and the crowd on it, the
+               coast, the hills, rounds and blasts into the ground
     net        the wire's bytes, a match over loopback, a real socket
                host with two clients
-    editor     the editor's edits and files against the classic editor
-    editorui   the editor driven by input events, into the game and back
-    decals     real decals: the tiles, eight a mesh, the rest quads
     death      the dead removed, and their sprites with them
     pad        the pad's bindings on every device, the menus' reading,
                a map set up by hand, the SET UP PAD wizard driven
-    layers     room over room on THE ANNEXE
-    layerspane the editor's layers panel: the stack, the hierarchy, the
-               eye, moving, duplicating and deleting storeys
 
-The classic build's test is `node tools/smoke-test.mjs`. With xvfb,
-`--shot=out.png` renders a picture of anything for checking by eye.
+With xvfb, `--shot=out.png` renders a picture of anything for checking
+by eye; godot/tests/island_shot.gd pictures a gun held on a crowd.
 
 
-DEPLOYING
----------
+RELEASES
+--------
 
-.github/workflows/pages.yml runs the classic build's smoke test, then
-on main fetches Godot 4.3 and its web template, exports the Godot
-build to the root of the site, assembles the classic build under
-classic/, and publishes to GitHub Pages. The repository's Pages source
-must be GitHub Actions. .gitlab-ci.yml does the same for GitLab.
+.github/workflows/android.yml and linux.yml build on every push to main
+or claude/godot-rewrite, bake the islands (kept between runs in the
+Actions cache), and replace the rolling releases "android" and "linux".
 
 
 CREDITS AND LICENCES

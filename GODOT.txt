@@ -235,11 +235,15 @@ THE ISLAND: NO MORE MAPS, NO MORE EDITOR
   after ten seconds of wandering. godot/tests/island_shot.gd takes a
   picture of a gun held on a row of people on the island.
 
-  NOT DONE YET, and known: the trees are not solid (golf's are not
-  either; walking into a wood dissolves the near ones); the island's
-  terrain takes no real decals; responders (police, army, vans) are off;
-  the web build (pages, on main) would export the island without a bake
-  and build it in the browser; and the set of islands is one.
+  THE VEGETATION IS VISUAL COVER, at the user's request, and stays so:
+  the firs, the bushes, the ferns and the grass stop nobody and nothing
+  — not you, not the crowd, not a round — exactly as in golf, where a
+  tree you walk into dissolves as you reach it. Only the ground stops
+  anything.
+
+  NOT DONE YET, and known: the island's terrain takes no real decals;
+  responders (police, army, vans) are off; and the set of islands is
+  one.
 
 
 HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT
@@ -924,21 +928,18 @@ how many were laid as quads; the window, the grid the world is drawn at
 and the refresh rate; and what it is running on — the renderer and its
 API, the GPU, the CPU and its cores, the OS and the device.
 
-THE WEB BUILD (the site)
+ANDROID AND LINUX ONLY (there was a web build)
 
-  The GitHub Pages site is this, exported for the web: Godot 4.3's Web
-  export (export_presets.cfg, "Web"), the Compatibility renderer (the
-  web's, whatever the project's is) on
-  WebGL 2, and no threads — GitHub Pages cannot send the headers a
-  browser wants before it lends a page threads, so the export is the
-  no-threads one, and the editor compiles in place instead of on its
-  thread when OS.has_feature("threads") says there are none.
-  tools/build-web.sh [outdir] makes it (Godot 4.3 on the path and its
-  web export template installed); the publish job in
-  .github/workflows/pages.yml fetches both (the template kept in the
-  Actions cache), exports it to the root of the site, and puts the web
-  build in js/ (tools/build-site.sh) under classic/. Hosting a match
-  needs a machine (--server); a page can JOIN one over WebSocket.
+  At the user's request there is no web build any more: the game is
+  built for Android (arm64) and Linux x86_64 and nothing else. The
+  "Web" export preset, tools/build-web.sh, tools/build-site.sh, the
+  Pages workflow (.github/workflows/pages.yml) and its GitLab twin
+  (.gitlab-ci.yml) are gone, and the project no longer names a web
+  renderer. The two release workflows, android.yml and linux.yml, are
+  the only CI. The JavaScript build in js/ stays in the repository as
+  the reference the port was made from; it is not built or published.
+  The Pages site already up is whatever the last publish left there,
+  until Pages is switched off in the repository's settings.
 
 TESTS
 
