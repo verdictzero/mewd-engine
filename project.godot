@@ -18,6 +18,13 @@ boot_splash/image="res://godot/data/splash.png"
 boot_splash/fullsize=false
 boot_splash/use_filter=true
 
+[autoload]
+
+; THE ISLAND'S BAKES (godot/island/, from golf): the terrain's chunk meshes
+; and the vegetation's instance buffers, read off disk instead of generated
+TerrainBake="*res://godot/island/scripts/autoload/AUTOLOAD_terrain_bake.gd"
+VegBake="*res://godot/island/scripts/autoload/AUTOLOAD_veg_bake.gd"
+
 [display]
 
 window/size/viewport_width=1280
@@ -48,6 +55,95 @@ textures/canvas_textures/default_texture_filter=0
 anti_aliasing/quality/msaa_3d=0
 
 [shader_globals]
+
+game_unit={
+"type": "float",
+"value": 1.0
+}
+tod_water_tint={
+"type": "color",
+"value": Color(1, 1, 1, 1)
+}
+tod_haze_tint={
+"type": "color",
+"value": Color(1, 1, 1, 1)
+}
+tod_art_tint={
+"type": "color",
+"value": Color(1, 1, 1, 1)
+}
+tod_daylight={
+"type": "float",
+"value": 1.0
+}
+tod_env_blend={
+"type": "float",
+"value": 0.0
+}
+tod_sun_dir={
+"type": "vec3",
+"value": Vector3(0, 0.8, 0.6)
+}
+tod_sun_color={
+"type": "color",
+"value": Color(1, 1, 1, 1)
+}
+tod_sky_color={
+"type": "color",
+"value": Color(0.156, 0.1635, 0.174, 1)
+}
+tod_ground_color={
+"type": "color",
+"value": Color(0.114, 0.1065, 0.096, 1)
+}
+sea_surface_y={
+"type": "float",
+"value": -45.0
+}
+sea_surface_color={
+"type": "color",
+"value": Color(0.34, 0.34, 0.34, 1)
+}
+sea_interior_color={
+"type": "color",
+"value": Color(0.089, 0.089, 0.089, 1)
+}
+veg_burn={
+"type": "float",
+"value": 0.0
+}
+veg_burn_front={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+veg_stump={
+"type": "float",
+"value": 0.0
+}
+golf_wall_axis={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+golf_wall_shape={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+golf_wall_fx={
+"type": "vec4",
+"value": Vector4(0, 0, 8, 0)
+}
+golf_wall_tint={
+"type": "vec4",
+"value": Vector4(1, 0.86, 0.71, 1)
+}
+golf_wall_film={
+"type": "vec4",
+"value": Vector4(0.16, 480, 12, 0)
+}
+golf_wall_player={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
 
 sky_light={
 "type": "float",

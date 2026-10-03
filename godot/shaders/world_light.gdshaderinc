@@ -10,6 +10,11 @@ global uniform float air_near;
 global uniform float air_far;
 global uniform vec4 air_color;
 global uniform vec4 light_color;
+// METRES A GAME UNIT (the island, at the user's request): the game counts
+// 32 units to the metre and is drawn scaled to the island's metres, so
+// anything a shader sizes or offsets in the game's units is times this
+// (1.0 before the island, 1/32 on it; Game.start_map sets it)
+global uniform float game_unit;
 
 // Distance diminishing, linear in depth as Doom's was, stretched and
 // lifted under the sky; the sky's light lifts an outdoor surface's own;

@@ -1,0 +1,78 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+; The FIRS of SCENE_test_zone_W3, and W3's alone. `SCRIPT_veg_scatter.gd` DUPLICATES
+; this once per sprite variant and sets `albedo_tex` on each copy, so the texture
+; is deliberately not assigned here.
+;
+; A COPY OF MAT_veg_billboard.tres THAT DIFFERS IN ONE PARAMETER --
+; `near_fade_whole_plant`. Everything else is the original's, value for value:
+; same shader, same tint, same wind, same near band, same far band, same fog. If
+; you change one of those there, change it here; if you find yourself changing
+; anything else here, ask first whether W2 wanted it too, because a second
+; difference in this file is a second thing to keep in step.
+;
+; WHY THE FORK EXISTS AT ALL. W3 is a copy of W2 made to be flown apart from it,
+; and SCENE_test_zone_W3's own header sets the rule this file follows: the
+; vegetation materials are SHARED, so a parameter retuned through
+; MAT_veg_billboard.tres moves both scenes. To diverge one, fork the .tres and
+; repoint W3's ExtResource at the fork. That is what this is, and the `_w3` tag is
+; the convention travelling with it (docs/DOC_conventions.md).
+;
+; ------------------------------------------------------------------------------
+; WHAT THE ONE PARAMETER DOES: it makes the proximity fade take the WHOLE TREE
+; rather than a slice of one.
+;
+; The near fade dithers a plant out as the camera closes on it -- gone inside
+; `near_gone`, solid again past `near_solid` -- because a wood at a ~6.7 m spacing
+; is a wall a metre from the eye, and walking into a thicket should open a
+; clearing as wide as you are. That is what it has always been FOR. What it
+; actually did was measure the band PER FRAGMENT, which makes it a sphere centred
+; on the eye rather than a clearing: on a 22 m fir whose base is three metres
+; away the canopy -- twenty metres up, and therefore twenty metres off -- is
+; nowhere near the band. What dissolved was the patch of tree nearest the camera,
+; a hole at eye height that travelled with it. The fir went on standing and went
+; on occluding; it simply had a bite out of it.
+;
+; AND THE EFFECT WAS WEAKEST ON THE TALLEST PLANTS, which are the ones it exists
+; for. The sphere's reach into a plant is set by how far off the plant is and not
+; by how big it is, so the fraction of a 22 m fir it could take was smaller than
+; the fraction of a 3 m bush -- exactly backwards from what the feature is for.
+;
+; `near_fade_whole_plant` measures the same band ONCE PER PLANT, at the distance
+; to where the plant stands. A fir is then either dithering away or it is not, all
+; 22 m of it at one strength, and the clearing is the vertical cylinder the
+; feature has been described as cutting since it was written.
+;
+; THE BAND ITSELF IS UNCHANGED AT 3.0 .. 4.5, deliberately, so this fork is about
+; WHERE the fade is measured and not about how wide it is -- one change, one
+; thing to look at. The narrow band matters more under whole-plant measurement,
+; not less: a wide one now has entire trees sitting permanently half-dithered
+; rather than a sliver of each, which is the "gauzy woods" MAT_veg_billboard.tres
+; records as the reason it came down from 3..10 in the first place. Widen it only
+; if the snap becomes more objectionable than the haze, and expect it to become
+; objectionable sooner here than it does in W2.
+;
+; TO PUT W3 BACK ON W2'S BEHAVIOUR, point SCENE_test_zone_W3's `material` export
+; back at MAT_veg_billboard.tres and delete this file. Nothing else refers to it.
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.4
+shader_parameter/tint = Color(0.62, 0.62, 0.62, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.06
+shader_parameter/wind_speed = 0.55
+shader_parameter/wind_scale = 17.0
+shader_parameter/near_gone = 3.0
+shader_parameter/near_solid = 4.5
+shader_parameter/near_fade_whole_plant = true
+shader_parameter/far_start = 680.0
+shader_parameter/far_end = 900.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

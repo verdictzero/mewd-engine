@@ -219,6 +219,9 @@ func arrival_points() -> Array:
 func tic() -> void:
 	tics += 1
 	var g = game
+	# AND SOME WORLDS SEND NOBODY — not even the word that somebody is coming
+	if map_value("noSquads"):
+		return
 	squad_tic()
 	# once a second is plenty for something that only ever climbs
 	if tics % TICRATE:

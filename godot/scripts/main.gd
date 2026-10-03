@@ -71,11 +71,6 @@ func _ready() -> void:
 	rot_layer.add_child(rotate_notice)
 	var args := OS.get_cmdline_user_args()
 	var straight: bool = args.has("--play") or (_shooting() and not args.has("--title") and not args.has("--terminal"))
-	# MEWD EDITOR (godot/scripts/editor/): --edit, or F2 back from the game
-	if args.has("--edit") or MewdEditor.open_next:
-		MewdEditor.open_next = false
-		show_editor()
-		return
 	# STRAIGHT INTO THE MEWD MAIN MENU, at the user's request (the web
 	# build opens on a terminal; --terminal still does here) — unless the
 	# command line says where to go, as the web build's URL does
@@ -95,7 +90,6 @@ func _ready() -> void:
 		show_title()
 
 var terminal: Terminal
-var _jesse := false
 
 func show_terminal() -> void:
 	var layer := CanvasLayer.new()
@@ -104,40 +98,7 @@ func show_terminal() -> void:
 	terminal = Terminal.new()
 	layer.add_child(terminal)
 	terminal.open_game.connect(func(): layer.queue_free(); show_title())
-	terminal.open_jesse.connect(func(): layer.queue_free(); _jesse = true; start_game())
 	terminal.open_join.connect(func(where: String): layer.queue_free(); join_host(where))
-	terminal.open_editor.connect(func(): layer.queue_free(); show_editor())
-
-## MEWD EDITOR, over everything: its Play (F5) hands the map to the game,
-## F2 in the game comes back to it (back_to_editor), and its File menu's
-## "Back to the terminal" goes back to the prompt.
-var editor: MewdEditor
-func show_editor() -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 10
-	add_child(layer)
-	editor = MewdEditor.new()
-	editor.from_title = MewdEditor.came_from_title
-	layer.add_child(editor)
-	editor.play_requested.connect(func(doc: Dictionary):
-		layer.queue_free()
-		editor = null
-		# the map's own textures, drawn for the game (texcompose.js)
-		EdTex.register_all(doc)
-		start_game())
-	editor.quit_requested.connect(func():
-		layer.queue_free()
-		editor = null
-		MewdEditor.came_from_title = false
-		show_title())
-
-## F2, from the game: back to the editor, on the map as it was left
-## (its autosave), as the web build's ?edit is.
-func back_to_editor() -> void:
-	MewdEditor.open_next = true
-	if game != null and game.net != null:
-		game.net.close()
-	get_tree().reload_current_scene()
 
 ## JOIN A HOST (js/main.js joinHost): say hello, wait for the welcome —
 ## which names the map — and build that world as one player in it. On
@@ -190,24 +151,9 @@ func show_title() -> void:
 	title_layer.add_child(title)
 	title.attach_shade(shade)
 	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
-	title.open_editor.connect(_title_to_editor)
 	title.pad_setup.connect(open_pad_wizard)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
-
-## MAP EDITOR, from the title: the title and its forest put away, and
-## the editor's "Back" comes back to the title rather than the terminal
-## (MewdEditor.came_from_title, which outlives a play-test and F2).
-func _title_to_editor() -> void:
-	if forest != null:
-		forest.queue_free()
-		shade.queue_free()
-		title_layer.queue_free()
-		forest = null
-		title = null
-	lofi.set_tint(Color.WHITE)
-	MewdEditor.came_from_title = true
-	show_editor()
 
 var _loading := false
 ## the level picked on the title (NEW GAME), "" for the default
@@ -246,53 +192,36 @@ func start_game() -> void:
 	if _chosen_map != "":
 		game.map_name = _chosen_map
 		_chosen_map = ""
-	if _jesse:
-		game.map_name = "jesse"
-	# a test run of a map from the editor
-	var from_editor: bool = MewdEditor.play_doc != null
-	if from_editor:
-		game.play_doc = MewdEditor.play_doc
-		MewdEditor.play_doc = null
 	# a host's world, if this is a match: the map is its seed
 	if net_client != null:
 		game.net_map = net_client.map
 	game.weapon3d = w3d
 	game.sound = sound
+	# a headless bot in a match looks at nothing: the island's ground only
+	if _arg("--netbot") and DisplayServer.get_name() == "headless":
+		game.draw_world = false
 	lofi.world.add_child(game)
 	# and from here on this game is one player in the host's world
 	if net_client != null:
 		var ng := NetGame.new(game, net_client)
 		ng.bot = _arg("--netbot")
 		ng.bot_fire = not OS.get_cmdline_user_args().has("--netbot=look")
+	# THE ISLAND, raised under the loading screen: its terrain off the bake
+	# (or meshed, without one) and its plants planted, before anybody sees
+	# it — and a picture's frames are counted from there
+	var waited := 0
+	while not game.island_ready():
+		waited += 1
+		if loading != null:
+			loading.at("RAISING THE ISLAND", minf(0.55, 0.2 + waited * 0.002))
+		await get_tree().process_frame
+	_frames = 0
 	sound.listener = game.player
 	sound.layered = game.level != null and game.level.layered
 	var hud := Hud.new()
 	hud.game = game
 	hud_layer.add_child(hud)
 	game.hud = hud
-	# ON A TEST RUN FROM THE EDITOR, a way back that is always on screen
-	if from_editor:
-		var b := Button.new()
-		b.text = "◀ EDITOR  F2"
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 12)
-		b.add_theme_color_override("font_color", Color("#14161d"))
-		b.add_theme_color_override("font_hover_color", Color("#14161d"))
-		for st in ["normal", "hover", "pressed"]:
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = Color("#ffd257") if st == "hover" else Color(232 / 255.0, 195 / 255.0, 74 / 255.0, 0.88)
-			sb.border_color = Color("#e8c34a")
-			sb.set_border_width_all(1)
-			sb.set_corner_radius_all(4)
-			sb.content_margin_left = 10
-			sb.content_margin_right = 10
-			sb.content_margin_top = 6
-			sb.content_margin_bottom = 6
-			b.add_theme_stylebox_override(st, sb)
-		b.pressed.connect(back_to_editor)
-		hud_layer.add_child(b)
-		b.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 8)
-		b.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"):
 		touch_layer = CanvasLayer.new()
 		touch_layer.layer = 2
@@ -487,10 +416,6 @@ func _input(event: InputEvent) -> void:
 		Pad.held = false
 
 func _unhandled_input(event: InputEvent) -> void:
-	if game != null and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
-		get_viewport().set_input_as_handled()
-		back_to_editor()
-		return
 	if game != null and event.is_action_pressed("pause"):
 		toggle_pause()
 		get_viewport().set_input_as_handled()

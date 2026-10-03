@@ -24,7 +24,7 @@ void vertex() {
 	// the eye's right, flattened: the card turns about Y only
 	vec3 right = INV_VIEW_MATRIX[0].xyz;
 	right = normalize(vec3(right.x, 0.0, right.z));
-	vec3 world = feet + right * VERTEX.x * cd.y + vec3(0.0, VERTEX.y * cd.z, 0.0);
+	vec3 world = feet + (right * VERTEX.x * cd.y + vec3(0.0, VERTEX.y * cd.z, 0.0)) * game_unit;
 	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
 	depth = -VERTEX.z;
 	UV = vec2((cd.x + UV.x) / cells, UV.y);

@@ -22,6 +22,10 @@ mkdir -p build "$(dirname "$OUT")"
 [ -f build/.gdignore ] || : > build/.gdignore
 OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 "$GODOT" --headless --import > /dev/null 2>&1 || true
+# THE ISLANDS, BAKED (tools/bake_island.gd), unless they are already, for
+# this code: the APK carries them, so the handheld reads its world off
+# disk instead of spending minutes making it
+"$GODOT" --headless --script res://tools/bake_island.gd -- --all --if-missing
 if [ -n "${MEWD_KEYSTORE:-}" ]; then
   export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$MEWD_KEYSTORE"
   export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${MEWD_KEY_ALIAS:-mewd}"

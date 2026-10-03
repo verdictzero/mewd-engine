@@ -478,10 +478,12 @@ func tic_light(dt: float) -> void:
 	if g > 0.0:
 		# game coordinates into the renderer's, the one conversion
 		# everything in this game does at its own edge
-		U.gset("beam_pos", U.v3(lit_from.x, lit_from.y, lit_from.z))
+		# (in the world's metres: the game is drawn scaled to the island's)
+		var m := U.unit_m
+		U.gset("beam_pos", U.v3(lit_from.x, lit_from.y, lit_from.z) * m)
 		U.gset("beam_dir", U.v3(lit_dir.x, lit_dir.y, lit_dir.z))
-		U.gset("beam_len", lit_len)
-		U.gset("beam_range", LIGHT_RANGE[glow_stage - 1] if glow_stage >= 1 else 400.0)
+		U.gset("beam_len", lit_len * m)
+		U.gset("beam_range", (LIGHT_RANGE[glow_stage - 1] if glow_stage >= 1 else 400.0) * m)
 		# the clock the flicker rides: fast while the beam is out, slowing
 		# as the afterglow dies, so the light settles rather than strobes
 		_seed = fmod(_seed + dt * (4.0 + 14.0 * g), 6283.0)

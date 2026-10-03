@@ -53,7 +53,7 @@ func draw_for(cam: Camera3D, f: float) -> void:
 	im.clear_surfaces()
 	if list.is_empty():
 		return
-	var eye := cam.global_position
+	var eye := cam.position
 	var begun := false
 	for t in list:
 		var trav: float = t.trav + SPEED * f

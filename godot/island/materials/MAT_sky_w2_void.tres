@@ -1,0 +1,107 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_sky_void_gradient.gdshader" id="1_voidsky"]
+[ext_resource type="Texture2D" uid="uid://bmgau0bj73dpy" path="res://godot/island/textures/TEX_vortex_7_extra.png" id="2_vortex"]
+[ext_resource type="Texture2D" uid="uid://27p7xaa8a3f6" path="res://godot/island/textures/TEX_vortex_7.png" id="3_vortex_b"]
+[ext_resource type="Texture2D" uid="uid://k1xqtknkol5g" path="res://godot/island/sky/SKY_eye_hdri.hdr" id="4_eye"]
+
+; SCENE_test_zone_W2's procedurally generated skybox: the flat two-tone void
+; gradient (dark grey below a raised horizon, light grey above), replacing the
+; rotating cloud panorama (MAT_sky_rotating_day) for now, with the top third of
+; the dome given over to a permanently turning vortex over a blacked-out zenith.
+;
+; THE VORTEX. `vortex_coverage` 0.35 and `zenith_black_coverage` 0.05 are
+; fractions of the sky dome's area, so the swirl owns the top third of it and the
+; blackout the top twentieth — the dark pool its eye sits in. They are nested on
+; purpose: the texture's core is near-black and its arms brighten outwards, so the
+; middle of the swirl disappears into the blackout and only the arms carry, which
+; is what makes it read as something you are looking INTO. Widen the blackout past
+; the swirl and you get a black lid with a ring under it instead.
+;
+; This is the one place in the scene where a large area of moving mid-grey meets
+; the palette LUT, so `vortex_color` is left at exact white and the texture is
+; greyscale: any tint here is a tint the LUT is free to resolve to a coloured
+; entry, and it would swing between entries as the arms turn.
+;
+; TWO LAYERS NOW, and the shader's own note on the single one is what asked for
+; it: differential rotation inside one swirl winds its arms below a pixel and
+; greys the whole thing out, so the way to give it life is a second copy at
+; another rate. `vortex_7_extra` turns at -0.055 rad/s and `vortex_7` at -0.11,
+; exactly twice, same direction. A 2:1 ratio is the one that reads as ONE object
+; with depth rather than as two discs: the pair returns to its starting
+; configuration once per revolution of the slower layer, so the pattern is
+; non-repeating over any span anyone watches without ever drifting into a beat
+; slow enough to look like a mistake.
+;
+; BOTH AT `vortex_scale` 1.15, which magnifies each image inside the disc rather
+; than widening the disc. `vortex_coverage` is untouched at 0.35 on purpose — the
+; rim at EYEDIR.y = 0.65 is a contract with the fog and with
+; `scripts/SCRIPT_bake_env_ball.gd`, and the arms getting bigger is a look change that
+; should not have to touch it. `vortex_edge_fade` goes 0.12 -> 0.22 to pay for
+; it: at 1.15 the rim samples the texture at radius 0.435, inside its own alpha
+; feather, so the fade is now the only thing preventing a hard circle. See its
+; doc in the shader.
+;
+; The spin is still slow on purpose — the slower layer turns once every 114
+; seconds. It is meant to be something you notice on the second look, not weather
+; that is happening to you. Each layer is rigid.
+;
+; THEY ARE SCREENED, not mixed. Where two arms cross the light accumulates, which
+; is what stops the pair reading as painted cards; screen rather than add because
+; add runs past 1.0 and `post_dither` snaps anything past 1.0 to the palette's
+; white entry, so additive overlaps would be flat white blobs with the arms
+; erased inside them. See the shader for the premultiplied form.
+;
+; bottom_color is the CONTRACT with the fog. It is an EXACT neutral 0.30 — the
+; same value the terrain/cliff/grass fog, the Environment fog, the cloud sea's
+; fog and the horizon band's haze are all set to — so the fogged distance and the
+; low sky read as one continuous pixel at the horizon. Keep them in step: change
+; bottom_color and you must change every fog colour with it. A neutral is
+; mandatory (a blue bias here lets a tinted palette entry win and paints a
+; coloured stripe across the sky).
+;
+; IT WAS 0.089, and that number came from a scene with nothing under the islands
+; but void. Once the volumetric cloud sea went in underneath, 0.089 was four
+; times darker than the thing it was supposed to blend into, and it drew a
+; near-black bar across the horizon: measured 0.28 deep against its surroundings
+; with a 21.8/255 step at its lower edge. It was also the worst possible value
+; for the current palette — ps1-soft's neutral ramp jumps 0.031 -> 0.282 with
+; nothing in between, so a large flat area of 0.089 dithered between two entries
+; eight steps apart. 0.30 was picked by sweeping the value and measuring the
+; horizon discontinuity: it falls from 0.287 to 0.021, and 0.27 through 0.33 are
+; all within measurement noise of each other.
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_voidsky")
+shader_parameter/top_color = Color(0.666, 0.666, 0.666, 1)
+shader_parameter/bottom_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/horizon_height = 0.25
+shader_parameter/horizon_softness = 0.2
+shader_parameter/horizon_glow = Color(0.85, 0.85, 0.85, 1)
+shader_parameter/horizon_glow_strength = 0.1
+shader_parameter/horizon_glow_width = 0.34
+shader_parameter/sun_glow_strength = 0.18
+shader_parameter/sun_glow_width = 8.0
+shader_parameter/sun_glow_color = Color(1, 0.99, 0.95, 1)
+shader_parameter/zenith_black_coverage = 0.05
+shader_parameter/zenith_darkness = 1.0
+shader_parameter/vortex_texture = ExtResource("2_vortex")
+shader_parameter/vortex_strength = 1.0
+shader_parameter/vortex_color = Color(1, 1, 1, 1)
+shader_parameter/vortex_coverage = 0.35
+shader_parameter/vortex_edge_fade = 0.22
+shader_parameter/vortex_spin_rad_per_sec = -0.055
+shader_parameter/vortex_spin_offset_rad = 0.0
+shader_parameter/vortex_scale = 1.15
+shader_parameter/vortex_texture_b = ExtResource("3_vortex_b")
+shader_parameter/vortex_spin_b_rad_per_sec = -0.11
+shader_parameter/vortex_spin_b_offset_rad = 0.0
+shader_parameter/vortex_scale_b = 1.15
+shader_parameter/eye_panorama = ExtResource("4_eye")
+shader_parameter/eye_blend = 0.0
+shader_parameter/eye_energy = 0.16
+shader_parameter/eye_tint = Color(1, 1, 1, 1)
+shader_parameter/eye_yaw = 0.0
+shader_parameter/eye_fade_low = 0.06
+shader_parameter/eye_fade_high = 0.4

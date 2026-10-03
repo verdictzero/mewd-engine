@@ -54,7 +54,7 @@ void vertex() {
 		float lean = sin(t) * 1.3 * (runs > 0.5 ? 1.6 : 1.0);
 		float bob = abs(sin(t * 2.0 + phase)) * 0.7 * (runs > 0.5 ? 3.0 : 1.0) - 0.7 * runs;
 		// (map x, y) is (x, -z) here
-		feet += vec3(cos(phase) * lean, bob, -sin(phase) * lean);
+		feet += vec3(cos(phase) * lean, bob, -sin(phase) * lean) * game_unit;
 	}
 	// the eye's right, flattened: the card turns about Y only
 	vec3 right = INV_VIEW_MATRIX[0].xyz;

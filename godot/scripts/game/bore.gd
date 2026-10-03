@@ -181,8 +181,8 @@ func _drill_tic() -> void:
 func draw(cam: Camera3D, t: float) -> void:
 	im.clear_surfaces()
 	im_top.clear_surfaces()
-	var right := cam.global_transform.basis.x
-	var up := cam.global_transform.basis.y
+	var right := cam.transform.basis.x
+	var up := cam.transform.basis.y
 	var red := Color(1.0, 0.16, 0.10)
 	var any := false
 	if active() and not aim.is_empty():
@@ -196,7 +196,7 @@ func draw(cam: Camera3D, t: float) -> void:
 		im.surface_add_vertex(U.v3(e.x, e.y, e.z))
 		im.surface_end()
 		var at := U.v3(e.x, e.y, e.z)
-		var d := at.distance_to(cam.global_position)
+		var d := at.distance_to(cam.position)
 		im_top.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		if lock != null:
 			# the reticle on the head: a ring, breathing

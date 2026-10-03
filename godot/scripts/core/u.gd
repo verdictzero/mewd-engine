@@ -28,6 +28,13 @@ const TEXEL := 64.0
 ## read one back outside the editor (RealDecals lights its marks off
 ## these).
 static var G := {}
+## METRES A GAME UNIT as the world is drawn (1/32 on the island: the game
+## is scaled down to its metres — Game.start_map); the shaders' game_unit
+static var unit_m := 1.0
+static func set_unit(m: float) -> void:
+	unit_m = m
+	gset("game_unit", m)
+
 static func gset(name: String, value) -> void:
 	G[name] = value
 	RenderingServer.global_shader_parameter_set(name, value)

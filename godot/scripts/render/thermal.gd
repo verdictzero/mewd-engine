@@ -232,7 +232,7 @@ func _marks(M) -> Array:
 	var tan_half := tan(deg_to_rad(camera.fov) / 2.0)
 	for t in order:
 		var hp: Vector3 = M.heat_point(t)
-		var at := U.v3(hp.x, hp.y, hp.z)
+		var at: Vector3 = game.to_global(U.v3(hp.x, hp.y, hp.z))
 		if camera.is_position_behind(at):
 			continue
 		var sp := camera.unproject_position(at)
@@ -242,7 +242,7 @@ func _marks(M) -> Array:
 			continue
 		# and how big the thing is on the glass, off its own size
 		var size: float = float(t.radius) * 1.6 if "radius" in t else 90.0
-		var d := maxf(1.0, at.distance_to(camera.global_position))
+		var d := maxf(1.0, at.distance_to(camera.global_position) * IslandLevel.U_PER_M)
 		var r := clampf(size / d / tan_half * H / 2.0, 9.0, H * 0.3)
 		out.append({"x": roundi((nx + 1.0) / 2.0 * W), "y": roundi((ny + 1.0) / 2.0 * H), "n": int(seen[t]), "r": roundi(r)})
 	return out

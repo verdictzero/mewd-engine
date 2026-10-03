@@ -524,8 +524,8 @@ func draw(cam: Camera3D) -> void:
 	trail.draw()
 	im.clear_surfaces()
 	im_top.clear_surfaces()
-	var right := cam.global_transform.basis.x
-	var up := cam.global_transform.basis.y
+	var right := cam.transform.basis.x
+	var up := cam.transform.basis.y
 	var marks := []
 	if active():
 		for l in locks:
@@ -543,7 +543,7 @@ func draw(cam: Camera3D) -> void:
 		for m in marks:
 			var pt := heat_point(m.t)
 			var at := U.v3(pt.x, pt.y, pt.z)
-			var d := at.distance_to(cam.global_position)
+			var d := at.distance_to(cam.position)
 			var col := Color(1.0, 0.25, 0.1) if m.n > 0 else Color(1.0, 0.8, 0.2)
 			if m.n == 0 and (game.tics >> 1) & 1:
 				continue

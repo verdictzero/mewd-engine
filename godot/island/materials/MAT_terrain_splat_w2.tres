@@ -1,0 +1,490 @@
+[gd_resource type="ShaderMaterial" load_steps=18 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_terrain_splat_w2.gdshader" id="1_w2"]
+[ext_resource type="Texture2D" uid="uid://dgbhn2ui3vw42" path="res://godot/island/textures/TEX_idealized_grass_256px.png" id="2_grass_a"]
+[ext_resource type="Texture2D" uid="uid://drevarjdhr6ld" path="res://godot/island/textures/TEX_forest_ground_01_normal_128.png" id="3_grass_n"]
+[ext_resource type="Texture2D" uid="uid://fau6oac2dgf6" path="res://godot/island/textures/TEX_lawn_striped_albedo_128.png" id="4_golf_a"]
+[ext_resource type="Texture2D" uid="uid://668ihulb622o" path="res://godot/island/textures/TEX_dirt_01_albedo_128.png" id="5_soil_a"]
+[ext_resource type="Texture2D" uid="uid://dlp6tl2plxlfo" path="res://godot/island/textures/TEX_dirt_01_normal_128.png" id="6_soil_n"]
+[ext_resource type="Texture2D" uid="uid://cln83gwfmjxxq" path="res://godot/island/textures/TEX_forest_ground_06_albedo_128.png" id="7_forest_a"]
+[ext_resource type="Texture2D" uid="uid://1bme1xn6jxs4" path="res://godot/island/textures/TEX_rocky_trail_02_albedo_128.png" id="8_path_a"]
+[ext_resource type="Texture2D" uid="uid://xo1ufsiw63kk" path="res://godot/island/textures/TEX_dark_rock_02_albedo_128.png" id="9_rock_a"]
+[ext_resource type="Texture2D" uid="uid://i4an2d84v5np" path="res://godot/island/textures/TEX_dark_rock_02_normal_128.png" id="10_rock_n"]
+[ext_resource type="Texture2D" uid="uid://cy45vdh8dx7ig" path="res://godot/island/textures/TEX_coast_sand_02_albedo_128.png" id="11_sand_a"]
+[ext_resource type="Texture2D" uid="uid://c6687jfuynux5" path="res://godot/island/textures/TEX_coast_sand_02_normal_128.png" id="12_sand_n"]
+[ext_resource type="Texture2D" uid="uid://dhpk50pvnms2v" path="res://godot/island/textures/TEX_crater_char_albedo_128.png" id="13_char_a"]
+[ext_resource type="Texture2D" uid="uid://dbqtr0jbjahaa" path="res://godot/island/textures/TEX_crater_slag_128.png" id="14_slag_a"]
+[ext_resource type="Texture2D" uid="uid://cox3oninl6ibq" path="res://godot/island/data/palettes/TEX_ember_ramp_ps1-soft.png" id="15_crack_ramp"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2.png" id="99_envball"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2_night.png" id="99_envballn"]
+
+; SCENE_test_zone_W2's terrain, textured from the `textures/` photo set.
+;
+; Replaces MAT_terrain_flatcolor.tres in the scene; that material is still here
+; and still tested, so flipping back to the flat graphic look is a one-line scene
+; change. Everything below the texture assignments -- the fog band, the exact
+; neutral fog colour, the smooth shading -- is carried over from it unchanged,
+; because those numbers are tied to the sky material and the palette LUT rather
+; than to how the ground is painted. See docs/DOC_scene_w2_skybox_terrain.md.
+;
+; Layer choice, and what is deliberately left unused. `textures/` ships variants
+; for four of the seven layers; this picks one of each and leaves the rest as
+; alternates to swap in:
+;   rough        TEX_idealized_grass (drawn blades, not a photo; see the grass
+;                                    section below -- alternate: forest_ground_01,
+;                                    the moss-and-twigs photo this replaced)
+;   fairway      lawn_striped       (mower stripes read as maintained from the air)
+;   soil / pad   dirt_01
+;   forest floor forest_ground_06   (dark needle litter)
+;   path         rocky_trail_02     (alternate: rocky_trail_01)
+;   rock         dark_rock_02       (fractured slabs; alternate: dark_rock_01,
+;                                    which is smoother and reads as marble on a
+;                                    cliff face)
+;   sand         coast_sand_02      (alternates: coast_sand_01, greener;
+;                                    aerial_beach_01, flat and grey)
+;
+; TINTS ARE LINEAR COLOUR MULTIPLIERS, not colours -- the uniform is a plain vec3
+; on purpose, because several channels have to be pushed above 1.0. Each is set
+; PER CHANNEL so the layer's mean colour lands on the flat-colour palette entry it
+; replaces, measured off the shipped texture through this project's import
+; pipeline. The texture keeps every bit of its own variation; only its average
+; moves.
+;
+; Matching the LEVEL alone is not enough, and that is the whole reason these are
+; three numbers rather than one. A photo set is not graded to anything: the rough
+; (forest_ground_01) averages olive-tan, and at the right brightness but the wrong
+; hue the island rendered as a khaki dune field. It matters more here than it
+; would elsewhere because `SHADER_post_dither.gdshader` snaps every pixel to one of
+; sixteen palette entries -- a colour that lands between two of them does not
+; blend, it jumps to whichever is nearer, so an un-graded hue does not read as
+; "slightly off", it reads as a different surface.
+;
+;   layer   texture mean (lin RGB)     ->  flat palette entry
+;   grass   0.027 0.110 0.023              (see the grass section below)
+;   golf    0.145 0.267 0.011              (no longer a palette match; see below)
+;   soil    0.126 0.086 0.049              0.107 0.060 0.026
+;   forest  0.103 0.059 0.029              0.048 0.032 0.015
+;   path    0.246 0.150 0.085              0.194 0.153 0.102
+;   rock    0.043 0.034 0.025              0.102 0.105 0.117   very dark -> grey
+;   sand    0.223 0.171 0.107              0.590 0.457 0.192
+;
+; THREE OF THEM ARE NOT A LITERAL MATCH, and the reason is clipping. Matching a
+; mean per channel says nothing about where the HIGHLIGHTS land, and the ratio
+; needed to move a mean is applied to the whole range: the rock's target is a
+; near-neutral grey and the photo is warm brown, so a literal match wanted blue at
+; 4.6x, which took the bright texels past white and painted the coastal rock band
+; and the cliffs a pale blue-white. Golf did the same in reverse — lawn_striped has
+; almost no blue, so lifting its mean to a vivid green needed 3.5x there and
+; clipped the green channel outright, which is where the teal bunkersides came
+; from.
+;
+; So: rock is NEUTRAL, keeping the rock's own warm hue instead of forcing it grey;
+; golf and sand are pulled well back toward neutral. The rule is that a tint may
+; move a layer's level freely and its hue only as far as the texture's weakest
+; channel can take without clipping.
+;
+; THE WHOLE SET WAS RE-GRADED WHEN THE SUN CAME DOWN (3.0 -> 1.2, and ambient
+; 1.8 -> 1.2 with it), and that is the more useful thing to know than any
+; individual number here.
+;
+; These tints were originally anchored to the OLD FLAT-COLOUR PALETTE's values —
+; targets chosen for a shader with no textures and no normal maps, where golf sat
+; at 0.42 luminance and sand at 0.47 against a rough at 0.14. Matching them meant
+; BRIGHTENING golf, sand and rock and darkening only the rough, so under a
+; 3.0-energy sun every layer that had been pushed up clipped, and the one that had
+; been pushed down was the only one that read correctly. Ground-level captures had
+; the fairway as electric yellow-white and the cliff tops, grass and tree
+; impostors as flat white.
+;
+; Lowering the exposure is the single-cause fix — the sky is a shader, the cloud
+; decks are unshaded and both fogs are colour constants, so the sun only touches
+; the four surfaces that were actually blowing out. What it leaves behind is this:
+; golf and sand KEEP their tints (they were the ones clipping; the sun coming down
+; is what fixes them), while the rough comes back up by roughly what the sun came
+; down by, and the dark layers stop being crushed to compensate for a hot sun.
+;
+; The rule that survives all of it: a tint may move a layer's level freely and its
+; hue only as far as the texture's weakest channel can take without clipping.
+;
+; THE GOLF LAYER IS GRADED FOR VIVIDNESS NOW, not for a palette match, and RED is
+; the channel that carries it. `lawn_striped` is a photograph of real turf, so it
+; is olive: 0.145 0.267 0.011, red already at 54% of green before any tint touches
+; it. The old 1.05 / 1.5 / 1.35 raised the level and left that ratio where it
+; found it -- rendered, the near fairway came out 174 177 79, which is red at 98%
+; of green. That is not a green the tonemap desaturated, it is a YELLOW, and it is
+; what "washed out" meant. Pulling red DOWN is what fixes it; pushing green up
+; only makes a brighter version of the same colour.
+;
+; SWEPT, NOT GUESSED, because there is a wall on the far side of this and it is
+; not clipping. Four tints rendered through the full scene at the `tee_stand`
+; viewpoint (`tests/PROBE_golf_shots.gd`), measured over the near fairway:
+;
+;   tint                 turf RGB      R/G   stripe contrast   dominant entry
+;   1.05 1.5  1.35    174 177  79      98%       11.2               52%
+;   0.72 1.62 0.95    127 165  74      77%       15.8               38%
+;   0.60 1.70 0.88    107 160  73      66%       10.3               59%   <- shipped
+;   0.50 1.80 0.82     92 160  79      57%        5.8               90%
+;
+; THE WALL IS THE MOWER STRIPES. `lawn_striped` was chosen because the stripes
+; read as deliberate maintained ground from the air, and they only read while the
+; turf spans more than one palette entry. At 0.50 the fairway snaps to a single
+; entry across 90% of its pixels and the stripes are gone -- a flat green card
+; where a golf course was. 0.60 is the last stop before that: it holds essentially
+; the shipped stripe contrast (10.3 against 11.2) while cutting red by a third.
+; The 0.72 row's higher number is not more stripe, it is DITHER -- two entries
+; splitting the surface 38/62, which reads as speckle rather than as mowing.
+;
+; The colour it lands on is exactly the palette entry 58a050, where the old tint
+; landed on a0b860. Both are real ps1-soft entries -- this did not move the
+; fairway off the palette, it moved it from the palette's yellow-green to its
+; green.
+;
+; AND IT CLIPS NOTHING, which is the check this header exists to demand. Measured
+; on `TEX_lawn_striped_albedo_128.png` through the sRGB->linear the import applies,
+; the texture's per-channel maxima are 0.328 / 0.407 / 0.019, so the brightest
+; texel in the set lands at 0.197 / 0.692 / 0.017 and 0 of 49,152 channels clip.
+; The clipping this file warns about was measured against a 3.0-energy sun; the
+; sun is a fake 0.25 now (`TimeOfDay.day_sun_energy` through
+; `SHADERINC_island_light.gdshaderinc`) and the headroom is real. Note which way the rule
+; bends here: the weakest channel is BLUE, and this change LOWERS it, so the
+; constraint is respected in the safe direction rather than tested.
+;
+; THE GRASS LAYER IS NO LONGER ANCHORED TO THE PALETTE ENTRY IN THE TABLE ABOVE.
+; It is anchored to the TUFT SPRITES that `SCRIPT_grass_scatter.gd` stands in it by the
+; tens of thousands. The table's targets were chosen when the ground was the only
+; green thing in the frame; it is not any more, and a target that was right in
+; isolation is wrong the moment something else green is planted on top of it. The
+; old tint left the ground markedly greener and less red than the tufts standing
+; in it, so they read as objects LYING ON the turf rather than growing out of it.
+;
+; TWO THINGS MAKE THIS LAYER DIFFERENT FROM EVERY OTHER ROW IN THAT TABLE, and
+; both were learned the hard way, so do not re-derive this one by matching texture
+; means the way the others were.
+;
+; FIRST: THE MATCH HAS TO BE MADE IN RENDERED SPACE, NOT IN ALBEDO SPACE. The
+; terrain is lit and the sprites are `unshaded` -- `SHADER_veg_billboard.gdshader` sends
+; ALBEDO straight to the tonemapper. The sun and the near-neutral ambient multiply
+; ONE side of the comparison and not the other, so a tint that matches the
+; sprite's albedo chromaticity exactly still does not match it on screen. Matching
+; the albedo was tried first and left a rendered-chromaticity gap of 0.055.
+;
+; SECOND: IT HAS TO CLEAR THE POST QUANTISATION TO EXIST AT ALL. `post_dither`
+; snaps each channel to `lut_levels` = 16 steps BEFORE the palette lookup, so a
+; correction smaller than one step (0.067 in sRGB) rounds straight back to the
+; colour it started from. The albedo-space match moved sRGB red by 0.059 -- just
+; under one step -- and rendered a frame that was, to the pixel, the one it was
+; meant to fix: bare ground stayed 85% #58a050 either way. A hue correction here
+; is either big enough to change the LUT cell or it is not visible.
+;
+; SO THIS NUMBER WAS SOLVED AGAINST THE RENDERER, not computed from the texture.
+; `--no-postfx` captures of `tests/RENDER_w2_ground.gd --only=rough` give the
+; ground's raw pre-palette colour at a known tint, and the tint is solved from
+; those. Re-measure if the sun energy, the tonemapper or the palette ever moves;
+; the fit is against this exposure and nothing else.
+;
+; THE HARD PART IS MEASURING THE GROUND AT ALL, not solving once you have it.
+; The `rough` viewpoint is a fern-and-tuft floor, so most of the frame is sprite,
+; and two obvious statistics both fail on it:
+;
+;   - k-means on the near band. The cluster boundary MOVES when the tint moves, so
+;     each capture clusters a different pixel set and the numbers are not
+;     comparable. It reported the ground getting GREENER after a change that cut
+;     the green tint from 2.42 to 1.74.
+;   - the histogram mode. It returns the single most common exact colour, which is
+;     a flat `unshaded` sprite colour -- identical to four decimals across every
+;     capture, because sprites do not see `grass_tint` at all.
+;
+; WHAT WORKS IS A DIFFERENCE MASK. Render the same viewpoint at three tints and
+; keep the pixels that changed in BOTH transitions: only terrain responds to
+; `grass_tint`, so that set is terrain by construction, it is the SAME pixel set
+; in every capture, and it needs no threshold anyone can argue with. The captures
+; are bit-reproducible -- the harness settles a fixed number of frames, so the
+; wind phase is deterministic and sprite pixels land identically run to run, which
+; is the property the whole method rests on. ~246k pixels in rows 400-700.
+;
+; THE MODEL IS FILMIC WITH ONE CONSTANT PER CHANNEL: screen = filmic(K * tint),
+; K folding texture mean and lighting together. Fit against two captures it agreed
+; with itself to 1.4 / 5.8 / 7.2 percent, and it EXTRAPOLATES safely, which the
+; free-exponent power law fitted here previously did not -- that one only held
+; between its two measured points because its exponents were absorbing filmic's
+; curvature instead of modelling it. K = 0.0114 / 0.0296 / 0.0079 at this exposure.
+;
+; THE TEXTURE IS NOW A DRAWN ONE, `TEX_idealized_grass_256px`, and it makes the
+; tuft match EASIER rather than undoing it. Its own chromaticity is already near
+; the sprites', because it was drawn as grass rather than photographed as forest
+; floor; at a plain level-matching neutral tint the ground rendered at red 0.245
+; against the photo's 0.202, with the tufts at 0.327. The swap therefore targets
+; the shipped ground's rendered colour EXACTLY, so the new texture contributes its
+; structure and nothing else, and the hue match is preserved by construction:
+;
+;   tuft sprites, rendered chromaticity            0.327 0.567 0.106
+;   ground, forest_ground_01 @ 9.0 (was)           0.301 0.600 0.099   luma 0.2517
+;   ground, idealized_grass @ 3.0 (now)            0.303 0.596 0.101   luma 0.2499
+;
+; Level is preserved to 0.7 percent, which is the rule the rest of this file is
+; built on. (The chromaticities above are measured over the difference mask, which
+; is mostly SUNLIT ground; an earlier note in this file quoted 0.297 0.592 0.111
+; for the same sprites off a smaller hand-picked patch. Different region, not a
+; different result -- but do not mix the two sets when comparing.)
+;
+; SCALES ARE IN METRES PER TILE. EVERY LAYER RUNS AT 3.0 EXCEPT ROCK, which
+; stays at 12.0, and that is a deliberate departure from how this file used to
+; set them: each was picked against its own feature size (a mower stripe covering
+; about a mower's width, a rock slab covering a slab), which is why they used to
+; range from 4.0 to 12.0. Matching them costs the per-layer framing and buys a
+; surface whose detail does not change size as one material blends into the next
+; -- the splat crossfades between layers over a few metres, and a 4x scale step
+; across that blend reads as the ground changing distance rather than changing
+; material.
+;
+; ROCK IS THE ONE LAYER THAT CANNOT TAKE IT, and it fails loudly rather than
+; subtly. dark_rock_02 is a photo of FRACTURED SLABS -- it has one dominant
+; feature at one size, and a cliff is a single unbroken surface tens of metres
+; across with nothing planted on it to interrupt the eye. Take it to 3.0 and the
+; slabs shrink to brick size and the tile boundary becomes a visible grid: the
+; whole cliff face reads as a masonry wall. The other six layers survive the same
+; change because they are either near-isotropic noise (soil, sand, forest litter)
+; or are covered in scattered vegetation that breaks the period up. Feature size
+; is the rule; the rock is where the rule still bites.
+;
+; This is also why rock is the layer where scale interacts with `triplanar_
+; sharpness` -- it is the only one sampled triplanar, so its tile grid appears on
+; three planes at once and a repeat that would be forgivable on flat ground is
+; three times as legible on a cliff.
+;
+; WHAT THIS DOES NOT MATCH IS TEXEL DENSITY, and that is the number that actually
+; governs sharpness. Only the grass is 256 px; every other layer is a 128 px
+; texture, so at a shared 3.0 they land at 42.7 texel/m against the grass's 85.3
+; and read softer than it up close. `textures/` ships 512 px variants of all six
+; -- golf, soil, forest, path, rock, sand -- which at 3.0 would give 170.7, i.e.
+; twice the grass rather than half. Neither lands on it exactly; 256 px would,
+; and none of the six has one. Swapping the 512s in is the fix if the soft layers
+; bother you, at 16x the texture memory each.
+;
+; GRASS RUNS AT 3.0 RATHER THAN THE 9.0 THE PHOTO USED, and the target is the
+; POST-PIXELATION resolution, not realism. `post_dither` chunks the frame down
+; before anything reaches the screen, which leaves roughly 100 screen px per metre
+; of near ground; 256 px over 3 m is ~85 texel/m, so the texture arrives at about
+; 1:1 with the pixel grid it is being drawn into. Above that the blades smear into
+; brushstrokes (4.5 still reads as strokes, 9.0 as flat mush -- the photo could
+; carry 9.0 only because it had no directional feature to smear); below it the
+; detail is thrown away by the chunking and the mid field stipples into noise,
+; which is what 2.0 does. Changing the pixelation factor is what would move this
+; number, not changing the camera.
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_w2")
+shader_parameter/grass_albedo = ExtResource("2_grass_a")
+shader_parameter/grass_normal = ExtResource("3_grass_n")
+shader_parameter/grass_scale = 3.0
+shader_parameter/grass_tint = Color(1.886, 1.48, 0.889, 1)
+shader_parameter/golf_albedo = ExtResource("4_golf_a")
+shader_parameter/golf_scale = 3.0
+shader_parameter/golf_tint = Color(0.6, 1.7, 0.88, 1)
+shader_parameter/soil_albedo = ExtResource("5_soil_a")
+shader_parameter/soil_normal = ExtResource("6_soil_n")
+shader_parameter/soil_scale = 3.0
+shader_parameter/soil_tint = Color(1.15, 0.95, 0.72, 1)
+shader_parameter/forest_albedo = ExtResource("7_forest_a")
+shader_parameter/forest_scale = 3.0
+shader_parameter/forest_tint = Color(0.9, 1.0, 0.98, 1)
+shader_parameter/forest_grass_mix = 0.75
+shader_parameter/path_albedo = ExtResource("8_path_a")
+shader_parameter/path_scale = 3.0
+shader_parameter/path_tint = Color(0.789, 1.02, 1.204, 1)
+shader_parameter/rock_albedo = ExtResource("9_rock_a")
+shader_parameter/rock_normal = ExtResource("10_rock_n")
+shader_parameter/rock_scale = 12.0
+shader_parameter/rock_tint = Color(2.8, 2.8, 2.8, 1)
+shader_parameter/triplanar_sharpness = 4.0
+shader_parameter/sand_albedo = ExtResource("11_sand_a")
+shader_parameter/sand_normal = ExtResource("12_sand_n")
+shader_parameter/sand_scale = 3.0
+
+; THE CRASH SITE. Two layers, and they are the only two in this file that are
+; GENERATED rather than photographed -- `textures/proc/TOOL_gen_crater_textures.py`
+; bakes them from `dirt_01` and `dark_rock_02`, the very layers they replace, so
+; a burnt patch reads as this ground burnt rather than as a different material
+; appearing at the crater's edge.
+;
+; WHICH CHANGES HOW THE TINTS ARE SET, and it is the one place this file's method
+; does not apply. Every other row above solves a tint to move a photograph's mean
+; onto a target it was never shot for -- three numbers, because a photo has a hue
+; nobody chose. These two were baked to their hue, so their tints are NEUTRAL and
+; do nothing but set level. A per-channel grade here would be correcting a colour
+; this repo picked on purpose, and the right place to change it is the bake.
+;
+;   layer   texture mean (lin RGB)  tint   graded luma   what it sits against
+;   char    0.0087 0.0056 0.0033    1.75      0.0107     soil graded at 0.0921
+;   slag    0.0083 0.0061 0.0045    1.80      0.0117     rock graded at 0.0987
+;
+; The texture means are PRINTED BY THE BAKE, in linear, which is the space this
+; table is written in -- `TOOL_gen_crater_textures.py` reports them on every run for
+; exactly that reason. Quoting an encoded mean and grading against a linear one
+; is the slip that would otherwise be invisible here.
+;
+; MUCH DARKER THAN THE PREVIOUS PASS, ON BOTH SIDES OF THE MULTIPLY. Those were
+; 0.0198 and 0.0275 graded -- a fifth and better than a quarter of the layer each
+; replaces -- and the crash site read as a pale scar on a dark island, which is
+; the one direction a burn must never go. They now sit near 12% each, roughly
+; half what they were, and BOTH the bake and the tint came down to get there.
+; Which way round that goes is the whole method: tint alone would have crushed
+; fourteen quantisation steps toward each other to buy the level, and bake alone
+; would have been undone by the grade. Neither clips.
+;
+; DARKNESS IS ALSO WHAT FIXED THE HUE, which is not obvious and cost several
+; renders to establish. The char kept reading as dirt in shadow rather than as
+; charcoal, and the natural move -- desaturate the bake -- makes it WORSE:
+; `ps1-soft`'s dark near-neutrals are mostly olive, so a greyer dark brown lands
+; on green and the lip comes back mossy. What works is getting under the band
+; where the palette is saturated at all. See CARBON in the bake for the numbers.
+;
+; THE CHAR'S FIRST NUMBERS WERE 0.45x SOIL AND IT RENDERED AS A SAND QUARRY --
+; which, with a bunker layer in the same shader, is the one thing it must not
+; look like. Two causes, both fixed in the BAKE rather than here: the burn floor
+; was leaving a fifth of the dirt's own brown showing through, and the ash was
+; #a0a0a0 over 55% of the surface, which under this sun is white glitter.
+;
+; THE 6.6x THAT ONCE CONSTRAINED THE SLAG BAKE NO LONGER DOES, and it is worth
+; saying why rather than quietly dropping it. That number came from a dark plate
+; being asked to hit a BRIGHT target: hold the target and a dark texture needs an
+; enormous multiplier, which stretches a 14-level texture's steps over six times
+; their width. The target moved, so the plate got the value it always wanted
+; (#4a3826 -> #282018) and the tint went DOWN with it. The constraint was never
+; on the colour; it was on the pair.
+;
+; BOTH TEXTURES ARE NOW THREE SUB-VARIANTS EACH -- a plate with two others
+; blotted into it, which is why their means moved even where a colour did not.
+; The bake owns that composition entirely; nothing in this file needs to know
+; about it beyond re-reading the printed mean after a re-bake.
+shader_parameter/char_albedo = ExtResource("13_char_a")
+; 3.0 like every other ground layer, because charred dirt blends into soil and
+; grass at the ash apron and a scale step across that blend reads as the ground
+; changing distance rather than changing material.
+shader_parameter/char_scale = 3.0
+shader_parameter/char_tint = Color(1.75, 1.75, 1.75, 1)
+shader_parameter/slag_albedo = ExtResource("14_slag_a")
+; 12.0, MATCHING ROCK EXACTLY, and it is the one crater number set against a
+; junction rather than against a feature size. The slag rides the rock channel, so
+; where the crater fades out its texture crossfades into `dark_rock_02` on the
+; same channel at the same texel -- a scale step there would be a seam in a single
+; surface. The step it does keep, against char at 3.0, is the soil/rock step this
+; island already has everywhere.
+;
+; It also happens to be right for the crack network: the bake's plates are an
+; eighth of a tile, so 12 m puts them at 1.5 m across. At 3.0 they would be 0.4 m
+; and the floor would read as lizard skin.
+shader_parameter/slag_scale = 12.0
+shader_parameter/slag_tint = Color(1.80, 1.80, 1.80, 1)
+; THE GLOWING CRACKS, and this is the dial to reach for first. It multiplies the
+; ramp and is meant to exceed 1.0 -- the Environment's `glow_enabled` blooms
+; anything over it, which is the difference between cracks that are lit and cracks
+; that are radiating. Chosen against a filmic tonemap and a 0.25 sun and NOT yet
+; against the engine; the same caveat `ember_energy` carries in
+; docs/DOC_burnt_vegetation.md applies here for the same reason.
+shader_parameter/crack_glow = 2.6
+; The vegetation's ember ramp, unchanged and unduplicated. `post_dither` snaps
+; the frame to sixteen entries from the same palette these eight came from, so a
+; second fire ramp would be quantised onto this one anyway.
+shader_parameter/crack_ramp = ExtResource("15_crack_ramp")
+; Slower than the plants' 1.6. A burning fir is a fire and flickers; a crater
+; floor is a cooling mass and breathes.
+shader_parameter/crack_cycle_speed = 1.1
+shader_parameter/crack_cycle_depth = 0.42
+shader_parameter/crack_cycle_scatter = 3.5
+; THE MOLTEN CORE, gated on `IslandField.crater_molten` — the inner 30% of the
+; radius, which sits inside the flat floor. These three are what make the middle
+; of the crater a different thing from the rest of it rather than the same crust
+; with a brighter light on it.
+;
+; `melt_gamma` is the one to reach for. It is an EXPONENT on the baked heat, so
+; it widens the crack network instead of brightening it: 0.55 takes a seam texel
+; at 0.03 up to 0.15, so the threads swell to ribbons and the cooled rafts stand
+; out between them. 1.0 switches the whole core off and leaves the floor uniform.
+; The first pass ran it at 0.30 and the crater floor came back a gold lava lake
+; from rim to rim -- past about 0.4 the rafts close over and the pool stops being
+; a pool and becomes a disc, which is the failure to watch for.
+shader_parameter/melt_gamma = 0.55
+; Additive on top of `crack_glow`, so the pool sits over the Environment's bloom
+; threshold where the outer seams sit under it.
+shader_parameter/melt_glow = 0.9
+shader_parameter/melt_shade = 0.35
+; ---- the escape pod's divot -------------------------------------------------
+;
+; The dent's ground is GRADED RATHER THAN SAMPLED, because there is no seventeenth
+; texture unit to sample it with; the shader's `divot` block carries that argument
+; in full. What is here is the grade, and it is anchored to the soil layer's
+; measured level rather than chosen: `TEX_dirt_01_albedo_128.png` averages 0.121
+; linear luminance and takes `soil_tint` 1.55, so the churned earth is that same
+; ground at 0.82 of its level -- freshly opened dirt read against the dry crust
+; over it, which is the one comparison the eye actually makes here. Both surfaces
+; are in frame at once along the whole rim of the dent, so the difference between
+; them is the entire effect and its absolute level is not.
+;
+; 0.82 / 0.74 / 0.66 rather than a neutral: turned ground is WARMER as well as
+; darker, because what is being exposed is subsoil rather than shaded topsoil.
+; A neutral darkening read as the dent being in shadow, which is exactly the
+; reading to avoid on a scene with no shadows in it.
+shader_parameter/divot_scale = 1.7
+shader_parameter/divot_tint = Color(0.82, 0.74, 0.66, 1)
+shader_parameter/divot_break = 0.45
+shader_parameter/divot_grit = 0.3
+; Paler and drier than weathered cliff, and only just: `dark_rock_02` is already
+; near-black (0.036 linear) and carries a 3.4 tint to get off the floor, so a
+; scarp grade with any real range in it lands the cut face in a different palette
+; cell from the rock a metre away and reads as a decal rather than as a cut.
+shader_parameter/divot_scarp_tint = Color(1.08, 1.05, 1, 1)
+shader_parameter/normal_strength = 0.6
+; ZERO NOW THE ISLAND IS UNLIT. `1 - (1 - n.y) * k` was a hand-rolled stand-in for
+; the sky/ground hemisphere in `SHADERINC_island_light.gdshaderinc`, which does the same job
+; properly, continuously, and in colour rather than in level — leaving both on
+; double-counts the one axis they share. Kept as a knob, not deleted: it is still
+; the cheapest way to push relief around if the hemisphere needs help.
+shader_parameter/slope_shade = 0.0
+
+; THE UNLIT RESPONSE CURVE. Colours are NOT here — they are the four `tod_*`
+; globals, so the day/night cycle moves the whole island without touching a
+; material. These four are the shape of the response, and `MAT_cliff_wall.tres`
+; MUST carry the same values: the wall continues this surface across a shared ring
+; in plain sight, so a different curve either side is a seam in the shading exactly
+; where the albedo was made seamless. tests/TEST_island_world.gd asserts they agree.
+;
+; FOUR BANDS on the sun term, not a smooth ramp, and that is the palette's doing.
+; `post_dither` snaps the frame to sixteen entries; a smooth ramp handed to a
+; quantiser comes back as contour lines wherever the entries happen to fall, plus
+; crawling Bayer noise as the camera moves. Posterising to a count we choose puts
+; the bands where we want them and lets them read as cel shading.
+shader_parameter/sun_bands = 4.0
+; 0.35 of wrap past the terminator. At 0 the unlit side drops to pure ambient in
+; one step, which on banded shading draws a hard ring right round every hill.
+shader_parameter/sun_wrap = 0.45
+shader_parameter/rim_power = 3.0
+; The sky-tinted fresnel edge — what makes an unlit landform read as having volume
+; against a void sky. Low: at silhouette strength it outlines the terrain like a
+; decal instead of catching light on it.
+shader_parameter/rim_strength = 0.25
+
+; THE ENVIRONMENT BALL. Baked by `scripts/SCRIPT_bake_env_ball.gd` against this scene's
+; actual sky (MAT_sky_w2_void.tres) and cloud deck, and sampled by the world normal
+; in place of the analytic sky/ground lerp. It stores WEIGHTS, not colours — the
+; day/night bus still supplies every colour — so it costs one fetch and survives the
+; cycle. See the shader include for what each channel means.
+;
+; MUST MATCH MAT_cliff_wall.tres. The wall below the shoulder continues this
+; surface across a shared ring in plain sight, so an ambient model that differs
+; either side of it is a seam in the shading exactly where the albedo was made
+; seamless. tests/TEST_env_ball.gd asserts both materials bind the same ball.
+shader_parameter/env_ball_enabled = true
+shader_parameter/env_ball = ExtResource("99_envball")
+shader_parameter/env_ball_night = ExtResource("99_envballn")
+shader_parameter/flat_shading = false
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/fog_top = -170.0
+shader_parameter/fog_bottom = -320.0
+shader_parameter/fog_curve = 2.2
+shader_parameter/fog_opacity_gain = 1.6
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

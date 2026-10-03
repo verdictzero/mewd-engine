@@ -1,0 +1,45 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://yhofgadd5mwc"]
+
+[ext_resource type="Shader" uid="uid://cwo27derg3vvt" path="res://godot/island/shaders/SHADER_cloud_volumetric.gdshader" id="1_cloudvol"]
+
+[sub_resource type="FastNoiseLite" id="FNL_cloud"]
+noise_type = 0
+frequency = 0.005
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="NTEX_cloud"]
+width = 256
+height = 256
+noise = SubResource("FNL_cloud")
+seamless = true
+seamless_blend_skirt = 0.15
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_cloudvol")
+shader_parameter/sea_top = -45.0
+shader_parameter/thickness = 175.0
+shader_parameter/max_march = 6000.0
+shader_parameter/steps = 22
+shader_parameter/cloud_noise = SubResource("NTEX_cloud")
+shader_parameter/world_offset = Vector2(0, 0)
+shader_parameter/scale_a = 1400.0
+shader_parameter/wind_a = Vector2(6, 2)
+shader_parameter/scale_b = 560.0
+shader_parameter/wind_b = Vector2(-9, 5)
+shader_parameter/detail_weight = 0.5
+shader_parameter/bump_amp = 75.0
+shader_parameter/top_round = 30.0
+shader_parameter/bottom_round = 100.0
+shader_parameter/density_gain = 3.4
+shader_parameter/cloud_color = Color(0.34, 0.34, 0.34, 1)
+shader_parameter/cloud_bottom_color = Color(0.089, 0.089, 0.089, 1)
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0
+shader_parameter/horizon_fade_start = 3800.0
+shader_parameter/horizon_fade_end = 5200.0
+shader_parameter/rim_fade_start = 5600.0
+shader_parameter/rim_fade_end = 5960.0

@@ -2,7 +2,7 @@
 
 This is `CONTINUE.md` at the root of mewd-engine. A new chat should read it first.
 
-Written 2026-10-02. The state described here is at **mewd-engine `6c30ba6`**.
+Written 2026-10-03. It describes the island version on `claude/godot-rewrite`. `main` still holds the Doom-style version (`435efa9`) until the user says "push to main".
 
 ---
 
@@ -11,139 +11,112 @@ Written 2026-10-02. The state described here is at **mewd-engine `6c30ba6`**.
 | | |
 |---|---|
 | **Repo to work in** | `verdictzero/mewd-engine` (GitHub) |
-| **Working branch** | `claude/godot-rewrite` |
-| **main** | the same as `claude/godot-rewrite`: the code at `6c30ba6`, plus this file |
-| **Old repo** | `verdictzero/sellwrong`. **Do not touch it again.** All its block-world work is merged into mewd-engine (merge `5a4d47e`). |
-| **Engine** | Godot **4.3-stable**. Uses the Mobile renderer on Vulkan, on both Android and Linux. |
-| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is the second target. |
+| **Working branch** | `claude/godot-rewrite`: the island version |
+| **main** | `435efa9`: the last Doom-style version, with the editor and the maps. Updated only on "push it" / "push to main" |
+| **Island source** | `verdictzero/golf` (the user's other project). Its island system was copied into `godot/island/`. Read it, but don't change it without being asked. |
+| **Old repo** | `verdictzero/sellwrong`. **Do not touch it.** |
+| **Engine** | Godot **4.7-stable** (it was 4.3). Mobile renderer on Vulkan, for Android and Linux. |
+| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. |
 
-Builds are published as rolling GitHub releases on mewd-engine. Each push to `main` or `claude/godot-rewrite` replaces them:
-- **`android`**: `.github/workflows/android.yml`. A signed apk, signed with the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS` and `MEWD_KEY_PASS`.
-- **`linux`**: `.github/workflows/linux.yml`. Contains `mewd-<sha>.x86_64` and a `.tar.gz` that keeps the executable bit.
+Builds are rolling GitHub releases on mewd-engine, replaced on each push to `main` or `claude/godot-rewrite`:
+- **`android`**: `.github/workflows/android.yml`. A signed apk; the key comes from the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS` and `MEWD_KEY_PASS`.
+- **`linux`**: `.github/workflows/linux.yml`. A `mewd-<sha>.x86_64` plus a `.tar.gz` that keeps the executable bit.
 
-Both workflows have `concurrency: <name>-release, cancel-in-progress: false`. Two pushes take turns instead of deleting each other's release.
+Both workflows bake the islands before exporting. The bakes are cached in `actions/cache`, keyed on `godot/island/**` and the bake code.
 
 ## 2. Standing rules from the user
 
-1. **Push to `main` only when the user says "push it" or "push".** Otherwise commit and push to `claude/godot-rewrite`. Main is updated by fast-forwarding it from the branch: `git push origin claude/godot-rewrite:main`.
+1. **Push to `main` only on an explicit "push it", "push" or "push to main".** Otherwise commit and push to `claude/godot-rewrite`. To update main, fast-forward it: `git push origin claude/godot-rewrite:main`.
 2. Don't open pull requests unless asked.
-3. Never put model names or IDs in commits, code or docs.
-4. End every commit message with:
-   ```
-   Co-Authored-By: Claude <noreply@anthropic.com>
-   ```
-   Use whatever trailer the new session's system prompt specifies.
-5. **Never run two `godot` processes at the same time.** They fight over `.godot/` imports and the class cache.
-6. `GODOT.txt` is the design doc and changelog. Write up every user-requested change there in its own section, in the same plain prose style ("at the user's request").
-7. The user speaks tersely ("push it new apk etc"). "New apk" means: make sure the CI android release is rebuilt for the pushed commit, and say so.
+3. Never put model names or IDs in code or docs. End commit messages with the attribution trailer the session's system prompt specifies.
+4. **Never run two `godot` processes at once.** They fight over `.godot/`.
+5. `GODOT.txt` is the design doc and changelog. Write each change up "at the user's request", in its plain prose style.
+6. The user is terse. "New apk" means making sure CI rebuilt the android release for the pushed commit, and saying so.
 
-## 3. Setting up a fresh container
+## 3. The direction (the user's own words, paraphrased)
+
+- No more editor and no more Doom-like levels.
+- Keep the player, the NPCs, the weapons and the weapon effects.
+- Levels are golf's procedural islands, **pre-baked, as a set behind a level select** (the user chose this). The goal is levels generated from assets the user provides, to cut artist fatigue.
+- First island: golf's `island_0` without its ruins, crash site or golf areas. **No responders for now, just lots of NPCs.**
+
+## 4. Setting up a fresh container
 
 ```sh
 git clone https://github.com/verdictzero/mewd-engine && cd mewd-engine
 git checkout claude/godot-rewrite
-# Godot 4.3 headless editor on the PATH as `godot`:
-curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
-unzip -q /tmp/g.zip -d /tmp/g && install /tmp/g/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
-godot --headless --editor --quit     # register class_names (run again after adding any)
+curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_linux.x86_64.zip
+unzip -q /tmp/g.zip -d /tmp/g && install /tmp/g/Godot_v4.7-stable_linux.x86_64 /usr/local/bin/godot
+godot --headless --editor --quit                                                # import, register class names
+godot --headless --script res://tools/bake_island.gd -- --all --if-missing     # ~2 min: the island bakes
+sh tools/godot-test.sh                                                          # weapons, island, net, death, pad
 ```
 
-- **Tests:** run `sh tools/godot-test.sh`. It runs all 13 suites and exits non-zero on any failure. The suites are weapons, forest, jesse, sprawl, net, editor, editorui, decals, death, pad, layers, layerspane and texdrop. **All of them pass at `6c30ba6`.**
-- **Linux build:** run `sh tools/build-linux.sh build/linux/mewd.x86_64`. It fetches only the two Linux templates out of the 1 GB template archive, by range request. The output is a single ~197 MB file with the game packed inside.
-- **Android build:**
-  - Locally: `tools/build-android.sh`. It needs the Android SDK, Java, the 4.3 Android templates, and a keystore in `MEWD_KEYSTORE`.
-  - CI: `tools/ci-android.sh` is the self-contained version. **Easiest path: push, then let CI make the apk.** The old container's local keystore (`/opt/android/mewd-release.keystore`) won't exist in a new one.
-- **Benchmark:** `godot --headless --script res://godot/tests/perf_bench.gd -- --map=<annexe|maze|sprawl> [--warm] [--json=out.json]`.
-  - Use xvfb + llvmpipe (or a GPU) for draw-call counts.
-  - It reports load time, meshes and nodes, draw calls looking four ways, the steady state, two rockets into rings of 8 shoppers, and the cerebral bore on a living victim.
-- **Godot quirks:**
-  - The game's profiler `_prof` resets every 60 frames, so read it every frame.
-  - After adding a `class_name`, run `godot --headless --import` or `--editor --quit`, or you get parse errors.
+- **Pictures:**
+  - `xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 --path . -- --play --shot=out.png --shot-frames=60`
+  - `godot/tests/island_shot.gd` shows a gun held on a row of people: `... --script res://godot/tests/island_shot.gd -- out.png LAUNCHER 120 25`
+- **Builds:** `sh tools/build-linux.sh` and `tools/build-android.sh`. Both bake first when they need to; CI uses `tools/ci-android.sh`.
 
-## 4. What the game is now (short)
+## 5. How the island version works (full write-up: GODOT.txt, "THE ISLAND")
 
-**The level format is blocks.**
-- Every level is boxes plus an infinite ground plane (`GROUND_EXTENT 65536`), stacked in storeys (`STOREY_H 128`).
-- `BlockCompile` turns blocks into Level sectors/columns. `BlockDoc` (`godot/scripts/maps/block_doc.gd`) holds the blocks.
-- Levels are THE ANNEXE (3 layers), the maze, THE SPRAWL, JESSE, the forest, and others. There is a level-select page on the title screen.
+- **`godot/island/`** holds golf's files with their own names, and every `res://` path moved under it:
+  - field: `SCRIPT_island_field.gd`
+  - mesher and streaming world
+  - bake stores, with the autoloads `TerrainBake` and `VegBake`
+  - forest and grass scatters, sky cycle, cloud sea, horizon clouds
+  - shaders, materials, textures and plant sprites
+- **The scene** is `godot/island/scenes/island_0.tscn`: golf's island_0 cut down to the world, plants, sky and clouds.
+- **The field** is `godot/island/data/ISLANDFIELD_island0.tres`: golf's hub_solid with these switches off: `zone_enabled`, `sand_enabled`, `crater_enabled`, `divot_enabled` and `ruin_enabled`.
+- **`godot/scripts/level/islands.gd`** is the island list, used by the title's NEW GAME, `--map=` and net play. **To add an island:** a scene plus a field `.tres`, and an entry in `Islands.LIST`.
+- **Scale:**
+  - The game counts 32 units to the metre; the island counts metres.
+  - The `Game` node is scaled to 1/32, and the island under it is scaled back up by 32.
+  - Shaders that size things in game units multiply by the global `game_unit`; `U.set_unit` sets it.
+  - Camera-vs-position code uses the camera's local transform.
+- **`IslandLevel`** (`godot/scripts/level/island_level.gd`) extends `Level`:
+  - Every point is a sector whose floor is the ground there.
+  - There are no lines or walls.
+  - A body can't step more than 24 units up, can't drop more than 96 (the crowd), and keeps 2 m back from the coast.
+  - It is `layered = true`, so rays, eyes and blasts ask the ground.
+  - `populate()` drops the player and 360 townsfolk.
+  - `flat_run()` is used by the tests.
+- **`IslandGround`** (`godot/scripts/level/island_ground.gd`) is a 2 m height grid sampled from the field. It is baked as `heights_<sig>.bake`. Lookups take about 1 µs, against 34 µs for the field.
+- **Bakes:**
+  - The terrain (93 MB), the plants (11 MB), the ground (5 MB), and `CODE_DIGESTS.json`, which exported builds need in order to match signatures.
+  - They go in `res://godot/island/data/bake/`, which is gitignored.
+  - Exports include `*.bake`.
+  - An exported Linux build was checked: it reads all three and builds nothing.
 
-**The editor:** `--edit` opens the block editor.
-- It has an inspector with a Style section (top/side/under/light) and a "Block styles" list in the Map tab.
-- It has a layers pane (stack, eye, move, duplicate, delete) and texture drag-and-drop onto top/side/under/ground.
+## 6. What was removed
 
-**Gore and decals:**
-- Real `Decal` nodes, at most 8 per mesh, so the world is cut into tiles. Marks with no tile under them become quads.
-- The atlas is kept warm by hidden "keeper" decals so it doesn't rebuild mid-fight.
+- The map editor.
+- The maps: the maze, JESSE, THE SPRAWL, THE GRID and THE ANNEXE.
+- The block world, DocCompile, BlockCompile, MapGeo and Earcut.
+- The doors and the room-to-room nav.
+- The terminal's JESSE and EDIT, the title's MAP EDITOR, and F2.
+- Their tests.
 
-**Controls:** the Pad layer (`pad.gd`) handles any device, plus a wizard.
-- "slow" (slow motion) is on b8; run is on b7.
+The old sections of GODOT.txt are kept as the record.
 
-**Doors:**
-- Both faces are lit by the side they face.
-- The default texture is `DR1_01`, because `DOOR0001` rendered as a black slab.
+## 7. Open threads / next steps
 
-## 5. Last piece of work: lag on the RG557 (commit `6c30ba6`)
+- **Waiting on the user's RG557 test** of the island apk. Check the load time and the frame rate with 360 people.
+- **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
+- **Trees aren't solid**, as in golf; walking into a wood dissolves the near ones.
+- **Real decals are off**, so marks are quads. The island's terrain isn't cut into the tiles RealDecals wants.
+- **Responders are off** (`world.noSquads`). Vans would need roads, or would need to drive on terrain.
+- **The web build** (`pages.yml`, main only) would export without a bake and build the island in the browser.
+- `godot/tests/perf_bench.gd`, `decal_shot.gd`, `lance_shot.gd`, `potato_shot.gd` and `projectile_shot.gd` are older picture and benchmark tools. They still name the old maps; `--map` falls back to island0.
 
-The user reported:
-- Major lag on the cerebral bore explosion.
-- Some lag in the maze.
-- Catastrophic lag in THE SPRAWL, and the same with rocket gore.
-
-**Causes and fixes:**
-- **The infinite ground plane was tiled into ~66,000 meshes.**
-  - `mapgeo.gd` now tiles only inside `tile_area`, which is the level bounds snapped to the decal tile.
-  - Triangles outside go to one `@far` mesh. Triangles that straddle the edge are clipped with `_clip`/`_fan`.
-  - `RealDecals.tile_for(area)` doubles the tile size until there are ≤ 400 cells (`MAX_TILES`).
-- **Sector lookup was a slow point-in-polygon test (97 µs on the Sprawl).**
-  - `level.gd`: polygons with ≥ 32 edges get y-bands (`band_y0`, `band_h`, `band_edges`), bringing it to 10 µs.
-- **Doors scanned every actor every tic (1.89 ms on the Sprawl).**
-  - `doors.gd` now asks `game.blockmap.near_radius` and the players.
-- **Explosions spawned full gore for every victim.**
-  - `giblets.eviscerate(..., share)`: `missiles.detonate` passes `1/sqrt(gory victims)`.
-  - Blood drops check the floor on alternate tics.
-  - `A_Flee` tries 3 directions (`FLEE_TRIES`).
-  - Far panicking actors think every 2nd tic; other far actors every 4th.
-- **First-explosion hitch.**
-  - `main.gd` warm-up waits for the decal bake.
-  - It then lays and removes one mark of every kind 120 units ahead of the player (`warm_begin`/`warm_end`).
-
-**Measured on llvmpipe, before → after:**
-
-| | Annexe | maze | Sprawl |
-|---|---|---|---|
-| level meshes | 66,079 → 57 | 66,372 → 522 | 69,719 → 1,983 |
-| draw calls | ~1,400 → 48–89 | ~1,700 → 47–556 | ~2,700 → 728–813 |
-| load | 13.7 → 0.25 s | 16.8 → 0.6 s | 22.7 → 4.9 s |
-| script time per frame after the bore | | 29.5 → 12.6 ms | 36.9 → 11.5 ms |
-
-The Sprawl tic went from 2.64 to 0.75 ms. Full write-up: `GODOT.txt`, section "WHAT THE HANDHELD LAGGED ON".
-
-**Trade-offs the user may notice:**
-- The Sprawl and JESSE use 1024-unit decal tiles, so fewer real decals there.
-- Crowd kills have less gore per body.
-- Far panickers move at half rate.
-
-## 6. Open threads / what to do next
-
-- **Waiting on the user's RG557 test of `6c30ba6`.** The CI apk is on the `android` release.
-  - If the Sprawl still stutters, the offered next step is **drawing blood marks as their own batched meshes instead of `Decal` nodes**. The Sprawl's remaining 700–800 draw calls are mostly the decal tiling.
-- A faint ground seam shows in the Annexe screenshot. It predates the perf work: it's identical with full tiling. It hasn't been fixed.
-- `GODOT.txt` "WHAT IS NOT PORTED YET" lists remaining web-build features not in the Godot port.
-
-## 7. Key files (all under `godot/scripts/` unless noted)
+## 8. Key files
 
 | File | What it does |
 |---|---|
-| `game.gd` | Main sim loop, actor LOD, decal tile setup |
-| `main.gd` | Boot and the warm-up |
-| `mapgeo.gd` | Level to meshes: tiles, `@far`, doors (`door_nodes`, `_obox`) |
-| `level.gd` | Sectors and the banded point-in-polygon test |
-| `real_decals.gd` | Decal tiles, atlas keepers, warm-up marks |
-| `giblets.gd`, `missiles.gd`, `effects.gd`, `actor.gd` | Gore, explosions, AI |
-| `doors.gd` | Doors |
-| `pad.gd` | Input |
-| `title.gd` | Title screen and level select |
-| `level/block_compile.gd`, `maps/block_doc.gd`, `ed_doc.gd`, `editor.gd`, `ed_panels.gd`, `ed_layers.gd`, `view2d.gd`, `view3d.gd` | Block world and editor |
-| `godot/tests/*.gd` | Suites, plus `perf_bench.gd` |
-| `tools/` | Build, test and CI scripts |
-| `GODOT.txt` | The design doc / changelog: read its table of contents first |
+| `godot/scripts/game/game.gd` | `start_map` (the island), the frame loop, `hitscan`, `trace`, `explode`, `_island_light` |
+| `godot/scripts/main.gd` | Boot, title, loading screen (it waits for `game.island_ready()`), net join |
+| `godot/scripts/level/island_level.gd`, `island_ground.gd`, `islands.gd` | The island as a level |
+| `godot/scripts/level/level.gd` | The base Level; its Sector class is still what callers type against |
+| `tools/bake_island.gd` | The bakes |
+| `godot/tests/island_test.gd` | The island suite |
+| `godot/island/` | golf's island system |
+| `GODOT.txt` | Design doc and changelog |

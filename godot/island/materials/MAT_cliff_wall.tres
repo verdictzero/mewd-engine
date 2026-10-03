@@ -1,0 +1,99 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_cliff_wall.gdshader" id="1_wall"]
+[ext_resource type="Texture2D" uid="uid://xo1ufsiw63kk" path="res://godot/island/textures/TEX_dark_rock_02_albedo_128.png" id="2_rock_a"]
+[ext_resource type="Texture2D" uid="uid://i4an2d84v5np" path="res://godot/island/textures/TEX_dark_rock_02_normal_128.png" id="3_rock_n"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2.png" id="4_envball"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2_night.png" id="4_envballn"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_wall")
+
+; THE FIRST SEVEN ARE COPIED FROM `MAT_terrain_splat_w2.tres`, NOT CHOSEN.
+;
+; The island's shoulder is part of the walkable-surface mesh and is drawn by the
+; terrain shader; this wall picks up the same profile partway down, some 28 m
+; below the shore and in plain sight above the cloud deck. The join is invisible
+; only while both sides are the same rock — same texture, same metres per tile,
+; same tint, sampled at the same world coordinates. `tests/TEST_island_world.gd`
+; asserts these against the terrain material so they cannot drift apart.
+shader_parameter/rock_albedo = ExtResource("2_rock_a")
+shader_parameter/rock_normal = ExtResource("3_rock_n")
+shader_parameter/rock_scale = 12.0
+shader_parameter/rock_tint = Color(2.8, 2.8, 2.8, 1)
+shader_parameter/triplanar_sharpness = 4.0
+shader_parameter/normal_strength = 0.6
+; Zero, and the four below match MAT_terrain_splat_w2.tres exactly — see that
+; file for why each number is what it is, and the shader header for why the two
+; materials cannot be allowed to disagree about any of them.
+shader_parameter/slope_shade = 0.0
+shader_parameter/sun_bands = 4.0
+shader_parameter/sun_wrap = 0.45
+shader_parameter/rim_power = 3.0
+shader_parameter/rim_strength = 0.25
+
+; THE ENVIRONMENT BALL. Baked by `scripts/SCRIPT_bake_env_ball.gd` against this scene's
+; actual sky (MAT_sky_w2_void.tres) and cloud deck, and sampled by the world normal
+; in place of the analytic sky/ground lerp. It stores WEIGHTS, not colours — the
+; day/night bus still supplies every colour — so it costs one fetch and survives the
+; cycle. See the shader include for what each channel means.
+;
+; MUST MATCH MAT_terrain_splat_w2.tres, like everything else in this file that
+; decides how the rock reads: the wall continues the shoulder across a shared ring,
+; and an ambient model that differs either side of it is a seam in the shading.
+shader_parameter/env_ball_enabled = true
+shader_parameter/env_ball = ExtResource("4_envball")
+shader_parameter/env_ball_night = ExtResource("4_envballn")
+
+; rock_mean is the shipped 128 px bake's own per-channel mean, measured through
+; this project's import pipeline in the linear space the sampler returns.
+; Re-measure after re-running `scripts/SCRIPT_crunch_art.gd` or after swapping the
+; texture. It is the anchor `rock_contrast` mixes toward, so a wrong figure here
+; does not merely shift the level — it tilts the hue as contrast comes down.
+shader_parameter/rock_mean = Color(0.043, 0.034, 0.025, 1)
+shader_parameter/rock_contrast = 0.7
+shader_parameter/flat_shading = false
+
+; THE WALL HAS NO DEPTH-BELOW-SHORE TERM AT ALL ANY MORE, which is the point.
+; `dark_start`/`dark_depth`/`deep_level` used to ramp the albedo down to 0.72 over
+; 20..66 m under the shore and read as a hard black band across the middle of
+; every cliff — a linear ramp starting on the shoulder handoff ring, quantised
+; into four contour lines by the sixteen-level palette, running into ground the
+; cloud deck covers before it ever finished. `SHADER_cliff_wall.gdshader`'s `sea` group
+; documents the mechanism in full.
+;
+; What is left is anchored to the CLOUD SEA in world Y instead: the wall leaves
+; the shoulder as an exact continuation of the terrain drawing it, and the only
+; thing that happens below is that it dissolves into the deck it is entering.
+; The altitude and the target colour are global shader parameters published by
+; `SCRIPT_cloud_sea.gd` — not typed here — so they cannot drift from the deck itself.
+;
+; 14 m of lead-in above the surface, because the deck's billows carry 75 m of
+; relief up to meet the wall and rock a little above the nominal line is already
+; against cloud; 26 m below to land on it exactly, which is about as far as the
+; deck stays translucent enough for the difference to be visible.
+shader_parameter/sea_fade_above = 14.0
+shader_parameter/sea_fade_below = 26.0
+
+; THE FADE IS LONG NOW, AND IT COULD NOT BE BEFORE. `MAT_cliff_gradient.tres`
+; ran 70..240 and its notes record two failed attempts to lengthen it: the old
+; cone was double-sided AND alpha-blended, so it never wrote depth, and a longer
+; fade did not reveal more of the near wall — it stopped hiding the FAR wall,
+; which showed through as pale vertical curtains hanging under the island.
+; `SHADER_cliff_wall.gdshader` dithers instead, so the material is opaque, the near side
+; occludes the far side properly, and the band is free to run as deep as the
+; geometry does.
+;
+; Kept just inside `IslandWorld.cliff_visible_depth` (340), which is where whole
+; bands stop being drawn at all: the fade has to finish BEFORE that, or the last
+; visible band ends at a hard horizontal edge.
+shader_parameter/fade_start = 150.0
+shader_parameter/fade_end = 330.0
+
+; Has to match the terrain's distance fog exactly — same picture, same range.
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

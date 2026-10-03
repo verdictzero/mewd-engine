@@ -1,0 +1,122 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_horizon_clouds.gdshader" id="1_horizonclouds"]
+[ext_resource type="Texture2D" uid="uid://dlulift7s8oa5" path="res://godot/island/textures/TEX_clouds_parallax_band.png" id="2_cloudband"]
+
+; The two-layer parallax cloud band that sits on the horizon in front of the sky.
+; Driven by `scripts/world/SCRIPT_horizon_clouds.gd`; every number here is explained at
+; its uniform in `shaders/SHADER_horizon_clouds.gdshader` and the shape of the thing is
+; written up in `docs/DOC_horizon_parallax_clouds.md`.
+;
+; THE ARTWORK is `TEX_clouds_parallax_band.png`, derived by
+; `tools/TOOL_fix_cloud_band_alpha.py` from the shipped 512x256
+; `TEX_clouds_parallax_background.png`. Do NOT point this back at the original: it is
+; palettized with a single transparent index, so 82% of its transparent region is
+; the raw key colour (teal, 0/92/94) and its alpha is one bit. `fix_alpha_border`
+; cleans four texels in from the silhouette and no further, which is enough at
+; mip 0 and not enough anywhere else — and this band does not stay at mip 0. See
+; the vertical-clamp note in the shader for what reaches into that teal and what
+; it did to the picture. The derived file inpaints the whole transparent region
+; and reconstructs a soft edge; the opaque region is byte-identical.
+;
+; The 4:1 sibling `TEX_clouds_parallax_background_2.png` is NOT a clean drop-in, on
+; top of every `*_height` here having to halve with it: its .import has
+; `mipmaps/generate=false` and `detect_3d/compress_to=1`, so it has no mip chain
+; for `filter_linear_mipmap` to select from and Godot will silently re-import it
+; VRAM-compressed the first time it appears on a 3D material — block-compressing
+; the 244-level alpha that is the only reason to want it. Fix both in its .import
+; first. It is also darker and much bluer (opaque mean 129/166/181 against this
+; one's 182/182/197), which is the wrong direction against the neutral contract.
+;
+; RENDER PRIORITY -2. Transparent surfaces sort by priority first and depth
+; second, and this has to lose to everything: `SCRIPT_cloud_planes.gd` hands its two
+; decks -1 and 0, so -2 keeps the backdrop behind both of them no matter which
+; way their own tie-break lands that frame.
+;
+; THE THREE COUPLINGS, all asserted by `tests/TEST_horizon_clouds.gd` because
+; each of them fails as a picture rather than as an error:
+;
+;   1. Both `*_base` sit BELOW `fade_end`, so the band's alpha is already gone
+;      before the vertical clamp could start smearing the artwork's solid bottom
+;      row down the sky.
+;   2. `haze_color` is the exact neutral 0.30 — `MAT_sky_w2_void`'s
+;      `bottom_color`, the terrain's fog colour, the Environment's fog colour.
+;      The band's foot has to die into the same pixel the sky already is there,
+;      or the palette LUT finds a different entry for it and draws a line.
+;      It was 0.089 until the cloud sea arrived underneath it. 0.089 is a value
+;      tuned for a DARK VOID; against a mid-grey volumetric sea it painted a
+;      near-black bar right across the horizon — measured 0.28 deep against its
+;      surroundings, with a 21.8/255 step at its lower edge. It also sat in the
+;      widest gap in ps1-soft's neutral ramp (entries at 0.031 and 0.282, with
+;      every other step 0.031 apart), so a large flat area of it dithered between
+;      two values eight steps apart. 0.30 was found by sweep: it takes the
+;      horizon trough from 0.287 to 0.021.
+;   3. The node's `cover_up` clears `back_base + back_height`, so the shell's rim
+;      never cuts the tall layer's cloud tops off.
+;
+; PARALLAX_LIMIT MUST STAY UNDER 1.0, and it is a fourth coupling of the same kind
+; — it fails as a picture. The parallax model is a small-angle one, and its azimuth
+; map folds back on itself once the camera's logical offset passes a layer's own
+; `*_distance`: 4.5 km of travel for the front layer, 16 km for the back. Past that
+; the band was drawn twice, mirrored, meeting at a moving seam, with the artwork
+; stretched without limit along one bearing. It is the tear that was absent at the
+; origin and unavoidable anywhere else. 0.5 caps the worst azimuthal stretch at 2x
+; and caps the parallax with it: 2400 m of travel slides the back layer 8.2 degrees
+; against the unlimited model's 8.6, and the front 20.9 against 30.6. Raise it for
+; more near-origin parallax and more stretch; the derivation is in the shader.
+;
+; BACK IS BIGGER AND SLOWER, FRONT IS SMALLER AND FASTER. Fewer tiles around the
+; compass makes the far layer's clouds larger — backwards from real perspective,
+; and the whole point: it is what stops the two layers reading as one.
+;
+; BACK IS ALSO THE LIGHTER OF THE TWO (0.50/0.53/0.58 against the front's 0.38),
+; which is NOT backwards: atmospheric perspective washes distance out toward the
+; sky, so the near layer reads as a darker silhouette in front of a paler far one.
+; Run it the other way — which is where this started, with the front layer at full
+; white — and the small near puffs become the brightest thing on screen, the depth
+; cue inverts, and the band flattens into a single sheet.
+;
+; Both tints are pitched against the CLOUD SEA underneath them.
+; MAT_cloud_sea_volumetric paints its billow tops at 0.34, and the band has to
+; look like the same weather as the deck it sits on; at full white the front layer
+; was about three times that and glared over it. `saturation` is at 0.28 for the
+; palette's sake — the artwork is blue-and-pink photographic cumulus and the LUT
+; will find tinted entries for all of it. It applies to the COMPOSITE, so the two
+; tints still separate the layers before it lands, and the back layer's residual
+; blue survives as the faint cool cast that is the other half of the depth cue.
+;
+; The two drifts are chosen so that `drift * 3600 * tiles / TAU` lands on a whole
+; number (9 for the back, 40 for the front). Godot rolls `TIME` over every 3600 s
+; and a drift that is not a whole number of tiles by then snaps the sky sideways
+; once an hour. Retune them alongside `*_tiles`, or accept the hourly hitch.
+
+[resource]
+render_priority = -2
+shader = ExtResource("1_horizonclouds")
+shader_parameter/cloud_band = ExtResource("2_cloudband")
+shader_parameter/world_offset = Vector2(0, 0)
+shader_parameter/saturation = 0.28
+shader_parameter/parallax_limit = 0.5
+shader_parameter/back_tiles = 7.0
+shader_parameter/back_height = 0.45
+shader_parameter/back_base = -0.09
+shader_parameter/back_distance = 16000.0
+shader_parameter/back_drift = 0.002244
+shader_parameter/back_phase = 0.0
+shader_parameter/back_opacity = 0.8
+shader_parameter/back_tint = Color(0.5, 0.53, 0.58, 1)
+shader_parameter/front_tiles = 12.0
+shader_parameter/front_height = 0.26
+shader_parameter/front_base = -0.1
+shader_parameter/front_distance = 4500.0
+shader_parameter/front_drift = 0.0058178
+shader_parameter/front_phase = 0.37
+shader_parameter/front_opacity = 1.0
+shader_parameter/front_tint = Color(0.38, 0.38, 0.38, 1)
+shader_parameter/art_fade_in = 0.06
+shader_parameter/art_solid_start = 0.3
+shader_parameter/art_solid_end = 0.78
+shader_parameter/fade_start = 0.045
+shader_parameter/fade_end = -0.065
+shader_parameter/haze_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/haze_strength = 1.0

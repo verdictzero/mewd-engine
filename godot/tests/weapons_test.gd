@@ -2,14 +2,14 @@
 ##
 ##   godot --headless --script res://godot/tests/weapons_test.gd -- --seed=7
 ##
-## Builds the real Game on the maze, finds the longest clear run out of
+## Builds the real Game on the island, finds the longest clear run out of
 ## the START, stands a shopper down it, turns the player to face them and
 ## holds the trigger with each gun in turn, asserting what the web build
 ## does: the MINIGUN kills them (and they come apart), the FLAMER sets
 ## them alight and they RUN, the EXTINGUISHER freezes them solid, and the
 ## BORE locks, flies, drills and bursts, and the LANCE charges to the red,
-## lets go, and its column kills whoever is down the run and sears the
-## far wall; and the LAUNCHER's thermal sight comes up with it, takes the
+## lets go, and its column kills whoever is down the run and sears
+## where it stops; and the LAUNCHER's thermal sight comes up with it, takes the
 ## zoom and the phone's AIM, draws a bracket on its lock, and its screen
 ## is the model's own panel. Prints OK or fails.
 extends SceneTree
@@ -46,15 +46,9 @@ func check(ok: bool, what: String) -> void:
 	if not ok:
 		failures += 1
 
+## the longest stretch of level, open ground out of where you stand (IslandLevel.flat_run)
 func _clear_run(p) -> Vector2:
-	var best := Vector2()
-	for k in 4:
-		var ang := k * PI / 2.0
-		var hit: Dictionary = game.level.ray_hit_wall(p.x, p.y, 30, p.x + cos(ang) * 2000.0, p.y + sin(ang) * 2000.0, 30)
-		var l: float = 2000.0 * float(hit.t) if not hit.is_empty() else 2000.0
-		if l > best.y:
-			best = Vector2(ang, l)
-	return best
+	return game.level.flat_run(p.x, p.y)
 
 func _victim(p, run: Vector2, d: float) -> Actor:
 	d = minf(d, run.y - 40.0)
@@ -303,10 +297,11 @@ func _lance(p, run: Vector2) -> void:
 	check(v.dead or v.removed, "LANCE: the shopper down the run is dead (%d killed)" % beam.killed)
 	check(game.giblets.bursts > bursts0, "LANCE: and came apart — three thousand a tic is past anybody's gib health")
 	var h: Dictionary = beam.hit
-	check(not h.is_empty() and absf(h.n.z) < 0.5, "LANCE: the column stopped on a wall")
-	if not h.is_empty():
-		var d := sqrt(U.dist2(h.at.x, h.at.y, p.x, p.y))
-		check(absf(d - run.y) < 60.0, "LANCE: the far wall, %d units down a %d unit run" % [d, run.y])
+	# ON AN ISLAND there is no far wall: the column runs on over the open
+	# ground, or stops where a rise of it is in the way — on it
+	var lv = game.level
+	check(h.is_empty() or absf(h.at.z - lv.floor_at(h.at.x, h.at.y)) < 8.0 or sqrt(U.dist2(h.at.x, h.at.y, p.x, p.y)) > run.y - 60.0,
+		"LANCE: the column ran on over open ground, or stopped in it")
 	check(game.decals.sears == 1 and game.decals.slags == 3 + 7, "LANCE: one sear and %d slag on it" % game.decals.slags)
 	check(beam.seared == 1 + game.decals.slags, "LANCE: and the beam counts them all (%d)" % beam.seared)
 	check(beam.glow > 0.0, "LANCE: the light outlives the column")

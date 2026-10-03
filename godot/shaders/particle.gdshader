@@ -27,8 +27,8 @@ void vertex() {
 	vec3 at = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	vec3 view_at = (VIEW_MATRIX * vec4(at, 1.0)).xyz;
 	float d = -view_at.z;
-	float shrink = near_shrink > 0.0 ? clamp(d / near_shrink, 0.12, 1.0) : 1.0;
-	float size = INSTANCE_CUSTOM.x * shrink;
+	float shrink = near_shrink > 0.0 ? clamp(d / (near_shrink * game_unit), 0.12, 1.0) : 1.0;
+	float size = INSTANCE_CUSTOM.x * shrink * game_unit;
 	VERTEX = view_at + vec3(VERTEX.xy * size, 0.0);
 	depth = -VERTEX.z;
 	col = COLOR;

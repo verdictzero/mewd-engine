@@ -9,34 +9,21 @@ run() {
   shift
   out=$("$GODOT" --headless "$@" 2>&1)
   code=$?
-  echo "$out" | grep -E "ok|FAIL|OK|weapons:|fire:|forest:|jesse|SPRAWL|GRID" | grep -v "^ *at:" | tail -40
+  echo "$out" | grep -E "ok|FAIL|OK|weapons:|fire:|island" | grep -v "^ *at:" | tail -40
   [ $code -eq 0 ] || { echo "   exit $code"; fail=1; }
 }
 "$GODOT" --headless --editor --quit >/dev/null 2>&1   # register the class names
 run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
-run forest  --script res://godot/tests/forest_test.gd -- 7
-run jesse   --script res://godot/tests/jesse_dump.gd -- /tmp/mewd-jesse.json 1 7
-run sprawl  --script res://godot/tests/sprawl_dump.gd
+# THE ISLAND (at the user's request; godot/scripts/level/island_level.gd):
+# the ground off the bake, you and the crowd on it, the coast, the hills,
+# rounds and blasts into the ground — needs the island baked first:
+#   godot --headless --script res://tools/bake_island.gd
+run island  --script res://godot/tests/island_test.gd
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd
-# MEWD Editor: its edits and its files against the web build's editor
-# (godot/tests/editor_ref.json, from godot/tests/editor_js.mjs), and the
-# editor driven by input events, to the game and back
-run editor  --script res://godot/tests/editor_test.gd
-run editorui --script res://godot/tests/editor_ui_test.gd -- --edit
-# ROOM OVER ROOM: a map in the editor's layers, compiled whole and played
-# (godot/tests/layers_test.gd on THE ANNEXE, godot/scripts/maps/layers.gd)
-# real decals: the world in tiles, eight a mesh, the rest quads (godot/tests/decals_test.gd)
-run decals  --script res://godot/tests/decals_test.gd
 # the dead are gone: removed, and their sprites with them (godot/tests/death_test.gd)
 run death   --script res://godot/tests/death_test.gd
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
-run layers  --script res://godot/tests/layers_test.gd -- --map=layers
-# the editor's layers pane: the stack, the hierarchy, the eye, move, duplicate, delete
-# (godot/tests/layers_pane_test.gd)
-run layerspane --script res://godot/tests/layers_pane_test.gd -- --edit
-# a texture dragged out of the browser onto a surface (godot/tests/tex_drop_test.gd)
-run texdrop --script res://godot/tests/tex_drop_test.gd -- --edit
 exit $fail

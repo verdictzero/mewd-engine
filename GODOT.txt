@@ -3,8 +3,8 @@ MEWD — THE GODOT PORT
 
 (MEWD: Made Entirely Without Doom.)
 
-At the user's request: the whole game rewritten in Godot 4 (4.3), in
-GDScript, on the branch claude/godot-rewrite. The web build in js/ stays
+At the user's request: the whole game rewritten in Godot 4 (4.3, now
+4.7), in GDScript, on the branch claude/godot-rewrite. The web build in js/ stays
 where it is and keeps working; it is the reference every file here was
 ported from, and the ported files say which JS file they came from in
 their first lines.
@@ -12,11 +12,16 @@ their first lines.
 
 RUNNING IT
 
-  The project is the repository's root: open the folder in Godot 4.3
+  The project is the repository's root: open the folder in Godot 4.7
   and press F5, or from a shell:
 
     godot                      # the editor
     godot --path . -- --play   # straight into the game, past the title
+
+  Bake the islands once first (see THE ISLAND below; a couple of
+  minutes, and again only when an island or its code changes):
+
+    godot --headless --script res://tools/bake_island.gd -- --all --if-missing
 
   The web build's folders (js/, vendor/, tools/, css/, art/) carry a
   .gdignore, so Godot sees assets/ and godot/ and nothing else. The
@@ -24,14 +29,12 @@ RUNNING IT
 
   Arguments after `--`:
     --play               skip the title
-    --seed=N             the maze for seed N (the same maze the web
-                         build makes for ?seed=N — the generator is a
-                         straight port, random-number call for call)
-    --map=NAME           maze (the default), jesse, sprawl (THE SPRAWL,
-                         the web build's ?sprawl), grid (?grid) or layers
-                         (THE ANNEXE: a building in blocks, three layers)
-    --at=X,Y,DEG[,LAYER] stand the start somewhere else (for pictures);
-                         LAYER: on that layer's floor, on a map in layers
+    --seed=N             the crowd for seed N (where the townsfolk are
+                         dropped on the island; the island is the same)
+    --map=NAME           which island (godot/scripts/level/islands.gd):
+                         island0, the only one yet
+    --at=X,Y,DEG         stand somewhere else (for pictures), in the
+                         game's units (32 to the metre)
     --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
                          degrees (for pictures)
     --weapon=NAME        start holding FLAMER, EXTINGUISHER, BORE,
@@ -49,10 +52,6 @@ RUNNING IT
                          (fps, draw calls, and the game's own sections);
                          FRAME RATE in the pause menu's DEBUG tab shows
                          the same under the frame rate, on any machine
-    --edit               straight into MEWD Editor, the map editor (the
-                         web build's ?edit); at the terminal, E or EDIT
-    --edit-ops=FILE      with --edit, run a script of edits (the format
-                         of godot/tests/editor_ops.json) — for pictures
 
   Controls are the web build's: WASD or the arrows (Q/E strafe too),
   mouse to look (click to capture it), Shift to run, Space to jump, F
@@ -92,6 +91,155 @@ RUNNING IT
   and nothing more: BRAINS n on the HUD under the gun's name
   (Player.brains), a toast as each is taken. The weapons test finds
   the one its bore kill left and walks over it.
+
+
+THE ISLAND: NO MORE MAPS, NO MORE EDITOR
+
+  At the user's request the game left the Doom-like world behind: no
+  map editor, no sectors and lines, no hand-made maps. The player, the
+  crowd, the guns and everything the guns do stay. The ground under them
+  is now golf's procedural island (the user's other project,
+  verdictzero/golf): island_0, with golf taken out of it, and the user
+  dropped on it with a few hundred townsfolk. The aim, in the user's
+  words, is levels fully procedurally generated from assets they
+  provide, to spare the artist and make it more fun.
+
+  The user chose how islands are made: each one is generated ahead of
+  time and BAKED, and the game ships a set of them behind a level
+  select (NEW GAME on the title lists them). Island 0 is the first.
+  Responders are off for now; there is just a big crowd.
+
+  WHAT CAME FROM GOLF (godot/island/, the same file names as golf's,
+  every res:// path moved under godot/island/): the island field (the
+  world as pure functions of x and z: SCRIPT_island_field.gd), the chunk
+  mesher, the streaming world, the bake stores and their two autoloads
+  (TerrainBake, VegBake), the forest and grass scatters, the sky cycle
+  with golf's "blood night" preset held at day, the cloud sea under the
+  island and the horizon clouds, their shaders, materials and textures,
+  and the plant sprites. About 7 MB. island_0's scene was copied and cut
+  down to those: no golf course, no golf wall or forcefield, no crash
+  site, no escape pod, no ruins, no glitch blobs, no nightmare sky, no
+  fly camera, no golf loading screen (this game's covers the build) and
+  no physics bodies (nothing here uses Godot physics). The field is
+  ISLANDFIELD_island0.tres: golf's hub_solid with five switches off —
+  zone_enabled (holes, fairways, build pads), sand_enabled, crater_enabled,
+  divot_enabled and ruin_enabled — so the hills, forest, coast and cliffs
+  are golf's island's and nothing golf carved into the ground is there.
+  golf's shader globals (tod_*, sea_*, veg_*, golf_wall_*) are declared
+  in project.godot; the golf_wall ones stay at zero, so the wall the
+  shaders know how to draw is never drawn.
+
+  THE ENGINE WENT TO 4.7 FIRST, on its own commit, because golf is a 4.7
+  project: the project converted with nothing but a .uid beside each
+  script, every suite passed, and CI built the apk and the Linux build on
+  4.7 before anything else changed. The renderer is still Mobile on
+  Vulkan (golf's is Compatibility); golf's island draws the same under
+  it.
+
+  ONE WORLD, TWO SCALES. The game counts 32 units to the metre (a person
+  is 56 tall) and the island counts metres. Rather than renumber either,
+  the Game node is scaled to 1/32 and the island, under it, back up by
+  32: both draw in one world at the true size, the island's fog and fade
+  distances (all metres) mean what golf meant by them, and the game's
+  simulation never sees the difference. What did notice: anything that
+  read a camera's GLOBAL position or axes against the game's own
+  positions (the bore's and the launcher's reticles, the tracers, the arc
+  gun's bolts, the thermal sight's brackets, the muzzle on the glass) now
+  reads the camera's local ones; the camera's near and far planes are in
+  metres; and the shaders that build a sprite out of sizes in the game's
+  units (the particles, the flame, the crowd's lean and bob, the blast
+  and sear decals' depth test) multiply by a new global, game_unit, the
+  metres in a unit (U.set_unit: 1/32 in a game, 1 on the title). The
+  lance's light on the world is handed to the shaders in metres too.
+
+  THE LEVEL IS STILL A LEVEL (godot/scripts/level/island_level.gd). The
+  game only ever asked its level a few things — how high is the floor
+  here, may a body move from here to there, can an eye see a point,
+  where does a ray stop — so IslandLevel extends Level and answers them
+  off the ground: every point on the island is a sector of its own, open
+  to the sky, its floor the ground under it and its ceiling far
+  overhead. There are no lines and no walls. A body may not step more
+  than Doom's 24 units up in one move (so a crag is a wall), the crowd
+  may not drop more than 96, and nobody walks within two metres of the
+  coast (the cliff's lip; past it is cloud). An eye is checked against
+  the ground every three metres along its line, so a hill hides what is
+  behind it and a hummock does not; a ray is walked a metre at a time and
+  halved down to where it goes into the ground. It says it is `layered`,
+  so every caller that used to ask room-over-room's questions (rounds
+  stopped by decks, blasts not through floors, the crowd and you only
+  bumping at your own height, sound with height in it) asks the ground
+  instead. A round fired level into a hillside used to fly through it —
+  the level shots never asked the floor — and now stops in it, and a
+  hole in the ground faces out of the slope it is in.
+
+  THE GROUND AS A GRID (godot/scripts/level/island_ground.gd). Asking
+  the field where the ground is costs 34 microseconds a point, far too
+  dear for every body and every drop of blood every tic. So it is asked
+  once, on a 2 m grid at exactly the points the terrain mesh's finest
+  LOD has its corners on (1691 x 1691 of them, every core at once), and
+  the game reads between them in a microsecond. Against the field at
+  random points it is within 3 cm — the same ground the eye sees.
+
+  THE BAKE (tools/bake_island.gd). golf's lesson, kept: the island takes
+  minutes to build from nothing on a handheld (golf measured two and a
+  half), so it is built ahead of time. The tool builds the island the way
+  the game would without one, with golf's stores recording, and writes
+  the terrain's chunk meshes (93 MB), the plants (11 MB) and the ground
+  grid (5 MB) under signatures of everything they are a function of — the
+  field's settings and the code that makes them — plus CODE_DIGESTS.json,
+  the sources' digests, which an exported build needs to find its bakes
+  by (its scripts are compiled, and hash to nothing: golf shipped a build
+  once that carried its bake and built the island anyway, every launch,
+  for want of this). The bakes go in res://godot/island/data/bake, which
+  git ignores; tools/build-linux.sh and tools/build-android.sh bake any
+  island whose bake is missing before they export, the exports carry
+  *.bake, and CI keeps the bakes between runs, made again only when the
+  island or its code changes. Checked on an exported build: it reads all
+  three off disk and builds nothing. Without a bake the game still runs;
+  it samples the ground at load (a minute here) and meshes the island
+  behind the loading screen.
+
+  LOADING. NEW GAME's loading screen now stays up until the island is
+  raised — its terrain off the bake and its plants planted — and a --shot
+  counts its frames from there. Off the bake on this machine the game is
+  built in about 2.5 s and the island up a few seconds later.
+
+  WHO IS ON IT. IslandLevel.populate drops you on open, gentle ground
+  near the middle and 360 townsfolk round the island in eight groups, one
+  of them round you, every one on land and nothing on a crag; you start
+  facing the nearest of them. The crowd chases and flees straight across
+  open ground: the room-to-room planner and the doors went with the maps.
+  The --seed is the crowd's; the island is always the same.
+
+  WHAT WENT. The map editor (godot/scripts/editor/, 11,000 lines), the
+  maps (the maze, JESSE, THE SPRAWL, THE GRID, THE ANNEXE), the block
+  world and the compilers (DocCompile, BlockCompile, MapGeo, Earcut, the
+  scatter), the doors and the room planner, the terminal's JESSE and EDIT,
+  the title's MAP EDITOR and F2, and the tests that were about any of
+  those. The sections further down on the editor, the maps, blocks and
+  doors are left as the record of what they were. The real decals (one
+  Decal node per mark, eight a tile of the level's own meshes) are off:
+  the island's terrain is not cut to their tiles, so every mark is the
+  quad kind for now.
+
+  NETWORK PLAY still works and suits it: a match names its island and its
+  seed, every machine has the island baked, and the host and a headless
+  bot walk the ground without drawing any of it.
+
+  TESTS (tools/godot-test.sh): weapons, island, net, death and pad. The
+  island suite (godot/tests/island_test.gd) checks the ground against the
+  field, you and the crowd stood on it, walking up and down hills with
+  your feet on the ground, the coast stopping you, a hill hiding a point,
+  a round fired down stopping in the ground, a blast hurting who is near,
+  the island coming up off the bake, and the crowd still on the ground
+  after ten seconds of wandering. godot/tests/island_shot.gd takes a
+  picture of a gun held on a row of people on the island.
+
+  NOT DONE YET, and known: the trees are not solid (golf's are not
+  either; walking into a wood dissolves the near ones); the island's
+  terrain takes no real decals; responders (police, army, vans) are off;
+  the web build (pages, on main) would export the island without a bake
+  and build it in the browser; and the set of islands is one.
 
 
 HOW IT IS BUILT, AND WHERE EACH PIECE OF THE WEB BUILD WENT

@@ -9,20 +9,15 @@
 ## click under each key you press, a buzz when it refuses you, a chime
 ## when it lets you in, and a mains hum under all of it.
 ##
-## The words: G or GAME opens the game (the title), JESSE goes straight
-## to the PvP maze, JOIN [host[:port]] joins a match on the LAN, QUIT or
-## EXIT leaves, E or EDIT opens MEWD Editor, the map editor
-## (godot/scripts/editor/). Anything else is refused.
+## The words: G or GAME opens the game (the title), JOIN [host[:port]]
+## joins a match on the LAN, QUIT or EXIT leaves. Anything else is refused.
 class_name Terminal
 extends Control
 
 signal open_game
-signal open_jesse
 ## JOIN, or JOIN host[:port] — a match on the LAN (godot/scripts/net/):
 ## a Node host (tools/server.mjs) or a Godot one (--server), the same wire
 signal open_join(where: String)
-## E or EDIT: the map editor
-signal open_editor
 
 ## the words to say once the prompt is up, before anything is typed (Main
 ## sets it: why a JOIN came back)
@@ -200,11 +195,6 @@ func _enter() -> void:
 		await _close()
 		open_game.emit()
 		return
-	if e == "JESSE":
-		await tell(["JESSE", "GENERATING"])
-		await _close()
-		open_jesse.emit()
-		return
 	if e in ["QUIT", "EXIT"]:
 		await tell(["GOODBYE"])
 		get_tree().quit()
@@ -217,13 +207,6 @@ func _enter() -> void:
 		await tell(["JOINING", where.to_upper()])
 		await _close()
 		open_join.emit(where)
-		return
-	if e in ["E", "EDIT"]:
-		# MEWD Editor (godot/scripts/editor/editor.gd)
-		_sfx("grant")
-		await tell(["MEWD EDITOR", "LOADING WORKSPACE"])
-		await _close()
-		open_editor.emit()
 		return
 	_sfx("error")
 	await tell(["UNDEFINED COMMAND / SYNTAX ERROR", "ENTRY \"%s\" REFUSED" % e.substr(0, 48), ""])

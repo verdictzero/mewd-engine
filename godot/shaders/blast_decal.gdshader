@@ -129,7 +129,7 @@ void fragment() {
 	vec3 ndc = gl_depth ? vec3(SCREEN_UV, dz) * 2.0 - 1.0 : vec3(SCREEN_UV * 2.0 - 1.0, dz);
 	vec4 vp = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
 	float scene = -vp.z / vp.w;
-	if (abs(scene - depth) > 3.0 + depth * 0.02) discard;
+	if (abs(scene - depth) > 3.0 * game_unit + depth * 0.02) discard;
 
 	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
 	float r = length(p);

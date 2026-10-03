@@ -38,6 +38,13 @@ jobs:
         with:
           path: ~/.local/share/godot/export_templates/4.7.stable
           key: godot-4.7-linux-templates
+      # THE ISLANDS, BAKED (tools/bake_island.gd, run by the build): a few
+      # minutes of meshing and planting, kept between runs and made again
+      # only when an island or the code that makes one changes
+      - uses: actions/cache@v4
+        with:
+          path: godot/island/data/bake
+          key: island-bake-${{ hashFiles('godot/island/**', 'godot/scripts/level/island_ground.gd', 'godot/scripts/level/islands.gd', 'tools/bake_island.gd') }}
       - name: build
         run: sh tools/build-linux.sh build/linux/mewd.x86_64
       - name: the rolling release
@@ -51,4 +58,4 @@ jobs:
           gh release create linux "build/linux/mewd-$SHORT.x86_64" "build/linux/mewd-$SHORT-linux.tar.gz" \
             --target "$GITHUB_SHA" --prerelease \
             --title "MEWD for Linux ($SHORT, ${GITHUB_REF_NAME})" \
-            --notes "The latest Linux build, x86_64, for Ubuntu 20.04 or later. It uses the Mobile renderer on Vulkan, so it needs a Vulkan driver (mesa's, or NVIDIA's). Built from ${GITHUB_REF_NAME} at $SHORT. To run it: chmod +x mewd-$SHORT.x86_64 && ./mewd-$SHORT.x86_64 (the .tar.gz keeps the executable bit). --edit opens the map editor."
+            --notes "The latest Linux build, x86_64, for Ubuntu 20.04 or later. It uses the Mobile renderer on Vulkan, so it needs a Vulkan driver (mesa's, or NVIDIA's). Built from ${GITHUB_REF_NAME} at $SHORT. To run it: chmod +x mewd-$SHORT.x86_64 && ./mewd-$SHORT.x86_64 (the .tar.gz keeps the executable bit). "

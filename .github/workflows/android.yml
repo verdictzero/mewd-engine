@@ -53,6 +53,13 @@ jobs:
         with:
           path: ~/.local/share/godot/export_templates/4.7.stable
           key: godot-4.7-android-templates
+      # THE ISLANDS, BAKED (tools/bake_island.gd, run by the build): a few
+      # minutes of meshing and planting, kept between runs and made again
+      # only when an island or the code that makes one changes
+      - uses: actions/cache@v4
+        with:
+          path: godot/island/data/bake
+          key: island-bake-${{ hashFiles('godot/island/**', 'godot/scripts/level/island_ground.gd', 'godot/scripts/level/islands.gd', 'tools/bake_island.gd') }}
       - name: build the APK
         env:
           MEWD_KEYSTORE_B64: ${{ secrets.MEWD_KEYSTORE_B64 }}

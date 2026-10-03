@@ -1,6 +1,6 @@
 ## MEWD — the dedicated server (tools/server.mjs, in Godot).
 ##
-##   godot --headless --path . -- --server[=PORT] [--map=jesse|maze] [--seed=N]
+##   godot --headless --path . -- --server[=PORT] [--map=island0] [--seed=N]
 ##                                [--max=16] [--frags=N]
 ##
 ## A host with no screen: the real simulation (game.gd, not drawn) behind
@@ -32,7 +32,7 @@ var _seen := {}
 var _t0 := 0
 
 func _ready() -> void:
-	var kind := "jesse"
+	var kind: String = Islands.LIST[0].key
 	var seed := 0
 	var max_p := NetProtocol.MAX_PLAYERS
 	var rules := {}
@@ -58,14 +58,14 @@ func _ready() -> void:
 			quit_at = Time.get_ticks_msec() + int(float(a.substr(13)) * 1000.0)
 		elif a.begins_with("--score-file="):
 			score_file = a.substr(13)
-	if kind not in ["jesse", "maze"]:
-		push_warning("the host offers jesse and maze, the maps a web page can build; not " + kind)
-		kind = "jesse"
+	# AN ISLAND (Islands.LIST): every client has it baked; the seed is the
+	# crowd's — in a match, nobody but the players
+	kind = Islands.find(kind).key
 	seed = seed & 0x7FFFFFFF
 	if seed == 0:
 		randomize()
 		seed = randi() & 0x7FFFFFFF
-	var opts := {"people": 0} if kind == "maze" else {}
+	var opts := {"people": 0}
 	start(kind, seed, opts, max_p, rules, spawns)
 
 func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Dictionary, spawns: Array) -> void:
@@ -75,6 +75,8 @@ func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Diction
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
 	game.net_map = {"kind": kind, "seed": seed, "opts": opts}
+	# a server draws nothing: the island's ground, none of its terrain
+	game.draw_world = false
 	add_child(game)
 	# the host steps the world off its own clock (SimServer.run), not the
 	# frame loop a player's game runs on
@@ -83,7 +85,7 @@ func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Diction
 	sim = SimServer.new(game, map, max_p, rules, func(s): _say(s))
 	if not spawns.is_empty() and sim.match_.mode == "dm":
 		sim.match_.spawns = spawns
-	_say("%s, seed %d: %d sectors, built in %.1fs" % [game.level.name, seed, game.level.sectors.size(), (Time.get_ticks_msec() - t0) / 1000.0])
+	_say("%s, seed %d: built in %.1fs" % [game.level.name, seed, (Time.get_ticks_msec() - t0) / 1000.0])
 	listener.on_accept = func(ws): sim.accept(ws)
 	var err := listener.listen(port)
 	if err != OK:

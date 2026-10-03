@@ -1,0 +1,75 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+; The FERNS of SCENE_test_zone_W2. `SCRIPT_veg_scatter.gd` DUPLICATES this once per fern
+; sprite and sets `albedo_tex` on each copy, so the texture is deliberately not
+; assigned here.
+;
+; A COPY OF MAT_veg_understory.tres THAT DIFFERS IN THE FAR FADE ALONE -- same
+; shader, same tint, same fog, same (disabled) near fade. If you change one of
+; those there, change it here.
+;
+; WHY THE FERNS GET THEIR OWN MATERIAL AT ALL. They are the smallest thing the
+; scatter plants (1.3-2.2 m) and by a very wide margin the most numerous:
+; `fern_per_cell` is twelve, against three for a bush and one for a fir, so on W2's
+; field they are 316,896 of the island's 482,500 plants -- TWO THIRDS OF EVERY
+; PLANT IN THE WORLD (tests/PROBE_veg_census.gd). Under the understory's old
+; 1080..1300 m band every one of them was submitted from anywhere on the island, to
+; be drawn about a pixel and a half tall through a canopy. That single number was
+; the largest line in the frame's triangle budget by a factor of four and it bought
+; nothing that could be seen.
+;
+; 200..300 m, which submits ~19,000 of them from the middle of the island against
+; 316,896 before. `veg_scatter` reads `far_end` off this material and stops
+; SUBMITTING a tile once every fern in it is past that distance, so this figure is
+; the cull as well as the fade -- there is no second number to keep in step. It is
+; deliberately a GENEROUS 300 rather than the ~120 m at which a fern stops being
+; resolvable:
+; ferns are a forest-floor layer and the eye reads the floor thinning out long
+; before it reads an individual frond, so the band is set by where the FLOOR stops
+; looking like a floor rather than by where a plant stops being legible. Shorten it
+; and the woods develop a visible clearing around the player; lengthen it and the
+; cost climbs as the square.
+;
+; The band is 100 m wide against the firs' 220. A short fade wants a proportionally
+; short dissolve or the whole population sits permanently half-dithered, which
+; reads as a haze on the forest floor rather than as ferns.
+;
+; 300 IS NOT PINNED TO THE OTHER TWO, and it did not move when they did. The firs
+; went 1300 -> 900 and the bushes are pinned to half of that (1300/820/300 ->
+; 900/450/300), so the ferns now reach two thirds as far as the scrub where they
+; used to reach a third as far. That is a real change in the layering and it was
+; left deliberately: the paragraph above sets this figure by where the FLOOR stops
+; looking like a floor, which is a property of the player's eye and not of what the
+; canopy is doing. Shortening it to restore the old ratio would buy the least
+; geometry of the three cuts -- a fern is submitted over the smallest disc -- and
+; would cost the one thing the comment above warns about, a visible clearing
+; following the player through the woods.
+
+;
+; NO BURN BLOCK, DELIBERATELY. `SHADER_veg_billboard.gdshader` ships `burn = -1.0`, which
+; means "follow the island-wide `veg_burn` bus", and the bus sits at 0 — so this
+; material draws exactly what it drew before the vegetation could burn, and one
+; write from `scripts/world/SCRIPT_veg_burn.gd` takes the whole island through the fire
+; without touching a material. Listing the burn parameters here would only pin
+; them to their own defaults and add another block that has to stay in step.
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.4
+shader_parameter/tint = Color(0.62, 0.62, 0.62, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.06
+shader_parameter/wind_speed = 0.55
+shader_parameter/wind_scale = 17.0
+shader_parameter/near_gone = 0.0
+shader_parameter/near_solid = 0.0
+shader_parameter/far_start = 200.0
+shader_parameter/far_end = 300.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/fog_distance_start = 850.0
+shader_parameter/fog_distance_density = 0.0012
+shader_parameter/fog_distance_power = 2.0

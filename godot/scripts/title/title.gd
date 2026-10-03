@@ -10,10 +10,9 @@
 ## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words (no
 ## blinking marker, at the user's request). The
 ## one you are on is filled in red, the logo's brick, at the user's
-## request. NEW GAME opens the LEVELS — the maze, JESSE, THE SPRAWL, THE
-## GRID, THE ANNEXE — in the same column (at the user's request), and
-## one of those starts the game; MAP EDITOR goes to the editor; the
-## others shake their heads.
+## request. NEW GAME opens the LEVELS — the islands (Islands.LIST), at
+## the user's request — in the same column, and one of those starts the
+## game; the others shake their heads.
 ##
 ## THE LAYERS, at the user's request, top to bottom: this menu; MEWD, in
 ## front of the dither; the blue, over the finished frame; the dither;
@@ -22,20 +21,24 @@
 class_name Title
 extends Control
 
-## the map chosen: maze, jesse, sprawl, grid or layers
+## the island chosen (Islands.LIST's key)
 signal new_game(map: String)
-signal open_editor
 signal pad_setup
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["MAP EDITOR", "editor", true], ["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
+	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
 	["DOWNLOAD ZIP", "zip", true]]
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
 ## asset — so it is always the latest and costs the site nothing to host
-## THE LEVELS, under NEW GAME
-const LEVELS := [["THE MAZE", "map:maze", true], ["JESSE", "map:jesse", true], ["THE SPRAWL", "map:sprawl", true],
-	["THE GRID", "map:grid", true], ["THE ANNEXE", "map:layers", true], ["BACK", "back", true]]
+## THE LEVELS, under NEW GAME: every island, then BACK
+static var LEVELS: Array = _levels()
+static func _levels() -> Array:
+	var out := []
+	for i in Islands.LIST:
+		out.append([i.title, "map:" + i.key, true])
+	out.append(["BACK", "back", true])
+	return out
 const ZIP_URL := "https://github.com/verdictzero/mewd-engine/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
@@ -235,8 +238,6 @@ func take(i: int) -> void:
 		show_page(false)
 	elif what.begins_with("map:"):
 		new_game.emit(what.substr(4))
-	elif what == "editor":
-		open_editor.emit()
 	elif what == "pad":
 		pad_setup.emit()
 	elif what == "zip":

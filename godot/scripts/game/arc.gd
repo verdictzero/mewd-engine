@@ -424,7 +424,7 @@ func draw(cam: Camera3D) -> void:
 	im.clear_surfaces()
 	if bolts.is_empty():
 		return
-	var eye := cam.global_position
+	var eye := cam.position
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var tick: int = game.tics >> 1
 	for b in bolts:

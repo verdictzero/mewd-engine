@@ -99,7 +99,7 @@ func _game(net_map := {}) -> Node:
 
 func _local() -> void:
 	print("net: a game on its own")
-	var g = _game({"kind": "maze", "seed": SEED, "opts": {"people": 0}})
+	var g = _game({"kind": "island0", "seed": SEED, "opts": {"people": 0}})
 	await process_frame
 	check(g.session is NetSession.Local and g.players.size() == 1 and g.players[0] == g.player, "one player, the game's LocalSession")
 	var t0: int = g.tics
@@ -112,20 +112,13 @@ func _local() -> void:
 # ---- 3. a match in one process ------------------------------------------------------
 
 ## the longest straight clear run out of the host's START, as [angle, length]
+## the longest stretch of level, open ground out of the START (IslandLevel.flat_run)
 func _clear_run(g) -> Vector2:
-	var p = g.player
-	var best := Vector2()
-	for k in 8:
-		var ang := k * PI / 4.0
-		var hit: Dictionary = g.level.ray_hit_wall(p.x, p.y, 30, p.x + cos(ang) * 2000.0, p.y + sin(ang) * 2000.0, 30)
-		var l: float = 2000.0 * float(hit.t) if not hit.is_empty() else 2000.0
-		if l > best.y:
-			best = Vector2(ang, l)
-	return best
+	return g.level.flat_run(g.player.x, g.player.y)
 
 func _match() -> void:
 	print("net: a match over loopback")
-	var map := {"kind": "maze", "seed": SEED, "opts": {"people": 0}}
+	var map := {"kind": "island0", "seed": SEED, "opts": {"people": 0}}
 	var hg = _game(map)
 	var sim := SimServer.new(hg, map, 16, {"fragLimit": 50}, func(s): print("  host: " + s))
 	check(sim.match_.mode == "dm" and sim.match_.spawns.size() > 4, "THE MAZE is a deathmatch with %d spawns found" % sim.match_.spawns.size())
@@ -137,7 +130,7 @@ func _match() -> void:
 	var pa := NetTransport.Loopback.pair()
 	sim.accept(pa[1])
 	var c1 := NetClient.new(pa[0], "ONE", now)
-	check(c1.welcome != null and c1.id == 1 and c1.map.kind == "maze" and int(c1.map.seed) == SEED, "ONE is welcomed, told the map")
+	check(c1.welcome != null and c1.id == 1 and c1.map.kind == "island0" and int(c1.map.seed) == SEED, "ONE is welcomed, told the map")
 	var cg = _game(c1.map)
 	var ng := NetGame.new(cg, c1, now)
 	# CLIENT TWO: a bare line, driven by hand
@@ -157,8 +150,8 @@ func _match() -> void:
 	sim.accept(bad[1])
 	bad[0].send(NetProtocol.encode({"t": "hello", "v": 1, "name": "OLD"}))
 	check(not bad[0].open, "a client on protocol 1 is refused")
-	check(cg.level.sectors.size() == hg.level.sectors.size() and cg.level.lines.size() == hg.level.lines.size(),
-		"the client built the host's level from the seed (%d sectors)" % cg.level.sectors.size())
+	check(cg.level.name == hg.level.name and cg.level.bounds == hg.level.bounds,
+		"the client built the host's island (%s)" % cg.level.name)
 
 	var p1 = sim.clients[1].player
 	var p2 = sim.clients[2].player
@@ -264,8 +257,8 @@ func _match() -> void:
 
 func _procs() -> void:
 	print("net: a headless host and two headless clients, on a socket")
-	# two pads at the ends of the longest clear run out of the maze's START
-	var map := {"kind": "maze", "seed": SEED, "opts": {"people": 0}}
+	# two pads at the ends of the longest clear run out of the island's START
+	var map := {"kind": "island0", "seed": SEED, "opts": {"people": 0}}
 	var g = _game(map)
 	await process_frame
 	var run := _clear_run(g)
@@ -281,7 +274,7 @@ func _procs() -> void:
 	var score_path := tmp.path_join("score.json")
 	var exe := OS.get_executable_path()
 	var proj := ProjectSettings.globalize_path("res://")
-	var server := OS.create_process(exe, ["--headless", "--path", proj, "--", "--server=%d" % port, "--map=maze",
+	var server := OS.create_process(exe, ["--headless", "--path", proj, "--", "--server=%d" % port, "--map=island0",
 		"--seed=%d" % SEED, "--frags=100", "--spawns=%d,%d;%d,%d" % [ax, ay, bx, by], "--quit-after=34",
 		"--score-file=" + score_path])
 	check(server > 0, "the host is running (pid %d, port %d)" % [server, port])

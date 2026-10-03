@@ -10,3 +10,7 @@ build/
 
 # the web export template GitLab CI caches (.gitlab-ci.yml)
 .godot-templates/
+
+# THE ISLANDS, BAKED (tools/bake_island.gd): ~100 MB an island, and a new
+# one whenever the field or its code moves. CI bakes them before it builds.
+/godot/island/data/bake/

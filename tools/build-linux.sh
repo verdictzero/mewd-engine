@@ -45,6 +45,9 @@ for n in ("linux_release.x86_64", "linux_debug.x86_64", "version.txt"):
 PY
 fi
 "$GODOT" --headless --editor --quit >/dev/null 2>&1 || true   # import, and register the class names
+# THE ISLANDS, BAKED (tools/bake_island.gd), unless they are already, for
+# this code: the build carries them, so the game reads its world off disk
+"$GODOT" --headless --script res://tools/bake_island.gd -- --all --if-missing
 mkdir -p "$(dirname "$OUT")"
 "$GODOT" --headless --export-release "Linux" "$OUT"
 chmod +x "$OUT"

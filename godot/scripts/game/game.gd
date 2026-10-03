@@ -19,10 +19,8 @@ const MAX_TICS := 6
 const SLOW_MO := 4
 var slow_mo := false
 
-var doors: Doors = null
-var nav: Nav = null
 var potatoes: PotatoCannon = null
-var level: Level
+var level: IslandLevel
 var bank: TexBank
 var player: Player
 ## EVERYBODY WITH A PAIR OF HANDS IN THIS WORLD (js/game.js). One in a
@@ -62,8 +60,6 @@ var forest_view: ForestView
 var tics := 0
 var kills := 0
 var weather := Weather.new()
-## the skybox's material, when the map wears one (_make_sky)
-var skybox_mat: ShaderMaterial = null
 var rain: Rain
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
@@ -100,10 +96,8 @@ var last_hit := Vector3()
 var _slot := 0
 ## held still by the pause menu, and the menu's look settings
 var paused := false
-## which map: "maze" (the demo's), "jesse", "sprawl", "grid" or "layers"
-var map_name := "maze"
-## or a map from MEWD Editor's Play: the document itself (main.gd sets it)
-var play_doc = null
+## which island (Islands.LIST's key)
+var map_name := "island0"
 var look_sens := 1.0
 var invert := false
 var _set_hour := 2.0
@@ -125,7 +119,7 @@ var _start_zoom := 0
 
 func _ready() -> void:
 	_bind_keys()
-	seed = MazeMap.new_seed()
+	seed = randi() % 1000000 + 1
 	var args := OS.get_cmdline_user_args()
 	for a in args:
 		if a.begins_with("--seed="):
@@ -149,85 +143,79 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--map="):
 			which = a.substr(6)
-	# A HOST'S MAP, on a network: its kind and its seed, which every client
-	# builds for itself (the web build's netMap)
-	var opts := {}
+	# A HOST'S MAP, on a network: which island and the seed of its crowd,
+	# which every client builds for itself (the web build's netMap)
 	if not net_map.is_empty():
-		which = str(net_map.get("kind", "maze"))
+		which = str(net_map.get("kind", which))
 		seed = int(net_map.get("seed", 1))
-		if net_map.get("opts") is Dictionary:
-			opts = net_map.opts
-	# THE MAP (--map=maze|jesse|sprawl|grid): every map the web build plays
-	var doc: Dictionary
-	match which:
-		"jesse": doc = JesseMap.build(seed, opts)
-		"sprawl": doc = SprawlMap.build()
-		"grid": doc = TheGrid.build()
-		"layers": doc = LayersMap.build()
-		_: doc = MazeMap.build(seed, int(opts.get("cells", MazeMap.CELLS)), int(opts.get("people", MazeMap.PEOPLE)))
-	# A MAP FROM THE EDITOR, on a test run (js/main.js's PLAY_KEY): the
-	# document it handed over, compiled by the same compiler
-	if play_doc != null:
-		doc = play_doc
-	# a test hook: --at=x,y,degrees stands the START somewhere else (as a
-	# map from the editor with its start moved would; for pictures)
+	start_map(which)
 	for a in args:
+		# a test hook: --at=x,y,degrees stands you somewhere else (for pictures)
 		if a.begins_with("--at="):
 			var at := a.substr(5).split(",")
-			for t in doc.things:
-				if t.type == "START" and at.size() >= 3:
-					t.x = float(at[0]); t.y = float(at[1]); t.angle = deg_to_rad(float(at[2]))
-					# a fourth: the layer it stands on (a map in storeys)
-					if at.size() >= 4:
-						t["layer"] = int(at[3])
+			if at.size() >= 3:
+				player.x = float(at[0])
+				player.y = float(at[1])
+				player.angle = deg_to_rad(float(at[2]))
+				var s := level.sector_at(player.x, player.y)
+				if s != null:
+					player.z = s.floor
+					player.sector = s
+				player.view_z = player.z + player.view_height
+				player.prev = Vector4(player.x, player.y, player.view_z, 0)
 		# and --eye=rise,pitch lifts the eye off the body and tilts it
 		if a.begins_with("--eye="):
 			var e := a.substr(6).split(",")
 			eye_hook = Vector2(float(e[0]), float(e[1]) if e.size() > 1 else 0.0)
-	start_map(doc)
 
-func start_map(doc: Dictionary) -> void:
+## THE ISLAND (at the user's request; godot/scripts/level/islands.gd):
+## golf's procedural island for the ground, pre-built, and on it you and
+## a crowd. The island is in METRES and this game counts U_PER_M units to
+## the metre, so the game is scaled down to the island's metres and the
+## island, under it, back up: both draw in one world at the true size,
+## and nothing in either had to change its numbers.
+var island: Node3D
+var _island_built := false
+## false: walk the island, draw none of it (a dedicated server, a bot)
+var draw_world := true
+func start_map(which: String) -> void:
 	var t0 := Time.get_ticks_msec()
-	level = DocCompile.compile(doc)
-	forest = Forest.new(level)
+	var spec: Dictionary = Islands.find(which)
+	map_name = spec.key
+	scale = Vector3.ONE / IslandLevel.U_PER_M
+	U.set_unit(1.0 / IslandLevel.U_PER_M)
+	island = (load(spec.scene) as PackedScene).instantiate()
+	island.scale = Vector3.ONE * IslandLevel.U_PER_M
+	var iw: Node = island.get_node("IslandWorld")
+	iw.pregen_finished.connect(func(): _island_built = true)
+	var field: Resource = iw.field
+	var chunk: float = iw.chunk_size
+	# A WORLD NOBODY LOOKS AT (a dedicated server, a bot) walks on the
+	# ground and draws none of it
+	if not draw_world:
+		island.free()
+		island = null
+	# THE GROUND the game walks on, off the bake (IslandGround) — or, with
+	# none, sampled now on every core, which is slow
+	var ground := IslandGround.load_for(IslandGround.signature_for(field, chunk))
+	if ground == null:
+		print("MEWD: %s has no baked ground — sampling it now (tools/bake_island.gd makes one)" % spec.title)
+		ground = IslandGround.build(field)
+	level = IslandLevel.new(ground, spec.title)
+	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))))
+	add_child(island)
+	# (the island's plants are its own: the old forest is there, empty,
+	# for what still asks it)
+	forest = Forest.new(level, {"bounds": Rect2(0, 0, 256, 256), "plants": []})
 	forest_view = ForestView.new(forest)
 	add_child(forest_view)
 	bank = TexBank.new()
-	var mg := MapGeo.new(bank)
-	# real decals want the world in tiles (RealDecals: eight a mesh)
-	var tile := 0.0
-	if RealDecals.on():
-		# only the built area (Level.bounds): the ground past it is one
-		# mesh a texture (MapGeo.tile_area), in the world's x and z; and
-		# a big map in bigger tiles (RealDecals.tile_for)
-		var bb: Rect2 = level.bounds
-		var T := RealDecals.tile_for(bb)
-		tile = T
-		mg.tile = T
-		var x0 := floorf(bb.position.x / T) * T
-		var x1 := ceilf(bb.end.x / T) * T
-		var z0 := floorf(-bb.end.y / T) * T
-		var z1 := ceilf(-bb.position.y / T) * T
-		mg.tile_area = Rect2(x0, z0, x1 - x0, z1 - z0)
-	var geo := mg.build(level)
-	add_child(geo)
-	# the way from room to room, for the troops (game/nav.gd)
-	nav = Nav.new(level)
-	# the doors (game/doors.gd), none on a map without
-	doors = Doors.new(self) if not level.doors.is_empty() else null
-	if doors != null:
-		add_child(doors)
-	_make_sky(str(level.world.get("skybox", "")))
 	var start = null
 	for t in level.things:
 		if t.type == "START":
 			start = t
 			break
-	if start == null:
-		start = {"x": level.bounds.get_center().x, "y": level.bounds.get_center().y, "angle": 0.0}
 	player = Player.new(self, float(start.x), float(start.y), float(start.angle), start.get("z"))
-	# (a test run from the editor starts looking the way its camera did)
-	player.pitch = clampf(float(start.get("pitch", 0.0)), -1.5, 1.5)
 	players = [player]
 	if _start_weapon != "":
 		player.weapon = _start_weapon
@@ -256,13 +244,6 @@ func start_map(doc: Dictionary) -> void:
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
 	add_child(gore_decals)
-	if RealDecals.on():
-		real_decals = RealDecals.new(self)
-		real_decals.tile = tile
-		add_child(real_decals)
-		real_decals.register(geo)
-		decals.real = real_decals
-		gore_decals.real = real_decals
 	fx = Effects.new(self)
 	add_child(fx)
 	giblets = Giblets.new(self)
@@ -290,90 +271,40 @@ func start_map(doc: Dictionary) -> void:
 		weapon3d.preload_all()
 	camera = Camera3D.new()
 	camera.fov = BASE_FOV
-	camera.near = 2.0
-	camera.far = 16000.0
+	camera.near = 2.0 / IslandLevel.U_PER_M
+	camera.far = 12000.0
 	add_child(camera)
 	camera.make_current()
-	print("MEWD: %s seed %d — %d sectors, %d lines, %d things, built in %d ms" % [
-		level.name, seed, level.sectors.size(), level.lines.size(), level.things.size(), Time.get_ticks_msec() - t0])
+	print("MEWD: %s seed %d — %d people, built in %d ms" % [level.name, seed, actors.size(), Time.get_ticks_msec() - t0])
 
-## The sky: the map's skybox photograph if it names one (the air fading to
-## its horizon), else the sky for the hour and the weather, worked out
-## per pixel (godot/shaders/sky.gdshader, js/skyart.js) with the map's
-## own colours over it (world.sky — the grid's green).
-func _make_sky(name: String) -> void:
-	var env := Environment.new()
-	var sky := Sky.new()
-	var path := "res://assets/skies/%s.png" % name
-	if name != "" and name != "<null>" and ResourceLoader.exists(path):
-		var tex: Texture2D = load(path)
-		# the picture decoded to linear and shown so, with the map's fog
-		# over it (godot/shaders/skybox.gdshader, js/sky.js)
-		var sm := ShaderMaterial.new()
-		sm.shader = preload("res://godot/shaders/skybox.gdshader")
-		sm.set_shader_parameter("panorama", U.col(tex))
-		var ml: Dictionary = level.map_light
-		var fog: Color = ml.get("fog", Color(0, 0, 0, 0))
-		var amb: Color = ml.get("ambient", Color.BLACK)
-		sm.set_shader_parameter("fog_default", U.col(Vector4(fog.r, fog.g, fog.b, fog.a)))
-		sm.set_shader_parameter("ambient", U.col(Vector3(amb.r, amb.g, amb.b)))
-		sm.set_shader_parameter("fog_ambient", U.col(float(ml.get("fogAmbient", 1.0))))
-		sky.sky_material = sm
-		skybox_mat = sm
-		# the air fades to the sky's horizon texel (worldShade's `air`): the
-		# row just over the middle, decoded to linear as the web build's
-		# fetch is — averaged round the horizon, where the web build takes
-		# the texel in each fragment's own azimuth
-		var img := tex.get_image()
-		if img:
-			img = img.duplicate()
-			if img.is_compressed():
-				img.decompress()
-			var c := Color()
-			var h := maxi(0, img.get_height() / 2 - 1)
-			for i in 64:
-				c += img.get_pixel(i * img.get_width() / 64, h).srgb_to_linear()
-			U.gset("air_color", c / 64.0)
-		# and the level's own surfaces take it in their own azimuth
-		# (world_air_at in world_light.gdshaderinc)
-		U.gset("air_sky", tex)
-		U.gset("air_sky_on", 1.0)
-	else:
-		var sm := ShaderMaterial.new()
-		U.gset("air_sky_on", 0.0)
-		sm.shader = preload("res://godot/shaders/sky.gdshader")
-		sky.sky_material = sm
-		weather.sky_mat = sm
-		# the web build's sky for a map without a skybox (js/main.js): the
-		# grid's green, with the map's own colours over it, and whatever
-		# those say, BARE — no stars, no moon, no cloud, no town glow
-		var skin: Dictionary = {"horizon": "#1d9a48", "mid": "#06301a", "zenith": "#000000", "ground": "#05180c",
-			"midAmt": 1.0, "midPow": 0.95}
-		var own = level.world.get("sky")
-		if own is Dictionary:
-			skin.merge(own, true)
-		skin["bare"] = true
-		weather.sky_skin = skin
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
+## THE LIGHT ON EVERYTHING THAT IS NOT THE ISLAND — the crowd, the gore,
+## the sparks (shaders/world_light.gdshaderinc) — set to the island's day
+## rather than the old maps' night: under the open sky, no Doom fall-off
+## with distance, and the air the island's own grey haze from far off.
+## Distances are METRES here: the game is drawn at the island's scale.
+func _island_light() -> void:
+	U.gset("sky_light", 1.0)
+	U.gset("min_light", 0.85)
+	U.gset("light_falloff", 1.0e6)
+	U.gset("air_near", 700.0)
+	U.gset("air_far", 3200.0)
+	U.gset("air_color", Color(0.3, 0.3, 0.3))
+	U.gset("light_color", Color.WHITE)
+	U.gset("ambient_light", Color(0, 0, 0, 1))
+	U.gset("map_fog", Vector4(0, 0, 0, 0))
 
-## Where the fog over the skybox stops, over the eye: FOG_TOP (320) over
-## the floor under the open sky, the ceiling under a roof (fogTopAt in
-## js/material.js, from js/sectorgrid.js) — the eye's own sector's.
-func _skybox_fog() -> void:
-	var s := level.sector_at(player.x, player.y)
-	if s != null and level.layered and player.sector != null:
-		s = player.sector      # the storey the eye is in
-	if s == null:
-		return
-	var open: bool = s.outdoor or s.ceil_tex == "SKY"
-	var top: float = s.floor + 320.0 if open else s.ceil
-	skybox_mat.set_shader_parameter("fog_top", U.col(top - camera.position.y))
-	skybox_mat.set_shader_parameter("fog_fade", U.col(128.0 if open else 1.0))
+## and the world after this game (the title's forest) back in its own units
+func _exit_tree() -> void:
+	U.set_unit(1.0)
+
+## THE ISLAND IS UP: its terrain meshed (or read off the bake) and its
+## plants planted — what the loading screen waits for (main.gd)
+func island_ready() -> bool:
+	if island == null:
+		return true
+	var iw: Node = island.get_node_or_null("IslandWorld")
+	var vs: Node = island.get_node_or_null("VegScatter")
+	return (iw == null or _island_built) and (vs == null or bool(vs.get("_prescattered")))
 
 func _bind_keys() -> void:
 	var keys := {
@@ -511,8 +442,7 @@ func _process(dt: float) -> void:
 	thermal.update(player, tics)
 	green_thermal.update(player, tics)
 	weather.apply(dt)
-	if skybox_mat != null:
-		_skybox_fog()
+	_island_light()
 	_prof_add("scopes+weather", t0)
 	t0 = Time.get_ticks_usec()
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
@@ -644,15 +574,11 @@ func tic() -> void:
 			var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
 			var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
 			p.tic(cmd)
-			if doors != null:
-				doors.command(p, cmd)
 			if back.is_valid():
 				back.call()
 	if reps > 1:
 		for i in players.size():
 			players[i].prev = stood[i]
-	if doors != null:
-		doors.tic()
 	weather.tic()
 	var t0 := Time.get_ticks_usec()
 	# THE CROWD FAR OFF THINKS LESS OFTEN (at the user's request, for
@@ -933,7 +859,7 @@ func muzzle_view(p, fallback: Vector3) -> Vector3:
 	var vs := Vector2(camera.get_viewport().get_visible_rect().size)
 	var o := camera.project_ray_origin(uv * vs)
 	var d := camera.project_ray_normal(uv * vs)
-	var at := o + d * 30.0
+	var at := to_local(o + d * (30.0 / IslandLevel.U_PER_M))
 	return Vector3(at.x, -at.z, at.y)
 
 ## the weapons that do not run on frames tic themselves: kind is one of
@@ -1010,10 +936,9 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 	var wall := level.ray_hit_wall(ox, oy, z, tx, ty, tz)
 	var max_t: float = wall.t if not wall.is_empty() else 1.0
 	var floor_hit = null
-	if pitch != 0.0 and level.layered:
-		# ON A MAP IN STOREYS the floors, decks and roofs along the whole
-		# of it, column by column: a round from under the terrace stops in
-		# its deck, and one fired over the terrace's edge flies on
+	if level.layered:
+		# THE GROUND along the whole of it, level shots too: a round fired
+		# flat into a hillside stops in the hillside (IslandLevel)
 		var fh := level.ray_hit_flat(ox, oy, z, tx, ty, tz)
 		if not fh.is_empty() and fh.t < max_t:
 			max_t = fh.t
@@ -1070,7 +995,8 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		var hx := ox + dx * max_t
 		var hy := oy + dy * max_t
 		if opts.get("shot", false):
-			decals.hole(Vector3(hx, hy, floor_hit), Vector3(0, 0, 1) if tz < z else Vector3(0, 0, -1), opts.get("hot", false))
+			# on the slope it went into, facing out of it
+			decals.hole(Vector3(hx, hy, floor_hit), level.normal_at(hx, hy), opts.get("hot", false))
 		last_hit = Vector3(hx, hy, floor_hit)
 	else:
 		last_hit = Vector3(tx, ty, tz)
