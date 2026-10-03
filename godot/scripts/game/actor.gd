@@ -631,6 +631,11 @@ func A_PickExit() -> void:
 const FLEE_TRIES := 3
 
 func A_Flee() -> void:
+	# A STAMPEDE TRAMPLES (CANDY LAND's unicorns, at the user's request):
+	# a frightened herd beast runs straight through people, and they come
+	# apart where it meets them
+	if info.get("herd", false):
+		_trample()
 	panic -= 1
 	if panic <= 0 and not burning:
 		speed = float(info.get("speed", speed))
@@ -798,6 +803,16 @@ func A_Hello() -> void:
 const HERD_RANGE := 520.0
 ## how far a foal strays from her mother
 const FOAL_RANGE := 110.0
+
+## Everybody a galloping unicorn touches — any person, never another
+## of the herd, never the player — blown apart.
+func _trample() -> void:
+	for o in game.blockmap.near(x, y):
+		if o == self or o.removed or o.dead or not o.monster or o.info.get("herd", false) or o.puppet:
+			continue
+		var rr: float = radius + o.radius + speed * 0.5
+		if U.dist2(x, y, o.x, o.y) < rr * rr:
+			o.damage(10000.0, self, {"trample": true})
 
 func A_Graze() -> void:
 	A_Watch()

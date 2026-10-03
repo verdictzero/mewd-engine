@@ -1194,6 +1194,10 @@ CANDY LAND
                they gallop off (runSpeed). When it is over they wander
                back to their ground. They can be shot, burnt, frozen and
                blown apart like anything else.
+    stampede   a frightened unicorn or foal TRAMPLES (at the user's
+               request): any person she runs into is blown apart, as if
+               trodden under (Actor._trample). Never another of the herd,
+               and never you.
 
   YOU START IN A SQUARE, the one nearest the middle. The crowd is
   gathered round every square and a few places out in the country.

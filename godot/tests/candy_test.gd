@@ -169,5 +169,21 @@ func _init() -> void:
 		if a.panic > 0 and a.speed > float(a.info.speed):
 			fast += 1
 	check(fast == herd.size() and d1h > d0h + herd.size() * 300.0, "a frightened herd gallops off (%d of %d, %.0f units further on average)" % [fast, herd.size(), (d1h - d0h) / herd.size()])
+	# A STAMPEDE TRAMPLES: a girl stood in a galloping unicorn's way comes apart
+	var runner: Actor = herd[0]
+	var g2: Actor = game.spawn("CANDYGIRL", runner.x + cos(runner.angle) * 40.0, runner.y + sin(runner.angle) * 40.0, 0.0)
+	runner.panic = 200
+	runner.speed = float(runner.info.runSpeed)
+	runner.flee_x = runner.x - cos(runner.angle) * 300.0
+	runner.flee_y = runner.y - sin(runner.angle) * 300.0
+	runner.A_Flee()
+	check(g2.dead or g2.removed, "a galloping unicorn tramples a girl in her way to pieces")
+	# AND A UNICORN CAN BE KILLED: shot to pieces like anybody
+	var victim: Actor = unis[unis.size() - 1]
+	var foal_v: Actor = foals[foals.size() - 1]
+	victim.damage(1000.0, game.player, {"shot": true})
+	foal_v.damage(1000.0, game.player, {"shot": true})
+	_tics(3)
+	check((victim.dead or victim.removed) and (foal_v.dead or foal_v.removed), "a unicorn and a foal shot down come apart")
 	print("candy: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)
