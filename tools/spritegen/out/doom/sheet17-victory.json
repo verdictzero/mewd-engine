@@ -1,0 +1,87 @@
+{
+ "profile": "doom",
+ "kind": "troop",
+ "views": 8,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 17,
+   "name": "victory",
+   "file": "sheet17-victory.png",
+   "width": 1016,
+   "height": 677,
+   "aspect": "3:2",
+   "cols": 2,
+   "rows": 1,
+   "cell_w": 368,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "VICTORY"
+   ],
+   "cells": [
+    {
+     "anim": "VICTORY",
+     "frame": 1,
+     "frames": 2,
+     "letter": null,
+     "view": 0,
+     "row": 1,
+     "col": 1,
+     "tag": "VICTORY-1",
+     "air": false,
+     "words": "victory, frame 1 of 2: both arms thrust straight up, the rifle held HORIZONTALLY OVER THE HEAD in both hands, chest out, head back",
+     "view_words": "front view only",
+     "cell": [
+      0.24311023622047245,
+      0.20827178729689808,
+      0.6053149606299213,
+      0.9645494830132939
+     ],
+     "figure": [
+      0.24311023622047245,
+      0.29098966026587886,
+      0.6053149606299213,
+      0.9645494830132939
+     ],
+     "ground": 0.8904579025110784,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "VICTORY",
+     "frame": 2,
+     "frames": 2,
+     "letter": null,
+     "view": 0,
+     "row": 1,
+     "col": 2,
+     "tag": "VICTORY-2",
+     "air": true,
+     "words": "victory, frame 2 of 2: a little hop off the ground, arms wide and high in a V, the rifle held across over the head in both hands",
+     "view_words": "front view only",
+     "cell": [
+      0.6053149606299213,
+      0.20827178729689808,
+      0.96751968503937,
+      0.9645494830132939
+     ],
+     "figure": [
+      0.6053149606299213,
+      0.29098966026587886,
+      0.96751968503937,
+      0.9645494830132939
+     ],
+     "ground": 0.8904579025110784,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}

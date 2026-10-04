@@ -1,0 +1,222 @@
+{
+ "profile": "mewd",
+ "kind": "troop",
+ "views": 5,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 3,
+   "name": "death",
+   "file": "sheet03-death.png",
+   "width": 2311,
+   "height": 1300,
+   "aspect": "16:9",
+   "cols": 4,
+   "rows": 2,
+   "cell_w": 512,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "DEATH"
+   ],
+   "cells": [
+    {
+     "anim": "DEATH",
+     "frame": 1,
+     "frames": 7,
+     "letter": "H",
+     "view": 0,
+     "row": 1,
+     "col": 1,
+     "tag": "H",
+     "air": false,
+     "words": "death, frame 1 of 7: the killing hit \u2014 standing, rocked back, arms out, the gun slipping from the right hand, a first spatter of blood",
+     "view_words": "front view only",
+     "cell": [
+      0.10341843357853743,
+      0.15076923076923077,
+      0.32496754651665943,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.19384615384615383,
+      0.32496754651665943,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 2,
+     "frames": 7,
+     "letter": "I",
+     "view": 0,
+     "row": 1,
+     "col": 2,
+     "tag": "I",
+     "air": false,
+     "words": "death, frame 2 of 7: the knees buckle \u2014 sinking, the back arched, arms loose, the gun gone",
+     "view_words": "front view only",
+     "cell": [
+      0.32496754651665943,
+      0.15076923076923077,
+      0.5465166594547815,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.19384615384615383,
+      0.5465166594547815,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 3,
+     "frames": 7,
+     "letter": "J",
+     "view": 0,
+     "row": 1,
+     "col": 3,
+     "tag": "J",
+     "air": false,
+     "words": "death, frame 3 of 7: on the knees, the shins flat on the ground behind, the torso still upright but leaning back, the head lolling back, arms hanging",
+     "view_words": "front view only",
+     "cell": [
+      0.5465166594547815,
+      0.15076923076923077,
+      0.7680657723929035,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.19384615384615383,
+      0.7680657723929035,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 4,
+     "frames": 7,
+     "letter": "K",
+     "view": 0,
+     "row": 1,
+     "col": 4,
+     "tag": "K",
+     "air": false,
+     "words": "death, frame 4 of 7: toppling over BACKWARD from the knees, the whole body tipping away, arms trailing",
+     "view_words": "front view only",
+     "cell": [
+      0.7680657723929035,
+      0.15076923076923077,
+      0.9896148853310255,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.19384615384615383,
+      0.9896148853310255,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 5,
+     "frames": 7,
+     "letter": "L",
+     "view": 0,
+     "row": 2,
+     "col": 1,
+     "tag": "L",
+     "air": false,
+     "words": "death, frame 5 of 7: nearly down \u2014 the body almost flat on its back, twisted a little across the picture, the legs still folded",
+     "view_words": "front view only",
+     "cell": [
+      0.10341843357853743,
+      0.5446153846153846,
+      0.32496754651665943,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.5876923076923077,
+      0.32496754651665943,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 6,
+     "frames": 7,
+     "letter": "M",
+     "view": 0,
+     "row": 2,
+     "col": 2,
+     "tag": "M",
+     "air": false,
+     "words": "death, frame 6 of 7: DOWN \u2014 lying flat on its back ACROSS the picture, the head to the viewer's LEFT and the feet to the viewer's RIGHT, face up, arms sprawled, one knee still a little bent, a pool of blood",
+     "view_words": "front view only",
+     "cell": [
+      0.32496754651665943,
+      0.5446153846153846,
+      0.5465166594547815,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.5876923076923077,
+      0.5465166594547815,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "DEATH",
+     "frame": 7,
+     "frames": 7,
+     "letter": "N",
+     "view": 0,
+     "row": 2,
+     "col": 3,
+     "tag": "N",
+     "air": false,
+     "words": "death, frame 7 of 7: THE CORPSE, the frame that stays \u2014 flat on its back across the picture, head to the viewer's LEFT, face turned up and a little toward the camera, legs straight, arms flung wide, the pool of blood spread; this must read as the same body as frame 6, settled",
+     "view_words": "front view only",
+     "cell": [
+      0.5465166594547815,
+      0.5446153846153846,
+      0.7680657723929035,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.5876923076923077,
+      0.7680657723929035,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}

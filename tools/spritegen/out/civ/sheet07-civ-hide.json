@@ -1,0 +1,681 @@
+{
+ "profile": "civ",
+ "kind": "civilian",
+ "views": 8,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 7,
+   "name": "civ-hide",
+   "file": "sheet07-civ-hide.png",
+   "width": 3207,
+   "height": 1804,
+   "aspect": "16:9",
+   "cols": 8,
+   "rows": 3,
+   "cell_w": 368,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "HIDE"
+   ],
+   "cells": [
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 1,
+     "col": 1,
+     "tag": "HIDE-1/1",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.07452447770502027,
+      0.10643015521064302,
+      0.18927346429685063,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.07452447770502027,
+      0.13747228381374724,
+      0.18927346429685063,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 1,
+     "col": 2,
+     "tag": "HIDE-1/2",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.18927346429685063,
+      0.10643015521064302,
+      0.304022450888681,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.18927346429685063,
+      0.13747228381374724,
+      0.304022450888681,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 1,
+     "col": 3,
+     "tag": "HIDE-1/3",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.304022450888681,
+      0.10643015521064302,
+      0.4187714374805114,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.304022450888681,
+      0.13747228381374724,
+      0.4187714374805114,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 1,
+     "col": 4,
+     "tag": "HIDE-1/4",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.4187714374805114,
+      0.10643015521064302,
+      0.5335204240723418,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.4187714374805114,
+      0.13747228381374724,
+      0.5335204240723418,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 1,
+     "col": 5,
+     "tag": "HIDE-1/5",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5335204240723418,
+      0.10643015521064302,
+      0.6482694106641721,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.5335204240723418,
+      0.13747228381374724,
+      0.6482694106641721,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 1,
+     "col": 6,
+     "tag": "HIDE-1/6",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6482694106641721,
+      0.10643015521064302,
+      0.7630183972560025,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.6482694106641721,
+      0.13747228381374724,
+      0.7630183972560025,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 1,
+     "col": 7,
+     "tag": "HIDE-1/7",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7630183972560025,
+      0.10643015521064302,
+      0.8777673838478328,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.7630183972560025,
+      0.13747228381374724,
+      0.8777673838478328,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 1,
+     "col": 8,
+     "tag": "HIDE-1/8",
+     "air": false,
+     "words": "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8777673838478328,
+      0.10643015521064302,
+      0.9925163704396632,
+      0.3902439024390244
+     ],
+     "figure": [
+      0.8777673838478328,
+      0.13747228381374724,
+      0.9925163704396632,
+      0.3902439024390244
+     ],
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 2,
+     "col": 1,
+     "tag": "HIDE-2/1",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.07452447770502027,
+      0.3902439024390244,
+      0.18927346429685063,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.07452447770502027,
+      0.4212860310421286,
+      0.18927346429685063,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 2,
+     "col": 2,
+     "tag": "HIDE-2/2",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.18927346429685063,
+      0.3902439024390244,
+      0.304022450888681,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.18927346429685063,
+      0.4212860310421286,
+      0.304022450888681,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 2,
+     "col": 3,
+     "tag": "HIDE-2/3",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.304022450888681,
+      0.3902439024390244,
+      0.4187714374805114,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.304022450888681,
+      0.4212860310421286,
+      0.4187714374805114,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 2,
+     "col": 4,
+     "tag": "HIDE-2/4",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.4187714374805114,
+      0.3902439024390244,
+      0.5335204240723418,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.4187714374805114,
+      0.4212860310421286,
+      0.5335204240723418,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 2,
+     "col": 5,
+     "tag": "HIDE-2/5",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5335204240723418,
+      0.3902439024390244,
+      0.6482694106641721,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.5335204240723418,
+      0.4212860310421286,
+      0.6482694106641721,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 2,
+     "col": 6,
+     "tag": "HIDE-2/6",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6482694106641721,
+      0.3902439024390244,
+      0.7630183972560025,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.6482694106641721,
+      0.4212860310421286,
+      0.7630183972560025,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 2,
+     "col": 7,
+     "tag": "HIDE-2/7",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7630183972560025,
+      0.3902439024390244,
+      0.8777673838478328,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.7630183972560025,
+      0.4212860310421286,
+      0.8777673838478328,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 2,
+     "col": 8,
+     "tag": "HIDE-2/8",
+     "air": false,
+     "words": "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8777673838478328,
+      0.3902439024390244,
+      0.9925163704396632,
+      0.6740576496674058
+     ],
+     "figure": [
+      0.8777673838478328,
+      0.4212860310421286,
+      0.9925163704396632,
+      0.6740576496674058
+     ],
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 3,
+     "col": 1,
+     "tag": "HIDE-3/1",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.07452447770502027,
+      0.6740576496674058,
+      0.18927346429685063,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.07452447770502027,
+      0.70509977827051,
+      0.18927346429685063,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 3,
+     "col": 2,
+     "tag": "HIDE-3/2",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.18927346429685063,
+      0.6740576496674058,
+      0.304022450888681,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.18927346429685063,
+      0.70509977827051,
+      0.304022450888681,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 3,
+     "col": 3,
+     "tag": "HIDE-3/3",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.304022450888681,
+      0.6740576496674058,
+      0.4187714374805114,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.304022450888681,
+      0.70509977827051,
+      0.4187714374805114,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 3,
+     "col": 4,
+     "tag": "HIDE-3/4",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.4187714374805114,
+      0.6740576496674058,
+      0.5335204240723418,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.4187714374805114,
+      0.70509977827051,
+      0.5335204240723418,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 3,
+     "col": 5,
+     "tag": "HIDE-3/5",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5335204240723418,
+      0.6740576496674058,
+      0.6482694106641721,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.5335204240723418,
+      0.70509977827051,
+      0.6482694106641721,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 3,
+     "col": 6,
+     "tag": "HIDE-3/6",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6482694106641721,
+      0.6740576496674058,
+      0.7630183972560025,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.6482694106641721,
+      0.70509977827051,
+      0.7630183972560025,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 3,
+     "col": 7,
+     "tag": "HIDE-3/7",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7630183972560025,
+      0.6740576496674058,
+      0.8777673838478328,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.7630183972560025,
+      0.70509977827051,
+      0.8777673838478328,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HIDE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 3,
+     "col": 8,
+     "tag": "HIDE-3/8",
+     "air": false,
+     "words": "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8777673838478328,
+      0.6740576496674058,
+      0.9925163704396632,
+      0.9578713968957872
+     ],
+     "figure": [
+      0.8777673838478328,
+      0.70509977827051,
+      0.9925163704396632,
+      0.9578713968957872
+     ],
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}

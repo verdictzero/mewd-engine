@@ -2326,6 +2326,156 @@ SPRITES; THE BORE IN HAND
   picture: the gun in hand, the line out of its muzzle to the first
   shopper.
 
+POSE TEMPLATES FOR AN IMAGE MODEL
+
+  At the user's request ("a generic and adaptable sprite sheet with
+  all conceivable contingencies — walking, running, shooting, crouch-
+  crawling, dying — a super generic human pose visual metadata sprite
+  sheet that, when paired with base character images and fed to an
+  image model with an extremely explicit prompt, results in consistent
+  Doom style character sheets"), and then ("extrapolate and do this for
+  non combatants too"). tools/spritegen/, three parts and the pictures
+  they make; its README.md is the manual.
+
+  THE TEMPLATES (tools/spritegen/pose_sheet.py -> out/doom, out/mewd,
+  out/civ, out/mewd-civ). A sheet is a grid of equal cells on flat
+  magenta, and in every cell a grey mannequin in one pose from one
+  angle: a stick figure with capsule limbs, its right arm and leg
+  tinted red and its left blue, a dark patch for the face where the
+  face shows, a dark bar for the gun, a yellow star for a muzzle
+  flash, a brown box, bag, phone or broom for a civilian's prop, a
+  compass in the band above it with the camera at the bottom and an
+  arrow the way it faces. The band carries the cell's tag (A1, B5, H,
+  RUN-2/3); a panel beside each row says the pose in words. The
+  mannequin is drawn, not painted: a rig of fifteen joints in metres
+  posed by angles (lean, twist, each shoulder's pitch and spread and
+  inward swing, each elbow, each hip, each knee, and a root transform
+  for the whole body: its height, its pitch and roll for lying down),
+  turned about the vertical by the view's angle, projected from a
+  camera ten degrees above level, depth-sorted and drawn far-first and
+  a little darker. Every cycle is one function of phase at four
+  frames; the gibs are the standing figure's parts thrown by seeded
+  velocities and fallen under gravity to the floor. So the eight views
+  of a pose come off one definition and the mirrored pairs really are
+  mirrors. The rig is a touch stockier than life, as Doom's people
+  are: the Zombieman sheet the user sent measures about six heads
+  tall and well over half as wide as he is tall across the shoulders
+  and arms, and his corpse as long as he stood and about half as
+  high; the rig's head and limbs were thickened toward that, and the
+  prompt's style section now gives those proportions in numbers
+  instead of "a slightly big head".
+  Two things found and fixed on the way to the civilians. The rig's
+  lean had the sign the words did not mean: every "leaning forward"
+  pose leaned back (the run was running backward from the waist up,
+  plain in the profile views). The sign is flipped so positive is
+  forward, and the poses tuned by eye against the old sign (prone,
+  swim, knocked, fall) keep their look. And a raised arm's spread
+  turns about the torso's forward axis, so for an arm pointing up a
+  positive spread swings it INWARD: the hands-up, cheer, wave, flee
+  and victory arms crossed over the head until their spread went
+  negative.
+  A figure now sits in its cell centred on its own extent, not its
+  pelvis (a stride or a levelled rifle used to run past the cell
+  edge), the tall cells are 0.72 of the cell height wide, the figure
+  is a shade smaller (0.82 of the cell for 1.94 m), the ground line a
+  little lower, a gib piece's spinning end stays above the floor, and
+  the generator checks every cell's projected extent against its band
+  and edges as it draws and reports any crossing: none in 994 cells.
+  The views are Doom's and the troop strips': 1 head on, 2 a quarter
+  turn toward the viewer's left, 3 side on facing left, 4 three
+  quarters from behind, 5 from behind, and 6, 7, 8 the mirrors of 4,
+  3, 2. out/mewd is the game's own four troop sheets with five views
+  (walk A-D; aim, fire, pain E-G; death H-N; gibs O-W: exactly
+  states.gd's TROOPS, prep-troops.mjs's eleven rows), 51 cells.
+  out/doom is those with all eight views and thirteen more for the
+  battle-royale direction, which have no states in the game yet: run,
+  crouch and crouch walk, prone and prone crawl, knocked-down crawl,
+  jump, melee, reload, throw, use, free fall, swim, victory; 402 cells
+  on 17 sheets.
+  THE NON-COMBATANTS are the same rig empty-handed or with a prop. The
+  arm angles that put a hand somewhere (over the head, on a hip, at
+  an ear, on a knee, on the ground) were solved numerically against
+  the rig. out/mewd-civ is what a civilian strip would need, five
+  views, letters A to Z: walk A-D (arms swinging), flee E-H (a panic
+  run, arms up), stand I (at ease), cower J (crouched, hands over the
+  head), hands up K; death L-R (the troops' death with empty hands),
+  gibs S-Z (eight frames, the letters run out); 70 cells on five
+  sheets. out/civ is those with eight views and fourteen more sheets:
+  standing about (arms crossed, hands on hips, hands in pockets);
+  flinch, kneel and cover, kneel with the hands behind the head; sit
+  (on a chair that is not drawn, on the ground, cross-legged); talk,
+  shrug, point; wave, clap, cheer; carry a box; on the phone and
+  looking at one; sweep with a broom and kneel at work; pick up (a
+  squat to the ground, then rising with a bag); limp (the right leg
+  stiff, the left hand on the wound, blood); on fire (flailing, the
+  flames left to the game as A_Torch draws them); dance; lie (on the
+  back asleep, curled on the side, slumped against a wall that is not
+  drawn); swim and free fall; 471 cells on 19 sheets. The civilian
+  sheets are named civ-walk, civ-flee ... so the cutter never takes a
+  civilian walk for a troop's, and their titles say CIVILIAN, which
+  the prompt keys on. The game's own townsfolk are still one drawing
+  each (SHOP, CANDY: see THE CANDY GIRLS); a civilian strip has no
+  state table yet, and the cutter says so when it writes one.
+  Beside each sheet a JSON manifest gives every cell's box as a
+  fraction of the picture, its tag, animation, frame, view, whether it
+  is in the air, and its words; and a prompt file. KEY.png is the
+  legend (a troop aiming and a civilian carrying a box) and the eight
+  views seen from above, to go with every request. The sheets are
+  padded to an aspect an image model can return (1:1, 4:3, 16:9 ...)
+  and saved as palette PNGs.
+
+  THE PROMPT (tools/spritegen/PROMPT.md, and each sheet's .prompt.txt
+  with that sheet's own contract appended: its grid, its columns'
+  angles, its rows' poses cell by cell, its tags, and on a civilian
+  sheet a block that says three ways there is no weapon anywhere and
+  that the brown things are the props the rows name). Written long and
+  repetitive on purpose: what each mark on the mannequin means, the
+  grid contract the cutter depends on (same rows and columns, one
+  figure a cell, nothing across a line, the bands untouched, flat
+  #FF00FF behind every figure, no shadow, no ring, no arrow), the
+  angle contract (what each of the eight views shows and the ways it
+  goes wrong), the pose contract, the Doom style (a photographed clay
+  model crushed to a palette at sixty pixels: hard edges, a dark
+  outline, three to five flat tones a material, light from above and
+  in front that does not turn with the figure, and the proportions
+  measured off Doom's own sprites), the identity lock (one character
+  in every cell, the same build, clothes, colours and gun or prop,
+  asymmetry on the same side in every view), a list of don'ts and a
+  checklist. A slot for the user's own notes on the character; a slot
+  for a STYLE image (a sheet of original Doom sprites, such as the two
+  the user sent, for the look and nothing else; they are not kept in
+  the repository); a retouch line for one bad cell.
+
+  THE CUTTER (tools/spritegen/cut_sheet.py NAME IMAGE...). Reads the
+  model's output back off the manifest: each cell cut by its
+  fractions (any return size), the magenta keyed by how magenta each
+  pixel is and unmixed out of the halo as prep-troops does, specks
+  dropped, the figure trimmed, and everything scaled by ONE factor
+  (the manifest's pixels per metre against --height, 60 for a
+  standing figure as the SWAT; 56 for a civilian, whose raised arms
+  reach past a 64 cell at 60) so a corpse is as long as the man was
+  tall; the alpha cut to one bit and the colour bled as candy-girls-
+  strip does. Writes assets/people/<name>.png in the troop strip's
+  shape — the turned letters in five views, then the flat letters,
+  64 x 64 cells, the figure centred and standing on the bottom, an
+  `air` frame kept at its height — taking the letters off the
+  profile's own manifest, so a troop strip is A-G then H-W and a
+  civilian's A-K then L-Z; and prints the TROOPS and _strip lines to
+  add. A sheet name two profiles share is cut by the one the picture
+  is the exact size of, else by --profile (mewd; a civ- sheet falls to
+  mewd-civ), else by shape. Checked by cutting the templates
+  themselves: the troops' 51 cells, 3264 x 64, the SWAT strip's size;
+  the civilians' 70 cells, 4480 x 64, none empty.
+
+  WHAT IT CANNOT PROMISE: the model's obedience. The README lists what
+  goes wrong (a wrong angle in one cell, the character drifting
+  between sheets, a moved grid, soft shading, scale drift, mirrored
+  views that do not match, a weapon that creeps into a civilian's
+  hands) and what to do about each; the five-view profiles, fewer
+  cells a sheet, a STYLE image and a retouch of the one bad cell are
+  the usual answers. Nothing here has been run against the image model
+  itself.
+
 TESTS
 
     tools/godot-test.sh

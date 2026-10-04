@@ -1,0 +1,681 @@
+{
+ "profile": "doom",
+ "kind": "troop",
+ "views": 8,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 8,
+   "name": "prone",
+   "file": "sheet08-prone.png",
+   "width": 4359,
+   "height": 1868,
+   "aspect": "21:9",
+   "cols": 8,
+   "rows": 3,
+   "cell_w": 512,
+   "cell_h": 317,
+   "band": 56,
+   "anims": [
+    "PRONE"
+   ],
+   "cells": [
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 1,
+     "col": 1,
+     "tag": "PRONE-1/1",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.054829089240651524,
+      0.2767665952890792,
+      0.17228722183987152,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.054829089240651524,
+      0.30674518201284795,
+      0.17228722183987152,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 1,
+     "col": 2,
+     "tag": "PRONE-1/2",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.17228722183987152,
+      0.2767665952890792,
+      0.28974535443909155,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.17228722183987152,
+      0.30674518201284795,
+      0.28974535443909155,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 1,
+     "col": 3,
+     "tag": "PRONE-1/3",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.28974535443909155,
+      0.2767665952890792,
+      0.40720348703831155,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.28974535443909155,
+      0.30674518201284795,
+      0.40720348703831155,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 1,
+     "col": 4,
+     "tag": "PRONE-1/4",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.40720348703831155,
+      0.2767665952890792,
+      0.5246616196375316,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.40720348703831155,
+      0.30674518201284795,
+      0.5246616196375316,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 1,
+     "col": 5,
+     "tag": "PRONE-1/5",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5246616196375316,
+      0.2767665952890792,
+      0.6421197522367516,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.5246616196375316,
+      0.30674518201284795,
+      0.6421197522367516,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 1,
+     "col": 6,
+     "tag": "PRONE-1/6",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6421197522367516,
+      0.2767665952890792,
+      0.7595778848359716,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.6421197522367516,
+      0.30674518201284795,
+      0.7595778848359716,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 1,
+     "col": 7,
+     "tag": "PRONE-1/7",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7595778848359716,
+      0.2767665952890792,
+      0.8770360174351916,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.7595778848359716,
+      0.30674518201284795,
+      0.8770360174351916,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 1,
+     "col": 8,
+     "tag": "PRONE-1/8",
+     "air": false,
+     "words": "lying prone: FLAT ON THE BELLY on the ground, the chest and head raised on both elbows, the rifle on the ground in front held in both hands, legs straight out behind, toes down",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8770360174351916,
+      0.2767665952890792,
+      0.9944941500344116,
+      0.4464668094218415
+     ],
+     "figure": [
+      0.8770360174351916,
+      0.30674518201284795,
+      0.9944941500344116,
+      0.4464668094218415
+     ],
+     "ground": 0.4073447537473233,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 2,
+     "col": 1,
+     "tag": "PRONE-2/1",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.054829089240651524,
+      0.4464668094218415,
+      0.17228722183987152,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.054829089240651524,
+      0.47644539614561027,
+      0.17228722183987152,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 2,
+     "col": 2,
+     "tag": "PRONE-2/2",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.17228722183987152,
+      0.4464668094218415,
+      0.28974535443909155,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.17228722183987152,
+      0.47644539614561027,
+      0.28974535443909155,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 2,
+     "col": 3,
+     "tag": "PRONE-2/3",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.28974535443909155,
+      0.4464668094218415,
+      0.40720348703831155,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.28974535443909155,
+      0.47644539614561027,
+      0.40720348703831155,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 2,
+     "col": 4,
+     "tag": "PRONE-2/4",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.40720348703831155,
+      0.4464668094218415,
+      0.5246616196375316,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.40720348703831155,
+      0.47644539614561027,
+      0.5246616196375316,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 2,
+     "col": 5,
+     "tag": "PRONE-2/5",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5246616196375316,
+      0.4464668094218415,
+      0.6421197522367516,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.5246616196375316,
+      0.47644539614561027,
+      0.6421197522367516,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 2,
+     "col": 6,
+     "tag": "PRONE-2/6",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6421197522367516,
+      0.4464668094218415,
+      0.7595778848359716,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.6421197522367516,
+      0.47644539614561027,
+      0.7595778848359716,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 2,
+     "col": 7,
+     "tag": "PRONE-2/7",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7595778848359716,
+      0.4464668094218415,
+      0.8770360174351916,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.7595778848359716,
+      0.47644539614561027,
+      0.8770360174351916,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 2,
+     "col": 8,
+     "tag": "PRONE-2/8",
+     "air": false,
+     "words": "prone and AIMING: flat on the belly, the rifle shouldered and pointed straight ahead along the ground, the head down to the stock",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8770360174351916,
+      0.4464668094218415,
+      0.9944941500344116,
+      0.6161670235546038
+     ],
+     "figure": [
+      0.8770360174351916,
+      0.47644539614561027,
+      0.9944941500344116,
+      0.6161670235546038
+     ],
+     "ground": 0.5770449678800857,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 3,
+     "col": 1,
+     "tag": "PRONE-3/1",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.054829089240651524,
+      0.6161670235546038,
+      0.17228722183987152,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.054829089240651524,
+      0.6461456102783726,
+      0.17228722183987152,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 3,
+     "col": 2,
+     "tag": "PRONE-3/2",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.17228722183987152,
+      0.6161670235546038,
+      0.28974535443909155,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.17228722183987152,
+      0.6461456102783726,
+      0.28974535443909155,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 3,
+     "col": 3,
+     "tag": "PRONE-3/3",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.28974535443909155,
+      0.6161670235546038,
+      0.40720348703831155,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.28974535443909155,
+      0.6461456102783726,
+      0.40720348703831155,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 3,
+     "col": 4,
+     "tag": "PRONE-3/4",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.40720348703831155,
+      0.6161670235546038,
+      0.5246616196375316,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.40720348703831155,
+      0.6461456102783726,
+      0.5246616196375316,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 3,
+     "col": 5,
+     "tag": "PRONE-3/5",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5246616196375316,
+      0.6161670235546038,
+      0.6421197522367516,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.5246616196375316,
+      0.6461456102783726,
+      0.6421197522367516,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 3,
+     "col": 6,
+     "tag": "PRONE-3/6",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6421197522367516,
+      0.6161670235546038,
+      0.7595778848359716,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.6421197522367516,
+      0.6461456102783726,
+      0.7595778848359716,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 3,
+     "col": 7,
+     "tag": "PRONE-3/7",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7595778848359716,
+      0.6161670235546038,
+      0.8770360174351916,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.7595778848359716,
+      0.6461456102783726,
+      0.8770360174351916,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "PRONE",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 3,
+     "col": 8,
+     "tag": "PRONE-3/8",
+     "air": false,
+     "words": "prone and FIRING: the prone aim with a MUZZLE FLASH at the end of the barrel",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8770360174351916,
+      0.6161670235546038,
+      0.9944941500344116,
+      0.7858672376873662
+     ],
+     "figure": [
+      0.8770360174351916,
+      0.6461456102783726,
+      0.9944941500344116,
+      0.7858672376873662
+     ],
+     "ground": 0.746745182012848,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}

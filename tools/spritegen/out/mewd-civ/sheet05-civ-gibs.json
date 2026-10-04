@@ -1,0 +1,249 @@
+{
+ "profile": "mewd-civ",
+ "kind": "civilian",
+ "views": 5,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 5,
+   "name": "civ-gibs",
+   "file": "sheet05-civ-gibs.png",
+   "width": 2311,
+   "height": 1300,
+   "aspect": "16:9",
+   "cols": 4,
+   "rows": 2,
+   "cell_w": 512,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "XDEATH_CIV"
+   ],
+   "cells": [
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 1,
+     "frames": 8,
+     "letter": "S",
+     "view": 0,
+     "row": 1,
+     "col": 1,
+     "tag": "S",
+     "air": false,
+     "words": "violent death, frame 1 of 8: the body still whole but BURSTING \u2014 arms thrown up, the torso rocked back, blood erupting from the chest",
+     "view_words": "front view only",
+     "cell": [
+      0.10341843357853743,
+      0.15076923076923077,
+      0.32496754651665943,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.19384615384615383,
+      0.32496754651665943,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 2,
+     "frames": 8,
+     "letter": "T",
+     "view": 0,
+     "row": 1,
+     "col": 2,
+     "tag": "T",
+     "air": false,
+     "words": "violent death, frame 2 of 8: the body COMING APART \u2014 head, arms, legs and torso separating, flung upward and outward, blood everywhere",
+     "view_words": "front view only",
+     "cell": [
+      0.32496754651665943,
+      0.15076923076923077,
+      0.5465166594547815,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.19384615384615383,
+      0.5465166594547815,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 3,
+     "frames": 8,
+     "letter": "U",
+     "view": 0,
+     "row": 1,
+     "col": 3,
+     "tag": "U",
+     "air": false,
+     "words": "violent death, frame 3 of 8: the pieces flying apart at their widest and highest, trailing blood",
+     "view_words": "front view only",
+     "cell": [
+      0.5465166594547815,
+      0.15076923076923077,
+      0.7680657723929035,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.19384615384615383,
+      0.7680657723929035,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 4,
+     "frames": 8,
+     "letter": "V",
+     "view": 0,
+     "row": 1,
+     "col": 4,
+     "tag": "V",
+     "air": false,
+     "words": "violent death, frame 4 of 8: the pieces beginning to fall",
+     "view_words": "front view only",
+     "cell": [
+      0.7680657723929035,
+      0.15076923076923077,
+      0.9896148853310255,
+      0.5446153846153846
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.19384615384615383,
+      0.9896148853310255,
+      0.5446153846153846
+     ],
+     "ground": 0.5060307692307693,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 5,
+     "frames": 8,
+     "letter": "W",
+     "view": 0,
+     "row": 2,
+     "col": 1,
+     "tag": "W",
+     "air": false,
+     "words": "violent death, frame 5 of 8: the pieces falling, the lower ones hitting the ground",
+     "view_words": "front view only",
+     "cell": [
+      0.10341843357853743,
+      0.5446153846153846,
+      0.32496754651665943,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.5876923076923077,
+      0.32496754651665943,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 6,
+     "frames": 8,
+     "letter": "X",
+     "view": 0,
+     "row": 2,
+     "col": 2,
+     "tag": "X",
+     "air": false,
+     "words": "violent death, frame 6 of 8: everything landed, a wide spread of parts and blood",
+     "view_words": "front view only",
+     "cell": [
+      0.32496754651665943,
+      0.5446153846153846,
+      0.5465166594547815,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.5876923076923077,
+      0.5465166594547815,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 7,
+     "frames": 8,
+     "letter": "Y",
+     "view": 0,
+     "row": 2,
+     "col": 3,
+     "tag": "Y",
+     "air": false,
+     "words": "violent death, frame 7 of 8: the parts settling, the blood pooling wider",
+     "view_words": "front view only",
+     "cell": [
+      0.5465166594547815,
+      0.5446153846153846,
+      0.7680657723929035,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.5876923076923077,
+      0.7680657723929035,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "XDEATH_CIV",
+     "frame": 8,
+     "frames": 8,
+     "letter": "Z",
+     "view": 0,
+     "row": 2,
+     "col": 4,
+     "tag": "Z",
+     "air": false,
+     "words": "violent death, frame 8 of 8: THE REMAINS, the frame that stays \u2014 a low heap of parts in a wide pool of blood, nothing standing, nothing taller than a knee",
+     "view_words": "front view only",
+     "cell": [
+      0.7680657723929035,
+      0.5446153846153846,
+      0.9896148853310255,
+      0.9384615384615385
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.5876923076923077,
+      0.9896148853310255,
+      0.9384615384615385
+     ],
+     "ground": 0.8998769230769232,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}
