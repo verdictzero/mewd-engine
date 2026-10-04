@@ -196,6 +196,10 @@ func _ready() -> void:
 ## and nothing in either had to change its numbers.
 var island: Node3D
 var _island_built := false
+## THE DROP (game/drop_pod.gd): with `drop_in`, the game begins in orbit,
+## in the pod, and the map is yours when its door blows
+var drop: DropPod = null
+var drop_in := false
 ## false: walk the island, draw none of it (a dedicated server, a bot)
 var draw_world := true
 func start_map(which: String) -> void:
@@ -251,6 +255,10 @@ func start_map(which: String) -> void:
 	if _start_weapon != "":
 		player.weapon = _start_weapon
 	_spawn_things()
+	if drop_in and island != null:
+		drop = DropPod.new(self)
+		add_child(drop)
+		drop.begin(float(start.x), float(start.y))
 	escalation = Escalation.new(self)
 	add_child(escalation)
 	standees = Standees.new()
@@ -484,6 +492,9 @@ func _process(dt: float) -> void:
 	_zoom = false
 	# (off the step it is at now, not the one it was at when the look was taken)
 	camera.fov = BASE_FOV * (sighted.view_scale() if sighted != null else 1.0)
+	var riding: bool = drop != null and drop.active and drop.third_person()
+	if riding:
+		drop.place_camera(camera, _acc / U.SEC)
 	_prof_add("touch+zoom", t0)
 	t0 = Time.get_ticks_usec()
 	scope.render(camera)
@@ -532,7 +543,12 @@ func _process(dt: float) -> void:
 	trophies.draw()
 	_prof_add("draw.trophies", t0)
 	t0 = Time.get_ticks_usec()
+	if drop != null:
+		drop.draw(_acc / U.SEC)
+	_prof_add("draw.drop", t0)
+	t0 = Time.get_ticks_usec()
 	if weapon3d != null:
+		weapon3d.visible = not riding
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
 	_prof_add("weapon3d", t0)
 	_prof_frame()
@@ -644,9 +660,18 @@ func tic() -> void:
 			var p: Player = players[i]
 			var cmd: Dictionary = (p.session if p.session != null else session).cmd(self)
 			var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
-			p.tic(cmd)
+			# IN THE POD (DropPod): the hands fly it, the eye turns, the
+			# body rides along until the door is off
+			if drop != null and drop.active and p == player and drop.holds_player():
+				p.prev = Vector4(p.x, p.y, p.view_z, 0)
+				p.turn(cmd.look)
+				drop.tic(cmd)
+			else:
+				p.tic(cmd)
 			if back.is_valid():
 				back.call()
+	if drop != null and drop.active and not drop.holds_player():
+		drop.tic({})
 	if reps > 1:
 		for i in players.size():
 			players[i].prev = stood[i]

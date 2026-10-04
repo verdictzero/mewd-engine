@@ -1874,6 +1874,82 @@ THE BIG MARKS ARE BAKED
   theirs every frame; they are the same kind of shader and the next to
   bake if the lance shows the same lag.
 
+THE DROP: IN FROM ORBIT IN THE POD
+
+  At the user's request ("have the player drop in from orbit with this
+  pod, third person, RCS thrusters thrusting and animating in the correct
+  directions to control orientation, the retros pointed down to slow
+  descent, and on landing switch to first person, the door blows off and
+  they play the map"; "retros auto-fire to achieve a survivable landing
+  for now; retros can be used to slow descent for manoeuvring until
+  then"; "the green dots are just for your reference, don't want them in
+  the game"). godot/scripts/game/drop_pod.gd, class DropPod.
+
+  THE MODEL, assets/models/drop_pod.glb: a hull 7.8 m across and 7.2 m
+  tall on a flat heat shield (with an inside), a door on one side, and
+  twenty green marker spheres (dropPodThrustPoints*) that are read for
+  the nozzles' places at load and then freed, never drawn. The file says
+  nothing about which way a nozzle points; the hull round each one does,
+  read once with the model open (DropPod._nozzle_dir):
+  - 8 SKIRT nozzles, 2.1 m up in four diagonal pairs standing out past
+    the hull, pointing down and outward at 37 degrees: THE RETROS.
+  - 8 SHOULDER nozzles, 5.5 m up in four corner pairs, each pair one
+    nozzle facing each adjacent cardinal direction: the RCS.
+  - 4 TOP nozzles, 6.1 m up at the cardinal points, pointing out and up:
+    RCS, the other half of a pitch or roll couple.
+  A nozzle's thrust is along the opposite of its exhaust, at its place,
+  so it turns the pod as well as pushing it. The RCS controller wants a
+  rate of turn (what the stick asks, or the turn that levels the pod
+  when nothing is asked) and fires the nozzles whose turning effect is
+  that way (`_rcs`), so what is seen firing is what would be. The flames
+  are one MultiMesh of cones, each at its nozzle along its exhaust, long
+  for a retro, short for the RCS, sized by how hard it fired that tic.
+
+  THE RIDE: begun DROP.height (1400 m) over the start, 180 m to one side,
+  drifting 12 m/s, a little off level and turning. Gravity, air drag
+  (terminal speed 70 m/s), and a capsule's own stability, base first,
+  gently. The sim runs in metres in the renderer's axes and talks to the
+  map in its units. The eye is 24 m behind the pod, turned round it by
+  the look (the player's angle and pitch), never under the ground; the
+  gun in hand is hidden. The move keys (the touch stick) tilt the pod
+  from the eye's point of view, to 50 degrees at most; the look turns
+  the eye; FIRE (or jump) lights the retros. Tilt and burn to steer.
+  THE AUTOPILOT: when the fall would not stop before the ground under
+  the retros' lift (8 nozzles * 5.2 m/s^2 * their 0.61 upward share = 25,
+  15 net of gravity), it lights them: a suicide burn, at full, as late as
+  it can; then, under DROP.final_below (45 m) or once the fall is under
+  10 m/s, it FLIES THE FALL RATE down — the retros at the hover level
+  plus a share of the difference from a wanted rate that is 4 m/s high
+  up and a metre a second at the last — so it touches down at about a
+  metre a second, never hovers (the first cut did: full retros under
+  30 m lifted it off again), and takes about forty seconds from the top.
+  Under 160 m it levels the pod whatever is asked; and over the cloud sea
+  with no land under it, it tilts toward the start and burns. So the
+  landing is always survivable, for now. The HUD prints the altitude, the fall, the
+  tilt, RETROS or AUTO BURN while they fire.
+
+  THE LANDING: a thud, a ring of dust, six scorches in a ring ROUND the
+  hull (one under it would be projected onto the pod's own floor: the
+  first cut's inside was orange), the plants under it blown clear, the
+  pod settling upright over 25 tics; the blockers go up at once, the
+  doorway shut too until the door is off (a candy girl walked into it); 40 tics of
+  third person; then the eye is INSIDE, first person, turned to the shut
+  door; 28 tics; then the door blows off — thrown out the way it faces,
+  tumbling under gravity until it lands, a fireball and smoke — and the
+  map is yours. The pod stays where it came down, a ring of twelve
+  invisible solid PODWALL actors round its wall (less the three or so
+  where the door was) keeping you and the crowd out of its hull.
+
+  Only a game begun from the title drops (Main.start_game sets
+  Game.drop_in: not a picture, not a match, not with --nodrop; a test
+  that plays through the title sets Main.no_drop). candy_shot --drop
+  takes a picture of the ride at `tics`. godot/tests/drop_test.gd rides
+  it down hands off (about 40 s, the autopilot lighting the retros near
+  170 m, down at about a metre a second, level, on land), through the hold, the
+  inside, the door and the blockers, then with a hand on the stick: the
+  RCS fires, only the RCS, and the pod tilts; FIRE lights the retros and
+  the fall slows.
+
 ROCKETS THAT RUN OUT, AND A THINNER TRAIL
 
   At the user's request ("rockets need to stop existing after a certain

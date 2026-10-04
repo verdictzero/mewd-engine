@@ -110,6 +110,24 @@ func _draw() -> void:
 		var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.004)
 		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5 + 1, M + ss + 1), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, M + ss), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(UI.rule.r, UI.rule.g, UI.rule.b, pulse))
+	# THE DROP'S READOUT (DropPod): the altitude, the fall, the tilt, the
+	# retros, and the autopilot when it has the burn
+	var drop = game.get("drop")
+	if drop != null and drop.active and drop.phase == "drop":
+		var r: Dictionary = drop.readout()
+		var ds := int(roundf(13.0 * s))
+		var lines := ["A L T  %5.0f m" % r.alt, "F A L L  %4.0f m/s" % r.fall, "T I L T  %3.0f°" % r.tilt]
+		var y0 := M + ds
+		for ln in lines:
+			var lw := font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds).x
+			draw_string(font, Vector2(size.x * 0.5 - lw * 0.5 + 1, y0 + 1), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, Color(0, 0, 0, 0.6))
+			draw_string(font, Vector2(size.x * 0.5 - lw * 0.5, y0), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, UI.ink)
+			y0 += ds + 4.0 * s
+		if r.retro > 0.0:
+			var rt := "A U T O   B U R N" if r.auto else "R E T R O S"
+			var rw := font.get_string_size(rt, HORIZONTAL_ALIGNMENT_LEFT, -1, ds).x
+			var pulse := 0.7 + 0.3 * sin(Time.get_ticks_msec() * 0.01)
+			draw_string(font, Vector2(size.x * 0.5 - rw * 0.5, y0 + ds), rt, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, Color(UI.burn.r, UI.burn.g, UI.burn.b, pulse))
 	# the red wash when something hits you
 	if p.damage_flash > 0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.02, minf(0.35, p.damage_flash * 0.025)))

@@ -98,6 +98,8 @@ static func build() -> void:
 		_s(k + "_BORE", k, "A", -1, null, k + "_BORE")
 	# and the street lamp that lines CANDY LAND's roads
 	_s("LAMP_STAND", "LAMP", "A", -1, null, null)
+	# the drop pod's wall: solid, drawn by nothing (DropPod)
+	_s("PODWALL_STAND", "", "A", -1, null, null)
 
 	# ---- THE TROOPS: the Zombieman's table with the numbers looked at again
 	_troop("SWAT", "SWAT", "A_SwatFire")
@@ -188,6 +190,7 @@ static func build() -> void:
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
 	# A HEADSTONE: granite, thirty-two tall — it stops you and you can see
 	# over it — one of eight photographs by its variant (js/states.js)
+	ACTORS["PODWALL"] = {"name": "Pod wall", "spawn": "PODWALL_STAND", "radius": 30, "height": 220, "solid": true, "shootable": false}
 	ACTORS["GRAVESTONE"] = {"name": "Headstone", "spawn": "GRAV_STAND", "radius": 10, "height": 32, "solid": true, "variants": 8}
 	ACTORS["BLAST"] = {"name": "Blast", "spawn": "BLAST1", "radius": 8, "height": 96, "fullbright": true}
 	ACTORS["PUFF"] = {"name": "Puff", "spawn": "PUFF1", "radius": 4, "height": 8}
