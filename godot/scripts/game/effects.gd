@@ -242,12 +242,13 @@ func blood_puff(x: float, y: float, z: float) -> void:
 	})
 
 ## A SPRAY OF BLOOD out of (x, y, z), thrown along d — or every way at
-## once if that is zero — `n` of it, at `force`. Two things in one call,
-## because a body coming apart is two things: a MIST that hangs and
-## spreads, dark red going brown, and DROPS, small and fast and heavy,
-## that arc out and come down, which is what makes it read as liquid
-## rather than as smoke. The drops stop at the floor and leave nothing:
-## the decals are what is left, and the caller lays those.
+## once if that is zero — `n` of it, at `force`: DROPS, small and fast
+## and heavy, that arc out and come down, which is what makes it read as
+## liquid rather than as smoke. (It used to be two things, the drops and
+## a MIST that hung and spread where they stood; the mist went, at the
+## user's request: "delete the blood cloud spray".) The drops stop at
+## the floor and leave nothing: the decals are what is left, and the
+## caller lays those.
 func blood_spray(x: float, y: float, z: float, dx := 0.0, dy := 0.0, dz := 0.0, n := 12, force := 1.0) -> void:
 	var dl := sqrt(dx * dx + dy * dy + dz * dz)
 	for k in n:
@@ -263,7 +264,7 @@ func blood_spray(x: float, y: float, z: float, dx := 0.0, dy := 0.0, dz := 0.0, 
 			uy = uy * 0.55 + dy / dl
 			uz = uz * 0.55 + dz / dl + 0.3
 		var sp := force * (1.5 + _r() * 6.5)
-		var drop := (k & 1) == 0
+		var drop := true
 		# (put, not spawn: the same fields in the same order, with no
 		# Dictionary — a crowd blown apart is a thousand of these at once)
 		var i := gore.put(x + (_r() - 0.5) * 10.0, y + (_r() - 0.5) * 10.0, z,

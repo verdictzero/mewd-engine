@@ -21,6 +21,8 @@ const DRAG := 0.985
 ## of the slide
 const BOUNCE := 0.35
 const GRIP := 0.7
+## the smallest piece cut from any picture, in its own texels each way
+const TEXELS := 16.0
 
 class Pool:
 	var mm: MultiMesh
@@ -111,8 +113,15 @@ func spawn(tex: Texture2D, uv: Rect2, at: Vector3, w: float, h: float, vel: Vect
 ## out from `from` (where the blast was) with `force`, each piece leaving
 ## from where it was in the picture.
 func burst(tex: Texture2D, uv: Rect2, at: Vector3, w: float, h: float, from: Vector3, pieces := 16, force := 1.0, wet := 0.0, srgb := false) -> void:
+	if tex == null:
+		return
 	var cols := maxi(2, int(round(sqrt(pieces * w / maxf(h, 1.0)))))
 	var rows := maxi(2, int(ceil(float(pieces) / cols)))
+	# NO PIECE UNDER TEXELS BY TEXELS of the picture (at the user's request:
+	# "smallest tree chunk should be 16x16 pixels, same with all other
+	# veg"): the grid is coarsened until every cell is at least that
+	cols = clampi(int(tex.get_width() * uv.size.x / TEXELS), 1, cols)
+	rows = clampi(int(tex.get_height() * uv.size.y / TEXELS), 1, rows)
 	var pw := w / cols
 	var ph := h / rows
 	for j in rows:

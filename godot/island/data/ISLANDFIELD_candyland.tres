@@ -13,12 +13,12 @@
 ;     squares (at the user's request): dead level, round, cut into the
 ;     hillside with a steep bank of half their radius (10 m at least),
 ;     the roads running into them; and the roads' edges straight
-;   * square_pads = true, square_apron 16 m, build_pad_radius 30..36 m
+;   * square_pads = true, square_apron 30 m, build_pad_radius 30..36 m
 ;     THE TOWNS ARE SQUARES (at the user's request: "flat squares, a road
 ;     intersection, no hills, cut out of the surrounding terrain using
 ;     cliffs, divided into quadrants, 4 houses per quadrant"): each a dead
 ;     level square 60 to 72 m across, its sides along the line to its
-;     nearest neighbour, banked over 16 m (it was 1.5 m, a cliff; at the
+;     nearest neighbour, banked over 30 m (it was 1.5 m, then 16; at the
 ;     user's request, a gentler bank) where the ground round it is
 ;     higher, with a cross of streets through its
 ;     middle that every road leaves from (IslandField.square_pads); the
@@ -89,7 +89,7 @@ build_pad_radius_min = 30.0
 build_pad_radius_max = 36.0
 build_pad_radius_ratio = 0.45
 square_pads = true
-square_apron = 16.0
+square_apron = 30.0
 build_area_fraction = 0.1
 zone_irregularity = 0.0
 zone_noise_scale = 70.0

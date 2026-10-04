@@ -21,6 +21,17 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 // (nearest, and from the mip that fits when the strip has them: the crowd
 // is drawn at the artist's own resolution, Standees "SHOP")
 uniform sampler2D strip : filter_nearest_mipmap;
+// THE SAME STRIP, FILTERED, for when the drawing is smaller on the screen
+// than it is in the strip (at the user's request: the people had "a
+// sparkly outline"). A nearest fetch of a drawing finer than the pixels
+// picks one texel of the several under each pixel, a different one as
+// the sprite sways, and at the cut-out's edge that is a rim of texels
+// that come and go: a twinkle round everybody. Minified, the fetch is
+// linear instead (a proper average of the texels under the pixel, which
+// the lo-fi grid then pixelates anyway); magnified it stays nearest, so
+// the pixel art up close is still pixel art. Standees binds both to the
+// one texture.
+uniform sampler2D strip_smooth : filter_linear_mipmap;
 uniform float cells = 1.0;
 uniform vec2 cell = vec2(40.0, 64.0);
 
@@ -75,7 +86,10 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 c = texture(strip, UV);
+	// how many texels one pixel covers (log2: 0 at one to one, 1 at two)
+	vec2 foot = max(abs(dFdx(UV)), abs(dFdy(UV))) * vec2(textureSize(strip, 0));
+	float minified = clamp(log2(max(max(foot.x, foot.y), 1e-6)), 0.0, 1.0);
+	vec4 c = mix(texture(strip, UV), texture(strip_smooth, UV), minified);
 	if (c.a < 0.5) discard;
 	// FROZEN: a colour map and not a tint (js/material.js FROST) — the
 	// drawing's luminance kept and run up a ramp from a shadowed blue to a

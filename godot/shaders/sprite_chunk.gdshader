@@ -66,9 +66,12 @@ void vertex() {
 	depth = -VERTEX.z;
 	// A PIECE TOO SMALL TO SEE IS NOT DRAWN (at the user's request: far off,
 	// a cloud of pieces a pixel or two across read as coloured glitter):
-	// under about three pixels on screen it collapses to nothing
+	// under about three pixels on screen it collapses to nothing. (abs: the
+	// projection's Y scale is NEGATIVE under the Vulkan renderers, whose
+	// clip space is upside down to GL's — without it every piece was "too
+	// small" and nothing was ever drawn.)
 	vec4 mid_v = VIEW_MATRIX * vec4(mid, 1.0);
-	float px = max(w, h) * PROJECTION_MATRIX[1][1] * 0.5 * VIEWPORT_SIZE.y / max(-mid_v.z, 1e-3);
+	float px = max(w, h) * abs(PROJECTION_MATRIX[1][1]) * 0.5 * VIEWPORT_SIZE.y / max(-mid_v.z, 1e-3);
 	if (px < 3.0 || mid_v.z > 0.0) VERTEX = vec3(0.0, 0.0, 1.0);
 	local = UV * 2.0 - 1.0;
 	seed = fract(sin(dot(mid.xz, vec2(12.9898, 78.233))) * 43758.5453);

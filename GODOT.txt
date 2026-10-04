@@ -1279,10 +1279,11 @@ THE TOWNS ARE SQUARES
       larger of the two distances along its sides.
     - ITS SIDES run along the line to its nearest neighbour, so the first
       road out of it runs straight down one of its streets.
-    - CUT OUT WITH CLIFFS. Its bank is only square_apron (1.5 m) wide, so
-      where the ground round it is higher its edge is a cliff, rock by
-      the slope rule. The island's hills only ever rise above its base,
-      so a town is always cut down into them, never raised over them.
+    - CUT DOWN INTO THE GROUND. Its bank is square_apron wide (1.5 m at
+      first, a cliff, rock by the slope rule; 16 m, then 30 m, at the
+      user's request for gentler and gentler banks — see THE BANKS
+      below). The island's hills only ever rise above its base, so a
+      town is always cut down into them, never raised over them.
     - A CROSS OF STREETS, path_width either side of its two middle
       lines. zone_at paves them as roads (ZONE_PATH) and Game._roads_of
       hands them to the game as roads. Lamps line them and no house
@@ -1509,7 +1510,8 @@ NO GLITTER, SMALLER GRASS, ROADS ALONG THEMSELVES, GENTLER TOWNS
       colour left in a see-through texel was averaged into the edge by
       the mips and showed at the cut-out as a crawling rim. TexBank.decoded
       now gives every clear texel its opaque neighbours' colour
-      (Image.fix_alpha_edges) before the mips are made.
+      (Image.fix_alpha_edges) before the mips are made. (Which was not
+      it, or not all of it: see THE SPARKLE below.)
 
   THE GRASS, smaller and denser (at the user's request): CANDY LAND's
   tufts 0.85 x 0.8 m (were 1.25 x 1.15) on a 0.7 m grid (was 1 m), about
@@ -1531,11 +1533,95 @@ NO GLITTER, SMALLER GRASS, ROADS ALONG THEMSELVES, GENTLER TOWNS
       through to the roads. Only on islands that ask (both CANDY LANDs).
     - THE BANKS: a square town's edge is banked over 16 m (was 1.5 m, a
       cliff), so it meets the ground round it in a grassy slope.
-      CANDY LAND and CANDY LAND XS baked again for it.
+      CANDY LAND and CANDY LAND XS baked again for it. (Then 30 m: see
+      the next section.)
 
   THE TITLE (at the user's request): MEWD's shadows are lighter and are
   drawn in front of the dither now, on the title's own layer under the
   logo, not into the picture.
+
+THE SPARKLE, THE TREES THAT WOULD NOT BLOW UP, THE GORE AS IT WAS
+
+  At the user's request ("all sprites still have the sparkly weirdness
+  around them, trees don't blow up into chunks, I want NPCs to blow up
+  like they used to with the explosion and copious gore chunks and blood
+  spatter, delete the blood cloud spray; fix the vegetation, make road
+  side grass to next terrain splat smoother transition, make the hills
+  around the towns even softer and less cliffy"; "smallest tree chunk
+  should be 16x16 pixels, same with all other veg").
+
+  THE SPARKLE round every sprite was two things, and the fix above
+  (clear texels recoloured) reached neither:
+    - THE STRIPS' EDGES WERE MATTED. The people's strips (shoppers,
+      shoppers_hd, swat, army, and the blast, giblets and splat strips)
+      were cut out by tools that left each half-clear texel of the edge
+      the drawing's colour MIXED WITH BLACK: a texel 60% coat was 60% as
+      bright as the coat. Drawn through a cut-out at half alpha, every
+      one of those is a dark bead round the drawing. tools/
+      fix-sprite-fringe.py gives every texel that is not fully opaque
+      the colour of the nearest fully opaque one (alpha untouched), and
+      the strips in assets/people are rewritten by it. (The candy strips
+      — the girls, the unicorns, the lamp — have hard edges and needed
+      nothing.)
+    - A NEAREST FETCH OF A DRAWING FINER THAN THE PIXELS. The HD strips
+      and the plants' paintings have several texels under each pixel
+      once they are a few metres off; a nearest fetch picks one of
+      them, a different one as the sprite sways, and at the cut-out's
+      edge that is a rim of texels that come and go — a twinkle round
+      everybody and every tree. standee.gdshader and
+      SHADER_veg_billboard.gdshader now carry the picture twice, once
+      nearest and once filtered (`strip_smooth`, `albedo_smooth`, bound
+      to the same texture: Standees._strip, SCRIPT_grass_scatter, and
+      for the plant scatter VegDamage.bind_smooth from the game, since
+      the scatter's source is in every island's bake digest), and the
+      fragment takes the filtered one by how many texels its pixel
+      covers (the derivatives of UV): nearest at one to one and under,
+      so pixel art up close is still pixel art, filtered from two up —
+      a proper average of what is under the pixel, which the lo-fi grid
+      pixelates anyway.
+
+  THE TREES WERE NOT BLOWING UP because nothing in SpriteChunks was ever
+  drawn: the "too small to see" test in sprite_chunk.gdshader measured a
+  piece's height on the screen with PROJECTION_MATRIX[1][1], which is
+  NEGATIVE under the Vulkan renderers (their clip space is upside down
+  to GL's), so every piece was under three pixels and collapsed. abs()
+  of it. And two more reasons a rocket into a tree left the tree:
+    - A ROCKET FLEW THROUGH THE TREE and went off on the ground beyond
+      it. MissileSystem._fly_tic now asks VegDamage.ray along each tic
+      of flight (after its first two, so a rocket fired from inside a
+      bush clears it) and goes off in the plant it hits.
+    - THE BLAST REACHED TOO LITTLE: a plant was blown only when its
+      trunk was inside 45% of the blast's reach (2.7 m of a rocket's
+      5.9). 85% now: a tree five metres off goes.
+  NO PIECE UNDER 16 x 16 TEXELS of its picture (SpriteChunks.TEXELS):
+  burst coarsens its grid until every cell is at least that, and a
+  round's scrap off a plant (VegDamage.shoot) is 16 to 24 texels of the
+  picture drawn AT THE SIZE IT IS ON THE PLANT — it was drawn at a
+  fixed 4 to 7 units whatever the tree's size, which was confetti.
+
+  THE GORE AS IT WAS. A person who comes apart (Game.gib, from the GIB
+  states) is the fireball where they stood and the pieces of them out
+  of it — thirty now (GIB.count, were thirteen), and the floor round
+  them spattered as a warhead spatters it (GIB.floor marks out to
+  GIB.floorReach, through Giblets.room). The body's own picture is no
+  longer thrown in pieces with them (that was pieces of a drawing, not
+  of a person); a round's bite still throws its piece. THE BLOOD CLOUD
+  is gone: Effects.blood_spray throws only drops now (it threw a mist
+  that hung and spread as well), and the blood puffs that went with a
+  bite and a warhead's evisceration are not called; the bore's fountain
+  keeps its own.
+
+  THE VERGES fade: the grass beside a road gave way to the field's
+  ground at a hard line 3 m out; now it fades over `verge_fade` (4 m)
+  past the verge (SHADER_terrain_splat_w2 `roads`).
+
+  THE BANKS are 30 m wide (square_apron, was 16): a town's edge is a
+  long grassy slope now. CANDY LAND and CANDY LAND XS baked again.
+
+  The pictures: candy_shot.gd --blast puts you 14 m from a tree and
+  sets a rocket off at its foot (it looked for the thickest wood
+  before, which from a town square was a patch of grass clumps), and
+  prints how many pieces of what are in the air.
 
 TESTS
 

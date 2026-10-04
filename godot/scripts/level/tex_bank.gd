@@ -89,7 +89,11 @@ static func decoded(t: Texture2D, mips := true) -> Texture2D:
 	# request: the people had a sparkly outline): whatever colour an
 	# exporter left in a see-through texel was averaged into the edge by
 	# the mips, and the cut-out at half alpha showed it as a rim of stray
-	# colours that crawled as they moved
+	# colours that crawled as they moved. (The import does the same
+	# already; the half-clear texels of the edge, which this leaves
+	# alone, are recoloured in the strips themselves —
+	# tools/fix-sprite-fringe.py — and the fetch is filtered where the
+	# strip is minified: standee.gdshader.)
 	img.fix_alpha_edges()
 	img.srgb_to_linear()
 	if mips:

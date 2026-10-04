@@ -343,6 +343,9 @@ func _build_multimeshes() -> void:
 
 		var mat: ShaderMaterial = material.duplicate()
 		mat.set_shader_parameter("albedo_tex", tex)
+		# (and the same picture for the filtered fetch where a tuft is minified:
+		# SHADER_veg_billboard `albedo_smooth`)
+		mat.set_shader_parameter("albedo_smooth", tex)
 		# And the burn map beside it — see `VegBurn.bind_map`. Grass burns like grass
 		# rather than like a tree: it is the only sprite of the ten with no woody
 		# pixels in it, so it chars all over and holds its coals at the base.

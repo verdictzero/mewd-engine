@@ -99,6 +99,8 @@ func _strip(key: String, path: String, cell: Vector2, texel := Vector2.ZERO) -> 
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/standee.gdshader")
 	mat.set_shader_parameter("strip", U.col(tex))
+	# (the same picture, fetched filtered where it is minified: standee.gdshader)
+	mat.set_shader_parameter("strip_smooth", U.col(tex))
 	mat.set_shader_parameter("cells", U.col(float(s.cells)))
 	mat.set_shader_parameter("cell", U.col(cell))
 	quad.surface_set_material(0, mat)

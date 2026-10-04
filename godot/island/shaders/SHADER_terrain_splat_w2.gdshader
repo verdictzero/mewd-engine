@@ -200,6 +200,10 @@ uniform vec4 town[16];
 uniform float town_pad = 5.0;
 // how soft a road's or a pavement's edge is, metres
 uniform float road_edge = 0.2;
+// and how far past the verge the grass gives way to whatever the field
+// put there, metres (at the user's request: "road side grass to next
+// terrain splat smoother transition")
+uniform float verge_fade = 4.0;
 
 group_uniforms steep_stone;
 // THE STONE UP THE ISLAND'S SIDES (at the user's request, CANDY LAND: "the
@@ -686,7 +690,7 @@ void fragment() {
 		path_p = vec2(dot(rel, along), dot(rel, vec2(-along.y, along.x)));
 		// the grass beside it, and wherever the field graded ground the
 		// crisp lines leave out
-		float verge = (best > 0.0 && best < pad) ? 1.0 : 0.0;
+		float verge = best > 0.0 ? 1.0 - smoothstep(pad, pad + verge_fade, best) : 0.0;
 		float hard = max(road, paved);
 		float grass_here = max(verge, field_road) * (1.0 - hard);
 		path = road;

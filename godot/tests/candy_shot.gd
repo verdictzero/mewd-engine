@@ -84,24 +84,34 @@ func _frame() -> void:
 			p.sector = game.level.sector_at(p.x, p.y)
 			p.z = game.level.floor_at(p.x, p.y)
 		if "--blast" in args and game.veg_damage != null:
+			# A TREE, 15 to 40 m off, with nothing growing where you stand to
+			# watch it from 14 m back: the rocket goes off at its foot
 			var vd = game.veg_damage
 			var best := Vector2()
-			var most := -1
-			for k in 80:
-				var a: float = p.angle + randf_range(-1.2, 1.2)
-				var q := Vector2(p.x, p.y) + Vector2(cos(a), sin(a)) * randf_range(500.0, 1200.0)
-				var n: int = vd.near(q.x / 32.0, -q.y / 32.0, 6.0).size()
-				if n > most:
-					most = n
-					best = q
-			# 14 m back from it, looking at it, and nobody in the way
-			var back := (Vector2(p.x, p.y) - best).normalized() * 14.0 * 32.0
-			p.x = best.x + back.x
-			p.y = best.y + back.y
-			p.sector = game.level.sector_at(p.x, p.y)
-			p.z = game.level.floor_at(p.x, p.y)
-			p.angle = (best - Vector2(p.x, p.y)).angle()
-			set_meta("blast_at", best)
+			var found := false
+			var trees: Array = vd.near(p.x / 32.0, -p.y / 32.0, 250.0).filter(func(q): return q.cls == 0 and q.h >= 5.0)
+			var here := Vector3(p.x / 32.0, 0.0, -p.y / 32.0)
+			trees.sort_custom(func(a, b): return Vector2(a.pos.x - here.x, a.pos.z - here.z).length_squared() < Vector2(b.pos.x - here.x, b.pos.z - here.z).length_squared())
+			for q in trees:
+				var tp := Vector2(q.pos.x * 32.0, -q.pos.z * 32.0)
+				var d := tp.distance_to(Vector2(p.x, p.y))
+				if d < 15.0 * 32.0:
+					continue
+				var eye := tp + (Vector2(p.x, p.y) - tp).normalized() * 14.0 * 32.0
+				if not game.level.on_land(eye.x, eye.y, 0.0) or not vd.near(eye.x / 32.0, -eye.y / 32.0, 1.5).is_empty():
+					continue
+				best = tp
+				p.x = eye.x
+				p.y = eye.y
+				found = true
+				break
+			if found:
+				p.sector = game.level.sector_at(p.x, p.y)
+				p.z = game.level.floor_at(p.x, p.y)
+				p.angle = (best - Vector2(p.x, p.y)).angle()
+				set_meta("blast_at", best)
+			else:
+				print("candy_shot: no tree to blow up near the start (%d trees seen)" % trees.size())
 		if "--blast" in args or "--wound" in args:
 			for a in game.actors:
 				if a.type == "CANDYGIRL":
@@ -142,7 +152,9 @@ func _frame() -> void:
 	if has_meta("blast_at") and not has_meta("blasted") and game.tics - _start >= 2:
 		set_meta("blasted", true)
 		var f: Vector2 = get_meta("blast_at")
-		game.missiles.detonate(Vector3(f.x, f.y, game.level.floor_at(f.x, f.y) + 8.0))
+		game.missiles.detonate(Vector3(f.x, f.y, game.level.floor_at(f.x, f.y) + 24.0))
+		print("candy_shot: the rocket went off among %d plants; %d pieces in the air" % [
+			game.veg_damage.near(f.x / 32.0, -f.y / 32.0, 6.0).size(), game.chunks.count()])
 	if "--wound" in args and not has_meta("victim") and game.tics - _start >= 4:
 		var g = game.spawn("CANDYGIRL", p.x + cos(p.angle) * 128.0, p.y + sin(p.angle) * 128.0, p.angle + PI)
 		set_meta("victim", g)
@@ -197,6 +209,10 @@ func _frame() -> void:
 				p.angle = float(turn)
 			turn = null
 	if game.tics - _start >= wait + 3:
+		if has_meta("blast_at") and game.chunks != null:
+			for t in game.chunks.pools:
+				var pl = game.chunks.pools[t]
+				print("candy_shot: %d pieces of %s (%dx%d)" % [pl.pos.size(), t.resource_path.get_file(), t.get_width(), t.get_height()])
 		root.get_texture().get_image().save_png(out)
 		var near := 0
 		var hello := 0

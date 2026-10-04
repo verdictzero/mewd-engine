@@ -167,6 +167,17 @@ render_mode cull_disabled, unshaded;
 // a stump that is still smouldering is a legal state. See the `stump` uniform.
 
 uniform sampler2D albedo_tex : source_color, filter_nearest_mipmap;
+// THE SAME PICTURE, FILTERED, for a plant smaller on the screen than in
+// its picture (at the user's request: every sprite had "a sparkly
+// outline"). Minified, a nearest fetch picks one of the several texels
+// under each pixel, another as the plant sways, and at the cut-out's edge
+// that is a rim of texels that come and go. Past one texel to the pixel
+// the fetch is a linear one instead; up close it stays nearest, and the
+// painting's own texels show. Bound to the same picture as `albedo_tex`
+// by the game once the scatter stands (VegDamage.bind_smooth — not by
+// the scatter itself, whose source is part of every island's bake
+// digest); unbound it would be a white picture.
+uniform sampler2D albedo_smooth : source_color, filter_linear_mipmap;
 uniform float alpha_scissor : hint_range(0.0, 1.0) = 0.4;
 // Flat LINEAR multiplier on the sprite. With `unshaded` there is no light term to
 // carry exposure, so this is the ONLY thing standing between the art's own
@@ -740,7 +751,11 @@ void fragment() {
 	// mirror is as valid a plant as the original; flipping V would stand it on
 	// its head.
 	vec2 uv = vec2(mix(UV.x, 1.0 - UV.x, v_flip), UV.y);
-	vec4 tex = texture(albedo_tex, uv);
+	// (how many texels one pixel covers, as log2: nearest at one to one and
+	// under, filtered from two up — see `albedo_smooth`)
+	vec2 foot = max(abs(dFdx(uv)), abs(dFdy(uv))) * vec2(textureSize(albedo_tex, 0));
+	float minified = clamp(log2(max(max(foot.x, foot.y), 1e-6)), 0.0, 1.0);
+	vec4 tex = mix(texture(albedo_tex, uv), texture(albedo_smooth, uv), minified);
 	if (tex.a < alpha_scissor) {
 		discard;
 	}

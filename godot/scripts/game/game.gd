@@ -273,6 +273,7 @@ func start_map(which: String) -> void:
 	if island != null:
 		var scatter = VegDamage.find_scatter(island)
 		var grass = VegDamage.find_grass(island)
+		VegDamage.bind_smooth(scatter)
 		if scatter != null or grass != null:
 			veg_damage = VegDamage.new(self, scatter, grass)
 	trophies = Trophies.new(self)
@@ -878,12 +879,13 @@ func scare(x: float, y: float, r: float) -> void:
 		if U.dist2(a.x, a.y, x, y) < r * r:
 			a.A_Scare(x, y)
 
-## A person coming apart: the fireball where they stood (js/people.js
-## Giblets.burst — the pieces come with the gore port). And, at the
-## user's request, the body's own picture blown into pieces with it.
+## A person coming apart: the fireball where they stood and the pieces
+## of them thrown out of it, copiously, and the floor round them painted
+## (js/people.js Giblets.burst — at the user's request, "like they used
+## to": the body's own picture is NOT thrown in pieces, that was the
+## pieces of a drawing and not of a person)
 func gib(a: Actor) -> void:
 	giblets.burst(a)
-	_burst_picture(a, 14, 1.0, 1.0)
 	bleeders.erase(a)
 	a.remove()
 
@@ -938,10 +940,10 @@ func wound(a: Actor, opts: Dictionary) -> void:
 				90, 1.0 if body else 0.0)
 	if body:
 		# CAMPY: out of the back of the hole, a gout along the round's way
-		# and a burst every way from the hole, and it keeps on coming
+		# and a burst every way from the hole, and it keeps on coming (drops
+		# only: the cloud of blood that hung there went, at the user's request)
 		fx.blood_spray(at.x, at.y, at.z, dir.x, dir.y, dir.z * 0.3 + 0.35, 26, 1.6)
 		fx.blood_spray(at.x, at.y, at.z, 0.0, 0.0, 0.0, 14, 1.1)
-		fx.blood_puff(at.x, at.y, at.z)
 		if bleeders.size() < BLEEDERS_MOST or bleeders.has(a):
 			bleeders[a] = BLEED_TICS
 	else:

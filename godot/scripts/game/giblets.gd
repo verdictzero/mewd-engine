@@ -27,7 +27,11 @@ const ASHES := 3
 const ASH_CELL := Vector2(40, 18)
 
 const GIB := {
-	"count": 13,          # pieces of a person
+	# pieces of a person: thirteen in the JS, thirty here (at the user's
+	# request: "copious gore chunks") — and the floor round them painted
+	# as a warhead paints it, `floor` spatters out to `floorReach`
+	"count": 30,
+	"floor": 8, "floorReach": 150.0,
 	# Thrown HARD and wide. The first pass at these numbers dropped
 	# everything in a two-metre circle, which reads as a person falling
 	# over rather than a person going off: at eight units a tic with very
@@ -229,6 +233,12 @@ func burst(a) -> void:
 	# whole front end is running before the pieces land.
 	game.scare(a.x, a.y, 900.0)
 	var h := _stood(a)
+	# AND THE FLOOR: spatters thrown out every way from the pool, laid over
+	# the next tics as a warhead's are (`room`, _room_tic)
+	if _decals() != null:
+		for k in GIB.floor:
+			var ang: float = _r() * TAU
+			room.append([ROOM_FLOOR, a.x, a.y, a.z, cos(ang), sin(ang), 16.0 + _r() * GIB.floorReach, 30.0 + _r() * 44.0])
 	for k in GIB.count:
 		var ang := _r() * TAU
 		var sp: float = GIB.speedMin + _r() * (GIB.speedMax - GIB.speedMin)
@@ -313,14 +323,13 @@ func eviscerate(a, at = null, force := 1.0, share := 1.0) -> int:
 			chk_z[i] = z
 			chunk_floor[i] = UNKNOWN
 	# THE SPRAY, in the air: half of it thrown with the pieces and half
-	# of it every way at once
+	# of it every way at once (drops: the cloud of blood that hung where
+	# they stood went, at the user's request)
 	var fx = _fx()
 	if fx != null:
 		var spray := maxi(8, roundi((GORE.spray >> 1) * share))
 		fx.blood_spray(a.x, a.y, mid, dx, dy, 0.4, spray, 1.2 * force)
 		fx.blood_spray(a.x, a.y, mid, 0.0, 0.0, 0.0, spray, 0.9 * force)
-		for k in maxi(2, roundi(6 * share)):
-			fx.blood_puff(a.x, a.y, mid + (k - 3) * 6.0)
 	# AND THE ROOM. The pool where they stood, bigger than any other in
 	# the game; the spatters across the floor, thrown out the way the
 	# pieces went; and blood up every wall round them. Their dice are

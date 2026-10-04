@@ -351,13 +351,23 @@ func _fly_tic() -> void:
 		var nz: float = s.z + s.dz * s.speed
 		var body := _body_on_leg(s, nx, ny, nz, t)
 		var wall := lv.ray_hit_wall(s.x, s.y, s.z, nx, ny, nz)
+		# A PLANT IN THE WAY (VegDamage.ray): a rocket into a tree goes off in
+		# the tree, not on the ground beyond it (at the user's request: the
+		# trees were not blowing up) — once it is clear of whatever you fired
+		# it from inside of
+		var plant := {}
+		if game.veg_damage != null and s.tics > 2:
+			plant = game.veg_damage.ray(Vector3(s.x, s.y, s.z), Vector3(nx, ny, nz), 1.0)
 		var sec := lv.span_at(nx, ny, s.z)
 		var at = null
 		var direct = null
 		var face = null
-		if not body.is_empty() and (wall.is_empty() or body.u <= wall.t):
+		if not body.is_empty() and (wall.is_empty() or body.u <= wall.t) and (plant.is_empty() or body.u <= plant.t):
 			at = body.at
 			direct = body.who
+		elif not plant.is_empty() and (wall.is_empty() or plant.t <= wall.t):
+			var pt: float = plant.t
+			at = Vector3(s.x + (nx - s.x) * pt, s.y + (ny - s.y) * pt, s.z + (nz - s.z) * pt)
 		elif not wall.is_empty():
 			at = Vector3(wall.x, wall.y, wall.z)
 			face = Decals.wall_normal(wall.line, s.x, s.y)

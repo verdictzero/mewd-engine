@@ -22,8 +22,9 @@
 class_name VegDamage
 extends RefCounted
 
-## a blast blows to pieces what is inside this share of its reach
-const BLOW_SHARE := 0.45
+## a blast blows to pieces every plant whose trunk is inside this share of
+## its reach (a rocket's is 5.9 m: a tree five metres off goes)
+const BLOW_SHARE := 0.85
 ## and mows the grass inside this share, when it went off near the ground
 ## (units above it)
 const MOW_SHARE := 0.6
@@ -58,6 +59,18 @@ static func find_scatter(island: Node):
 		if n.has_method("live_plant_count") and n.get("_meshes") != null and n.get("_class_span") != null:
 			return n
 	return null
+
+## Every plant sprite's material given its picture a second time, for the
+## filtered fetch where the plant is minified (SHADER_veg_billboard
+## `albedo_smooth`): done here and not in the scatter, whose source is in
+## every island's bake digest.
+static func bind_smooth(scatter) -> void:
+	if scatter == null or scatter.get("_instances") == null:
+		return
+	for inst in scatter._instances:
+		var mat := (inst as MultiMeshInstance3D).material_override as ShaderMaterial
+		if mat != null:
+			mat.set_shader_parameter("albedo_smooth", mat.get_shader_parameter("albedo_tex"))
 
 static func find_grass(island: Node):
 	if island == null:
@@ -275,10 +288,19 @@ func shoot(p: Dictionary, at: Vector3, dir: Vector3) -> void:
 	c.y = minf(1.0, c.y + SHOT_DAMAGE * randf_range(0.7, 1.3))
 	var tex := _picture(p)
 	if game.chunks != null and tex != null:
-		var s := randf_range(4.0, 7.0)
-		var u := randf() * 0.6 + 0.2
-		var v := randf() * 0.7 + 0.1
-		game.chunks.spawn(tex, Rect2(u - 0.06, v - 0.045, 0.12, 0.09), at, s, s,
+		# the scrap is SpriteChunks.TEXELS to half again as many texels of
+		# the picture, drawn the size it is on the plant (at the user's
+		# request: no piece under 16 x 16 of the picture — a scrap drawn
+		# smaller than it is was confetti)
+		var tw := float(tex.get_width())
+		var th := float(tex.get_height())
+		var du := SpriteChunks.TEXELS * randf_range(1.0, 1.5) / tw
+		var dv := du * tw / th
+		var u := randf() * (1.0 - du) * 0.8 + (1.0 - du) * 0.1
+		var v := randf() * (1.0 - dv) * 0.8 + (1.0 - dv) * 0.1
+		var w: float = p.w * IslandLevel.U_PER_M * du * 1.25
+		var h: float = p.h * IslandLevel.U_PER_M * dv * 1.25
+		game.chunks.spawn(tex, Rect2(u, v, du, dv), at, w, h,
 			Vector3(dir.x * 0.006 + randf_range(-2, 2), dir.y * 0.006 + randf_range(-2, 2), randf_range(2.0, 6.0)), 80, 0.0, true)
 	if c.y >= 1.0:
 		blow_up(p, at - dir.normalized() * 30.0, 0.8)
