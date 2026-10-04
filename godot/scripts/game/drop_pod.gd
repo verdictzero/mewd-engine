@@ -80,16 +80,19 @@ const MODEL := "res://assets/models/drop_pod.glb"
 ## the model drawn at this share of the size it was made
 const POD_SCALE := 0.5
 const DROP := {
-	"height": 2000.0,       # m over the start it comes in
-	"entry": 280.0,         # m/s down it comes in at, out of orbit
+	"height": 1400.0,       # m over the start it comes in
+	"entry": 140.0,         # m/s down it comes in at: twice terminal, and the air
+	                        # takes it down to terminal in the first few seconds
 	"offset": 150.0,        # m to the side of the start
-	"drift": 14.0,          # m/s sideways to begin with
+	"drift": 12.0,          # m/s sideways to begin with
 	"g": 9.8,
-	"drag": 0.000222,       # a = -drag * v|v|: terminal about 210 m/s
-	"retro": 12.0,          # m/s^2 a skirt nozzle gives: canted 37 degrees out, all
-	                        # eight lift 8 * 12 * 0.61 = 58.6 m/s^2, five g net of gravity
+	"drag": 0.0020,         # a = -drag * v|v|: terminal about 70 m/s (the original rate)
+	"retro": 6.0,           # m/s^2 a skirt nozzle gives: canted 37 degrees out, all
+	                        # eight lift 8 * 6 * 0.61 = 29 m/s^2, two g net of gravity
 	"retro_lift": 0.61,     # the share of a skirt nozzle's push that is upward
-	"plan": 0.8,            # the share of the retros' braking the autopilot plans on
+	"plan": 0.55,           # the share of the retros' braking the autopilot plans on:
+	                        # the burn lit near 230 m from terminal (sooner than the
+	                        # first cut's 170), and all over in six seconds
 	"rcs": 1.2,             # m/s^2 a shoulder or top nozzle gives
 	"inertia": 3.0,         # m^2: angular acceleration = torque / mass / this (half
 	                        # size, half the lever: the turns as quick as they were)
@@ -100,8 +103,10 @@ const DROP := {
 	"aim_speed": 3.0,       # m/s the autopilot brings it down to
 	"level_secs": 2.0,      # the autopilot has the attitude this long out at the fall's speed...
 	"level_below": 120.0,   # ...or under this (m), whichever is higher
-	"heat_lo": 150.0,       # m/s: the reentry fire is out under this
-	"heat_hi": 230.0,       # m/s: and at its fiercest over this
+	"fire_secs": 3.0,       # s the reentry fire lasts from the top, at most
+	"fire_fade": 0.8,       # s it takes to go out, at the end of that
+	"heat_lo": 78.0,        # m/s: the reentry fire is out under this (just over terminal)
+	"heat_hi": 110.0,       # m/s: and at its fiercest over this
 	"settle_tics": 25,
 	"hold_tics": 40,        # third person after touchdown
 	"door_tics": 28,        # first person, door shut, before it blows
@@ -137,6 +142,8 @@ var fires := 0                       # nozzle firings, counted, for the tests
 ## going), their materials, the hull's glow, the light on it, and how hot
 ## (0..1, the speed's); the hottest it has been, for the tests
 var fire: Node3D
+var fire_cap: MeshInstance3D
+var fire_tail: MeshInstance3D
 var fire_mats: Array = []
 var heat_mat: ShaderMaterial
 var fire_light: OmniLight3D
@@ -251,21 +258,14 @@ static func _nozzle_dir(c: Vector3) -> Vector3:
 ## the flames: a unit cone (point up, base 1 across, no caps) per nozzle,
 ## coloured per nozzle (pod_flame.gdshader)
 func _make_flames() -> void:
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 0.5
-	cone.height = 1.0
-	cone.radial_segments = 10
-	cone.rings = 1
-	cone.cap_top = false
-	cone.cap_bottom = false
 	var m := ShaderMaterial.new()
 	m.shader = load("res://godot/shaders/pod_flame.gdshader")
-	cone.material = m
+	var jet := _jet_mesh()
+	jet.surface_set_material(0, m)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
-	mm.mesh = cone
+	mm.mesh = jet
 	mm.instance_count = nozzles.size()
 	mm.visible_instance_count = nozzles.size()
 	for i in nozzles.size():
@@ -276,11 +276,51 @@ func _make_flames() -> void:
 	add_child(flames)
 	_draw_flames()
 
-## a flame's colour, and in its alpha which end of the cone the nozzle is
-## at (pod_flame.gdshader): the RCS blue, at the base; the retros orange,
-## at the point
+## how many shock diamonds a jet has, and how low-res it is drawn
+const DIAMONDS := 5
+const JET_SEGS := 8
+
+## THE JET as a mesh (at the user's request: "tight mach diamonds for all
+## thrusters"): a surface of revolution along local +y from the nozzle
+## (y 0) to its point (y 1), DIAMONDS diamonds along it joined at narrow
+## waists — a radius of 1 at the first belly, pinched to DIAMOND_WAIST at
+## each shock, the whole tapering to a point. UV.y is the way along it,
+## for the shader's colour; UV.x where round.
+const DIAMOND_WAIST := 0.3
+static func _jet_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings := DIAMONDS * 4
+	var profile: PackedFloat32Array = []
+	for r in rings + 1:
+		var k := float(r) / rings
+		var tri := 1.0 - absf(fmod(k * DIAMONDS, 1.0) * 2.0 - 1.0)
+		var taper := pow(1.0 - k, 0.75)
+		profile.append((DIAMOND_WAIST + (1.0 - DIAMOND_WAIST) * tri) * taper * 0.5)
+	profile[rings] = 0.0
+	for r in rings + 1:
+		var k := float(r) / rings
+		for sg in JET_SEGS + 1:
+			var a := TAU * sg / JET_SEGS
+			var rad: float = profile[r]
+			st.set_uv(Vector2(float(sg) / JET_SEGS, k))
+			var n := Vector3(cos(a), 0.0, sin(a))
+			st.set_normal(n)
+			st.add_vertex(Vector3(cos(a) * rad, k, sin(a) * rad))
+	for r in rings:
+		for sg in JET_SEGS:
+			var a0 := r * (JET_SEGS + 1) + sg
+			var a1 := a0 + 1
+			var b0 := a0 + JET_SEGS + 1
+			var b1 := b0 + 1
+			st.add_index(a0); st.add_index(b0); st.add_index(a1)
+			st.add_index(a1); st.add_index(b0); st.add_index(b1)
+	return st.commit()
+
+## a jet's colour, and in its alpha its kind (pod_flame.gdshader): the RCS
+## blue (0), the retros orange (1)
 static func _flame_color(kind: String) -> Color:
-	return Color(0.05, 0.3, 1.0, 0.0) if kind == "rcs" else Color(1.0, 0.55, 0.18, 1.0)
+	return Color(0.2, 0.45, 1.0, 0.0) if kind == "rcs" else Color(1.0, 0.5, 0.15, 1.0)
 
 ## THE REENTRY FIRE (see the header): a cap and a tail, turned in `draw`
 ## to the way the pod is going, the hull's glow and a light; hidden cold.
@@ -292,8 +332,8 @@ func _make_fire() -> void:
 	var ball := SphereMesh.new()
 	ball.radius = 1.0
 	ball.height = 2.0
-	ball.radial_segments = 24
-	ball.rings = 12
+	ball.radial_segments = 12
+	ball.rings = 6
 	cap.mesh = ball
 	var cm := ShaderMaterial.new()
 	cm.shader = sh
@@ -305,11 +345,12 @@ func _make_fire() -> void:
 	fire.add_child(cap)
 	var tail := MeshInstance3D.new()
 	var cone := CylinderMesh.new()
-	cone.top_radius = 0.35
+	# (wider at the top than the hull, or the depth test hides it inside)
+	cone.top_radius = 0.8
 	cone.bottom_radius = 1.0
 	cone.height = 1.0
-	cone.radial_segments = 32
-	cone.rings = 8
+	cone.radial_segments = 14
+	cone.rings = 4
 	cone.cap_top = false
 	cone.cap_bottom = false
 	tail.mesh = cone
@@ -317,11 +358,14 @@ func _make_fire() -> void:
 	tm.shader = sh
 	tm.set_shader_parameter("tail", 1.0)
 	tail.material_override = tm
-	var tl := TALL * 2.4
+	# (shallow: the sheath only a little past the hull's top)
+	var tl := TALL * 1.25
 	tail.scale = Vector3(HULL_R * 1.22, tl, HULL_R * 1.22)
 	tail.position = Vector3(0.0, tl * 0.5 - HULL_R * 0.1, 0.0)
 	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	fire.add_child(tail)
+	fire_cap = cap
+	fire_tail = tail
 	fire_mats = [cm, tm]
 	heat_mat = ShaderMaterial.new()
 	heat_mat.shader = load("res://godot/shaders/pod_heat.gdshader")
@@ -353,7 +397,7 @@ func begin(sx: float, sy: float) -> void:
 	phase_tics = 0
 	active = true
 	visible = true
-	heat = _heat_of(vel.length())
+	heat = _heat_of(vel.length(), 0.0)
 	_sync_player()
 	BlackBox.mark("drop begins")
 
@@ -377,9 +421,13 @@ func altitude() -> float:
 func tilt() -> float:
 	return acos(clampf(att.y.y, -1.0, 1.0))
 
-## how hot the reentry fire is at this speed (m/s), 0..1
-static func _heat_of(speed: float) -> float:
-	return clampf((speed - DROP.heat_lo) / (DROP.heat_hi - DROP.heat_lo), 0.0, 1.0)
+## how hot the reentry fire is: the speed's (m/s), over the first
+## DROP.fire_secs of the ride (`secs` in), and never after — at the user's
+## request, three seconds of it, until the slowdown
+static func _heat_of(speed: float, secs: float) -> float:
+	var by_speed := clampf((speed - DROP.heat_lo) / (DROP.heat_hi - DROP.heat_lo), 0.0, 1.0)
+	var by_time := clampf((DROP.fire_secs - secs) / DROP.fire_fade, 0.0, 1.0)
+	return by_speed * by_time
 
 ## One tic of the ride, with this machine's hands (Game.local_cmd).
 func tic(cmd: Dictionary) -> void:
@@ -410,7 +458,11 @@ func tic(cmd: Dictionary) -> void:
 			if phase_tics >= DROP.door_tics:
 				_blow_door()
 		"out":
+			# (the player is their own once the door is off: the sync here put
+			# them back at the pod's middle every tic — stuck in the pod, at
+			# the user's report — so no more of it)
 			_door_tic()
+			return
 	_sync_player()
 
 func _fly(cmd: Dictionary) -> void:
@@ -516,7 +568,7 @@ func _fly(cmd: Dictionary) -> void:
 		att = Basis(ang / w, w * dt) * att
 		att = att.orthonormalized()
 	# ---- the reentry fire: the speed's, and left along the way ---------
-	heat = _heat_of(vel.length())
+	heat = _heat_of(vel.length(), ticks / float(U.TICRATE))
 	max_heat = maxf(max_heat, heat)
 	if heat > 0.0:
 		_trail()
@@ -526,10 +578,10 @@ func _fly(cmd: Dictionary) -> void:
 	# ---- the dust under a burn near the ground, and the touchdown -----
 	var um := IslandLevel.U_PER_M
 	var burn := retro_level > 0.1
-	if over_land and burn and h < 20.0 and ticks % 2 == 0:
-		var gx := pos.x * um + randf_range(-50.0, 50.0)
-		var gy := -pos.z * um + randf_range(-50.0, 50.0)
-		game.fx.puff(gx, gy, ground * um + 6.0, 50.0, 60)
+	if over_land and burn and h < 14.0 and ticks % 3 == 0:
+		var gx := pos.x * um + randf_range(-60.0, 60.0)
+		var gy := -pos.z * um + randf_range(-60.0, 60.0)
+		game.fx.puff(gx, gy, ground * um + 6.0, 26.0, 36)
 	if over_land and pos.y <= ground:
 		_touchdown(ground)
 
@@ -568,13 +620,13 @@ func _trail() -> void:
 	# last tic's stretch past its top)
 	var back := -vel.normalized()
 	var step := vel.length() / U.TICRATE
-	if ticks % 2 == 0:
-		var q := pos + back * (TALL * 1.2 + randf() * step)
-		game.fx.fireball(q.x * um, -q.z * um, q.y * um, 40.0 + 50.0 * heat, 10 + int(heat * 10))
-	var s := pos + back * (TALL * 1.5 + randf() * step)
-	game.fx.puff(s.x * um, -s.z * um, s.y * um, 30.0 + 40.0 * heat, 110)
-	var e := pos + back * TALL * 1.1
-	game.fx.ember(e.x * um, -e.z * um, e.y * um, 1 + int(heat * 2.0), 1.0)
+	var q := pos + back * (TALL * 1.1 + randf() * step)
+	game.fx.fireball(q.x * um, -q.z * um, q.y * um, 36.0 + 44.0 * heat, 6 + int(heat * 6))
+	var s := pos + back * (TALL * 1.4 + randf() * step)
+	game.fx.puff(s.x * um, -s.z * um, s.y * um, 26.0 + 34.0 * heat, 90)
+	# sparks off the shield, thrown wide: a shower of them, every tic
+	var e := pos + back * TALL * 0.8
+	game.fx.ember(e.x * um, -e.z * um, e.y * um, 5 + int(heat * 9.0), 2.6)
 
 ## THE EXHAUST INTO THE PLANTS (VegDamage), every third tic low down: the
 ## retros' downwash under the skirt — a column spreading as it goes down,
@@ -818,14 +870,19 @@ func _draw_fire(b: Basis) -> void:
 	xv = xv.normalized()
 	var zv := xv.cross(yv).normalized()
 	fire.transform = Transform3D(Basis(xv, yv, zv), Vector3.ZERO)
+	# VIOLENT: the sheath and the cap jump in size and lean every frame
+	var j := randf_range(0.8, 1.25)
+	var tl := TALL * 1.25 * j
+	fire_tail.scale = Vector3(HULL_R * randf_range(1.25, 1.5), tl, HULL_R * randf_range(1.25, 1.5))
+	fire_tail.position = Vector3(randf_range(-0.2, 0.2), tl * 0.5 - HULL_R * 0.1, randf_range(-0.2, 0.2))
+	fire_cap.scale = Vector3(HULL_R * randf_range(1.1, 1.4), HULL_R * randf_range(0.6, 0.9), HULL_R * randf_range(1.1, 1.4))
 	for m: ShaderMaterial in fire_mats:
 		m.set_shader_parameter("heat", heat)
 	heat_mat.set_shader_parameter("heat", heat)
-	fire_light.light_energy = heat * 8.0
+	fire_light.light_energy = heat * randf_range(6.0, 12.0)
 
-## The flames, each nozzle's as hard as it fired: the RCS a blue cone wide
-## at the nozzle and pointed out along the jet; the retros an orange plume
-## spreading out from the nozzle.
+## The jets, each nozzle's as hard as it fired: a chain of shock diamonds
+## out along the exhaust to a point, the RCS blue, the retros orange.
 func _draw_flames() -> void:
 	if flames == null:
 		return
@@ -838,21 +895,20 @@ func _draw_flames() -> void:
 			continue
 		mm.set_instance_transform(i, flame_transform(i, lv, randf_range(0.85, 1.15)))
 
-## nozzle i's flame at `lv` (0..1), `flicker` times its length: the cone's
-## +y (its point) turned out along the jet for the RCS (base at the
-## nozzle), back along it for the retros (point at the nozzle); the pod's
-## frame
+## nozzle i's jet at `lv` (0..1), `flicker` times its length, from the
+## nozzle out along its exhaust; the pod's frame
 func flame_transform(i: int, lv: float, flicker := 1.0) -> Transform3D:
 	var n: Dictionary = nozzles[i]
 	var rcs: bool = n.kind == "rcs"
 	# (an RCS jet a short one even fired lightly: it is seen to fire)
-	var length: float = (2.4 * (0.45 + 0.55 * lv) if rcs else 2.2 * lv) * flicker
-	var width: float = (0.6 if rcs else 0.5) * (0.6 + 0.4 * lv)
+	var length: float = (2.2 * (0.45 + 0.55 * lv) if rcs else 3.2 * lv) * flicker
+	var width: float = (0.5 if rcs else 0.6) * (0.7 + 0.3 * lv)
 	var d: Vector3 = n.dir
 	var look := Basis.looking_at(d, Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT)
-	var bz := look * Basis(Vector3.RIGHT, -PI / 2.0 if rcs else PI / 2.0)
+	# the jet's +y (nozzle to point) turned out along the exhaust
+	var bz := look * Basis(Vector3.RIGHT, -PI / 2.0)
 	bz = Basis(bz.x * width, bz.y * length, bz.z * width)
-	return Transform3D(bz, n.pos + d * length * 0.5)
+	return Transform3D(bz, n.pos)
 
 ## THE EYE BEHIND THE POD, third person: round it by the player's angle,
 ## up by their pitch, 14 m off, looking at its middle.

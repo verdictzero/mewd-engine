@@ -7,8 +7,8 @@
 ## inside, the door blown (and the candy girl in its way blown apart), the
 ## posts round the hull, the player standing on the deck and walking out
 ## of the door down onto the ground; and with a hand on the stick the pod
-## tilts, its RCS firing blue cones pointed out along the jet, FIRE
-## lighting the orange retros. And the exhaust's and the door's own work
+## tilts, its RCS firing blue jets of shock diamonds out along the
+## exhaust, FIRE lighting the orange retros. And the exhaust's and the door's own work
 ## on plants (VegDamage downwash, jet, sweep, clear), plant by plant.
 ##
 ##   godot --headless --script res://godot/tests/drop_test.gd -- --map=candyland
@@ -72,8 +72,8 @@ func _run() -> void:
 		if is_instance_valid(mi) and not mi.is_queued_for_deletion() and (mi as MeshInstance3D).get_aabb().size.length() < 0.5:
 			tiny += 1
 	check(tiny == 0, "the marker spheres are gone from the picture (%d left)" % tiny)
-	check(d.altitude() > 1500.0, "the pod comes in high over the island (%.0f m)" % d.altitude())
-	check(-d.vel.y > 250.0, "and fast, out of orbit (%.0f m/s)" % -d.vel.y)
+	check(d.altitude() > 1300.0, "the pod comes in high over the island (%.0f m)" % d.altitude())
+	check(-d.vel.y > 120.0, "and fast, out of orbit (%.0f m/s)" % -d.vel.y)
 	check(d.heat > 0.9, "in the reentry fire (%.2f)" % d.heat)
 	var p = game.player
 	check(absf(p.z - (d.pos + d.att * Vector3(0, DropPod.DECK, 0)).y * um) < 1.0, "the player rides in it, on its deck")
@@ -81,25 +81,35 @@ func _run() -> void:
 	# (in frames, the game ticking itself in its own time: the plants'
 	# tiles load round the eye as it comes down, as they do in play)
 	var t0: int = game.tics
+	var burn_start_tic := 0
 	var fastest := 0.0
 	var burned_at := -1.0
 	var last_heat := 1.0
 	var fire_out_at := -1.0
+	var fire_out_tic := -1
+	var burn_tics := 0
 	while d.phase == "drop" and game.tics - t0 < 60 * 35:
 		last_heat = d.heat
 		await process_frame
 		fastest = maxf(fastest, -d.vel.y)
 		if d.auto_burn and burned_at < 0.0:
 			burned_at = d.altitude()
+		if d.auto_burn:
+			burn_tics = game.tics - t0 - burn_start_tic
+		elif burned_at < 0.0:
+			burn_start_tic = game.tics - t0
 		if d.phase == "drop" and d.heat <= 0.0 and fire_out_at < 0.0:
 			fire_out_at = d.altitude()
+			fire_out_tic = d.ticks
 	var t: int = game.tics - t0
 	check(d.phase != "drop", "it comes down")
-	check(t < 16 * 35, "in %.1f s (it was forty)" % (t / 35.0))
-	check(fastest > 250.0 and fastest < 330.0, "falling at up to %.0f m/s" % fastest)
+	check(t > 15 * 35 and t < 32 * 35, "in %.1f s, at the original rate" % (t / 35.0))
+	check(fastest > 120.0 and fastest < 160.0, "falling at up to %.0f m/s at the top, then at terminal" % fastest)
 	check(d.max_heat > 0.9 and fire_out_at > 0.0 and last_heat <= 0.0,
 		"the reentry fire burned, and was out by %.0f m, before the ground" % fire_out_at)
-	check(burned_at > 0.0, "the autopilot lit the retros at %.0f m" % burned_at)
+	check(fire_out_tic > 0 and fire_out_tic <= int(3.2 * 35), "and it lasted %.1f s" % (fire_out_tic / 35.0))
+	check(burned_at > 190.0 and burned_at < 320.0, "the autopilot lit the retros at %.0f m (sooner than the first cut's 170)" % burned_at)
+	check(burn_tics < 9 * 35, "and the burn was over in %.1f s" % (burn_tics / 35.0))
 	check(d.touchdown_speed <= DropPod.DROP.land_speed + 1.0, "and landed at %.1f m/s" % d.touchdown_speed)
 	check(rad_to_deg(d.tilt()) < 20.0, "near enough level (%.0f degrees)" % rad_to_deg(d.tilt()))
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
@@ -147,10 +157,14 @@ func _run() -> void:
 		game.tic()
 	check(d.door_down, "the door is down on the ground")
 	check(not p.dead and p.health > 0, "and you are alive")
-	# OUT OF THE DOOR: turned to it and walking, down off the deck
+	# OUT OF THE DOOR: turned to it and walking, down off the deck — through
+	# the game's own tic, the key held, as the user plays (the pod kept
+	# putting the player back at its middle every tic: stuck in the pod)
 	p.angle = d.door_angle()
+	Input.action_press("fwd")
 	for k in 50:
-		p.tic(_cmd({"fwd": 1.0}))
+		game.tic()
+	Input.action_release("fwd")
 	var out_r := Vector2(p.x - gx, p.y - gy).length() / um
 	var f_here: float = game.level.floor_at(p.x, p.y)
 	check(out_r > DropPod.HULL_R + 0.3, "you walk out of the door (%.1f m from the middle)" % out_r)
@@ -223,12 +237,12 @@ func _run() -> void:
 		var tf: Transform3D = d.flame_transform(i, d.fired[i])
 		if tf.basis.y.normalized().dot(d.nozzles[i].dir) < 0.95:
 			out_ok = false
-		if (tf.origin - d.nozzles[i].pos).dot(d.nozzles[i].dir) <= 0.0:
+		if (tf.origin - d.nozzles[i].pos).length() > 1e-3:
 			out_ok = false
 		var c: Color = DropPod._flame_color(d.nozzles[i].kind)
 		if not (c.b > c.r and c.a < 0.5):
 			blue = false
-	check(lit > 0 and out_ok, "the RCS cones' points out along the jet, their bases at the nozzles (%d lit)" % lit)
+	check(lit > 0 and out_ok, "the RCS jets out along the exhaust from the nozzles (%d lit)" % lit)
 	check(lit > 0 and blue, "and blue")
 	var v0: float = d.vel.y
 	for k in 20:
@@ -240,9 +254,25 @@ func _run() -> void:
 			continue
 		var tf: Transform3D = d.flame_transform(i, 1.0)
 		var c: Color = DropPod._flame_color("retro")
-		if tf.basis.y.normalized().dot(d.nozzles[i].dir) > -0.95 or not (c.r > c.b and c.a > 0.5):
+		if tf.basis.y.normalized().dot(d.nozzles[i].dir) < 0.95 or not (c.r > c.b and c.a > 0.5):
 			back_ok = false
-	check(back_ok, "the retros orange plumes spreading from the nozzle, as they were")
+	check(back_ok, "the retros' jets out along their exhaust too, orange")
+	var jet: ArrayMesh = DropPod._jet_mesh()
+	var arr: Array = jet.surface_get_arrays(0)
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var widest := 0.0
+	var waists := 0
+	var last_r := -1.0
+	var falling := false
+	for i in range(0, verts.size(), DropPod.JET_SEGS + 1):
+		var r := Vector2(verts[i].x, verts[i].z).length()
+		widest = maxf(widest, r)
+		if last_r >= 0.0 and r > last_r + 1e-4 and falling:
+			waists += 1
+		falling = last_r >= 0.0 and r < last_r - 1e-4
+		last_r = r
+	check(waists == DropPod.DIAMONDS - 1 and verts[verts.size() - 1].y == 1.0 and Vector2(verts[verts.size() - 1].x, verts[verts.size() - 1].z).length() < 1e-4,
+		"a jet is a chain of %d diamonds ending in a point (%d waists)" % [DropPod.DIAMONDS, waists])
 	print("drop: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)
 

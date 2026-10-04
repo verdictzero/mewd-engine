@@ -1,52 +1,58 @@
-// MEWD — THE DROP POD'S THRUSTER FLAMES (DropPod `flames`): a cone per
-// nozzle, all in one MultiMesh. The cone is CylinderMesh's, its point at
-// local +y; the instance colour is the flame's colour (rgb) and, in its
-// alpha, which end of the cone the nozzle is at:
-//   0  the cone's BASE — the RCS, at the user's request ("rcs thruster
-//      cones need to be reversed / blue shifted", "i want rcs flames to
-//      end in a point"): wide at the nozzle, narrowing to a sharp point
-//      out along the jet, and blue
-//   1  the cone's POINT — the retros, as they were: a plume spreading out
-//      from the nozzle, orange
-// Pale at the nozzle, the flame's own colour deepening further out, gone
-// at the far end; soft at the cone's sides (thickest seen through its
-// middle). MIXED, NOT ADDED, so it keeps its colour against the bright sky
-// (added, a blue jet over the sky is white). Unlit, no depth written.
+// MEWD — THE DROP POD'S THRUSTER JETS (DropPod `flames`): one mesh for
+// every nozzle in one MultiMesh, the mesh a chain of SHOCK DIAMONDS
+// (DropPod._jet_mesh, at the user's request: "tight mach diamonds with
+// appropriate color shift for all thrusters") — the silhouette is the
+// mesh's; this paints it. UV.y is the way along the jet, 0 at the nozzle
+// and 1 at its point; the instance colour is the exhaust's colour (rgb)
+// and, in its alpha, the kind: 0 the RCS (blue), 1 the retros (orange).
+// THE COLOUR SHIFT along the jet is a real exhaust's: hottest, and
+// white-blue, where it leaves the nozzle; the exhaust's own colour in
+// the bellies; and reddening and darkening toward the end as it cools,
+// every shock (each waist, where the diamonds meet) a bright pale flash
+// where the gas is compressed and hot again. The RCS, cold gas, runs
+// white to blue to violet instead. Mixed, not added (against the bright
+// sky an added jet is white); unlit, no depth written.
 shader_type spatial;
 render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, shadows_disabled;
 
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
+uniform float diamonds = 5.0;
+
 varying float along;
 varying vec4 tint;
 
 void vertex() {
-	// the cone runs -0.5 (its base) to +0.5 (its point) in local y
-	along = VERTEX.y + 0.5;
+	along = UV.y;
 	tint = COLOR;
 }
 
 void fragment() {
-	// how far out from the nozzle, 0 at it, 1 at the flame's far end
-	float out_k = tint.a > 0.5 ? 1.0 - along : along;
-	// a pale core at the nozzle, the flame's own colour deepening out along
-	// it: a blue jet has to be darker than the sky it is seen against, and
-	// its core lighter, to be seen at all
-	float core = 1.0 - smoothstep(0.0, 0.3, out_k);
-	vec3 pale = mix(tint.rgb, vec3(1.0), 0.5);
-	vec3 deep = tint.rgb * mix(1.0, 0.6, smoothstep(0.3, 1.0, out_k));
-	vec3 col = mix(deep, pale, core);
-	float face = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float a;
+	float k = along;
+	// the waists: the shocks, 1 at each, 0 in the bellies
+	float tri = 1.0 - abs(fract(k * diamonds) * 2.0 - 1.0);
+	float shock = pow(1.0 - tri, 4.0);
+	vec3 col;
 	if (tint.a > 0.5) {
-		// a retro's plume fades out as it spreads
-		a = pow(1.0 - out_k, 0.6) * (0.55 + 0.45 * face) * 1.4;
+		// hot exhaust: white-blue at the nozzle, orange, then red and dark
+		vec3 hot = vec3(0.85, 0.92, 1.0);
+		vec3 cool = vec3(0.55, 0.08, 0.02);
+		col = mix(hot, tint.rgb, smoothstep(0.0, 0.25, k));
+		col = mix(col, cool, smoothstep(0.45, 1.0, k));
 	} else {
-		// an RCS jet ENDS IN A POINT (at the user's request): solid all the
-		// way out, so the cone's own point is the jet's end, not a fade
-		a = (1.0 - 0.3 * smoothstep(0.55, 1.0, out_k)) * (0.75 + 0.25 * face);
+		// cold gas: white at the nozzle, blue, then violet and dim
+		vec3 hot = vec3(0.95, 0.97, 1.0);
+		vec3 cool = vec3(0.35, 0.1, 0.6);
+		col = mix(hot, tint.rgb, smoothstep(0.0, 0.3, k));
+		col = mix(col, cool, smoothstep(0.5, 1.0, k));
 	}
+	// every shock a pale flash, dimmer down the jet
+	col = mix(col, vec3(1.0, 0.98, 0.95), shock * (0.9 - 0.5 * k));
+	// solid to the point (the mesh ends in one), a little thinner at the
+	// edges seen edge on
+	float face = abs(dot(normalize(NORMAL), normalize(VIEW)));
+	float a = (0.8 + 0.2 * face) * (1.0 - 0.35 * smoothstep(0.7, 1.0, k));
 	ALBEDO = col;
 	ALPHA = clamp(a, 0.0, 0.97);
 	// the thermal sight sees only people

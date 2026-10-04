@@ -2064,6 +2064,62 @@ THE DROP, SMALLER, FASTER, ON FIRE
   the retros back at the nozzle, orange. candy_shot --drop --stick holds
   the stick all the way down, for a picture of the RCS firing.
 
+THE DROP, ROUND THREE: THE ORIGINAL FALL, THREE SECONDS OF FIRE, MACH
+DIAMONDS, AND OUT OF THE DOOR
+
+  At the user's request: "reentry animation needs to be lower res,
+  faster, shallower, more violent, particles, only last for like 3
+  seconds; slow the whole descent down to the original rate, but make
+  the auto landing threshold sooner and faster than it was in the first
+  iteration; tight mach diamonds with appropriate colour shift for all
+  thrusters; on landing the player is stuck in the pod, can't exit".
+
+  STUCK IN THE POD: the pod's tic ended by putting the player where the
+  pod is, every tic, in every phase — the door blown included. So a
+  step toward the door was undone the same tic. The test had not seen
+  it because it walked the player directly, not through the game's tic;
+  it walks through the game's tic now, the key held (Input.action_press),
+  and the pod leaves the player alone once the door is off.
+
+  THE FALL AS IT WAS: drag for a terminal 70 m/s again, from 1400 m, but
+  coming in at 140 m/s — twice terminal — which the air takes down to
+  terminal over the first few seconds; about 20 s to the ground. THE
+  BURN SOONER AND HARDER than the first cut's (lit at 170 m, then a
+  crawl): the retros at 6 m/s^2 a nozzle (two g net) and the autopilot
+  planning on 0.55 of that, the burn lights near 230 m and is over in
+  under seven seconds, touching down at about 3 m/s.
+
+  THREE SECONDS OF FIRE: the reentry fire's heat is the speed's (over
+  terminal) AND the clock's — full for the first 2.2 s, out by 3 s,
+  never after (DROP.fire_secs, fire_fade; DropPod._heat_of). Lower res:
+  the shader reads its noise on a grid of 14 cells round and a few
+  along, stepped to four levels, at 24 frames a second — blocks that
+  flip, not a roil (reentry.gdshader CELLS, LEVELS); the meshes have a
+  third of the segments. Shallower: the sheath reaches only a little
+  past the hull's top, and is wider at the top than the hull, or the
+  depth test hid it inside (the first cut tapered it into the hull).
+  More violent: the sheath and the cap jump in size and lean every
+  frame, the light flickers, whole cells blink. Particles: a shower of
+  sparks off the shield every tic, a fireball and a puff of smoke left
+  behind it every tic.
+
+  MACH DIAMONDS ON EVERY THRUSTER: the jet is a mesh now, not a cone —
+  a surface of revolution along the exhaust, DropPod.DIAMONDS (5)
+  diamonds joined at narrow waists, tapering to a point, eight sides
+  round (DropPod._jet_mesh, JET_SEGS, DIAMOND_WAIST). One mesh for every
+  nozzle in the one MultiMesh, scaled to the firing: an RCS jet 2.2 m
+  long at full and never under half, a retro's 3.2 m. The shader paints
+  the colour shift of a real exhaust along it (pod_flame.gdshader, UV.y
+  the way along): hottest and white-blue leaving the nozzle, the
+  exhaust's own colour in the bellies — orange for the retros, blue for
+  the RCS — reddening and darkening toward the end (the RCS, cold gas,
+  to violet), and every waist a pale flash where the shock heats the gas
+  again, dimmer down the jet. drop_test checks the mesh is a chain of
+  five diamonds ending in a point.
+
+  The dust under a burn near the ground is less (the pod is under 14 m
+  for longer now, and the puffs gathered into a cloud over it).
+
 TESTS
 
     tools/godot-test.sh
