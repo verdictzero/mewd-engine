@@ -1209,7 +1209,8 @@ CANDY LAND
   seed (before this the shoppers were all one).
 
   The pictures: godot/tests/candy_shot.gd (the girls come to you, the
-  sun, --scare, --road, --house). The test: godot/tests/candy_test.gd.
+  sun, --scare, --road, --house, --edge, --cliff, --blast, --wound,
+  --above). The test: godot/tests/candy_test.gd.
 
 THE GINGERBREAD HOUSES
 
@@ -1320,6 +1321,30 @@ THE EDGE OF THE ISLAND: GRASS TO THE LIP, ROCK BELOW
       ground's own grass, hanging over the lip with a scalloped hem.
       Every other island leaves turf_depth at 0, rock to the top.
 
+  THEN, AT THE USER'S REQUEST, THE STONE RIGHT UP TO THE TOP ("the stone
+  comes right up to where the slope on the edge of the island ends, then
+  a fast change to grass, then another layer where the island's height
+  just fades to the darkest grey of the cloud sea"):
+    - The island's shoulder (the top 28 m of its side) is ground, drawn
+      by the terrain shader, and it had the grass stretched down it. The
+      terrain shader's new STEEP STONE paints any ground steeper than
+      0.30 (1 - normal.y) with the wall's own stone (same texture, scale,
+      tint, mean and contrast as MAT_candy_cliff's rock), whole by 0.36:
+      a narrow band, so the stone stops sharply where the slope flattens
+      out onto the top, and the grass starts there. The town squares'
+      cut banks are stone too.
+    - No grass hangs over the lip any more (turf_depth 0).
+    - THE DEEP GREY: the stone, on the shoulder and on the wall alike,
+      fades after its light to the cloud sea's darkest grey (deep_color,
+      about the darkest the deck reads on screen) from 40 m over the
+      sea's surface down to 14 m over it, and the sea veil under that is
+      the same grey, so the side ends in it. Both shaders take the band
+      by the same numbers (deep_top, deep_bottom / sea_fade_above), so
+      it runs straight through the seam where the wall takes over.
+    - Shader and material changes only: no island needed baking again.
+    - The picture: candy_shot.gd --cliff (and --far), from out in the air
+      off the coast, looking back at the side.
+
 PLANTS AND LAMPS STAND IN THE GROUND
 
   At the user's request ("make sure tree and lamp sprites intersect the
@@ -1361,12 +1386,14 @@ THE THERMAL SIGHT: ONLY PEOPLE ARE HOT
   The launcher's seeker is unchanged: it still locks running vehicles
   (MissileSystem.is_hot), even though they now look cold.
 
-ROUNDS TAKE BITES: HOLES, PIECES AND A GREAT DEAL OF BLOOD
+ROUNDS TAKE BITES: PIECES AND A GREAT DEAL OF BLOOD
 
   At the user's request ("I want stuff like the minigun to blow holes in
   sprites, before destroying them ... with people and creatures, chunks
   taken out of sprites shooting copious campy amounts of blood
-  particles, eventually leading to their death / explosion").
+  particles, eventually leading to their death / explosion"); then,
+  backing up, at the user's request again: NO HOLES in anything, the
+  pieces and the blood and the gore kept.
 
   A ROUND IS A BITE (Actor.damage, "wounds" in States). A person, a
   trooper, a unicorn, a foal or a street lamp takes a fixed number of
@@ -1382,17 +1409,14 @@ ROUNDS TAKE BITES: HOLES, PIECES AND A GREAT DEAL OF BLOOD
   finishes a body blows it apart: the gib death, never the fall.
 
   EACH BITE (Game.wound, from where Game.hitscan saw the round go in):
-    - A HOLE in the picture, where it went in, as the one who fired saw
-      it (Actor.take_hole, the latest 8). Standees keeps a little table
-      of them per strip, 8 texels a slot, and standee.gdshader cuts them
-      out ragged, with a wet red rim on a body and a scorched one on
-      anything else.
     - THE PIECE that was there flies off the way the round was going: a
       ragged card cut from the sprite's own picture, run red at its
-      edge (SpriteChunks).
+      edge (SpriteChunks). The sprite itself stays whole: no hole is
+      cut in it (the holes table and the shader's cut-outs are gone).
     - BLOOD, campy: a gout along the round's way, a burst every way from
-      the hole and a mist. Then the body keeps spurting out of its holes
-      for two seconds after (Game.bleeders, at most 48 bodies at once).
+      where it went in and a mist. Then the body keeps spurting from
+      where the rounds went in (Actor.bites_at, the last six) for two
+      seconds after (Game.bleeders, at most 48 bodies at once).
   A lamp throws its piece and a few sparks instead.
 
   THE END: a body blown apart throws pieces of its own picture as well
@@ -1401,59 +1425,71 @@ ROUNDS TAKE BITES: HOLES, PIECES AND A GREAT DEAL OF BLOOD
 
   THE PIECES (render/sprite_chunks.gd, shaders/sprite_chunk.gdshader)
   are cards cut from a picture: a strip's cell or a plant's sprite.
-  They tumble, bounce on the ground, come to rest and dissolve away.
-  There is one MultiMesh per picture, so a tree in a hundred pieces is
-  one draw, and at most 700 pieces in all (the oldest go first).
+  They tumble, bounce on the ground, come to rest and go. There is one
+  MultiMesh per picture, so a tree in eighty pieces is one draw, and at
+  most 1200 pieces in all; when it is full, the eighth of them with the
+  least life left go at once (one walk, not one a piece).
+  THEY GO THE WAY A PLANT GOES (at the user's request): fading away is
+  the same ordered 4x4 Bayer screen door the plants' near fade dithers
+  with, not a random speckle, and a PLANT'S piece also dithers out near
+  the eye as the plants do (gone inside 1.5 m, whole past 4 m). A body's
+  pieces do not near-fade.
 
-THE PLANTS: BLOWN UP, SET ALIGHT, SHOT THROUGH
+THE PLANTS AND THE GRASS: SHREDDED
 
-  At the user's request ("reintroduce burning vegetation and fire
-  spread in a controlled, efficient way: vegetation hit by explosives
-  like the rocket blows up in chunks, stops existing, and the
-  surrounding vegetation goes alight and spreads, to a point, and
-  eventually self-extinguishes"). See game/veg_damage.gd.
+  At the user's request ("vegetation hit by explosives like the rocket
+  blows up in chunks and stops existing"); then, backing up, at the
+  user's request: NO FIRE and NO HOLES — plants shredded into pieces of
+  themselves, the big ones into more and smaller pieces, and the weapons
+  shredding the grass too. See game/veg_damage.gd.
 
   The island's trees, bushes and ferns are the plant scatter's
   (SCRIPT_veg_scatter.gd). VegDamage does not keep a plant list of its
   own, and does not change how the scatter places anything: an edit to
   that file would throw away every island's plant bake. It finds the
   rows near a point in the scatter's live tile buffers (indexed in 8 m
-  buckets, built once per tile) and rewrites just those rows. Each
-  row's custom vec4 is shared with SHADER_veg_billboard:
-    x  the crash-site burn it always had
-    y  DAMAGE, 0 to 1: the shader cuts that many holes in it, with
-       scorched rims
-    z  when it caught, on the new `veg_clock` global (seconds)
-    w  how long it burns
-  A plant blown away has its row scaled to nothing. Every change is
-  also kept and put back if the tile is ever built again.
+  buckets, built once per tile) and rewrites just those rows. A plant
+  shredded has its row scaled to nothing; the rounds a plant has taken
+  are counted in its row's custom .y, which nothing draws. Every change
+  is also kept and put back if the tile is ever built again.
 
   A BLAST (a rocket, the potato cannon's nuke at twice the reach, any
-  Game.explode):
-    - the plants inside 45% of its reach are blown to pieces of their
-      own picture (SpriteChunks) with a puff, and are gone;
-    - of the plants out to 125% of its reach, 40% catch fire (15 at
-      most, so the fire has its budget left to spread).
-  THE FIRE IS THE GPU'S TO DRAW. A plant that catches has its row
-  written once. The shader then runs it through green, scorched,
-  alight and charred on the clock, and it comes partly down as the fire
-  goes out. Trees burn 16 to 24 s, bushes 9 to 13 s, ferns 5 to 8 s.
-  VEGDAMAGE ONLY SPREADS IT. Every 18 tics, a plant that is properly
-  alight sets fire to each neighbour within 5.5 m at 30% odds. Each fire
-  has a budget of 70 plants and a limit of six hops from the blast, so
-  it spreads to a point and then burns itself out. Smoke and embers
-  come off the burning plants nearest you, a few a tic. Anybody stood
-  in a fire catches.
+  Game.explode): the plants inside 45% of its reach are shredded into
+  pieces of their own picture (SpriteChunks) with a puff, and are gone.
+  HOW MANY PIECES (VegDamage.pieces_for): about one for every 0.6 m
+  square of the plant, 6 at least and 80 at most, so a fern goes to a
+  handful, a tall tree to eighty, and every plant's pieces come out
+  about the same small size. Nothing is set alight (the plant fire, its
+  spread and the `veg_clock` global are gone; the shader's crash-site
+  burn is untouched).
 
   A ROUND (Game.hitscan) that meets a tree or a bush before anything
   else goes into it (VegDamage.ray, the plants as upright cylinders
-  walked bucket by bucket along the line). It shoots the plant through
-  a little more and throws a scrap of it. Past fully shot through, the
-  plant is blown to pieces.
+  walked bucket by bucket along the line). It throws a scrap of the
+  plant and counts against it; about nine of them shred it.
 
-  NOT YET: the grass (its own scatter) does not burn or take holes.
+  THE GRASS (SCRIPT_grass_scatter.gd `mow`): a blast that goes off near
+  the ground mows the tufts inside 60% of its reach, and a round into
+  the ground the tufts within 0.55 m of where it went in; each tuft cut
+  (24 at most a time) is thrown as a few pieces of its own picture. The
+  grass scatter keeps what has been cut as circles of ground (4000 at
+  most), not as marks on rows, because its tiles are pruned and rebuilt
+  as you move: every tile is cut by them as it is built, so mown ground
+  stays mown.
 
   The test: godot/tests/damage_test.gd.
+
+BIG MARKS IN COARSE SQUARES
+
+  At the user's request ("make weapon impact decals, especially the
+  larger ones, lower res; leave bullet holes alone"): the rocket's
+  crater and soot, the potato's glass and the arc's burns
+  (blast_decal.gdshader), the lance's sear and slag (sear_decal), and
+  the flamer's scorch and hot spot (decal.gdshader, kinds 3 and 4) are
+  drawn in coarse squares, as if each were a little texture laid with
+  no filtering: 32 squares across a blast or a sear, 12 across a
+  scorch (the `texels` uniform; 0 turns it off). Bullet holes and blood
+  are as they were.
 
 
 TESTS

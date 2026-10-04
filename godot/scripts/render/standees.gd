@@ -49,17 +49,10 @@ class Strip:
 	var cell := Vector2.ONE
 	## the strip's picture, for the pieces torn out of it (SpriteChunks)
 	var tex: Texture2D
-	## THE HOLES (Actor.holes): a row of Actor.HOLES texels a slot, each
-	## (across, up, radius, 0) in units, read by standee.gdshader
-	var holes: Image
-	var holes_tex: ImageTexture
-	var holes_dirty := false
 
 var strips := {}
 ## actor id -> [strip key, slot]
 var slots := {}
-## actor id -> the holes_rev its holes were last written at
-var _hole_rev := {}
 var _last_tic := -1
 ## how many rows were written last tic (for the frame-rate readout)
 var written := 0
@@ -109,9 +102,6 @@ func _strip(key: String, path: String, cell: Vector2, texel := Vector2.ZERO) -> 
 	mat.set_shader_parameter("cells", U.col(float(s.cells)))
 	mat.set_shader_parameter("cell", U.col(cell))
 	quad.surface_set_material(0, mat)
-	s.holes = Image.create_empty(Actor.HOLES, 64, false, Image.FORMAT_RGBAF)
-	s.holes_tex = ImageTexture.create_from_image(s.holes)
-	mat.set_shader_parameter("holes", s.holes_tex)
 	s.mm = MultiMesh.new()
 	s.mm.transform_format = MultiMesh.TRANSFORM_3D
 	s.mm.use_custom_data = true
@@ -206,12 +196,6 @@ func _alloc(s: Strip) -> int:
 		s.rows.resize(s.cap * 16)
 		for j in range(s.high * 16, s.cap * 16):
 			s.rows[j] = 0.0
-		if s.holes.get_height() < s.cap:
-			var grown := Image.create_empty(Actor.HOLES, s.cap, false, Image.FORMAT_RGBAF)
-			grown.blit_rect(s.holes, Rect2i(0, 0, Actor.HOLES, s.holes.get_height()), Vector2i.ZERO)
-			s.holes = grown
-			s.holes_tex = ImageTexture.create_from_image(s.holes)
-			(s.mm.mesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter("holes", s.holes_tex)
 	s.high += 1
 	return s.high - 1
 
@@ -228,12 +212,6 @@ func _drop(aid: int) -> void:
 	s.free.append(i)
 	s.dirty = true
 	slots.erase(aid)
-	# and its holes, so the next one in the slot is whole
-	if _hole_rev.has(aid):
-		_hole_rev.erase(aid)
-		for k in Actor.HOLES:
-			s.holes.set_pixel(k, i, Color(0, 0, 0, 0))
-		s.holes_dirty = true
 
 ## Once a tic (a second call in the same tic does nothing): every row
 ## that is due, written; the strips that changed, uploaded. `look`, the
@@ -313,23 +291,12 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 		rows[i + 12] = float(c[1]) + ice * 0.9; rows[i + 13] = light; rows[i + 14] = sky; rows[i + 15] = flags
 		s.dirty = true
 		written += 1
-		# THE HOLES, when it has a new one (or a slot of its own to put them in)
-		if a.holes_rev != int(_hole_rev.get(aid, 0)):
-			_hole_rev[aid] = a.holes_rev
-			var slot: int = sl[1]
-			for k in Actor.HOLES:
-				var h: Vector3 = a.holes[k] if k < a.holes.size() else Vector3.ZERO
-				s.holes.set_pixel(k, slot, Color(h.x, h.y, h.z, 0.0))
-			s.holes_dirty = true
 	# the gone and the far: their rows scaled away
 	for aid in slots.keys():
 		if not seen.has(aid):
 			_drop(aid)
 	for k in strips:
 		var s: Strip = strips[k]
-		if s.holes_dirty:
-			s.holes_dirty = false
-			s.holes_tex.update(s.holes)
 		if not s.dirty:
 			continue
 		s.dirty = false

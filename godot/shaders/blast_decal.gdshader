@@ -27,6 +27,10 @@ render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_p
 #include "res://godot/shaders/thermal.gdshaderinc"
 
 uniform float now = 0.0;
+// LOW RES, at the user's request (the big marks; a bullet hole stays as
+// it is): the mark's picture drawn in this many squares across, each one
+// colour, as if it were a little texture laid with no filtering. 0 off.
+uniform float texels = 32.0;
 // (no bake for these: always projected)
 const float bake_part = -1.0;
 #include "res://godot/shaders/decal_project.gdshaderinc"
@@ -123,6 +127,7 @@ float branches(vec2 p, float n, float r0, float len, float w, float seed) {
 void fragment() {
 	// on the surface inside its box, or nothing (decal_project.gdshaderinc)
 	DECAL_FRAGMENT
+	if (texels > 0.0) duv = (floor(duv * texels) + 0.5) / texels;
 	vec2 p = vec2(duv.x * 2.0 - 1.0, 1.0 - duv.y * 2.0);
 	float r = length(p);
 	float ang = atan(p.y, p.x);

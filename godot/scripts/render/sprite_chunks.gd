@@ -13,7 +13,8 @@ class_name SpriteChunks
 extends Node3D
 
 ## how many pieces at once, all pictures together: the oldest go first
-const MOST := 700
+## (a big tree is eighty of them, VegDamage.pieces_for)
+const MOST := 1200
 const GRAVITY := -0.5
 const DRAG := 0.985
 ## a bounce keeps this much of the fall, and the ground's grip this much
@@ -61,6 +62,8 @@ func _pool(tex: Texture2D, srgb: bool) -> Pool:
 	mat.shader = preload("res://godot/shaders/sprite_chunk.gdshader")
 	mat.set_shader_parameter("picture", tex)
 	mat.set_shader_parameter("srgb", srgb)
+	# (a plant's pieces, the sRGB pictures, fade out near the eye as plants do)
+	mat.set_shader_parameter("near_fade", srgb)
 	var mesh: ArrayMesh = _quad.duplicate()
 	mesh.surface_set_material(0, mat)
 	p.mm = MultiMesh.new()
@@ -127,19 +130,23 @@ func burst(tex: Texture2D, uv: Rect2, at: Vector3, w: float, h: float, from: Vec
 			# a little bigger than its cell, so the ragged edges overlap
 			spawn(tex, r, c, pw * 1.25, ph * 1.25, v, 120, wet, srgb)
 
+## Full: the eighth of the pieces with the least life left go, all at
+## once (one walk over them, not one a spawn — a blast in a wood throws
+## hundreds).
 func _drop_oldest() -> void:
-	# the piece with the least life left, across every picture
-	var best: Pool = null
-	var bi := -1
-	var least := 1 << 30
+	var lives := PackedInt32Array()
 	for p in pools.values():
-		for i in (p as Pool).life.size():
-			if p.life[i] < least:
-				least = p.life[i]
-				best = p
-				bi = i
-	if best != null:
-		_remove(best, bi)
+		lives.append_array((p as Pool).life)
+	if lives.is_empty():
+		return
+	lives.sort()
+	var cut: int = lives[mini(lives.size() - 1, MOST / 8)]
+	for p in pools.values():
+		var i: int = p.life.size() - 1
+		while i >= 0:
+			if p.life[i] <= cut:
+				_remove(p, i)
+			i -= 1
 
 func _remove(p: Pool, i: int) -> void:
 	var last := p.pos.size() - 1

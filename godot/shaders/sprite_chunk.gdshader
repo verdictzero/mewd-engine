@@ -7,7 +7,10 @@
 //   basis y.y    how wet: 0 its own colours .. 1 run red (a body's piece)
 //   custom       the rectangle of the picture it was cut from (u0, v0, du, dv)
 // and the piece is cut ROUND, ragged at the edge, so it reads as torn and
-// not as a square of picture.
+// not as a square of picture. It goes the way a plant goes (at the user's
+// request, SHADER_veg_billboard's screen door): fading away and, a plant's
+// piece, close to the eye, it dithers out through the same ordered 4x4
+// Bayer matrix the plants' near fade does, not a speckle.
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 
@@ -17,6 +20,24 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 uniform sampler2D picture : filter_nearest_mipmap;
 // 1: the picture is sRGB as loaded (a plant's); 0: decoded already (a strip's)
 uniform bool srgb = false;
+// A PLANT'S PIECE fades out close to the eye as the plants do (metres: gone
+// inside `near_gone`, whole past `near_solid`); a body's piece does not
+uniform bool near_fade = false;
+uniform float near_gone = 1.5;
+uniform float near_solid = 4.0;
+
+// SHADER_veg_billboard.gdshader's Bayer matrix, entry for entry
+const float bayer[16] = float[](
+	0.0, 8.0, 2.0, 10.0,
+	12.0, 4.0, 14.0, 6.0,
+	3.0, 11.0, 1.0, 9.0,
+	15.0, 7.0, 13.0, 5.0);
+
+float bayer4(vec2 fragcoord) {
+	int x = int(mod(fragcoord.x, 4.0));
+	int y = int(mod(fragcoord.y, 4.0));
+	return bayer[x + y * 4] / 16.0;
+}
 
 varying float depth;
 varying float gone;
@@ -57,8 +78,15 @@ void fragment() {
 	vec4 c = texture(picture, UV);
 	if (srgb) c.rgb = mix(c.rgb / 12.92, pow((c.rgb + 0.055) / 1.055, vec3(2.4)), step(0.04045, c.rgb));
 	if (c.a < 0.5) discard;
-	// fading away: a dissolve, not a blend
-	if (fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453) < gone) discard;
+	// fading away, and a plant's piece near the eye: the screen door
+	float vis = 1.0 - gone;
+	if (near_fade) {
+		// (the depth in metres whichever world it is: the island is drawn
+		// in metres, a map in the game's units, 32 to the metre)
+		float m = game_unit < 0.5 ? depth : depth / 32.0;
+		vis *= smoothstep(near_gone, near_solid, m);
+	}
+	if (bayer4(FRAGCOORD.xy) >= vis) discard;
 	// a body's piece runs red, darkest at its torn edge
 	float rim = smoothstep(edge - 0.3, edge, length(local));
 	c.rgb = mix(c.rgb, mix(vec3(0.32, 0.0, 0.0), vec3(0.12, 0.0, 0.0), rim), wet * (0.35 + 0.6 * rim));

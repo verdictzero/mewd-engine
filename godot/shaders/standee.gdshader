@@ -23,13 +23,6 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 uniform sampler2D strip : filter_nearest_mipmap;
 uniform float cells = 1.0;
 uniform vec2 cell = vec2(40.0, 64.0);
-// THE HOLES SHOT THROUGH IT (Actor.holes, Standees): a row of 8 texels
-// for every slot, each (across, up, radius) in units on the card
-uniform sampler2D holes : filter_nearest;
-
-varying flat int slot;
-// where on the card this is, in units from the feet
-varying vec2 on_card;
 
 varying float depth;
 varying float light;
@@ -72,8 +65,6 @@ void vertex() {
 	// draws nothing. Without it the last frame of the dead stayed standing
 	// where they fell until the slot was wanted again.
 	float shown = length(MODEL_MATRIX[1].xyz);
-	slot = INSTANCE_ID;
-	on_card = vec2(VERTEX.x * cell.x, VERTEX.y * cell.y);
 	vec3 world = feet + (right * VERTEX.x * cell.x + vec3(0.0, VERTEX.y * cell.y, 0.0)) * shown;
 	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
 	depth = -VERTEX.z;
@@ -86,20 +77,6 @@ void vertex() {
 void fragment() {
 	vec4 c = texture(strip, UV);
 	if (c.a < 0.5) discard;
-	// SHOT THROUGH: nothing inside a hole, and a ragged wet rim round it —
-	// red on a body, scorched on anything else
-	float wound = 0.0;
-	for (int k = 0; k < 8; k++) {
-		vec4 h = texelFetch(holes, ivec2(k, slot), 0);
-		if (h.z <= 0.0) continue;
-		vec2 d = on_card - h.xy;
-		float a = atan(d.y, d.x);
-		float r = h.z * (0.85 + 0.2 * sin(a * 5.0 + h.x) + 0.1 * sin(a * 9.0 + h.y));
-		float l = length(d);
-		if (l < r) discard;
-		wound = max(wound, 1.0 - smoothstep(r, r * 1.7, l));
-	}
-	if (wound > 0.0) c.rgb = mix(c.rgb, mix(vec3(0.05, 0.04, 0.03), vec3(0.35, 0.01, 0.01), warm), wound * 0.85);
 	// FROZEN: a colour map and not a tint (js/material.js FROST) — the
 	// drawing's luminance kept and run up a ramp from a shadowed blue to a
 	// pale lit one, so every coat comes out the same ice at its own

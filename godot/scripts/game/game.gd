@@ -78,9 +78,9 @@ var fx: Effects
 var giblets: Giblets
 ## pieces torn out of sprites (render/sprite_chunks.gd)
 var chunks: SpriteChunks
-## the island's plants shot, blown up and burnt (game/veg_damage.gd)
+## the island's plants and grass shot and blown to pieces (game/veg_damage.gd)
 var veg_damage: VegDamage
-## WHO IS BLEEDING from the holes in them, and for how many tics more
+## WHO IS BLEEDING from where the rounds went in, and for how many tics more
 ## (Game.wound): actor -> tics
 var bleeders := {}
 const BLEED_TICS := 70
@@ -271,8 +271,9 @@ func start_map(which: String) -> void:
 	add_child(chunks)
 	if island != null:
 		var scatter = VegDamage.find_scatter(island)
-		if scatter != null:
-			veg_damage = VegDamage.new(self, scatter)
+		var grass = VegDamage.find_grass(island)
+		if scatter != null or grass != null:
+			veg_damage = VegDamage.new(self, scatter, grass)
 	trophies = Trophies.new(self)
 	add_child(trophies)
 	beam = BeamSystem.new(self)
@@ -852,11 +853,11 @@ func _burst_picture(a: Actor, pieces: int, force: float, wet: float) -> void:
 
 ## A ROUND TAKES A BITE (at the user's request: "chunks taken out of
 ## sprites that are shooting copious campy amounts of blood"): where it
-## went in (`opts.at`, along `opts.dir`, Game.hitscan) a hole is cut in
-## the picture (Actor.take_hole, drawn by Standees), the piece that was
-## there flies off (SpriteChunks), and a body throws out a great deal of
-## blood — a gout out of the hole and on through it, a mist, and a run
-## of spurts after (bleeders). A lamp throws its piece and a spark.
+## went in (`opts.at`, along `opts.dir`, Game.hitscan) a piece of the
+## picture flies off (SpriteChunks) — the picture itself stays whole, no
+## hole is left in it (at the user's request) — and a body throws out a
+## great deal of blood: a gout on along the round's way, a mist, and a
+## run of spurts after (bleeders). A lamp throws its piece and a spark.
 func wound(a: Actor, opts: Dictionary) -> void:
 	var at: Vector3 = opts.get("at", Vector3(a.x, a.y, a.z + a.height * 0.6))
 	var dir: Vector3 = opts.get("dir", Vector3(cos(a.angle), sin(a.angle), 0.0))
@@ -868,7 +869,9 @@ func wound(a: Actor, opts: Dictionary) -> void:
 	var up := clampf(at.z - a.z, 2.0, a.height + 6.0)
 	var body: bool = a.monster or a.puppet
 	var r := randf_range(3.0, 5.5) * (a.radius / 18.0 if body else 1.0)
-	a.take_hole(across, up, r)
+	if a.bites_at.size() >= 6:
+		a.bites_at.remove_at(0)
+	a.bites_at.append(Vector2(across, up))
 	# the piece that was there, thrown on the way the round was going
 	if chunks != null and standees != null and camera != null:
 		var pic: Dictionary = standees.picture_of(a, Vector2(camera.position.x, -camera.position.z))
@@ -896,20 +899,20 @@ func wound(a: Actor, opts: Dictionary) -> void:
 	else:
 		fx.ember(at.x, at.y, at.z, 3, 0.6)
 
-## THE WOUNDED BLEED: every few tics, a spurt out of one of their holes.
+## THE WOUNDED BLEED: every few tics, a spurt from where a round went in.
 func _bleed_tic() -> void:
 	if bleeders.is_empty():
 		return
 	for a in bleeders.keys():
 		var t: int = bleeders[a] - 1
-		if t <= 0 or a.removed or (a.dead and not a.monster) or a.holes.is_empty():
+		if t <= 0 or a.removed or (a.dead and not a.monster) or a.bites_at.is_empty():
 			bleeders.erase(a)
 			continue
 		bleeders[a] = t
 		if (tics + a.id) % 3 != 0:
 			continue
-		var h: Vector3 = a.holes[(tics / 3 + a.id) % a.holes.size()]
-		# (the hole's height on them; across, round them by the way they face)
+		var h: Vector2 = a.bites_at[(tics / 3 + a.id) % a.bites_at.size()]
+		# (the wound's height on them; across, round them by the way they face)
 		var side := Vector2(-sin(a.angle), cos(a.angle)) * h.x * 0.5
 		fx.blood_spray(a.x + side.x, a.y + side.y, a.z + h.y, randf_range(-1, 1), randf_range(-1, 1), 0.9,
 			4 + int(6.0 * t / BLEED_TICS), 1.0)
@@ -949,7 +952,7 @@ func explode(a, opts := {}) -> void:
 	under = level.span_at(a.x, a.y, az)
 	if under and az - under.floor < 64.0:
 		decals.hole(Vector3(a.x, a.y, under.floor), Vector3(0, 0, 1), true)
-	# the plants round it blown up and set alight (VegDamage)
+	# the plants and the grass round it blown to pieces (VegDamage)
 	if veg_damage != null:
 		veg_damage.blast(Vector3(a.x, a.y, az), radius)
 	for o in actors_in_cone_around(a, radius):
@@ -1168,7 +1171,7 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		best = a
 		bp = Vector3(px, py, pz)
 	# A PLANT IN THE WAY first (VegDamage.ray): the round goes into it, and
-	# shoots it through a little more
+	# counts against it
 	if opts.get("shot", false) and veg_damage != null:
 		var ph := veg_damage.ray(Vector3(ox, oy, z), Vector3(tx, ty, tz), best_t)
 		if not ph.is_empty():
@@ -1198,6 +1201,9 @@ func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
 		if opts.get("shot", false):
 			# on the slope it went into, facing out of it
 			decals.hole(Vector3(hx, hy, floor_hit), level.normal_at(hx, hy), opts.get("hot", false))
+			# and the grass it went in among, shredded (VegDamage.nick)
+			if veg_damage != null:
+				veg_damage.nick(Vector3(hx, hy, floor_hit))
 		last_hit = Vector3(hx, hy, floor_hit)
 	else:
 		last_hit = Vector3(tx, ty, tz)

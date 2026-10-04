@@ -289,6 +289,14 @@ var _meshes: Array[MultiMesh] = []
 var _instances: Array[MultiMeshInstance3D] = []
 var _ready_ok := false
 
+# MOWN (at the user's request, the game's weapons shred the grass —
+# godot/scripts/game/veg_damage.gd): circles of LOGICAL ground, Vector3(x, z,
+# radius), where every tuft is gone. Kept as circles rather than per-row marks
+# because a tile is pruned and rebuilt as the camera moves, and a rebuilt tile
+# has to come back mown: `_install_tile` cuts every new tile by them.
+var _mown: Array[Vector3] = []
+const MOWN_MOST := 4000
+
 
 func _ready() -> void:
 	add_to_group("origin_shiftable")
@@ -690,7 +698,65 @@ func _install_tile(r: Dictionary) -> void:
 	var drift: Vector3 = (r["off"] as Vector3) - _origin_offset
 	if drift != Vector3.ZERO:
 		_shift_bufs(bufs, drift)
+	if not _mown.is_empty():
+		_cut(key, bufs, _mown, null)
 	rec["bufs"] = bufs
+
+
+## MOW the tufts within `r` metres of (x, z), LOGICAL metres: their rows scaled
+## to nothing, the tiles they were in owed a re-fill, and the circle kept so a
+## rebuilt tile comes back as cut. Returns what was cut, [Vector3 logical base,
+## sprite index] each, for the game to throw the pieces of.
+func mow(x: float, z: float, r: float) -> Array:
+	var c := Vector3(x, z, r)
+	if _mown.size() >= MOWN_MOST:
+		_mown.remove_at(0)
+	_mown.append(c)
+	var out := []
+	var lo := Vector2i(floori((x - r) / _tile_size), floori((z - r) / _tile_size))
+	var hi := Vector2i(floori((x + r) / _tile_size), floori((z + r) / _tile_size))
+	for tx in range(lo.x, hi.x + 1):
+		for tz in range(lo.y, hi.y + 1):
+			var rec: Dictionary = _tiles.get(Vector2i(tx, tz), {})
+			if rec.has("bufs"):
+				_cut(Vector2i(tx, tz), rec["bufs"], [c], out)
+	if not out.is_empty():
+		_force_rescan = true
+	return out
+
+
+# Scale away every tuft of the tile `key` inside any of `circles`; `out`, when
+# given, collects what was cut.
+func _cut(key: Vector2i, bufs: Array, circles: Array, out) -> void:
+	var t0 := Vector2(key.x, key.y) * _tile_size
+	var t1 := t0 + Vector2.ONE * _tile_size
+	var near: Array = []
+	for c in circles:
+		if c.x + c.z >= t0.x and c.x - c.z <= t1.x and c.y + c.z >= t0.y and c.y - c.z <= t1.y:
+			near.append(c)
+	if near.is_empty():
+		return
+	for i in range(bufs.size()):
+		var b: PackedFloat32Array = bufs[i]
+		var hit := false
+		var k := 0
+		while k < b.size():
+			if b[k + 5] != 0.0 or b[k] != 0.0:
+				var px := b[k + 3] + _origin_offset.x
+				var pz := b[k + 11] + _origin_offset.z
+				for c in near:
+					var dx: float = px - c.x
+					var dz: float = pz - c.y
+					if dx * dx + dz * dz <= c.z * c.z:
+						if out != null:
+							out.append([Vector3(px, b[k + 7] + _origin_offset.y, pz), i])
+						for j in [0, 1, 2, 4, 5, 6, 8, 9, 10]:
+							b[k + j] = 0.0
+						hit = true
+						break
+			k += _STRIDE
+		if hit:
+			bufs[i] = b
 
 
 # Pack one variant's tufts into a MultiMesh instance buffer. The array is a local

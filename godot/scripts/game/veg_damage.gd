@@ -1,74 +1,55 @@
-## MEWD — THE ISLAND'S PLANTS CAN BE SHOT, BLOWN UP AND BURNT (at the
+## MEWD — THE ISLAND'S PLANTS AND GRASS CAN BE SHOT AND BLOWN UP (at the
 ## user's request: "vegetation hit by explosives like the rocket blows up
-## in chunks, stops existing, and the surrounding vegetation goes alight,
-## and spreads, to a point, and eventually self-extinguishes; the minigun
-## blows holes in sprites before destroying them").
+## in chunks and stops existing"; then, backing up: no fire, no holes shot
+## in anything — plants shredded into pieces of themselves, the big ones
+## into more and smaller pieces, and the grass shredded too).
 ##
 ## The plants are the island's own (SCRIPT_veg_scatter.gd): trees, bushes
 ## and ferns, thousands of them, drawn as MultiMesh rows packed per tile.
 ## This does not keep a plant list of its own and does not change how the
 ## scatter places anything (an edit there would invalidate every island's
 ## bake). It reaches into the scatter's live tile buffers, finds the rows
-## near a point, and rewrites just those rows. Each row's custom vec4 is
-## shared with SHADER_veg_billboard.gdshader:
-##   x  the crash-site burn the scatter baked in (left alone)
-##   y  DAMAGE, 0..1: how shot through it is (the shader cuts holes)
-##   z  when it CAUGHT, on the `veg_clock` (s), 0 never
-##   w  how long it BURNS (s)
-## and a plant blown away has its row scaled to nothing. A row's place in
-## its tile is fixed (the tile is built the same way every time), so every
-## change is also kept here and put back if the tile is ever built again.
+## near a point, and rewrites just those rows: a plant blown away has its
+## row scaled to nothing. A round into a plant throws a scrap of it and
+## counts against it (the row's custom .y, which nothing draws), and
+## enough of them shred it. A row's place in its tile is fixed (the tile
+## is built the same way every time), so every change is also kept here
+## and put back if the tile is ever built again.
 ##
-## THE FIRE IS THE SHADER'S TO DRAW and this file's to spread. When a
-## plant catches, its row is written once (z, w) and the GPU runs it
-## through green, scorched, alight and charred on the clock. What is
-## done here, every SPREAD_EVERY tics, is a burning plant setting fire to
-## its neighbours within SPREAD_REACH, at SPREAD_CHANCE each. Every fire
-## has a BUDGET of plants and a most generations from the blast, so it
-## spreads "to a point", then burns out. Smoke and embers come off the
-## burning plants nearest you, a few a tic, and a body stood in a fire
-## catches.
+## THE GRASS (SCRIPT_grass_scatter.gd `mow`): a blast clears a patch round
+## it, a round into the ground the tufts it lands among, each tuft thrown
+## as a few pieces of its own picture.
 class_name VegDamage
 extends RefCounted
 
-## (metres, as the island counts)
-const SPREAD_REACH := 5.5
-const SPREAD_EVERY := 18
-const SPREAD_CHANCE := 0.3
-## how many plants one fire may take, and how many hops out from the blast
-const BUDGET := 70
-const GENERATIONS := 6
-## a blast blows to pieces what is inside this share of its reach, and
-## sets alight what is inside this share
+## a blast blows to pieces what is inside this share of its reach
 const BLOW_SHARE := 0.45
-const LIGHT_SHARE := 1.25
-## of the plants round a blast, this share catch, and no more than this
-## many, so the fire has its budget left to SPREAD with
-const LIGHT_CHANCE := 0.4
-const LIGHT_MOST := 15
-## how much a round shoots through a plant (1 and it is gone)
+## and mows the grass inside this share, when it went off near the ground
+## (units above it)
+const MOW_SHARE := 0.6
+const MOW_LOW := 96.0
+## the grass a round into the ground takes (m)
+const NICK := 0.55
+## how much a round counts against a plant (1 and it is shredded)
 const SHOT_DAMAGE := 0.11
+## at most this many tufts thrown as pieces a mowing
+const TUFTS_THROWN := 24
 ## the index buckets over a tile (m)
 const BUCKET := 8.0
 
 var game
 var veg = null
+var grass = null
 ## plant key -> [tile key, sprite, row, Vector4 custom, gone]
 var changed := {}
-## the plants alight: [{key, tile, sprite, row, pos (m), h, until (tic), next (tic), gen, fire}]
-var burning: Array = []
-## caught since the list was last walked (joined to `burning` after)
-var _caught: Array = []
-## per fire, how many plants it has left to take
-var _budget := {}
-var _next_fire := 1
 ## tile key -> {"n": rows when indexed, "b": {Vector2i: [[sprite, row], ...]}}
 var _index := {}
 var _checked := 0
 
-func _init(g, scatter) -> void:
+func _init(g, scatter, grass_scatter = null) -> void:
 	game = g
 	veg = scatter
+	grass = grass_scatter
 
 static func find_scatter(island: Node):
 	if island == null:
@@ -78,9 +59,13 @@ static func find_scatter(island: Node):
 			return n
 	return null
 
-## The island's clock for the shader, in seconds (`veg_clock`).
-func clock() -> float:
-	return float(game.tics) / U.TICRATE
+static func find_grass(island: Node):
+	if island == null:
+		return null
+	for n in island.get_children():
+		if n.has_method("live_tuft_count") and n.has_method("mow"):
+			return n
+	return null
 
 func _key(tile: Vector2i, sprite: int, row: int) -> int:
 	return ((tile.x & 0xfff) << 40) | ((tile.y & 0xfff) << 28) | ((sprite & 0xff) << 20) | row
@@ -224,8 +209,9 @@ func _picture(p: Dictionary) -> Texture2D:
 static func to_game(m: Vector3) -> Vector3:
 	return Vector3(m.x * IslandLevel.U_PER_M, -m.z * IslandLevel.U_PER_M, m.y * IslandLevel.U_PER_M)
 
-## BLOWN TO PIECES: its picture in pieces (SpriteChunks, from `from`, the
-## game's units), a puff of leaves, and its row gone.
+## SHREDDED: its picture in pieces (SpriteChunks, from `from`, the game's
+## units) — the bigger the plant, the more pieces and the smaller each —
+## a puff of leaves, and its row gone.
 func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
 	if p.gone:
 		return
@@ -234,68 +220,64 @@ func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
 	var w: float = p.w * IslandLevel.U_PER_M
 	var h: float = p.h * IslandLevel.U_PER_M
 	if game.chunks != null and tex != null:
-		var pieces := 20 if p.cls == 0 else (10 if p.cls == 1 else 6)
-		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, w, h, from, pieces, force, 0.0, true)
+		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, w, h, from, pieces_for(p.w, p.h), force, 0.0, true)
 	game.fx.puff(at.x, at.y, at.z + h * 0.4, minf(60.0, w * 0.5), 70)
 	_write(p, p.custom, true)
-	burning = burning.filter(func(b): return b.key != p.key)
-	_caught = _caught.filter(func(b): return b.key != p.key)
 
-## SET ALIGHT: the shader's clock started on it, and it is on the list of
-## the burning (as part of fire `fire`, `gen` hops from where it started).
-func ignite(p: Dictionary, fire: int, gen: int) -> bool:
-	if p.gone or p.custom.z > 0.0:
-		return false
-	if int(_budget.get(fire, 0)) <= 0:
-		return false
-	_budget[fire] = int(_budget[fire]) - 1
-	# a tree burns longer than a bush, a bush than a fern
-	var secs: float = [randf_range(16.0, 24.0), randf_range(9.0, 13.0), randf_range(5.0, 8.0)][int(p.cls)]
-	var c: Vector4 = p.custom
-	c.z = clock() + 0.01
-	c.w = secs
-	_write(p, c, false)
-	p.custom = c
-	_caught.append({"key": p.key, "tile": p.tile, "sprite": p.sprite, "row": p.row, "pos": p.pos, "h": p.h,
-		"until": game.tics + int(secs * U.TICRATE), "next": game.tics + SPREAD_EVERY + randi() % SPREAD_EVERY,
-		"gen": gen, "fire": fire, "spread_until": game.tics + int(secs * 0.65 * U.TICRATE)})
-	return true
+## How many pieces a plant `w` x `h` metres goes to: about a piece for
+## every 0.6 m square of it (a fern a handful, a tall tree eighty), so a
+## big plant's pieces come out no bigger than a small one's.
+static func pieces_for(w: float, h: float) -> int:
+	return clampi(int(w * h / 0.36), 6, 80)
 
-func _new_fire() -> int:
-	var f := _next_fire
-	_next_fire += 1
-	_budget[f] = BUDGET
-	return f
-
-## A BLAST at `at` (the game's units) reaching `radius` (units): what is
-## close goes to pieces, what is round it catches — one new fire.
+## A BLAST at `at` (the game's units) reaching `radius` (units): the plants
+## close to it shredded, and the grass under it, if it went off near the
+## ground, mown.
 func blast(at: Vector3, radius: float) -> void:
-	if veg == null:
-		return
 	var m := Vector2(at.x / IslandLevel.U_PER_M, -at.y / IslandLevel.U_PER_M)
 	var reach := maxf(3.0, radius / IslandLevel.U_PER_M)
-	var fire := _new_fire()
-	var lit := 0
-	for p in near(m.x, m.y, reach * LIGHT_SHARE):
-		var d := Vector2(p.pos.x - m.x, p.pos.z - m.y).length()
-		# (a plant's own height counts: the blast has to reach its middle)
-		if d < reach * BLOW_SHARE and at.z < (p.pos.y + p.h * 0.8) * IslandLevel.U_PER_M:
-			blow_up(p, at, 1.3)
-		elif lit < LIGHT_MOST and randf() < LIGHT_CHANCE:
-			if ignite(p, fire, 0):
-				lit += 1
+	if veg != null:
+		for p in near(m.x, m.y, reach * BLOW_SHARE):
+			# (a plant's own height counts: the blast has to reach its middle)
+			if at.z < (p.pos.y + p.h * 0.8) * IslandLevel.U_PER_M:
+				blow_up(p, at, 1.3)
+	var f: float = game.level.floor_at(at.x, at.y)
+	if at.z - f < MOW_LOW:
+		mow(m.x, m.y, reach * MOW_SHARE, at, 1.2)
 
-## A ROUND through the plant: shot through a little more (the shader's
-## holes), a scrap of it thrown off, and past 1 it is blown to pieces.
+## A ROUND INTO THE GROUND at `at` (the game's units): the tufts round
+## where it went in, shredded.
+func nick(at: Vector3) -> void:
+	mow(at.x / IslandLevel.U_PER_M, -at.y / IslandLevel.U_PER_M, NICK, at, 0.6)
+
+## The grass within `r` metres of (mx, mz) gone, each tuft (up to
+## TUFTS_THROWN of them) thrown from `from` as a few pieces of its picture.
+func mow(mx: float, mz: float, r: float, from: Vector3, force: float) -> void:
+	if grass == null:
+		return
+	var cut: Array = grass.mow(mx, mz, r)
+	if cut.is_empty() or game.chunks == null:
+		return
+	cut.shuffle()
+	var ts: Vector2 = grass.tuft_size * IslandLevel.U_PER_M
+	for e in cut.slice(0, TUFTS_THROWN):
+		var tex: Texture2D = grass.sprites[e[1]] if e[1] < grass.sprites.size() else null
+		if tex == null:
+			continue
+		var at := to_game(e[0])
+		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, ts.x, ts.y, from, 4, force * 0.6, 0.0, true)
+
+## A ROUND through the plant: a scrap of it thrown off, and enough of
+## them shred it. (The plant's picture stays whole, no hole left in it.)
 func shoot(p: Dictionary, at: Vector3, dir: Vector3) -> void:
 	var c: Vector4 = p.custom
 	c.y = minf(1.0, c.y + SHOT_DAMAGE * randf_range(0.7, 1.3))
 	var tex := _picture(p)
 	if game.chunks != null and tex != null:
-		var s := randf_range(5.0, 9.0)
+		var s := randf_range(4.0, 7.0)
 		var u := randf() * 0.6 + 0.2
 		var v := randf() * 0.7 + 0.1
-		game.chunks.spawn(tex, Rect2(u - 0.08, v - 0.06, 0.16, 0.12), at, s, s,
+		game.chunks.spawn(tex, Rect2(u - 0.06, v - 0.045, 0.12, 0.09), at, s, s,
 			Vector3(dir.x * 0.006 + randf_range(-2, 2), dir.y * 0.006 + randf_range(-2, 2), randf_range(2.0, 6.0)), 80, 0.0, true)
 	if c.y >= 1.0:
 		blow_up(p, at - dir.normalized() * 30.0, 0.8)
@@ -364,47 +346,8 @@ func ray(a: Vector3, b: Vector3, max_t: float) -> Dictionary:
 					best = {"t": tt, "plant": _plant(tile, e[0], e[1])}
 	return best
 
-# ------------------------------------------------------------------
-# THE FIRE, a tic
-# ------------------------------------------------------------------
-
 func tic() -> void:
 	if veg == null:
 		return
-	U.gset("veg_clock", clock())
 	if game.tics % U.TICRATE == 0:
 		_keep()
-	burning.append_array(_caught)
-	_caught = []
-	if burning.is_empty():
-		return
-	var now: int = game.tics
-	var cam := Vector3(game.player.x, game.player.y, 0.0) if game.player != null else Vector3()
-	var still := []
-	var smoked := 0
-	for f in burning:
-		if now >= int(f.until):
-			continue
-		still.append(f)
-		var at := to_game(f.pos)
-		var h: float = f.h * IslandLevel.U_PER_M
-		# THE SMOKE AND THE EMBERS, off the ones nearest you, a few a tic
-		if smoked < 10 and (now + int(f.key)) % 7 == 0 and Vector2(at.x - cam.x, at.y - cam.y).length() < 2400.0:
-			smoked += 1
-			game.fx.puff(at.x, at.y, at.z + h * 0.8, minf(70.0, h * 0.3), 120)
-			game.fx.ember(at.x, at.y, at.z + h * 0.5, 2, 1.0)
-		# SPREADING, while it is properly alight
-		if now >= int(f.next) and now < int(f.spread_until):
-			f.next = now + SPREAD_EVERY
-			if int(f.gen) < GENERATIONS and int(_budget.get(f.fire, 0)) > 0:
-				for p in near(f.pos.x, f.pos.z, SPREAD_REACH):
-					if randf() < SPREAD_CHANCE:
-						ignite(p, f.fire, int(f.gen) + 1)
-			# and anybody stood in it catches
-			for a in game.actors_in_cone_around(at, maxf(48.0, f.h * 8.0)):
-				if a.has_method("ignite"):
-					a.ignite(160)
-	burning = still
-	# a fire with nothing left burning is over
-	if burning.is_empty() and _caught.is_empty():
-		_budget.clear()

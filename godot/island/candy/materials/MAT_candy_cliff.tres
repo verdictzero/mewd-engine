@@ -22,14 +22,16 @@ shader = ExtResource("1_wall")
 shader_parameter/rock_albedo = ExtResource("2_rock_a")
 shader_parameter/rock_scale = 8.0
 shader_parameter/rock_tint = Color(1.2, 1.2, 1.2, 1)
-; THE SIDES ARE ROCK, THE TOP IS GRASS TO THE EDGE AND OVER IT (at the
-; user's request): the rock cliff texture (grey, so its mean below is a cool
-; dark grey), and the ground's own grass hanging 1.6 m over the lip, at the
-; ground's own scale and tint (MAT_candy_terrain's grass_*)
+; THE SIDES ARE ROCK (at the user's request): the rock cliff texture (grey,
+; so its mean below is a cool dark grey), carried up the shoulder over the
+; lip by MAT_candy_terrain's `steep_stone` to where the slope ends, the
+; grass only on top (no turf hanging over: turf_depth 0); and from just
+; under the shore down, the side fades to the cloud sea's darkest grey
+; (`deep_*`), the sea veil under it the same grey
 shader_parameter/turf_albedo = ExtResource("3_turf_a")
 shader_parameter/turf_scale = 4.0
 shader_parameter/turf_tint = Color(1, 1, 1, 1)
-shader_parameter/turf_depth = 1.6
+shader_parameter/turf_depth = 0.0
 shader_parameter/turf_wobble = 0.8
 shader_parameter/triplanar_sharpness = 4.0
 shader_parameter/normal_strength = 0.6
@@ -83,6 +85,9 @@ shader_parameter/flat_shading = false
 ; against cloud; 26 m below to land on it exactly, which is about as far as the
 ; deck stays translucent enough for the difference to be visible.
 shader_parameter/sea_fade_above = 14.0
+shader_parameter/deep_on = true
+shader_parameter/deep_color = Color(0.42, 0.47, 0.55, 1)
+shader_parameter/deep_top = 40.0
 shader_parameter/sea_fade_below = 26.0
 
 ; THE FADE IS LONG NOW, AND IT COULD NOT BE BEFORE. `MAT_cliff_gradient.tres`

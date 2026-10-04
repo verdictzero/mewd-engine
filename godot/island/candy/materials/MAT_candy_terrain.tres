@@ -1,5 +1,6 @@
-[gd_resource type="ShaderMaterial" load_steps=18 format=3]
+[gd_resource type="ShaderMaterial" load_steps=19 format=3]
 
+[ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_cliff_rock_01.png" id="20_stone"]
 [ext_resource type="Shader" path="res://godot/island/shaders/SHADER_terrain_splat_w2.gdshader" id="1_w2"]
 [ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_ground_grass.png" id="2_grass_a"]
 [ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_ground_rainbow.png" id="4_golf_a"]
@@ -298,6 +299,24 @@ shader_parameter/path_tint = Color(1.1, 1.1, 1.15, 1)
 shader_parameter/rock_albedo = ExtResource("9_rock_a")
 shader_parameter/rock_scale = 8.0
 shader_parameter/rock_tint = Color(1.2, 1.2, 1.2, 1)
+; THE STONE UP THE SHOULDER (at the user's request: the stone right up to
+; where the slope at the island's edge ends, then a fast change to grass):
+; the cliff wall's own stone, at MAT_candy_cliff's rock numbers, on any
+; ground steeper than 0.30 (1 - normal.y), whole by 0.36
+shader_parameter/steep_stone = 1.0
+shader_parameter/steep_lo = 0.3
+shader_parameter/steep_hi = 0.36
+shader_parameter/stone_albedo = ExtResource("20_stone")
+shader_parameter/stone_scale = 8.0
+shader_parameter/stone_tint = Color(1.2, 1.2, 1.2, 1)
+shader_parameter/stone_mean = Color(0.036, 0.04, 0.045, 1)
+shader_parameter/stone_contrast = 0.7
+; and down the side it goes over to the cloud sea's darkest grey: from 40 m
+; over the sea (the lip is ~45 m over it) to 14 m, MAT_candy_cliff's numbers
+shader_parameter/deep_on = true
+shader_parameter/deep_color = Color(0.42, 0.47, 0.55, 1)
+shader_parameter/deep_top = 40.0
+shader_parameter/deep_bottom = 14.0
 shader_parameter/triplanar_sharpness = 4.0
 shader_parameter/sand_albedo = ExtResource("11_sand_a")
 shader_parameter/sand_scale = 4.0

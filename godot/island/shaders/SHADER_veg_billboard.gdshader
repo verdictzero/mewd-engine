@@ -452,11 +452,6 @@ global uniform float veg_burn;
 global uniform vec4 veg_burn_front;
 // And how much of what burnt has since come down — see the `stump` uniform.
 global uniform float veg_stump;
-// THE GAME'S CLOCK, in seconds (godot/scripts/game/veg_damage.gd): a plant
-// set alight by the game has the time it caught in INSTANCE_CUSTOM.z and
-// how long it burns in .w, and runs through the fire on this clock with
-// no further word from the CPU
-global uniform float veg_clock;
 
 // FLAT, and that is not a micro-optimisation. This is a per-INSTANCE choice, and
 // interpolating it across the quad is exactly the bug this shader shipped with
@@ -479,8 +474,6 @@ varying flat float v_flip;
 varying flat float v_burn;
 varying flat float v_seed;
 varying flat float v_stump;
-// HOW SHOT THROUGH IT IS, 0..1 (INSTANCE_CUSTOM.y, VegDamage.shoot): holes
-varying flat float v_shot;
 // THIS PLANT'S distance to the camera, in metres, for `near_fade_whole_plant`.
 // `flat`, and taken off the UNDISPLACED anchor, which is this file's rule for
 // anything that has to be one value for the whole quad. From the anchor the four
@@ -715,12 +708,7 @@ void vertex() {
 	// data channel (`SCRIPT_veg_scatter.gd`/`SCRIPT_grass_scatter.gd` both `use_custom_data`). A
 	// mesh that sets none reads it as 0, which is exactly the no-op an ordinary plant
 	// wants, so nothing outside a crash site has to opt out.
-	// AND A FIRE THE GAME LIT (VegDamage.ignite): its own progress on the
-	// game's clock, raising this plant's floor the way a crash site does
-	float lit = INSTANCE_CUSTOM.z > 0.0
-			? clamp((veg_clock - INSTANCE_CUSTOM.z) / max(INSTANCE_CUSTOM.w, 0.1), 0.0, 1.0) : 0.0;
-	v_burn = burn_of(anchor, v_seed, max(clamp(INSTANCE_CUSTOM.x, 0.0, 1.0), lit));
-	v_shot = clamp(INSTANCE_CUSTOM.y, 0.0, 1.0);
+	v_burn = burn_of(anchor, v_seed, clamp(INSTANCE_CUSTOM.x, 0.0, 1.0));
 	// A SECOND, INDEPENDENT hash — off the same anchor but different constants, so
 	// which character a plant has is uncorrelated with when it catches. Sharing
 	// `v_seed` would make every torch in the wood also an early one.
@@ -739,8 +727,6 @@ void vertex() {
 	// the stump bus moves. Also per-instance through `v_burn`, which carries the
 	// spread — the plants that caught first are the first to come down.
 	v_stump = clamp((stump >= 0.0 ? stump : veg_stump) * v_burn, 0.0, 1.0);
-	// a plant the game burnt comes partly down as its fire goes out
-	v_stump = max(v_stump, smoothstep(0.8, 1.0, lit) * 0.65);
 }
 
 void fragment() {
@@ -757,30 +743,6 @@ void fragment() {
 	vec4 tex = texture(albedo_tex, uv);
 	if (tex.a < alpha_scissor) {
 		discard;
-	}
-	// SHOT THROUGH (VegDamage.shoot): holes in a grid over the sprite, each
-	// placed and sized off the plant's seed, more of them open the more it
-	// has taken, every one with a scorched ragged rim
-	if (v_shot > 0.0) {
-		vec2 g = uv * vec2(5.0, 7.0);
-		vec2 cell = floor(g);
-		float scorch = 0.0;
-		for (int oy = -1; oy <= 1; oy++) {
-			for (int ox = -1; ox <= 1; ox++) {
-				vec2 c = cell + vec2(float(ox), float(oy));
-				float h = hash01(c * 1.37 + vec2(v_seed * 91.0, v_seed * 17.0));
-				if (h > v_shot * 0.9) continue;
-				vec2 at = c + vec2(hash01(c + 3.1 + v_seed), hash01(c + 7.7 + v_seed));
-				vec2 dd = g - at;
-				float r = 0.25 + 0.3 * hash01(c + 11.3 + v_seed);
-				float ang = atan(dd.y, dd.x);
-				r *= 0.85 + 0.2 * sin(ang * 5.0 + h * 30.0);
-				float l = length(dd);
-				if (l < r) discard;
-				scorch = max(scorch, 1.0 - smoothstep(r, r * 1.6, l));
-			}
-		}
-		tex.rgb *= 1.0 - scorch * 0.7;
 	}
 
 	// VERTEX is view-space (the billboard writes MODELVIEW_MATRIX), so its length

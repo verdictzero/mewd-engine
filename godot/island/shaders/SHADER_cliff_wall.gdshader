@@ -168,6 +168,21 @@ uniform float sea_fade_above = 14.0;
 /// somewhere nobody can see, which is the mistake the old ramp made.
 uniform float sea_fade_below = 26.0;
 
+group_uniforms deep;
+// THE ISLAND'S SIDE FADES DOWN TO THE CLOUD SEA'S DARKEST GREY (at the user's
+// request, CANDY LAND: stone up from the lip, "then another layer where the
+// island's height just fades to the darkest grey of the cloud sea"): from
+// `deep_top` metres over the sea's surface down to `sea_fade_above`, the side
+// goes over to `deep_color`, on a smoothstep, after its light — and the sea
+// veil below takes the same colour, so the side ends in it. The same band, by
+// the same numbers, runs over the stone on the shoulder above the wall
+// (SHADER_terrain_splat_w2's `deep_*`), so the fade does not stop at the seam
+// where the wall takes over 28 m down. Off (the default) while `deep_on` is
+// false.
+uniform bool deep_on = false;
+uniform vec3 deep_color : source_color = vec3(0.4, 0.45, 0.52);
+uniform float deep_top = 40.0;
+
 group_uniforms dissolve;
 /// Fade band, in metres below the shore. Free to be long now the material is
 /// opaque — see the header on why the old one could not be.
@@ -281,6 +296,15 @@ void fragment() {
 	vec3 world_v = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
 	albedo *= island_light(shaded_n, world_v, sun_bands, sun_wrap, rim_power, rim_strength);
 
+	// ---- the deep grey (see `deep_on`) ---------------------------------------
+	vec3 sea_col = sea_surface_color.rgb * tod_art_tint.rgb;
+	if (deep_on) {
+		float deep = 1.0 - smoothstep(sea_surface_y + sea_fade_above,
+				sea_surface_y + max(deep_top, sea_fade_above + 1.0), world_pos.y);
+		albedo = mix(albedo, deep_color, deep);
+		sea_col = deep_color;
+	}
+
 	// ---- dissolve, never blend (see the header) -----------------------------
 	if (1.0 - smoothstep(fade_start, fade_end, v_depth) < bayer4(FRAGCOORD.xy)) {
 		discard;
@@ -322,7 +346,7 @@ void fragment() {
 	// `tod_art_tint`, which is the same multiplier `SHADER_cloud_volumetric.gdshader`
 	// applies to that colour where it paints it. The wall has to dissolve into the
 	// deck as the deck actually looks, not as it looked at noon.
-	vec3 veil_col = sea_surface_color.rgb * tod_art_tint.rgb * sea * (1.0 - fog)
+	vec3 veil_col = sea_col * sea * (1.0 - fog)
 			+ fog_color * tod_haze_tint.rgb * fog;
 	// `veil_col` is already premultiplied by coverage (the two terms sum to `veil`
 	// when the colours are equal), so it is added rather than mixed in.

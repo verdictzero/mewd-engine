@@ -177,6 +177,33 @@ uniform float build_paving : hint_range(0.0, 1.0) = 0.0;
 uniform sampler2D build_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
 uniform float build_scale = 4.0;
 
+group_uniforms steep_stone;
+// THE STONE UP THE ISLAND'S SIDES (at the user's request, CANDY LAND: "the
+// stone comes right up to where the slope on the edge of the island ends,
+// then a fast change to grass"): wherever the ground is steeper than
+// `steep_lo` (1 - normal.y) it is the cliff wall's own stone — the same
+// texture, scale, tint, mean and contrast as SHADER_cliff_wall's rock, so
+// the bulge over the lip and the wall under it are one face — whole by
+// `steep_hi`, a narrow band, so it turns to grass sharply where the slope
+// flattens out. Off (the default) while `steep_stone` is 0.
+uniform float steep_stone = 0.0;
+uniform float steep_lo = 0.30;
+uniform float steep_hi = 0.36;
+uniform sampler2D stone_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
+uniform float stone_scale = 8.0;
+uniform vec3 stone_tint = vec3(1.0);
+uniform vec3 stone_mean = vec3(1.0);
+uniform float stone_contrast = 1.0;
+// AND THE STONE FADES DOWN TO THE CLOUD SEA'S DARKEST GREY, after its light,
+// from `deep_top` metres over the sea's surface to `deep_bottom` — the same
+// band as SHADER_cliff_wall's `deep_*` (its `deep_bottom` is that shader's
+// `sea_fade_above`), so the shoulder's stone and the wall under it fade as one
+uniform bool deep_on = false;
+uniform vec3 deep_color : source_color = vec3(0.4, 0.45, 0.52);
+uniform float deep_top = 40.0;
+uniform float deep_bottom = 14.0;
+global uniform float sea_surface_y;
+
 group_uniforms rock;
 // `dark_rock_02` -- fractured slabs. Full triplanar; it is the only layer that
 // has to cover a vertical face.
@@ -631,6 +658,24 @@ void fragment() {
 			+ texture(rock_albedo, world_pos.xz / rs).rgb * bw.y
 			+ texture(rock_albedo, world_pos.xy / rs).rgb * bw.z) * rock_tint;
 
+	// ---- the steep stone (see `steep_stone`) --------------------------------
+	float st = 0.0;
+	if (steep_stone > 0.0) {
+		st = smoothstep(steep_lo, steep_hi, 1.0 - smooth_n.y) * steep_stone;
+		if (st > 0.0) {
+			float ss = max(stone_scale, 1e-4);
+			vec3 stone = texture(stone_albedo, world_pos.zy / ss).rgb * bw.x
+					+ texture(stone_albedo, world_pos.xz / ss).rgb * bw.y
+					+ texture(stone_albedo, world_pos.xy / ss).rgb * bw.z;
+			stone = mix(stone_mean, stone, stone_contrast) * stone_tint;
+			rock_a = mix(rock_a, stone, st);
+			w = mix(w, vec4(0.0, 0.0, 1.0, 0.0), st);
+			golf *= 1.0 - st;
+			path *= 1.0 - st;
+			build *= 1.0 - st;
+		}
+	}
+
 	// ---- strata: the cliff-face overlay -----------------------------------
 	// See the `strata` uniform block for what this is and why it is computed
 	// rather than sampled. Two nested branches, and which one is which matters:
@@ -834,6 +879,12 @@ void fragment() {
 	// already in.
 	vec3 world_v = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
 	albedo *= island_light(shaded_n, world_v, sun_bands, sun_wrap, rim_power, rim_strength);
+	// the stone down the island's side going over to the sea's darkest grey
+	if (deep_on && st > 0.0) {
+		float deep = 1.0 - smoothstep(sea_surface_y + deep_bottom,
+				sea_surface_y + max(deep_top, deep_bottom + 1.0), world_pos.y);
+		albedo = mix(albedo, deep_color, deep * st);
+	}
 
 	// THE CRACKS ARE THEIR OWN LIGHT, so they are ADDED after the shading model
 	// rather than multiplied through it. A seam radiating past 1.0 is not

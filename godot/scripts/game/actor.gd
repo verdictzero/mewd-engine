@@ -75,15 +75,10 @@ var state_tics := 0
 var shots := 0
 ## the actor blockmap's cell, see ActorGrid
 var bm_key := -1
-## THE BITES OUT OF IT (at the user's request: rounds "take chunks out of
-## sprites"): each a hole in its picture, (across, up, radius) in units
-## from its feet as the one who fired saw it (Standees draws them, the
-## latest HOLES of them), and `holes_rev` counted up at each so a row is
-## written again only when it has a new one
-const HOLES := 8
-var holes := PackedVector3Array()
-var holes_rev := 0
-## how many rounds it has taken (of its `wounds`)
+## how many rounds it has taken (of its `wounds`: each one throws a piece
+## of its picture and a gout of blood, Game.wound), and where the last few
+## went in, (across, up) in units from its feet, for it to bleed from
+var bites_at := PackedVector2Array()
 var bites := 0
 ## THREE CYLINDERS ARE ONE VAN (js/actor.js): a CARBODY carries a pointer
 ## back to the Vehicle it is a third of, and its damage and its catching
@@ -387,7 +382,7 @@ func damage(amount: float, source, opts := {}) -> void:
 		return
 	# A ROUND TAKES A BITE (`wounds`, at the user's request): a body — or a
 	# lamp — that takes this many rounds to finish has each one take its
-	# share of it, a hole out of its picture where it went in, and a gout
+	# share of it, a piece of its picture thrown off where it went in, and a gout
 	# of blood (Game.wound); the last comes apart as it always did
 	if opts.get("shot", false) and info.has("wounds"):
 		# (counted, not divided: 12 health is not ten whole bites) — every
@@ -564,14 +559,6 @@ func A_ArmyFire() -> void:
 
 func A_Gib() -> void:
 	game.gib(self)
-
-## A hole in the picture at (across, up), `r` across, the oldest given up
-## past HOLES.
-func take_hole(across: float, up: float, r: float) -> void:
-	if holes.size() >= HOLES:
-		holes.remove_at(0)
-	holes.append(Vector3(across, up, r))
-	holes_rev += 1
 
 ## alight and still going: they run, they do not calm down, and then they go off
 func A_Torch() -> void:

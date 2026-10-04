@@ -1,10 +1,11 @@
 ## MEWD — WHAT ROUNDS AND BLASTS DO TO SPRITES, headless (at the user's
-## request): a round takes a bite out of a candy girl — a hole in her
-## picture, a piece of it flying, blood, more blood after — and enough of
-## them blow her apart; a street lamp shot to pieces; a rocket's blast
-## blowing the plants near it to pieces and setting the ones round it
-## alight, the fire spreading to a point and going out; a round into a
-## tree shooting it through.
+## request): a round into a candy girl throws a piece of her picture and
+## blood, more blood after, and leaves no hole in her; enough of them blow
+## her apart; a street lamp shot to pieces; a rocket's blast shredding the
+## plants near it into pieces of themselves (a big plant into more of them)
+## and setting nothing alight; the grass under it mown, and a round into
+## the ground taking the tufts it lands among; rounds into a tree
+## shredding it.
 ##   godot --headless --script res://godot/tests/damage_test.gd -- --map=candyland
 ## (needs the island baked)
 extends SceneTree
@@ -57,16 +58,13 @@ func _init() -> void:
 	var chunks0: int = game.chunks.count()
 	var hit = _shoot_at(eye, Vector3(g.x, g.y, g.z + 40.0))
 	game.standees.draw(game.actors, game.camera.position, game.tics + 1)
-	check(hit == g and g.holes.size() == 1 and not g.dead, "a round takes a bite out of her, and she lives (%d hole)" % g.holes.size())
+	check(hit == g and g.bites == 1 and not g.dead, "a round goes into her, and she lives")
 	check(game.chunks.count() > chunks0, "a piece of her picture flies off")
 	check(game.bleeders.has(g), "and she bleeds")
 	var gore0: int = game.fx.live_count()
 	_tics(6)
 	check(game.fx.live_count() >= gore0, "copiously (%d particles)" % game.fx.live_count())
-	var st: Standees = game.standees
-	var sl = st.slots.get(g.id)
-	var hp: Color = st.strips["CANDY"].holes.get_pixel(0, sl[1]) if sl != null else Color()
-	check(sl != null and hp.b > 0.0, "the hole is in the picture the crowd is drawn from (r %.1f)" % hp.b)
+	check(not (game.standees.strips["CANDY"] as Object).get("holes"), "and leaves no hole in her picture")
 	var n := 1
 	while not (g.dead or g.removed) and n < 20:
 		_shoot_at(eye, Vector3(g.x, g.y, g.z + randf_range(15.0, 55.0)))
@@ -102,26 +100,30 @@ func _init() -> void:
 			best = q
 	var gp := Vector3(best.x * 32.0, -best.y * 32.0, lv.floor_at(best.x * 32.0, -best.y * 32.0) + 8.0)
 	var before := vd.near(best.x, best.y, 2.5).size()
+	var c0: int = game.chunks.count()
+	var grass = game.veg_damage.grass
+	var mown0: int = grass._mown.size() if grass != null else 0
 	game.missiles.detonate(gp)
 	var after := vd.near(best.x, best.y, 2.5).size()
 	check(before > 0 and after < before, "a rocket in a wood blows the plants by it to pieces (%d of %d left)" % [after, before])
-	_tics(2)
-	var lit0: int = vd.burning.size()
-	check(lit0 > 0, "and sets the ones round it alight (%d)" % lit0)
-	var most_lit := lit0
-	var t := 0
-	while t < 35 * 150 and not vd.burning.is_empty():
-		_tics(35)
-		t += 35
-		most_lit = maxi(most_lit, vd.burning.size())
-	check(most_lit > lit0, "the fire spreads (%d alight at most)" % most_lit)
-	check(vd.burning.is_empty(), "and burns itself out (in %d s)" % (t / 35))
-	var burnt := 0
-	for k in vd.changed:
-		var c: Array = vd.changed[k]
-		if (c[3] as Vector4).z > 0.0:
-			burnt += 1
-	check(burnt <= VegDamage.BUDGET and burnt > lit0, "to a point (%d plants burnt, at most %d)" % [burnt, VegDamage.BUDGET])
+	check(game.chunks.count() > c0 + before * 6, "pieces of themselves (%d)" % (game.chunks.count() - c0))
+	if grass != null:
+		var mc: Vector3 = grass._mown[grass._mown.size() - 1] if grass._mown.size() > mown0 else Vector3()
+		check(grass._mown.size() == mown0 + 1 and mc.z > 2.0, "and the grass under it mown (a patch %.1f m round)" % mc.z)
+	check(not "burning" in vd, "and nothing set alight")
+	check(VegDamage.pieces_for(5.0, 9.0) > 3 * VegDamage.pieces_for(1.5, 1.5), "a big plant goes to more pieces than a small one (%d, %d)" % [VegDamage.pieces_for(5.0, 9.0), VegDamage.pieces_for(1.5, 1.5)])
+	# --- A ROUND INTO THE GRASS -------------------------------------------
+	if grass != null:
+		# (rounds steeply down into the ground round you, the plants left out)
+		var keep_veg = vd.veg
+		vd.veg = null
+		var m0: int = grass._mown.size()
+		for k in 40:
+			var q := Vector2(p.x, p.y) + Vector2(randf_range(-600, 600), randf_range(-600, 600))
+			var gz: float = lv.floor_at(q.x, q.y)
+			_shoot_at(Vector3(q.x - 40.0, q.y, gz + 300.0), Vector3(q.x, q.y, gz))
+		vd.veg = keep_veg
+		check(grass._mown.size() >= m0 + 30, "a round into the ground takes the tufts it lands among (%d of 40 rounds in)" % (grass._mown.size() - m0))
 	# --- A ROUND INTO A TREE ----------------------------------------------
 	var tree := {}
 	for q in vd.near(0.0, 0.0, 600.0):

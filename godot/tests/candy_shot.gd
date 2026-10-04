@@ -7,9 +7,12 @@
 ## --herd: you stand 14 m off the nearest herd of unicorns, looking at it.
 ## --house: you stand 16 m out from the nearest house's door, looking at it.
 ## --edge: you stand at the coast, looking out and down over the lip.
-## --fire: a rocket goes off in the nearest wood, 15 to 40 m ahead of you,
-## and the picture is taken while the plants round it burn.
+## --blast: a rocket goes off in the nearest wood, 15 to 40 m ahead of you,
+## and the picture is taken while the plants it shredded fly in pieces.
 ## --wound: a candy girl 4 m ahead takes five rounds (not enough to finish her).
+## --cliff: the eye out in the air 45 m off the coast, level with the lip
+## less 12 m, turned back to look at the island's side.
+## (--far: 140 m off)
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
 ##
@@ -80,7 +83,7 @@ func _frame() -> void:
 			p.y = at.y
 			p.sector = game.level.sector_at(p.x, p.y)
 			p.z = game.level.floor_at(p.x, p.y)
-		if "--fire" in args and game.veg_damage != null:
+		if "--blast" in args and game.veg_damage != null:
 			var vd = game.veg_damage
 			var best := Vector2()
 			var most := -1
@@ -98,8 +101,8 @@ func _frame() -> void:
 			p.sector = game.level.sector_at(p.x, p.y)
 			p.z = game.level.floor_at(p.x, p.y)
 			p.angle = (best - Vector2(p.x, p.y)).angle()
-			set_meta("fire_at", best)
-		if "--fire" in args or "--wound" in args:
+			set_meta("blast_at", best)
+		if "--blast" in args or "--wound" in args:
 			for a in game.actors:
 				if a.type == "CANDYGIRL":
 					a.remove()
@@ -136,9 +139,9 @@ func _frame() -> void:
 				if a.type == "CANDYGIRL":
 					a.remove()
 	# (on or after a tic, never on it exactly: a frame can run several)
-	if has_meta("fire_at") and not has_meta("fired") and game.tics - _start >= 2:
-		set_meta("fired", true)
-		var f: Vector2 = get_meta("fire_at")
+	if has_meta("blast_at") and not has_meta("blasted") and game.tics - _start >= 2:
+		set_meta("blasted", true)
+		var f: Vector2 = get_meta("blast_at")
 		game.missiles.detonate(Vector3(f.x, f.y, game.level.floor_at(f.x, f.y) + 8.0))
 	if "--wound" in args and not has_meta("victim") and game.tics - _start >= 4:
 		var g = game.spawn("CANDYGIRL", p.x + cos(p.angle) * 128.0, p.y + sin(p.angle) * 128.0, p.angle + PI)
@@ -157,6 +160,23 @@ func _frame() -> void:
 		_scared = true
 		game.scare(p.x + cos(p.angle) * 60.0, p.y + sin(p.angle) * 60.0, 900.0)
 		p.angle += PI
+	if "--cliff" in args:
+		if not has_meta("cliff"):
+			var dir := Vector2(cos(p.angle), sin(p.angle))
+			var at := Vector2(p.x, p.y)
+			for k in 4000:
+				var q := at + dir * 32.0
+				if not game.level.on_land(q.x, q.y, 0.0):
+					break
+				at = q
+			set_meta("cliff_z", game.level.floor_at(at.x, at.y) - 12.0 * 32.0)
+			set_meta("cliff", at + dir * (140.0 if "--far" in args else 45.0) * 32.0)
+			p.angle += PI
+		var at: Vector2 = get_meta("cliff")
+		p.x = at.x
+		p.y = at.y
+		p.z = get_meta("cliff_z")
+		p.momz = 0.0
 	if "--above" in args and game.tics - _start >= wait - 1:
 		# (every tic up to the picture, so it does not fall)
 		if not has_meta("above"):
