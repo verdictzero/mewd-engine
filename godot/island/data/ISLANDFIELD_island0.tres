@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_island_field.gd" id="1_field"]
 
-; MEWD's ISLAND 0, at the user's request: golf's island_0
+; MEWD's NOT PENNSYLVANIA (ISLAND 0 until the user renamed it), at the user's request: golf's island_0
 ; (ISLANDFIELD_hub_solid.tres, seed 1337) with golf taken out of the
 ; ground. Everything is copied verbatim except five switches:
 ;   * zone_enabled = false   no golf holes, fairways or build pads

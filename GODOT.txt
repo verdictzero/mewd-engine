@@ -31,7 +31,7 @@ RUNNING IT
     --seed=N             the crowd for seed N (where the townsfolk are
                          dropped on the island; the island is the same)
     --map=NAME           which island (godot/scripts/level/islands.gd):
-                         island0, island-1 or island-2
+                         island0 (NOT PENNSYLVANIA) or candyland
     --at=X,Y,DEG         stand somewhere else (for pictures), in the
                          game's units (32 to the metre)
     --eye=RISE[,PITCH]   the eye that far over the body, tilted PITCH
@@ -940,7 +940,7 @@ THE GREY OVER THE HANDHELD'S PICTURE
   the sliver says it was sized to the picture before the handheld's
   picture settings resized it). No 2D node is left in an island scene.
 
-ISLAND -1 AND ISLAND -2
+ISLAND -1 AND ISLAND -2 (GONE — see NOT PENNSYLVANIA, below)
 
   At the user's request, two more islands, each ISLAND 0 with every
   setting the same but its size: ISLAND -1 at half (hub_radius 625 m
@@ -1298,7 +1298,7 @@ THE TOWNS ARE SQUARES
   Both Candy Land islands are built this way. Every other island's pads
   stay round.
 
-CANDY LAND XS
+CANDY LAND XS (GONE — see NOT PENNSYLVANIA, below)
 
   At the user's request, CANDY LAND at 25% of its size: hub_radius
   312.5 m against 1250 (ISLANDFIELD_candyland-xs.tres,
@@ -2165,6 +2165,59 @@ BLUE JETS
   nozzle, electric blue in the diamonds' bellies, a deeper blue toward
   the point, the retros a shade paler than the RCS; the shock diamonds
   as they were. drop_test expects blue of both.
+
+
+THE DROP, ROUND FIVE: THE SLOW FALL, THE BULGE-TOP NOZZLES, AND OUT OF
+THE DOOR FOR GOOD; NOT PENNSYLVANIA
+
+  At the user's request: "make descent 400% slower please so the player
+  has time to maneuver"; "fix the thrusters on the tops of the retro
+  rocket bulges, they should rotate the craft or fire complementarily
+  to the direction of the main pitch thrusters at the top (like the one
+  above the door)"; "player still cannot exit pod, maybe move them
+  outside the pod right after the door ejects"; "delete candyland xs,
+  island -1 and island -2, and rename island 0 'Not Pennsylvania'".
+
+  THE SLOW FALL (DropPod.DROP, `_drag`): the air is thin at the top —
+  DROP.drag as it was, terminal about 70 m/s, so the pod still comes in
+  at 140 and burns for its three seconds — and then thickens over the
+  next DROP.brake_secs (3 s) to DROP.drag_slow, terminal 16 m/s, a
+  quarter of the 70: the pod falls at a walking pace from a thousand
+  metres up, a minute and more of it (64 s in the test, against 20),
+  the stick live the whole way until the last DROP.level_below metres
+  (50 now, three seconds, where it was 120). The autopilot's burn
+  follows from the speed: lit at about 12 m, over in a second and a
+  half, down at 3 m/s. drop_test's ranges are the slow fall's.
+
+  THE BULGE-TOP NOZZLES: the eight nozzles at 2.75 m up sit in pairs on
+  the tops of the four retro bulges (the model says so: the same
+  diagonals as the skirt pairs, straight over them). They were read as
+  side-facing corner blocks; now each fires STRAIGHT UP (a touch
+  outward, `_nozzle_dir`), so its push is DOWN on that side of the pod
+  and the pod tips that way. THE PITCH COUPLE with the top ring: to tip
+  the pod toward the door, the top nozzle over the far side fires (its
+  push in and down at the top, the top leaning doorward) and the
+  bulge-top nozzles on the door's side fire up (that side pushed down)
+  — the same turn from both ends. The RCS controller (`_rcs`) picks by
+  turning effect and was not changed; the couple falls out of the
+  geometry. drop_test checks the eight point up and that a tilt fires
+  bulge-top nozzles on one side with a top nozzle on the other.
+
+  OUT OF THE DOOR: the player could still not get out (the deck's step
+  and the ring of posts between them and the gap). Now the moment the
+  door blows the player is SET DOWN OUTSIDE IT (`_step_out`): a metre
+  past the hull on the door's line, on the ground there, facing away
+  from the pod, momentum zero — and the tic that blows the door returns
+  before the sync that would put them back in the middle (that was the
+  second half of the bug). The test checks they stand outside, off the
+  deck, facing out, and walk on from there.
+
+  NOT PENNSYLVANIA: ISLAND 0's title in Islands.LIST (its key is still
+  island0, so --map=island0, the bake and the tests are as they were).
+  ISLAND -1, ISLAND -2 and CANDY LAND XS are gone: their entries, their
+  scenes (island_-1, island_-2, candy_land_xs) and their
+  ISLANDFIELD_*.tres, and their runs in tools/godot-test.sh. The builds
+  bake two islands now.
 
 TESTS
 

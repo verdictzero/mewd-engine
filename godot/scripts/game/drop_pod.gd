@@ -23,17 +23,25 @@
 ##     past the hull): down and outward at 37 degrees — THE RETROS. All
 ##     eight together brake the fall along the pod's own axis; a tilted
 ##     pod braking drifts sideways, which is how it is steered.
-##   8 SHOULDER nozzles (2.75 m up, four corner pairs): each pair a corner
-##     block with one nozzle facing each adjacent cardinal direction —
-##     the RCS. Pitch and roll.
-##   4 TOP nozzles (3.05 m up, at the cardinal points): outward and up —
-##     RCS too, the other half of a pitch or roll couple.
+##   8 BULGE-TOP nozzles (2.75 m up, four pairs at the diagonals, each
+##     pair on top of a retro bulge): straight up, a touch outward — the
+##     RCS. One fires UP, its push is DOWN on that side of the pod, and
+##     the pod tips that way: pitch and roll, with the top ring (at the
+##     user's request: "they should rotate the craft or fire
+##     complementarily to the direction of the main pitch thrusters at
+##     the top, like the one above the door").
+##   4 TOP nozzles (3.05 m up, at the cardinal points, one over the
+##     door): outward and up — their push is in and down at the top, so
+##     the top of the pod leans away from them. THE PITCH COUPLE: to tip
+##     the pod toward the door, the top nozzle over the far side fires
+##     and the bulge-top nozzles on the door's side fire — the same turn
+##     from both ends.
 ## A nozzle's thrust is along the opposite of the way it points, at the
 ## place it is, so it turns the pod as well as pushing it; the RCS
 ## controller picks, for the turn it wants, the nozzles whose turning
-## effect is that way (`_rcs`), so what fires is what would fire. The RCS
-## flames are blue cones wide at the nozzle and pointed out along the jet;
-## the retros' are orange plumes spreading from the nozzle (pod_flame).
+## effect is that way (`_rcs`), so what fires is what would fire — the
+## couple above falls out of it. Every jet is bright blue, a chain of
+## shock diamonds out from the nozzle to a point (pod_flame).
 ##
 ## THE RIDE: the pod comes in DROP.height metres over the start already
 ## falling at DROP.entry (out of orbit), drifting, IN THE REENTRY FIRE: a
@@ -42,7 +50,14 @@
 ## an orange light on it, and fire, sparks and smoke left along the way it
 ## came. The fire is the speed's: fiercest over DROP.heat_hi, out under
 ## DROP.heat_lo, so it dies as the retros slow it. Gravity, air drag
-## (terminal about 210 m/s), and a capsule's own stability (base first).
+## and a capsule's own stability (base first). THE FALL IS SLOW (at the
+## user's request: "make descent 400% slower please so the player has
+## time to maneuver"): the air is thin at the top (DROP.drag, terminal
+## about 70 m/s, the fire's three seconds) and thickens over the next
+## DROP.brake_secs to DROP.drag_slow — terminal 16 m/s, a quarter of
+## what it was — so the ride from the top is well over a minute, most of
+## it at that walking-pace fall, with the stick live all the way down
+## until the last DROP.level_below metres.
 ## The move keys tilt the pod — the RCS brings its rate to what is asked
 ## and kills it again — and with nothing asked the RCS levels it; the look
 ## turns the eye round it; FIRE lights the retros. THE AUTOPILOT flies a
@@ -86,7 +101,12 @@ const DROP := {
 	"offset": 150.0,        # m to the side of the start
 	"drift": 12.0,          # m/s sideways to begin with
 	"g": 9.8,
-	"drag": 0.0020,         # a = -drag * v|v|: terminal about 70 m/s (the original rate)
+	"drag": 0.0020,         # a = -drag * v|v| at the top: terminal about 70 m/s, the
+	                        # speed the reentry fire needs (its three seconds)
+	"drag_slow": 0.0383,    # the drag once the air has thickened (the fall after the
+	                        # fire): terminal 16 m/s, a quarter of the 70 (at the
+	                        # user's request: "400% slower")
+	"brake_secs": 3.0,      # s after the fire for the air to thicken from one to the other
 	"retro": 6.0,           # m/s^2 a skirt nozzle gives: canted 37 degrees out, all
 	                        # eight lift 8 * 6 * 0.61 = 29 m/s^2, two g net of gravity
 	"retro_lift": 0.61,     # the share of a skirt nozzle's push that is upward
@@ -102,7 +122,8 @@ const DROP := {
 	"land_speed": 4.0,      # m/s at most on touchdown
 	"aim_speed": 3.0,       # m/s the autopilot brings it down to
 	"level_secs": 2.0,      # the autopilot has the attitude this long out at the fall's speed...
-	"level_below": 120.0,   # ...or under this (m), whichever is higher
+	"level_below": 50.0,    # ...or under this (m), whichever is higher: three seconds
+	                        # of the slow fall, the stick live until then
 	"fire_secs": 3.0,       # s the reentry fire lasts from the top, at most
 	"fire_fade": 0.8,       # s it takes to go out, at the end of that
 	"heat_lo": 78.0,        # m/s: the reentry fire is out under this (just over terminal)
@@ -250,10 +271,9 @@ static func _nozzle_dir(c: Vector3) -> Vector3:
 	if c.y > 5.8:
 		# the top ring: out and up
 		return (radial * 0.84 + Vector3(0, 0.54, 0)).normalized()
-	# a shoulder pair: the nozzle nearer the x axis faces along x, the
-	# other along z, a little upward
-	var d := Vector3(signf(c.x), 0.0, 0.0) if absf(c.x) > absf(c.z) else Vector3(0.0, 0.0, signf(c.z))
-	return (d + Vector3(0, 0.3, 0)).normalized()
+	# a bulge-top pair: straight up, a touch outward (its push down on
+	# that side, the pod tipping that way: see the header)
+	return (radial * 0.2 + Vector3(0, 0.98, 0)).normalized()
 
 ## the flames: a unit cone (point up, base 1 across, no caps) per nozzle,
 ## coloured per nozzle (pod_flame.gdshader)
@@ -452,6 +472,8 @@ func tic(cmd: Dictionary) -> void:
 		"inside":
 			if phase_tics >= DROP.door_tics:
 				_blow_door()
+				# (the player is outside now: not synced back in)
+				return
 		"out":
 			# (the player is their own once the door is off: the sync here put
 			# them back at the pod's middle every tic — stuck in the pod, at
@@ -479,7 +501,8 @@ func _fly(cmd: Dictionary) -> void:
 	# pod stops at the last; then the last metres at the aim speed
 	var vz := vel.y
 	var lift: float = DROP.retro * 8.0 * DROP.retro_lift * maxf(up.y, 0.3)
-	var air: float = DROP.drag * vz * vz
+	var drag := _drag()
+	var air: float = drag * vz * vz
 	var aim: float = DROP.aim_speed
 	var need := 0.0
 	if vz < -aim:
@@ -549,7 +572,7 @@ func _fly(cmd: Dictionary) -> void:
 			alpha += (att * n.pos - att * Vector3(0, 2.5 * POD_SCALE, 0)).cross(f) / DROP.inertia * 0.15
 	# ---- the air, the ground's pull, a capsule's stability ------------
 	acc += Vector3(0, -DROP.g, 0)
-	acc -= vel * vel.length() * DROP.drag
+	acc -= vel * vel.length() * drag
 	var speed := vel.length()
 	var right_axis := up.cross(Vector3.UP)
 	alpha += right_axis * DROP.righting * clampf(speed / 40.0, 0.0, 1.5)
@@ -582,6 +605,14 @@ func _fly(cmd: Dictionary) -> void:
 
 var _acc_tmp := Vector3.ZERO
 var _alpha_tmp := Vector3.ZERO
+
+## THE AIR'S DRAG NOW: thin at the top (DROP.drag, the fire's terminal),
+## thickening over DROP.brake_secs after the fire to DROP.drag_slow, the
+## slow fall's (see the header: "400% slower").
+func _drag() -> float:
+	var secs := ticks / float(U.TICRATE)
+	var k := clampf((secs - DROP.fire_secs) / DROP.brake_secs, 0.0, 1.0)
+	return lerpf(DROP.drag, DROP.drag_slow, k)
 ## THE RCS: for a wanted change of spin (world, rad/s), fire the nozzles
 ## whose turning is that way, as hard as the want is. Their push and turn
 ## are added to _acc_tmp and _alpha_tmp.
@@ -764,7 +795,34 @@ func _blow_door() -> void:
 	for k in 6:
 		game.fx.puff(gx + randf_range(-30, 30), gy + randf_range(-30, 30), at.y + randf_range(-20, 20), 40.0, 70)
 	game.play_sound("explode", null)
+	# AND OUT: the player set down outside the doorway, on the ground,
+	# facing away from the pod (at the user's report: "player still
+	# cannot exit pod, maybe move them outside the pod right after the
+	# door ejects" — so they are out the moment it is gone)
+	_step_out(out)
 	BlackBox.mark("drop: door blown")
+
+## The player put just outside the door, a step past the hull, standing
+## on whatever is there (the ground, not THE DECK), looking out.
+func _step_out(out: Vector3) -> void:
+	var p = game.player
+	var um := IslandLevel.U_PER_M
+	var at := pos + out * (HULL_R + 1.0)
+	var gx := at.x * um
+	var gy := -at.z * um
+	var f: float = game.level.floor_at(gx, gy)
+	p.x = gx
+	p.y = gy
+	p.z = f if f > IslandLevel.NO_FLOOR else pos.y * um
+	p.view_z = p.z + U.PLAYER_EYE
+	p.momx = 0.0
+	p.momy = 0.0
+	p.momz = 0.0
+	p.on_ground = true
+	p.sector = game.level.sector_at(gx, gy)
+	p.angle = door_angle()
+	p.pitch = 0.0
+	p.prev = Vector4(p.x, p.y, p.view_z, 0)
 
 func _door_tic() -> void:
 	if door_down:

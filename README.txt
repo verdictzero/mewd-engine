@@ -53,7 +53,7 @@ Then:
 Arguments after `--`:
 
     --play                skip the title
-    --map=NAME            which island: island0, island-1, island-2
+    --map=NAME            which island: island0 (NOT PENNSYLVANIA), candyland
     --seed=N              where the crowd is dropped
     --weapon=NAME         start holding FLAMER, EXTINGUISHER, BORE,
                           MINIGUN, LANCE, LAUNCHER, ARC or POTATO

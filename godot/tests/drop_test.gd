@@ -88,7 +88,7 @@ func _run() -> void:
 	var fire_out_at := -1.0
 	var fire_out_tic := -1
 	var burn_tics := 0
-	while d.phase == "drop" and game.tics - t0 < 60 * 35:
+	while d.phase == "drop" and game.tics - t0 < 150 * 35:
 		last_heat = d.heat
 		await process_frame
 		fastest = maxf(fastest, -d.vel.y)
@@ -103,12 +103,12 @@ func _run() -> void:
 			fire_out_tic = d.ticks
 	var t: int = game.tics - t0
 	check(d.phase != "drop", "it comes down")
-	check(t > 15 * 35 and t < 32 * 35, "in %.1f s, at the original rate" % (t / 35.0))
+	check(t > 55 * 35 and t < 120 * 35, "in %.1f s: the slow fall, a minute and more (400%% slower)" % (t / 35.0))
 	check(fastest > 120.0 and fastest < 160.0, "falling at up to %.0f m/s at the top, then at terminal" % fastest)
 	check(d.max_heat > 0.9 and fire_out_at > 0.0 and last_heat <= 0.0,
 		"the reentry fire burned, and was out by %.0f m, before the ground" % fire_out_at)
 	check(fire_out_tic > 0 and fire_out_tic <= int(3.2 * 35), "and it lasted %.1f s" % (fire_out_tic / 35.0))
-	check(burned_at > 190.0 and burned_at < 320.0, "the autopilot lit the retros at %.0f m (sooner than the first cut's 170)" % burned_at)
+	check(burned_at > 5.0 and burned_at < 60.0, "the autopilot lit the retros at %.0f m, low, for the slow fall" % burned_at)
 	check(burn_tics < 9 * 35, "and the burn was over in %.1f s" % (burn_tics / 35.0))
 	check(d.touchdown_speed <= DropPod.DROP.land_speed + 1.0, "and landed at %.1f m/s" % d.touchdown_speed)
 	check(rad_to_deg(d.tilt()) < 20.0, "near enough level (%.0f degrees)" % rad_to_deg(d.tilt()))
@@ -147,7 +147,11 @@ func _run() -> void:
 		game.tic()
 	check(d.phase == "out", "the door blows off")
 	check(not d.holds_player(), "and you are free")
-	check(absf(p.z - pz) < 2.0 and absf(p.z - deck_z) < 2.0, "standing on the pod's floor")
+	var out_now := Vector2(p.x - gx, p.y - gy).length() / um
+	var f_out: float = game.level.floor_at(p.x, p.y)
+	check(out_now > DropPod.HULL_R + 0.5 and out_now < DropPod.HULL_R + 1.6, "and set down outside the door (%.1f m from the middle)" % out_now)
+	check(absf(p.z - f_out) < 1.0 and p.z < pz - 2.0, "on the ground there, off the deck")
+	check(absf(Vector2(cos(p.angle), sin(p.angle)).dot(dv) - 1.0) < 0.1, "facing away from the pod")
 	check(d.blockers.size() >= 16 and d.blockers.size() < DropPod.BLOCKERS, "a ring of posts round the hull with a gap for the door (%d)" % d.blockers.size())
 	check(d.door_posts.is_empty(), "the doorway open")
 	for k in 40:
@@ -157,9 +161,10 @@ func _run() -> void:
 		game.tic()
 	check(d.door_down, "the door is down on the ground")
 	check(not p.dead and p.health > 0, "and you are alive")
-	# OUT OF THE DOOR: turned to it and walking, down off the deck — through
-	# the game's own tic, the key held, as the user plays (the pod kept
-	# putting the player back at its middle every tic: stuck in the pod)
+	# AND AWAY: walking on from there — through the game's own tic, the
+	# key held, as the user plays (the pod kept putting the player back
+	# at its middle every tic: stuck in the pod; then they could not get
+	# out of the door: now they are set down outside it)
 	p.angle = d.door_angle()
 	Input.action_press("fwd")
 	for k in 50:
@@ -167,7 +172,7 @@ func _run() -> void:
 	Input.action_release("fwd")
 	var out_r := Vector2(p.x - gx, p.y - gy).length() / um
 	var f_here: float = game.level.floor_at(p.x, p.y)
-	check(out_r > DropPod.HULL_R + 0.3, "you walk out of the door (%.1f m from the middle)" % out_r)
+	check(out_r > out_now + 2.0, "you walk away from it (%.1f m from the middle)" % out_r)
 	check(absf(p.z - f_here) < 2.0 and absf(f_here - game.level.ground.height(p.x / um, -p.y / um) * um) < 0.5,
 		"and stand on the ground there, off the deck")
 	# ---- the exhaust and the door against plants, plant by plant -------
@@ -224,6 +229,30 @@ func _run() -> void:
 		if d.fired[i] > 0.0 and d.nozzles[i].kind != "rcs":
 			rcs_only = false
 	check(rcs_only, "with the RCS nozzles, not the retros")
+	# THE PITCH COUPLE: the bulge-top nozzles (over the retro bulges) fire
+	# up, on the side the pod tips toward; a top-ring nozzle fires on the
+	# far side — the two ends of the same turn
+	var bulge_up := 0
+	var tops_fired := []
+	var bulges_fired := []
+	for i in d.nozzles.size():
+		var n: Dictionary = d.nozzles[i]
+		if n.kind != "rcs":
+			continue
+		if n.pos.y < 2.9:
+			if n.dir.y > 0.9:
+				bulge_up += 1
+			if d.fired[i] > 0.01:
+				bulges_fired.append(n)
+		elif d.fired[i] > 0.01:
+			tops_fired.append(n)
+	check(bulge_up == 8, "the eight nozzles on the retro bulges' tops fire straight up (%d)" % bulge_up)
+	var opposite := not tops_fired.is_empty() and not bulges_fired.is_empty()
+	for tn in tops_fired:
+		for bn in bulges_fired:
+			if Vector2(tn.pos.x, tn.pos.z).dot(Vector2(bn.pos.x, bn.pos.z)) > 0.0:
+				opposite = false
+	check(opposite, "a tilt fires bulge-top nozzles on one side and a top nozzle on the other (%d + %d)" % [bulges_fired.size(), tops_fired.size()])
 	# the RCS flames: blue, wide at the nozzle, pointed out along the jet
 	# (the transform and colour the MultiMesh is given: a headless run has
 	# no renderer to read them back from)

@@ -23,10 +23,7 @@ run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
 # rounds and blasts into the ground — needs the island baked first:
 #   godot --headless --script res://tools/bake_island.gd
 run island  --script res://godot/tests/island_test.gd
-run island-1 --script res://godot/tests/island_test.gd -- --map=island-1
-run island-2 --script res://godot/tests/island_test.gd -- --map=island-2
 run candyland --script res://godot/tests/island_test.gd -- --map=candyland
-run candyland-xs --script res://godot/tests/island_test.gd -- --map=candyland-xs
 # CANDY LAND: roads, lamps, the candy girls greeting you and running (godot/tests/candy_test.gd)
 run candy   --script res://godot/tests/candy_test.gd -- --map=candyland
 # WHAT ROUNDS AND BLASTS DO TO SPRITES: bites out of people, lamps shot to
