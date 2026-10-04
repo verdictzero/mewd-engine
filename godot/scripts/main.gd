@@ -42,6 +42,8 @@ func _ready() -> void:
 		host.name = "Host"
 		add_child(host)
 		return
+	# (what the last run was doing, if it did not end cleanly: BlackBox)
+	BlackBox.previous()
 	lofi = Lofi.new()
 	add_child(lofi)
 	sound = Sound.new()
@@ -90,6 +92,21 @@ func _ready() -> void:
 		show_title()
 
 var terminal: Terminal
+
+## THE LAST RUN DID NOT END CLEANLY (BlackBox): what it was doing, small, at
+## the foot of the title, for a photograph
+func _crash_note(t: String) -> Control:
+	var l := Label.new()
+	l.text = "THE LAST RUN DID NOT END CLEANLY. IT WAS:\n" + t.replace("RUNNING (if you read this at start, the last run did not end cleanly)\n", "")
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6))
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 4)
+	l.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	l.position = Vector2(8, -8)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 func show_terminal() -> void:
 	var layer := CanvasLayer.new()
@@ -152,6 +169,8 @@ func show_title() -> void:
 	title_layer.add_child(title)
 	title.attach_shade(shade)
 	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
+	if BlackBox.last != "":
+		title_layer.add_child(_crash_note(BlackBox.last))
 	title.pad_setup.connect(open_pad_wizard)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
@@ -162,6 +181,7 @@ var _chosen_map := ""
 func start_game() -> void:
 	if game != null or _loading:
 		return
+	BlackBox.mark("start game " + (_chosen_map if _chosen_map != "" else "(default)"))
 	# THE LOADING SCREEN (ui/loading.gd), drawn before the build blocks —
 	# a frame for it to be seen, then the build, then a few frames of the
 	# world under it while the shaders compile, then it fades (not for a
@@ -179,6 +199,8 @@ func start_game() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		_loading = false
+		if not is_inside_tree():
+			return
 	if forest != null:
 		forest.queue_free()
 		shade.queue_free()
@@ -216,7 +238,11 @@ func start_game() -> void:
 		if loading != null:
 			loading.at("RAISING THE ISLAND", minf(0.55, 0.2 + waited * 0.002))
 		await get_tree().process_frame
+		# (left for the title while it was still loading: nothing more to do)
+		if not is_inside_tree() or game == null:
+			return
 	_frames = 0
+	BlackBox.mark("island up")
 	sound.listener = game.player
 	sound.layered = game.level != null and game.level.layered
 	var hud := Hud.new()
@@ -254,10 +280,29 @@ func start_game() -> void:
 		for i in 4:
 			loading.at("WARMING UP THE SHADERS", 0.6 + 0.1 * i)
 			await RenderingServer.frame_post_draw
+			if not is_inside_tree() or game == null:
+				return
 		game.decals.warm_end()
 		game.gore_decals.warm_end()
 		Warmup.end(warm)
 		loading.finish()
+	BlackBox.mark("playing")
+
+## What the BlackBox keeps of the game, twice a second
+func _box_state() -> String:
+	var p = game.player
+	if p == null:
+		return "map %s, loading" % game.get("map_name")
+	var t := "map %s, tic %d, %d fps, %s%s" % [str(game.get("map_name")), int(game.tics),
+		Engine.get_frames_per_second(), p.weapon,
+		(" charge %d (stage %d)" % [p.charge, p.charge_stage()]) if p.charge > 0 else ""]
+	if p.beam_tics > 0:
+		t += " beam out %d" % p.beam_tics
+	if pause.visible:
+		t += ", paused"
+	t += "\nactors %d, gibs %d, gore %d, pieces %d" % [game.actors.size(), game.giblets.chunks.count,
+		game.fx.gore.count, game.chunks.count() if game.chunks != null else 0]
+	return t
 
 static func _arg(prefix: String) -> bool:
 	for a in OS.get_cmdline_user_args():
@@ -278,6 +323,8 @@ var _frames := 0
 func _process(_dt: float) -> void:
 	if host != null:
 		return
+	if game != null and is_instance_valid(game):
+		BlackBox.state(_box_state())
 	# (a --shot of a match counts its frames from the world being up, not
 	# from the handshake)
 	if not _joining:
@@ -375,11 +422,44 @@ func resume() -> void:
 		if touch == null:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+## BACK TO THE TITLE, in stages (at the user's request: it crashed on the
+## handheld here), each one marked in the BlackBox: the sound stopped, the
+## game and everything drawn for it let go, a frame for that to happen,
+## and only then the scene built again
+var _quitting := false
 func quit_to_title() -> void:
+	if _quitting:
+		return
+	_quitting = true
+	BlackBox.mark("quit to title: begin")
 	pause.visible = false
 	# leaving a match says goodbye to the host
 	if game != null and game.net != null:
 		game.net.close()
+	BlackBox.mark("quit to title: sound off")
+	for c in sound.get_children():
+		if c is AudioStreamPlayer:
+			c.stop()
+			c.queue_free()
+	if music != null:
+		music.process_mode = Node.PROCESS_MODE_DISABLED
+	BlackBox.mark("quit to title: game off")
+	if game != null:
+		game.process_mode = Node.PROCESS_MODE_DISABLED
+		for c in hud_layer.get_children():
+			if c != fps_label:
+				c.queue_free()
+		if touch_layer != null:
+			touch_layer.queue_free()
+			touch_layer = null
+			touch = null
+		for c in lofi.gun.get_children():
+			c.queue_free()
+		game.queue_free()
+		game = null
+	await get_tree().process_frame
+	await get_tree().process_frame
+	BlackBox.mark("quit to title: reloading the scene")
 	get_tree().reload_current_scene()
 
 ## SET UP THE PAD (ui/pad_wizard.gd), from the title or the pause menu:
@@ -400,6 +480,14 @@ func open_pad_wizard() -> void:
 ## (application/config/quit_on_go_back is off) — the pause menu, or out
 ## of it
 func _notification(what: int) -> void:
+	# (a run that ends because it was closed, or is put away, is not a crash)
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_CRASH:
+		if what == NOTIFICATION_WM_CLOSE_REQUEST:
+			BlackBox.clean()
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		BlackBox.mark("app in background")
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		BlackBox.mark("app back")
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if pad_wizard != null and is_instance_valid(pad_wizard):
 			return

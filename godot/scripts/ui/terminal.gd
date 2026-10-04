@@ -197,6 +197,7 @@ func _enter() -> void:
 		return
 	if e in ["QUIT", "EXIT"]:
 		await tell(["GOODBYE"])
+		BlackBox.clean()
 		get_tree().quit()
 		return
 	var jr := RegEx.create_from_string(JOIN_RE)

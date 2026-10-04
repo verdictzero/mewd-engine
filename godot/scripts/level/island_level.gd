@@ -309,14 +309,29 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 	if not herds.is_empty():
 		var centres: Array[Vector2] = []
 		var reach := e * 0.85
-		for h in int(herds.get("count", 0)):
+		# IN SIGHT FIRST (Islands "near", "by_towns"): a herd or two 50 to
+		# 140 m from your start, and one as far from every town, before the
+		# rest go anywhere — a herd is only seen within 200 m of it
+		var anchors: Array[Vector2] = []
+		for i in int(herds.get("near", 0)):
+			anchors.append(start)
+		if bool(herds.get("by_towns", false)):
+			for sq in squares:
+				anchors.append(sq[0])
+		var total := int(herds.get("count", 0)) + anchors.size()
+		for h in total:
+			var anchor: Vector2 = anchors[h] if h < anchors.size() else Vector2.INF
 			var c := Vector2.INF
-			for k in 300:
+			for k in 400:
 				var a := rng.randf() * TAU
-				var q := Vector2(cos(a), sin(a)) * sqrt(rng.randf()) * reach
+				var q: Vector2
+				if anchor != Vector2.INF:
+					q = anchor + Vector2(cos(a), sin(a)) * rng.randf_range(1600.0, 4500.0)
+				else:
+					q = Vector2(cos(a), sin(a)) * sqrt(rng.randf()) * reach
 				if not on_land(q.x, q.y, 400.0) or q.distance_to(start) < 1600.0:
 					continue
-				if centres.any(func(o): return o.distance_to(q) < 2400.0):
+				if centres.any(func(o): return o.distance_to(q) < (1400.0 if anchor != Vector2.INF else 2400.0)):
 					continue
 				if meadow != null and not meadow.call(q.x, q.y):
 					continue

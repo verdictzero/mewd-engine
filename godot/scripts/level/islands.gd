@@ -16,7 +16,12 @@
 ##   knee     (optional) where the tonemap's shoulder starts rolling the
 ##            highlights off instead of clipping them; 0 none (lofi.gdshader)
 ##   herds    (optional) herds of candy unicorns in the meadows:
-##            {count, adults: [least, most], foals: [least, most]}
+##            {count, adults: [least, most], foals: [least, most],
+##            near: how many of them graze in sight of your start, by_towns:
+##            one more in sight of every town} — the crowd is not drawn past
+##            200 m (Standees.CULL_FAR), and herds anywhere on the island
+##            were herds nobody saw (at the user's request: "haven't seen
+##            any unicorns yet")
 ##   lamps    (optional) street lamps along the island's roads, this far
 ##            apart in metres
 ##   road_verge (optional) the roads and towns drawn off their own lines
@@ -41,10 +46,10 @@ const LIST := [
 	# candy pack's ground and plants, roads between town squares, a blue
 	# sky with a candy sun at the top of it, and the candy girls — who come
 	# to say hello (Actor.A_Greet) until something frightens them
-	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 360,
+	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 600,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
 		"exposure": 0.8, "knee": 0.65, "road_verge": 3.0, "town_verge": 5.0,
-		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
+		"herds": {"count": 20, "adults": [3, 6], "foals": [1, 3], "near": 2, "by_towns": true},
 		# the gingerbread houses round the squares (IslandLevel.place_houses):
 		# the model's footprint in metres (half its width, its back and its
 		# front from its middle, how high a round has to go to clear it)
@@ -56,10 +61,10 @@ const LIST := [
 	# size (hub_radius 312.5 m against 1250, as ISLAND -2 is to ISLAND 0),
 	# every other setting the same — so the towns, the herds and the crowd
 	# are as many as will fit, on less ground
-	{"key": "candyland-xs", "title": "CANDY LAND XS", "scene": "res://godot/island/scenes/candy_land_xs.tscn", "people": 360,
+	{"key": "candyland-xs", "title": "CANDY LAND XS", "scene": "res://godot/island/scenes/candy_land_xs.tscn", "people": 600,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
 		"exposure": 0.8, "knee": 0.65, "road_verge": 3.0, "town_verge": 5.0,
-		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
+		"herds": {"count": 20, "adults": [3, 6], "foals": [1, 3], "near": 2, "by_towns": true},
 		# the gingerbread houses round the squares (IslandLevel.place_houses):
 		# the model's footprint in metres (half its width, its back and its
 		# front from its middle, how high a round has to go to clear it)

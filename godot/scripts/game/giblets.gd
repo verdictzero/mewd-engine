@@ -81,7 +81,8 @@ const GORE := {
 	"floor": 12, "floorReach": 190.0,
 	"walls": 20, "wallReach": 360.0,
 	"pool": 118.0,
-	"trailEvery": 3,      # tics between blood off a piece in the air
+	"trailEvery": 6,      # tics between blood off a piece in the air (was 3: a
+	                      # rocket into a crowd filled the pool of drops with it)
 }
 ## the wet dark ones, which is the tint that says viscera rather than
 ## meat — multiplied onto the gore art the way the frozen one is
@@ -204,6 +205,17 @@ func _fx():
 func _decals():
 	return game.get("gore_decals")
 
+## THE FLOOR UNDER A PIECE at height z. On an island that is the ground's
+## height and nothing else: asking span_at for it built a whole Sector per
+## piece per check, and a rocket into a crowd is hundreds of pieces (at the
+## user's request: rocket kills lagged)
+func _floor_under(lv: Level, x: float, y: float, z: float) -> float:
+	if lv is IslandLevel:
+		var f: float = lv.floor_at(x, y)
+		return 0.0 if f <= IslandLevel.NO_FLOOR else f
+	var sec := lv.span_at(x, y, z)
+	return sec.floor if sec else 0.0
+
 static func _r() -> float:
 	return U.p_random() / 255.0
 
@@ -217,7 +229,11 @@ func _height(a) -> float:
 ## Somebody is no longer a person. `a` is the actor it happened to — in
 ## the Godot port they are already dead, so their height has dropped to
 ## eight: the pieces come off the height they stood at.
-func burst(a) -> void:
+## `pieces`: how many pieces of them (GIB.count, -1); none for a body a
+## warhead is about to eviscerate, which throws its own (MissileSystem.
+## detonate) — the two together were twice the gore and, a rocket into a
+## crowd, the whole pool of pieces at once and the frame with it.
+func burst(a, pieces := -1) -> void:
 	bursts += 1
 	game.play_sound("gib", a)
 	# The fireball, standing on the floor where they were. It is an actor
@@ -235,11 +251,11 @@ func burst(a) -> void:
 	var h := _stood(a)
 	# AND THE FLOOR: spatters thrown out every way from the pool, laid over
 	# the next tics as a warhead's are (`room`, _room_tic)
-	if _decals() != null:
+	if _decals() != null and pieces != 0:
 		for k in GIB.floor:
 			var ang: float = _r() * TAU
 			room.append([ROOM_FLOOR, a.x, a.y, a.z, cos(ang), sin(ang), 16.0 + _r() * GIB.floorReach, 30.0 + _r() * 44.0])
-	for k in GIB.count:
+	for k in (GIB.count if pieces < 0 else pieces):
 		var ang := _r() * TAU
 		var sp: float = GIB.speedMin + _r() * (GIB.speedMax - GIB.speedMin)
 		var size: float = GIB.sizeMin + _r() * (GIB.sizeMax - GIB.sizeMin)
@@ -508,8 +524,7 @@ func tic() -> void:
 			if not wall.is_empty():
 				_land(Vector3(wall.x, wall.y, wall.z), chunk_kind[i], Decals.wall_normal(wall.line, x, y), C.vx[i], C.vy[i], int(C.frame[i]), C.size0[i])
 				return true
-			var sec := lv.span_at(nx, ny, minf(z, nz) if floor == UNKNOWN else z)
-			floor = sec.floor if sec else 0.0
+			floor = _floor_under(lv, nx, ny, minf(z, nz) if floor == UNKNOWN else z)
 			chunk_floor[i] = floor
 			chk_x[i] = nx
 			chk_y[i] = ny
@@ -550,8 +565,7 @@ func tic() -> void:
 		if not wall.is_empty():
 			_land_cold(wall.x, wall.y, wall.z)
 			return true
-		var sec := lv.span_at(nx, ny, S.pz[i])
-		var floor := sec.floor if sec else 0.0
+		var floor := _floor_under(lv, nx, ny, S.pz[i])
 		if nz <= floor + 1.0:
 			_land_cold(nx, ny, floor)
 			return true

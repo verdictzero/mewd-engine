@@ -18,6 +18,7 @@ func _init(level: IslandLevel, model: String) -> void:
 	var own: Transform3D = mi.transform
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
 	mm.mesh = _cold_mesh(mi.mesh)
 	mm.instance_count = level.houses.size()
 	var k := IslandLevel.U_PER_M
@@ -28,8 +29,25 @@ func _init(level: IslandLevel, model: String) -> void:
 		var yaw := atan2(cos(h.angle), -sin(h.angle))
 		var b := Basis(Vector3.UP, yaw).scaled(Vector3.ONE * float(h.scale))
 		mm.set_instance_transform(i, Transform3D(b, Vector3(h.x / k, h.z / k, -h.y / k)) * own)
+		mm.set_instance_custom_data(i, colourway(h))
 	multimesh = mm
 	scene.free()
+
+## HOW MANY COLOURWAYS (at the user's request: "hue shift house variants,
+## many"): the colour wheel cut into this many turns, and every house one
+## of them, with a little saturation and brightness of its own on top, so
+## no two neighbours need match. The first is the painting as it is.
+const COLOURWAYS := 16
+
+## A house's colourway, off where it stands (the same house the same colour
+## every time the island is built): (turn, saturation, brightness, 0) for
+## SHADER_house's INSTANCE_CUSTOM.
+static func colourway(h: Dictionary) -> Color:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(Vector2i(roundi(float(h.x)), roundi(float(h.y))))
+	var k := r.randi() % COLOURWAYS
+	return Color(float(k) / COLOURWAYS, r.randf_range(0.85, 1.3) if k > 0 else 1.0,
+		r.randf_range(0.9, 1.08) if k > 0 else 1.0, 0.0)
 
 const SHADER := preload("res://godot/island/shaders/SHADER_house.gdshader")
 const ENV_BALL := preload("res://godot/island/textures/TEX_env_ball_w2.png")

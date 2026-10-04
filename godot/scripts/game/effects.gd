@@ -357,6 +357,10 @@ func tic() -> void:
 		gore.tic(func(i: int, nx: float, ny: float, nz: float) -> bool:
 			if gore_kind[i] != 1 or (i & 1) != odd:
 				return false
+			# (on an island the ground's height, with no Sector made for it)
+			if lv is IslandLevel:
+				var f: float = lv.floor_at(nx, ny)
+				return f <= IslandLevel.NO_FLOOR or nz <= f + 1.0
 			var s := lv.span_at(nx, ny, gore.pz[i])
 			return s == null or nz <= s.floor + 1.0)
 

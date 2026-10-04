@@ -1623,6 +1623,76 @@ THE SPARKLE, THE TREES THAT WOULD NOT BLOW UP, THE GORE AS IT WAS
   before, which from a town square was a patch of grass clumps), and
   prints how many pieces of what are in the air.
 
+TWO CRASHES ON THE HANDHELD, THE ROCKET LAG, THE HOUSES, THE CROWD
+
+  At the user's request ("crash on quit to main menu; charging the
+  positron lance crashes the game; major lag on multiple rocket kills
+  and even single rocket kills; houses need nearest-neighbour
+  filtering; hue-shifted house variants, many; more girls; haven't seen
+  any unicorns yet").
+
+  THE CRASHES are on the user's RG557 (Android, a Mali GPU), the lance's
+  partway into a charge. Neither happens here: godot/tests/quit_test.gd
+  plays the real main scene twice over — a game started, the minigun,
+  a full lance charge to the red and its shot, the launcher and the arc
+  each held down, QUIT TO TITLE, the title, a second game — under the
+  Mobile renderer, with Vulkan validation on (no message) and with a
+  null ALSA card so the sound is really mixed (the charge's loop sliding
+  in pitch included). So:
+    - THE BLACK BOX (core/black_box.gd). Twice a second the game writes
+      what it is doing — map, tic, frame rate, the gun and its charge
+      and stage, the beam, how much gore is in the air — and every event
+      (a game started, the island up, playing, each stage of quitting) to
+      user://black_box.txt, opened and closed each time so it is on the
+      disk whatever kills the process. A clean close writes "clean"; put
+      in the background and never brought back counts as clean too. At
+      the next start, anything else is shown at the foot of the title:
+      THE LAST RUN DID NOT END CLEANLY, and what it was doing.
+    - QUIT TO TITLE IN STAGES (Main.quit_to_title): the sounds stopped
+      and freed, the game stopped, the HUD, the touch controls and the
+      gun let go, the game freed, two frames for all of it to go, and
+      only then the scene reloaded — each stage a mark in the box.
+      start_game's own waits stop if the scene went while they waited
+      (they carried on into a freed Main before).
+
+  THE ROCKET LAG was the gore twice over. A body a warhead killed was
+  GIBBED (its death state: the burst, thirty burning pieces, each
+  trailing fire, since the last round) AND EVISCERATED (the warhead's
+  own pieces, spray and marks) — a rocket into eight candy girls put
+  720 pieces in the air, the pool full, and the pieces' own tic took up
+  to 75 ms a frame (godot/tests/perf_bench.gd --map=candyland
+  --who=CANDYGIRL --warm). Now:
+    - MissileSystem.detonate marks everybody it is about to kill
+      ("warhead"), and Game.gib bursts a marked body that bleeds as the
+      fireball and the pool alone: the evisceration brings the pieces.
+      Anything else that gibs somebody (the minigun, the lance) still
+      throws thirty.
+    - On an island, a piece's floor is the ground's height
+      (Giblets._floor_under, and the blood drops in Effects): span_at
+      built a whole Sector per piece per check.
+    - A gore piece drips blood every sixth tic (was every third): the
+      drops filled their own pool.
+  The same rocket: 288 pieces, the script's share of the frames after it
+  about 30 to 55 ms where it was about 100.
+
+  THE HOUSES (SHADER_house, render/house_view.gd): the painting fetched
+  NEAREST (from the mip that fits), and every house one of sixteen
+  COLOURWAYS — its painting turned round the colour wheel about the
+  grey axis (YIQ), so the icing stays white and the gingerbread goes
+  mint, lilac or strawberry — with a little saturation and brightness of
+  its own; off where it stands, so a house is the same colour every
+  time. INSTANCE_CUSTOM carries it; colourway 0 is the painting as it is.
+
+  THE CROWD: 600 candy girls on both CANDY LANDs (were 360).
+
+  THE UNICORNS were there — seventy-odd a game — but every herd was put
+  anywhere on the island at least 50 m from you, and the crowd is not
+  drawn past 200 m (Standees.CULL_FAR): herds nobody saw. Islands
+  "herds" now has `near` (two herds 50 to 140 m from your start) and
+  `by_towns` (one as far from every town) placed first, and twenty more
+  anywhere: about 200 unicorns and foals a game, twenty or more of them
+  within 150 m of the start. candy_test checks that.
+
 TESTS
 
     tools/godot-test.sh
@@ -1660,7 +1730,7 @@ TESTS
   all three layers or none, a hot spot real and gone when it cools, the
   caps, and the web's way untouched.
   CANDY LAND (godot/tests/candy_test.gd): roads and squares off the
-  field, every road level across, you in a square, the lamps, all 360
+  field, every road level across, you in a square, the lamps, all 600
   candy girls in all nine flavours, the girls walking up and saying
   hello facing you, the front cell facing the eye and the back facing
   away, a fright sending every one near you running, and none of them

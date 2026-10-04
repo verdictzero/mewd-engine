@@ -123,7 +123,7 @@ func _init() -> void:
 	check(lv.sight_blocked(out.x, out.y, z0 + 41.0, far.x, far.y, z0 + 41.0), "and an eye cannot see through it")
 	var up: float = hh.z + hh.top + 64.0
 	check(lv.ray_hit_wall(out.x, out.y, up, far.x, far.y, up).is_empty(), "a round over its roof flies on")
-	check(girls.size() == 360 and others == 0, "the crowd is all candy girls (%d, %d others)" % [girls.size(), others])
+	check(girls.size() == int(game.island_spec.people) and others == 0, "the crowd is all candy girls (%d of %d, %d others)" % [girls.size(), int(game.island_spec.people), others])
 	check(flavours.size() == States.CANDY_FLAVOURS.size(), "in every flavour (%d of %d)" % [flavours.size(), States.CANDY_FLAVOURS.size()])
 	# THE HERDS: unicorns and foals in the meadows, the foal a little over
 	# half her mother's size and beside her
@@ -140,6 +140,12 @@ func _init() -> void:
 	check(homes.size() >= 6 and unis.size() >= homes.size() * 3, "herds of unicorns (%d herds, %d unicorns, %d foals)" % [homes.size(), unis.size(), foals.size()])
 	var meadow: Callable = game._meadow_of(game.island.get_node("IslandWorld").field)
 	check(homes.keys().all(func(h): return meadow.call(h.x, h.y)), "every herd's ground is a meadow")
+	# AND SOME IN SIGHT (at the user's request: "haven't seen any unicorns
+	# yet"): herds by the start and by every town, inside the 200 m the
+	# crowd is drawn to
+	var p0 = game.player
+	var seen := unis.filter(func(a): return U.dist2(a.x, a.y, p0.x, p0.y) < pow(150.0 * 32.0, 2)).size()
+	check(seen >= 3, "unicorns in sight of the start (%d within 150 m)" % seen)
 	var fa: Actor = foals[0]
 	check(fa.height < unis[0].height * 0.6 and fa.radius < unis[0].radius * 0.6 and fa.mother != null and fa.mother.type == "UNICORN",
 		"a foal is a little over half her mother's size (%d against %d), and has one" % [fa.height, unis[0].height])

@@ -106,10 +106,14 @@ func _init() -> void:
 		await process_frame
 		var now := Time.get_ticks_usec()
 		var sc := 0.0
+		var parts := {}
 		for k in game._prof:
 			if not str(k).begins_with("tic."):
 				sc += game._prof[k]
-		trace.append([snappedf((now - tt) / 1000.0, 0.1), snappedf(sc / 1000.0, 0.1)])
+			if game._prof[k] > 2000:
+				parts[k] = snappedf(game._prof[k] / 1000.0, 0.1)
+		trace.append([snappedf((now - tt) / 1000.0, 0.1), snappedf(sc / 1000.0, 0.1), parts,
+			{"gibs": game.giblets.chunks.count, "gore": game.fx.gore.count, "pieces": game.chunks.count(), "room": game.giblets.room.size()}])
 		tt = now
 	out["rocket_trace"] = trace
 	out["rocket_after"] = await _frames(52)
@@ -155,6 +159,14 @@ func _init() -> void:
 	quit()
 
 ## n shoppers in a ring `d` ahead of the player
+## who the rings are made of: --who=TYPE (CANDYGIRL on CANDY LAND), a
+## shopper by default
+func _who() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--who="):
+			return a.substr(6)
+	return "SHOPPER"
+
 func _ring(p, n: int, d: float) -> Array:
 	var cx: float = p.x + cos(p.angle) * d
 	var cy: float = p.y + sin(p.angle) * d
@@ -162,7 +174,7 @@ func _ring(p, n: int, d: float) -> Array:
 	for k in n:
 		var ang := TAU * k / maxf(1.0, n)
 		var r := 0.0 if n == 1 else 40.0
-		var a = game.spawn("SHOPPER", cx + cos(ang) * r, cy + sin(ang) * r, 0.0)
+		var a = game.spawn(_who(), cx + cos(ang) * r, cy + sin(ang) * r, 0.0)
 		got.append(a)
 	return got
 

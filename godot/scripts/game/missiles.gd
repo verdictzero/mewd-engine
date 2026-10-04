@@ -482,7 +482,12 @@ func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 		var d: float = Vector3(a.x - at.x, a.y - at.y, (a.z + a.height * 0.5) - at.z).length() - a.radius
 		if d < R:
 			blown.append([a, 1.0 - 0.4 * maxf(0.0, d) / R])
+	# (everybody this kills is eviscerated below, so their own gib throws no
+	# pieces of its own: Game.gib)
+	for b in blown:
+		b[0].set_meta("warhead", true)
 	if direct != null:
+		direct.set_meta("warhead", true)
 		hit[direct] = true
 		hits += 1
 		blown.append([direct, 1.35])
@@ -503,9 +508,17 @@ func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 		var n := roundi(WARHEAD.splash * (1.0 - d / R))
 		if n <= 0:
 			continue
+		a.set_meta("warhead", true)
 		a.damage(n, p, {"impact": true, "gib": true})
+		if not a.dead:
+			a.remove_meta("warhead")
 		if a.info.get("flammable", false):
 			a.ignite(WARHEAD.ignite)
+	for b in blown:
+		if not b[0].dead and b[0].has_meta("warhead"):
+			b[0].remove_meta("warhead")
+	if direct != null and not direct.dead and direct.has_meta("warhead"):
+		direct.remove_meta("warhead")
 	var gory := blown.filter(func(b): return b[0].dead and game.gore_decals.bleeds(b[0]))
 	var share := 1.0 / sqrt(maxf(1.0, gory.size()))
 	for b in gory:

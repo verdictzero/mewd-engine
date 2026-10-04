@@ -885,7 +885,9 @@ func scare(x: float, y: float, r: float) -> void:
 ## to": the body's own picture is NOT thrown in pieces, that was the
 ## pieces of a drawing and not of a person)
 func gib(a: Actor) -> void:
-	giblets.burst(a)
+	# (a body a warhead killed is eviscerated by it, pieces and all:
+	# MissileSystem.detonate marks it, and the burst is the fireball alone)
+	giblets.burst(a, 0 if a.has_meta("warhead") and gore_decals.bleeds(a) else -1)
 	bleeders.erase(a)
 	a.remove()
 
