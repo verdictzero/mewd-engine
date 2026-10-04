@@ -179,11 +179,12 @@ func _run() -> void:
 			var over := VegDamage.to_game(q0.pos + Vector3(0.0, q0.h + 3.0, 0.0))
 			var n0: int = vd.downwash(over, 2.0 * um, 0.45, 30.0 * um, 30.0)
 			check(n0 >= 1 and _hurt(vd, q0), "the retros' downwash into a plant's top shreds it (%d touched)" % n0)
-			# an RCS jet aimed through a plant's middle, from four metres off
+			# an RCS jet aimed down through a plant's middle from four metres
+			# off and two up (level, on a slope, it can start in the ground)
 			var q1: Dictionary = pool[1]
 			var mid := VegDamage.to_game(q1.pos + Vector3(0.0, q1.h * 0.5, 0.0))
-			var from := mid + Vector3(4.0 * um, 0.0, 0.0)
-			var n1: int = vd.jet(from, Vector3(-1, 0, 0), 7.0 * um, 2.0 * um, 30.0)
+			var from := mid + Vector3(4.0 * um, 0.0, 2.0 * um)
+			var n1: int = vd.jet(from, (mid - from).normalized(), 7.0 * um, 2.0 * um, 30.0)
 			check(n1 >= 1 and _hurt(vd, q1), "an RCS jet through a plant hurts it (%d touched)" % n1)
 			# the door through one
 			var q2: Dictionary = pool[2]

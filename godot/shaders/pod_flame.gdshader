@@ -3,8 +3,9 @@
 // local +y; the instance colour is the flame's colour (rgb) and, in its
 // alpha, which end of the cone the nozzle is at:
 //   0  the cone's BASE — the RCS, at the user's request ("rcs thruster
-//      cones need to be reversed / blue shifted"): wide at the nozzle,
-//      narrowing to a point out along the jet, and blue
+//      cones need to be reversed / blue shifted", "i want rcs flames to
+//      end in a point"): wide at the nozzle, narrowing to a sharp point
+//      out along the jet, and blue
 //   1  the cone's POINT — the retros, as they were: a plume spreading out
 //      from the nozzle, orange
 // Pale at the nozzle, the flame's own colour deepening further out, gone
@@ -37,9 +38,17 @@ void fragment() {
 	vec3 deep = tint.rgb * mix(1.0, 0.6, smoothstep(0.3, 1.0, out_k));
 	vec3 col = mix(deep, pale, core);
 	float face = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float a = pow(1.0 - out_k, 0.6) * (0.55 + 0.45 * face);
+	float a;
+	if (tint.a > 0.5) {
+		// a retro's plume fades out as it spreads
+		a = pow(1.0 - out_k, 0.6) * (0.55 + 0.45 * face) * 1.4;
+	} else {
+		// an RCS jet ENDS IN A POINT (at the user's request): solid all the
+		// way out, so the cone's own point is the jet's end, not a fade
+		a = (1.0 - 0.3 * smoothstep(0.55, 1.0, out_k)) * (0.75 + 0.25 * face);
+	}
 	ALBEDO = col;
-	ALPHA = clamp(a * 1.4, 0.0, 0.97);
+	ALPHA = clamp(a, 0.0, 0.97);
 	// the thermal sight sees only people
 	if (thermal_on(VIEWPORT_SIZE)) ALPHA = 0.0;
 }

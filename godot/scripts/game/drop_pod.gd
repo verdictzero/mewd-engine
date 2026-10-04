@@ -846,8 +846,8 @@ func flame_transform(i: int, lv: float, flicker := 1.0) -> Transform3D:
 	var n: Dictionary = nozzles[i]
 	var rcs: bool = n.kind == "rcs"
 	# (an RCS jet a short one even fired lightly: it is seen to fire)
-	var length: float = (2.2 * (0.45 + 0.55 * lv) if rcs else 2.2 * lv) * flicker
-	var width: float = (0.7 if rcs else 0.5) * (0.6 + 0.4 * lv)
+	var length: float = (2.4 * (0.45 + 0.55 * lv) if rcs else 2.2 * lv) * flicker
+	var width: float = (0.6 if rcs else 0.5) * (0.6 + 0.4 * lv)
 	var d: Vector3 = n.dir
 	var look := Basis.looking_at(d, Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT)
 	var bz := look * Basis(Vector3.RIGHT, -PI / 2.0 if rcs else PI / 2.0)

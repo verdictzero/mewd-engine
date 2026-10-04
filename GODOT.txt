@@ -2024,10 +2024,14 @@ THE DROP, SMALLER, FASTER, ON FIRE
 
   THE FLAMES. The RCS cones are turned round, wide at the nozzle and
   pointed out along the jet, and blue; a jet fired lightly is still
-  near half its length, so it is seen to fire. The retros stay orange
+  near half its length, so it is seen to fire. And they END IN A POINT
+  (at the user's request: "i want rcs flames to end in a point"): solid
+  all the way out, so the cone's own point is the jet's end; the first
+  cut faded them out before it, and the tip read soft. The retros stay orange
   plumes spreading from the nozzle. Still one MultiMesh, coloured per
   nozzle (godot/shaders/pod_flame.gdshader: pale at the nozzle, the
-  colour deepening further out, gone at the end). Mixed, not added, for
+  colour deepening further out; a retro's fading out as it spreads).
+  Mixed, not added, for
   the same reason as the fire: a blue jet added to a blue sky is white.
 
   WHAT THE EXHAUST AND THE DOOR DO (VegDamage):
