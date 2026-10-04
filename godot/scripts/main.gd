@@ -178,6 +178,8 @@ func show_title() -> void:
 var _loading := false
 ## the level picked on the title (NEW GAME), "" for the default
 var _chosen_map := ""
+## (a test that plays through the title sets this to begin on the ground)
+var no_drop := false
 func start_game() -> void:
 	if game != null or _loading:
 		return
@@ -220,9 +222,14 @@ func start_game() -> void:
 		game.net_map = net_client.map
 	game.weapon3d = w3d
 	game.sound = sound
+	# THE DROP: a game begun from the title comes down from orbit in the
+	# pod (DropPod) — not a picture, not a match, not with --nodrop
+	game.drop_in = not no_drop and not _arg("--nodrop") and net_client == null and not _shooting()
 	# a headless bot in a match looks at nothing: the island's ground only
 	if _arg("--netbot") and DisplayServer.get_name() == "headless":
 		game.draw_world = false
+	# (the pod hangs at the top until the loading screen is gone)
+	game.loading = loading != null
 	lofi.world.add_child(game)
 	# and from here on this game is one player in the host's world
 	if net_client != null:
@@ -286,6 +293,7 @@ func start_game() -> void:
 		game.gore_decals.warm_end()
 		Warmup.end(warm)
 		loading.finish()
+	game.loading = false
 	BlackBox.mark("playing")
 
 ## What the BlackBox keeps of the game, twice a second

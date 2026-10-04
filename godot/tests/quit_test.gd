@@ -47,6 +47,7 @@ func _frame() -> void:
 	match step:
 		0:
 			if m.get("title") != null or m.get("forest") != null:
+				m.no_drop = true
 				m.start_game()
 				step = 1
 		1:
@@ -90,5 +91,6 @@ func _frame() -> void:
 				t0 = Time.get_ticks_msec()
 		3:
 			if Time.get_ticks_msec() - t0 > 1500:
+				m.no_drop = true
 				m.start_game()
 				step = 1

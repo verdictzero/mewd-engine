@@ -37,6 +37,9 @@ run damage  --script res://godot/tests/damage_test.gd -- --map=candyland
 run net     --script res://godot/tests/net_test.gd
 # the dead are gone: removed, and their sprites with them (godot/tests/death_test.gd)
 run death   --script res://godot/tests/death_test.gd
+# THE DROP: the pod read off its file, the ride down on the autopilot, the
+# landing, the door, the hands on the stick (godot/tests/drop_test.gd)
+run drop    --script res://godot/tests/drop_test.gd -- --map=candyland
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
 exit $fail

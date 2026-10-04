@@ -13,6 +13,9 @@
 ## --cliff: the eye out in the air 45 m off the coast, level with the lip
 ## less 12 m, turned back to look at the island's side.
 ## (--far: 140 m off)
+## --drop: the game begins in the pod, dropping; the picture at `tics`, or
+## with --phase=landed|inside|out, 12 tics into that phase. (--stick: a
+## hand on the stick all the way down, so the RCS fires)
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
 ##
@@ -45,6 +48,8 @@ func _init() -> void:
 	lofi = Lofi.new()
 	root.add_child(lofi)
 	game = preload("res://godot/scripts/game/game.gd").new()
+	# --drop: the game begins in orbit, in the pod (DropPod)
+	game.drop_in = "--drop" in OS.get_cmdline_user_args()
 	lofi.world.add_child(game)
 	process_frame.connect(_frame)
 
@@ -53,6 +58,11 @@ func _frame() -> void:
 		return
 	var p = game.player
 	var args := OS.get_cmdline_user_args()
+	if "--stick" in args and game.drop != null:
+		if game.drop.phase == "drop":
+			Input.action_press("fwd")
+		else:
+			Input.action_release("fwd")
 	if _start < 0:
 		_start = game.tics
 		p.health = 100000
@@ -217,6 +227,13 @@ func _frame() -> void:
 		p.y = at.y
 		p.z = game.level.floor_at(p.x, p.y) + 40.0 * 32.0
 		p.momz = 0.0
+	# --phase=inside|out|landed: the picture 12 tics into that phase of the drop
+	for arg in args:
+		if arg.begins_with("--phase=") and game.drop != null and game.drop.phase == arg.substr(8) and not has_meta("phased"):
+			set_meta("phased", true)
+			_start = game.tics
+			wait = 12
+			print("candy_shot: the drop is '%s' at tic %d" % [game.drop.phase, game.tics])
 	if game.tics - _start >= wait:
 		p.pitch = look
 		if turn != null:
@@ -233,6 +250,8 @@ func _frame() -> void:
 				var pl = game.chunks.pools[t]
 				print("candy_shot: %d pieces of %s (%dx%d)" % [pl.pos.size(), t.resource_path.get_file(), t.get_width(), t.get_height()])
 		root.get_texture().get_image().save_png(out)
+		if game.drop != null:
+			print("candy_shot: pod at %s m, %s; eye at %s, %s" % [str(game.drop.pos), game.drop.phase, str(game.camera.position / 32.0), str(game.camera.rotation_degrees)])
 		var near := 0
 		var hello := 0
 		for a in game.actors:
