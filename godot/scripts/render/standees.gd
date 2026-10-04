@@ -246,7 +246,9 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 			# due this tic? and in front of the eye?
 			# (a blast, blood, a body falling: every tic wherever it is —
 			# only the living crowd can wait)
-			var rate: int = 1 if (d2 < near2 or not a.monster or a.dead) else (2 if d2 < mid2 else 4)
+			# (and somebody shaking — a hit, a bore — every tic, the last of it
+			# standing them still again)
+			var rate: int = 1 if (d2 < near2 or not a.monster or a.dead or a.shake > 0 or a.bored > 0) else (2 if d2 < mid2 else 4)
 			if (tics + aid) % rate != 0:
 				continue
 			if cull and d2 > 160.0 * 160.0 and dx * look.x + dy * look.y < 0.3 * sqrt(d2):
@@ -283,10 +285,12 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 			flags += 64.0 if (a.panic > 0 or a.hello > 0) else 32.0
 		flags += 128.0 * float(aid % 4096)
 		var rows: Array = s.rows
-		rows[i] = 1.0; rows[i + 1] = 0.0; rows[i + 2] = 0.0; rows[i + 3] = a.x
+		# THE SHAKE: a hit jolts the drawing, a bore throws it about (Actor.jolt)
+		var j := a.jolt(tics) if (a.shake > 0 or a.bored > 0) else Vector3.ZERO
+		rows[i] = 1.0; rows[i + 1] = 0.0; rows[i + 2] = 0.0; rows[i + 3] = a.x + j.x
 		# (a thing that must stand IN the ground, sunk: Actor info "sink")
-		rows[i + 4] = 0.0; rows[i + 5] = 1.0; rows[i + 6] = 0.0; rows[i + 7] = a.z - float(info.get("sink", 0.0))
-		rows[i + 8] = 0.0; rows[i + 9] = 0.0; rows[i + 10] = 1.0; rows[i + 11] = -a.y
+		rows[i + 4] = 0.0; rows[i + 5] = 1.0; rows[i + 6] = 0.0; rows[i + 7] = a.z - float(info.get("sink", 0.0)) + j.z
+		rows[i + 8] = 0.0; rows[i + 9] = 0.0; rows[i + 10] = 1.0; rows[i + 11] = -(a.y + j.y)
 		# the cell, and HOW FROZEN in its fraction (standee.gdshader's ice
 		# map): frost building up to solid, 0.9 at most so the cell stays
 		var ice: float = 1.0 if a.frozen else clampf(a.frost / Actor.FREEZE_AT, 0.0, 1.0)

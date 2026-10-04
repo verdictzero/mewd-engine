@@ -121,6 +121,7 @@ func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> in
 	next = (next + 1) % CAP
 	_count = mini(_count + 1, CAP)
 	mm.visible_instance_count = _count
+	DecalLog.placed("gore", kind, i, _count, CAP, at, size)
 	bloods += 1
 	return i
 

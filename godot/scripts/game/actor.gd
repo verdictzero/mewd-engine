@@ -18,6 +18,11 @@ const FREEZE_AT := 100.0     # frost units before they go solid
 const THAW_EVERY := 6        # tics per unit bled back off
 const FIRE_THAW := 14.0      # and per tic of fire, which is 84x faster
 const BORE_TICS := 78        # a shade over two seconds — js/bore.js's number
+## a hit's jolt: tics long, units across at its start; a bore's, from
+## its first tic to its last (harder as the head is about to go)
+const SHAKE_HIT := 7
+const SHAKE_AMP := 3.5
+const SHAKE_BORE := [3.0, 7.0]
 
 static var _next_id := 1
 
@@ -97,6 +102,10 @@ var hello := 0
 ## A CANDY UNICORN's herd ground (CANDY LAND): where she grazes about,
 ## the foal's mother, and where she is ambling to
 var home := Vector2.ZERO
+## THE SHAKE (at the user's request): tics left of the jolt a hit gives
+## them — the drawing thrown about where it stands (`jolt`, Standees) —
+## and all the time a bore is drilling into them
+var shake := 0
 var mother = null
 var amble := Vector2.ZERO
 var amble_tics := 0
@@ -170,6 +179,8 @@ func set_state(name, force := false) -> bool:
 func tic() -> void:
 	if removed or state.is_empty():
 		return
+	if shake > 0:
+		shake -= 1
 	if puppet:
 		return
 	if burning > 0:
@@ -354,6 +365,9 @@ func damage(amount: float, source, opts := {}) -> void:
 	if vehicle != null:
 		vehicle.damage(amount, source, opts)
 		return
+	# every blow but a flame's jolts them (the stream is not a blow)
+	if not opts.get("fire", false):
+		shake = SHAKE_HIT
 	# A BLOCK OF ICE COMES APART ENTIRELY under anything that is not
 	# fire; fire is spent melting it (a fireproof trooper thaws, anybody
 	# else is eaten where they stand — burn_away)
@@ -1052,6 +1066,22 @@ func shatter(source, opts := {}) -> void:
 # ------------------------------------------------------------------
 # THE BORE, in a head (js/actor.js bore, boreTic, boreBurst)
 # ------------------------------------------------------------------
+
+## Where the drawing is thrown this tic by the shake, in map units: the
+## same answer for the same tic (the bore in their head is drawn by it
+## too, BoreSystem.draw), a new one each tic.
+func jolt(tic_no: int) -> Vector3:
+	var amp := 0.0
+	if bored > 0:
+		amp = lerpf(SHAKE_BORE[0], SHAKE_BORE[1], 1.0 - float(bored) / BORE_TICS)
+	elif shake > 0:
+		# (to nothing on its last tic: they are drawn standing still again)
+		amp = SHAKE_AMP * float(shake - 1) / (SHAKE_HIT - 1)
+	if amp <= 0.0:
+		return Vector3.ZERO
+	var h := hash(id * 92821 + tic_no)
+	return Vector3(float(h & 0xff) / 127.5 - 1.0, float((h >> 8) & 0xff) / 127.5 - 1.0,
+		(float((h >> 16) & 0xff) / 127.5 - 1.0) * 0.4) * amp
 
 func bore(by = null) -> String:
 	if removed or dead:

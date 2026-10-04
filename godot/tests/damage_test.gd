@@ -61,6 +61,12 @@ func _init() -> void:
 	check(hit == g and g.bites == 1 and not g.dead, "a round goes into her, and she lives")
 	check(game.chunks.count() > chunks0, "a piece of her picture flies off")
 	check(game.bleeders.has(g), "and she bleeds")
+	check(g.shake > 0 and g.jolt(game.tics) != Vector3.ZERO, "and the round jolts her (%d tics)" % g.shake)
+	var still := 0
+	while g.shake > 0 and still < 20:
+		_tics(1)
+		still += 1
+	check(g.shake == 0 and still <= Actor.SHAKE_HIT and g.jolt(game.tics) == Vector3.ZERO, "and she stands still again after (%d tics)" % still)
 	var gore0: int = game.fx.live_count()
 	_tics(6)
 	check(game.fx.live_count() >= gore0, "copiously (%d particles)" % game.fx.live_count())
@@ -71,6 +77,25 @@ func _init() -> void:
 		n += 1
 		_tics(1)
 	check((g.dead or g.removed) and n == 10, "and %d rounds blow her apart" % n)
+	# --- A BORE IN A HEAD -------------------------------------------------
+	var g2: Actor = null
+	for a in game.actors:
+		if a.type == g.type and a != g and not (a.dead or a.removed):
+			g2 = a
+			break
+	if g2 != null:
+		var drill := g2.bore(p) == "drill"
+		var shaking := 0
+		var big := 0.0
+		for k in 30:
+			var j := g2.jolt(game.tics)
+			if j != Vector3.ZERO:
+				shaking += 1
+			if k > 20:
+				big = maxf(big, Vector2(j.x, j.y).length())
+			_tics(1)
+		check(drill and shaking == 30, "a bore drilling into a head shakes her every tic (%d of 30)" % shaking)
+		check(big > Actor.SHAKE_AMP * 0.3, "and hard (%.1f units)" % big)
 	# --- A LAMP SHOT TO PIECES --------------------------------------------
 	var lamp: Actor = null
 	for a in game.actors:
@@ -107,6 +132,12 @@ func _init() -> void:
 	var after := vd.near(best.x, best.y, 2.5).size()
 	check(before > 0 and after < before, "a rocket in a wood blows the plants by it to pieces (%d of %d left)" % [after, before])
 	check(game.chunks.count() > c0 + before * 6, "pieces of themselves (%d)" % (game.chunks.count() - c0))
+	var reach := MissileSystem.WARHEAD.radius / IslandLevel.U_PER_M
+	var shaken := 0
+	for q in vd.near(best.x, best.y, reach * VegDamage.SHAKE_SHARE):
+		if q.custom.w > 0.0 and absf(q.custom.z - game.clock) < 0.01:
+			shaken += 1
+	check(shaken > 0, "and the plants further out shaken and hurt, still standing (%d)" % shaken)
 	if grass != null:
 		var mc: Vector3 = grass._mown[grass._mown.size() - 1] if grass._mown.size() > mown0 else Vector3()
 		check(grass._mown.size() == mown0 + 1 and mc.z > 2.0, "and the grass under it mown (a patch %.1f m round)" % mc.z)
@@ -150,6 +181,9 @@ func _init() -> void:
 		if shots == 1 and not gone:
 			var q1: Dictionary = now.filter(func(q): return q.key == tree.key)[0]
 			check(q1.custom.y > 0.0, "a round shoots it through a little (%.2f)" % q1.custom.y)
+			check(q1.custom.w > 0.0 and absf(q1.custom.z - game.clock) < 0.01, "and shakes it (%.2f m)" % q1.custom.w)
 	check(gone and shots >= 5, "and enough of them (%d) blow it to pieces" % shots)
+	check(VegDamage.hits_for(5.0, 9.0) > 2 * VegDamage.hits_for(1.0, 1.0) and VegDamage.hits_for(1.0, 1.0) >= 3,
+		"a big plant takes more rounds than a small one (%d, %d)" % [VegDamage.hits_for(5.0, 9.0), VegDamage.hits_for(1.0, 1.0)])
 	print("damage: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)

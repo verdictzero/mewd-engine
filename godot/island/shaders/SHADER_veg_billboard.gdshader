@@ -260,6 +260,9 @@ uniform float fog_distance_power : hint_range(1.0, 4.0) = 2.0;
 // `SHADER_terrain_splat_w2.gdshader`. "Has to match the terrain's" above is now also true
 // of the tint, and it comes free: both read the same global.
 global uniform vec4 tod_haze_tint;
+// THE CLOCK A HIT IS TIMED BY (seconds; Game sets it every frame): see the
+// shake in vertex().
+global uniform float shake_clock;
 
 // =============================================================================
 //  THE ART BUS
@@ -695,6 +698,19 @@ void vertex() {
 		float phase = (anchor.x + anchor.z) / max(wind_scale, 1e-3) + wind_t * wind_speed;
 		float lean = (1.0 - UV.y) * wind_strength * sin(phase);
 		m[3].xyz += (right * lean + fwd * lean * 0.5);
+	}
+
+	// THE SHAKE (at the user's request; game/veg_damage.gd): a plant that is
+	// hit is thrown about for a moment, harder the nearer it is to coming
+	// apart. INSTANCE_CUSTOM.z is `shake_clock` when it was hit, .w how hard
+	// (m); a plant never hit has both 0 and is never thrown. A new throw
+	// forty times a second, the top thrown furthest, dying away.
+	float since = shake_clock - INSTANCE_CUSTOM.z;
+	if (INSTANCE_CUSTOM.w > 0.0 && since >= 0.0 && since < 0.45) {
+		float k = INSTANCE_CUSTOM.w * (1.0 - since / 0.45) * (0.35 + 0.65 * (1.0 - UV.y));
+		float q = floor(since * 40.0);
+		vec2 r = fract(sin(vec2(q * 12.9898 + anchor.x, q * 78.233 + anchor.z)) * 43758.5453) * 2.0 - 1.0;
+		m[3].xyz += (right * r.x + fwd * r.y * 0.5) * k;
 	}
 
 	MODELVIEW_MATRIX = VIEW_MATRIX * m;

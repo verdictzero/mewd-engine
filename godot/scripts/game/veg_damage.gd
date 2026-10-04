@@ -16,6 +16,15 @@
 ## is built the same way every time), so every change is also kept here
 ## and put back if the tile is ever built again.
 ##
+## AND IT BUILDS TO IT (at the user's request): a plant takes a number of
+## rounds to come apart that grows with its size (`hits_for`: a fern four,
+## a big tree fifteen or so), each one SHAKES it — harder the nearer it is
+## to going — and a blast blows apart only what is close; further out it
+## shakes them and counts against them, so a second rocket finishes the
+## tree the first one left standing. The shake is the plant shader's
+## (SHADER_veg_billboard `shake_clock`): the row's custom .z is the clock
+## when it was hit and .w how hard, so it costs one write a hit.
+##
 ## THE GRASS (SCRIPT_grass_scatter.gd `mow`): a blast clears a patch round
 ## it, a round into the ground the tufts it lands among, each tuft thrown
 ## as a few pieces of its own picture.
@@ -23,16 +32,24 @@ class_name VegDamage
 extends RefCounted
 
 ## a blast blows to pieces every plant whose trunk is inside this share of
-## its reach (a rocket's is 5.9 m: a tree five metres off goes)
-const BLOW_SHARE := 0.85
+## its reach (a rocket's is 5.9 m: anything within three metres goes), and
+## out to SHAKE_SHARE of it shakes them and counts against them — BLAST_HITS
+## rounds' worth at the inner edge, none at the outer
+const BLOW_SHARE := 0.5
+const SHAKE_SHARE := 1.2
+const BLAST_HITS := 10.0
 ## and mows the grass inside this share, when it went off near the ground
 ## (units above it)
 const MOW_SHARE := 0.6
 const MOW_LOW := 96.0
 ## the grass a round into the ground takes (m)
 const NICK := 0.55
-## how much a round counts against a plant (1 and it is shredded)
-const SHOT_DAMAGE := 0.11
+## how hard a plant is shaken (m, across), by its width and how near it
+## is to coming apart: SHAKE_W of its width, between SHAKE_MIN and SHAKE_MAX,
+## half that when first hit and half again as much on the last round
+const SHAKE_W := 0.07
+const SHAKE_MIN := 0.1
+const SHAKE_MAX := 0.7
 ## at most this many tufts thrown as pieces a mowing
 const TUFTS_THROWN := 24
 ## the index buckets over a tile (m)
@@ -244,17 +261,45 @@ func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
 static func pieces_for(w: float, h: float) -> int:
 	return clampi(int(w * h), 6, 40)
 
+## How many rounds a plant `w` x `h` metres takes to come apart: more the
+## bigger it is (a fern four, a bush five or six, a tall tree fifteen).
+static func hits_for(w: float, h: float) -> int:
+	return clampi(roundi(2.0 + 1.5 * sqrt(maxf(0.0, w * h))), 3, 24)
+
+## `hits` rounds' worth against a plant: shaken, and shredded (thrown from
+## `from`, the game's units) once it has had all it can take. True if it went.
+func hurt(p: Dictionary, hits: float, from: Vector3, force := 0.8) -> bool:
+	if p.gone:
+		return false
+	var c: Vector4 = p.custom
+	c.y = minf(1.0, c.y + hits / float(hits_for(p.w, p.h)))
+	if c.y >= 1.0:
+		blow_up(p, from, force)
+		return true
+	c.z = game.clock
+	c.w = clampf(p.w * SHAKE_W, SHAKE_MIN, SHAKE_MAX) * (0.5 + c.y)
+	_write(p, c, false)
+	p.custom = c
+	return false
+
 ## A BLAST at `at` (the game's units) reaching `radius` (units): the plants
-## close to it shredded, and the grass under it, if it went off near the
-## ground, mown.
+## close to it shredded, those further out shaken and hurt, and the grass
+## under it, if it went off near the ground, mown.
 func blast(at: Vector3, radius: float) -> void:
 	var m := Vector2(at.x / IslandLevel.U_PER_M, -at.y / IslandLevel.U_PER_M)
 	var reach := maxf(3.0, radius / IslandLevel.U_PER_M)
 	if veg != null:
-		for p in near(m.x, m.y, reach * BLOW_SHARE):
+		var inner := reach * BLOW_SHARE
+		var outer := reach * SHAKE_SHARE
+		for p in near(m.x, m.y, outer):
 			# (a plant's own height counts: the blast has to reach its middle)
-			if at.z < (p.pos.y + p.h * 0.8) * IslandLevel.U_PER_M:
+			if at.z >= (p.pos.y + p.h * 0.8) * IslandLevel.U_PER_M:
+				continue
+			var d := Vector2(p.pos.x - m.x, p.pos.z - m.y).length()
+			if d <= inner:
 				blow_up(p, at, 1.3)
+			else:
+				hurt(p, BLAST_HITS * (1.0 - (d - inner) / (outer - inner)), at, 1.1)
 	var f: float = game.level.floor_at(at.x, at.y)
 	if at.z - f < MOW_LOW:
 		mow(m.x, m.y, reach * MOW_SHARE, at, 1.2)
@@ -281,11 +326,10 @@ func mow(mx: float, mz: float, r: float, from: Vector3, force: float) -> void:
 		var at := to_game(e[0])
 		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, ts.x, ts.y, from, 4, force * 0.6, 0.0, true)
 
-## A ROUND through the plant: a scrap of it thrown off, and enough of
-## them shred it. (The plant's picture stays whole, no hole left in it.)
+## A ROUND through the plant: a scrap of it thrown off, the plant shaken,
+## and enough of them shred it (`hits_for`). (The plant's picture stays
+## whole, no hole left in it.)
 func shoot(p: Dictionary, at: Vector3, dir: Vector3) -> void:
-	var c: Vector4 = p.custom
-	c.y = minf(1.0, c.y + SHOT_DAMAGE * randf_range(0.7, 1.3))
 	var tex := _picture(p)
 	if game.chunks != null and tex != null:
 		# the scrap is SpriteChunks.TEXELS to half again as many texels of
@@ -302,11 +346,7 @@ func shoot(p: Dictionary, at: Vector3, dir: Vector3) -> void:
 		var h: float = p.h * IslandLevel.U_PER_M * dv * 1.25
 		game.chunks.spawn(tex, Rect2(u, v, du, dv), at, w, h,
 			Vector3(dir.x * 0.006 + randf_range(-2, 2), dir.y * 0.006 + randf_range(-2, 2), randf_range(2.0, 6.0)), 80, 0.0, true)
-	if c.y >= 1.0:
-		blow_up(p, at - dir.normalized() * 30.0, 0.8)
-		return
-	_write(p, c, false)
-	p.custom = c
+	hurt(p, randf_range(0.8, 1.2), at - dir.normalized() * 30.0, 0.8)
 
 ## THE NEAREST PLANT A ROUND FROM a TO b GOES INTO before `max_t`, as
 ## {t, plant}, or {} — the plants as upright cylinders a third of their

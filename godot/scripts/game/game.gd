@@ -66,6 +66,9 @@ var standees: Standees
 var forest: Forest
 var forest_view: ForestView
 var tics := 0
+## seconds of play, smooth, stopped while paused: the plants' shake is
+## timed by it (VegDamage.hurt, the shader global shake_clock)
+var clock := 0.0
 var kills := 0
 var weather := Weather.new()
 var rain: Rain
@@ -272,6 +275,8 @@ func start_map(which: String) -> void:
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
 	add_child(gore_decals)
+	# what the marks cost, written down (at the user's request: DecalLog)
+	DecalLog.begin(self)
 	fx = Effects.new(self)
 	add_child(fx)
 	giblets = Giblets.new(self)
@@ -404,6 +409,8 @@ func _process(dt: float) -> void:
 	if net != null:
 		net.poll()
 	dt = minf(dt, 0.25)
+	clock += dt
+	U.gset("shake_clock", clock)
 	# the look, every frame
 	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.6 * dt
 	# the right stick: 3.2 radians a second across, 2.2 up and down

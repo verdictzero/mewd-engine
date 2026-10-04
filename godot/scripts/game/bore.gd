@@ -228,5 +228,7 @@ func draw(cam: Camera3D, t: float) -> void:
 		var s: Dictionary = bores[i]
 		var at := Vector3(s.x, s.y, s.z)
 		if s.stuck != null:
-			at.z = s.stuck.z + s.stuck.height * DRAW_HEAD
+			# (thrown about with the head it is in: Actor.jolt)
+			var j: Vector3 = s.stuck.jolt(game.tics)
+			at = Vector3(s.stuck.x + j.x, s.stuck.y + j.y, s.stuck.z + s.stuck.height * DRAW_HEAD + j.z)
 		ProjectileModels.place(mm, i, game.level, at, Vector3(s.dx, s.dy, s.dz), s.spin * 0.9)

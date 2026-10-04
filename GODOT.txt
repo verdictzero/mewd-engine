@@ -1711,6 +1711,77 @@ THE FAR CROWD DOES NOT EXIST
   the crowd's bodies aside as it does the houses: six hundred girls round
   the start could box it in.)
 
+THE SHAKE, AND PLANTS THAT TAKE A BEATING FIRST
+
+  At the user's request ("when NPCs are hit, especially when the cerebral
+  bore is drilling into them, their sprites vibrate violently: a small
+  pulse per normal weapon hit, continuously during drill boring; the same
+  with trees and bushes and objects: vibrate per hit a few times, a
+  higher threshold as the object's size increases, prior to destruction,
+  so not immediate destruction, builds to payoff").
+
+  PEOPLE AND BEASTS: every blow but a flame's (the stream is continuous,
+  not a blow) sets Actor.shake to SHAKE_HIT (7 tics). Actor.jolt(tic) is
+  where the drawing is thrown that tic, SHAKE_AMP (3.5 units) at the start
+  of a jolt, dying to nothing on its last tic, so they are drawn standing
+  still again. A bore in a head throws them about for all of its 78 tics,
+  from 3 units to 7 as the head is about to go. The jolt is a hash of the
+  actor and the tic, so Standees (the row, written every tic while they
+  shake) and BoreSystem.draw (the bore in the head) agree on it. A street
+  lamp or a unicorn is an actor too, so it shakes the same way.
+
+  PLANTS: VegDamage.hits_for(w, h) is how many rounds a plant takes:
+  2 + 1.5 * sqrt(w * h), between 3 and 24 (a fern 4, a bush 5 or 6, a
+  tall tree 12 to 21). Each round counts one of them against it (the
+  row's custom .y, as before) and SHAKES it. Custom .z is the clock when
+  it was hit (Game.clock: seconds of play, stopped while paused, handed
+  to the shaders as the global shake_clock every frame), and .w is how
+  hard: 7% of its width, between 0.1 m and 0.7 m, half that on the first
+  round and half again as much on the last. SHADER_veg_billboard throws
+  the quad about for 0.45 s, a new throw forty times a second, the top
+  thrown furthest and dying away. So the shake costs one row write a hit
+  (which the hit already made), not a write a frame. A rocket now blows
+  apart everything within BLOW_SHARE (half) of its reach, about three
+  metres. Out to SHAKE_SHARE (1.2) of it, plants are shaken and take up
+  to BLAST_HITS (10) rounds' worth, falling to none at the edge. A fern
+  at the inner edge still goes; a big tree is left shaking and hurt, and
+  a second rocket finishes it. godot/tests/damage_test.gd checks it all:
+  the jolt and the stillness after, a bore shaking her every tic, plants
+  outside the blast shaken but standing, and a tree shaken on the first
+  round.
+
+THE DECAL LOG
+
+  At the user's request ("massive lag with too many decals; don't correct
+  anything yet, but add verbose logging to a log file"). Nothing about the
+  marks has changed. DecalLog (godot/scripts/core/decal_log.gd) writes
+  what they cost:
+  - On a desktop it writes mewd-decals.log in the user's home folder
+    (%USERPROFILE% on Windows).
+  - On the handheld it writes to user://.
+  - Each game writes it afresh and keeps the game before as
+    mewd-decals.prev.log.
+
+  The log has these lines:
+  - PLACE: every mark laid, with its pool and kind, the slot it took, the
+    pool's live count after it, and where and how big it was. A full pool
+    is noted, since the oldest mark is then overwritten.
+  - SEC, once a second:
+    - fps and the worst frame;
+    - the CPU's and the GPU's render time (measured for the log);
+    - draw calls, primitives, objects and video memory;
+    - every pool's live count and the heat spots;
+    - how many marks were laid;
+    - how many live marks stand in front of the eye, and COVERAGE: the
+      screen share their boxes cover, added up, which is fill and what a
+      projected decal costs a Mali;
+    - the crowd, the pieces and the gibs, for comparison;
+    - what the log's own second cost.
+  - SPIKE: any frame over 40 ms, with what was laid in it.
+
+  Lines are buffered and flushed once a second. Headless runs (the tests)
+  write nothing unless given --decal-log.
+
 TESTS
 
     tools/godot-test.sh

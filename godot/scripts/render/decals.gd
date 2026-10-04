@@ -210,6 +210,7 @@ func heat(at: Vector3, normal: Vector3) -> void:
 		var basis := Basis.looking_at(-gn, up).rotated(gn, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
 		p.mm.set_instance_transform(best, Transform3D(basis, pos))
 		p.mm.visible_instance_count = p.cap
+		DecalLog.placed("heat", KIND_HEAT, best, _hlive, p.cap, at, HEAT.size)
 	_hs[best] = minf(1.0, _hs[best] + HEAT.per)
 	_hpeak[best] = maxf(_hpeak[best], _hs[best])
 	p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
@@ -271,8 +272,10 @@ func _put(pool: String, at: Vector3, normal: Vector3, size: float, kind: float, 
 	basis = basis.scaled(Vector3(size, size, size))
 	p.mm.set_instance_transform(p.next, Transform3D(basis, pos))
 	p.mm.set_instance_custom_data(p.next, Color(kind, U.p_random() / 255.0, _now(), light))
+	var slot := p.next
 	p.next = (p.next + 1) % p.cap
 	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
+	DecalLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
 
 func _light_at(at: Vector3) -> float:
 	var g = get_parent()
@@ -379,8 +382,10 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	# w: the surface's light, plus two if it is under the sky
 	var light := (s.light if s else 0.8) + (2.0 if s != null and s.sky > 0.5 else 0.0)
 	p.mm.set_instance_custom_data(p.next, Color(kind, randf(), _now(), light))
+	var slot := p.next
 	p.next = (p.next + 1) % p.cap
 	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
+	DecalLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
 
 ## THE WARM-UP (Main, under the loading screen): one mark of every kind
 ## laid on the ground at `at` for a few frames, so each shader is compiled

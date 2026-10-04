@@ -55,6 +55,10 @@ anti_aliasing/quality/msaa_3d=0
 
 [shader_globals]
 
+shake_clock={
+"type": "float",
+"value": 0.0
+}
 game_unit={
 "type": "float",
 "value": 1.0
