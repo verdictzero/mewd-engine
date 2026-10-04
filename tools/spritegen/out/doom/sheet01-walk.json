@@ -1,0 +1,896 @@
+{
+ "profile": "doom",
+ "views": 8,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 1,
+   "name": "walk",
+   "file": "sheet01-walk.png",
+   "width": 2311,
+   "height": 2311,
+   "aspect": "1:1",
+   "cols": 8,
+   "rows": 4,
+   "cell_w": 256,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "WALK"
+   ],
+   "cells": [
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 1,
+     "row": 1,
+     "col": 1,
+     "tag": "A1",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.08221549112938122,
+      0.21419299004759845,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.10644742535698831,
+      0.21419299004759845,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 2,
+     "row": 1,
+     "col": 2,
+     "tag": "A2",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.08221549112938122,
+      0.32496754651665943,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.10644742535698831,
+      0.32496754651665943,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 3,
+     "row": 1,
+     "col": 3,
+     "tag": "A3",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.08221549112938122,
+      0.43574210298572047,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.10644742535698831,
+      0.43574210298572047,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 4,
+     "row": 1,
+     "col": 4,
+     "tag": "A4",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.08221549112938122,
+      0.5465166594547815,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.10644742535698831,
+      0.5465166594547815,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 5,
+     "row": 1,
+     "col": 5,
+     "tag": "A5",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.08221549112938122,
+      0.6572912159238425,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.10644742535698831,
+      0.6572912159238425,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 6,
+     "row": 1,
+     "col": 6,
+     "tag": "A6",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.08221549112938122,
+      0.7680657723929035,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.10644742535698831,
+      0.7680657723929035,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 7,
+     "row": 1,
+     "col": 7,
+     "tag": "A7",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.08221549112938122,
+      0.8788403288619645,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.10644742535698831,
+      0.8788403288619645,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 1,
+     "frames": 4,
+     "letter": "A",
+     "view": 8,
+     "row": 1,
+     "col": 8,
+     "tag": "A8",
+     "air": false,
+     "words": "walk, frame 1 of 4: contact \u2014 the LEFT (blue) leg is forward with the heel down and the knee straight, the RIGHT (red) leg is behind on its toe; the gun stays across the chest at port arms",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.08221549112938122,
+      0.9896148853310255,
+      0.3037646040675032
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.10644742535698831,
+      0.9896148853310255,
+      0.3037646040675032
+     ],
+     "ground": 0.28797922977066204,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 1,
+     "row": 2,
+     "col": 1,
+     "tag": "B1",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.3037646040675032,
+      0.21419299004759845,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.32799653829511033,
+      0.21419299004759845,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 2,
+     "row": 2,
+     "col": 2,
+     "tag": "B2",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.3037646040675032,
+      0.32496754651665943,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.32799653829511033,
+      0.32496754651665943,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 3,
+     "row": 2,
+     "col": 3,
+     "tag": "B3",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.3037646040675032,
+      0.43574210298572047,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.32799653829511033,
+      0.43574210298572047,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 4,
+     "row": 2,
+     "col": 4,
+     "tag": "B4",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.3037646040675032,
+      0.5465166594547815,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.32799653829511033,
+      0.5465166594547815,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 5,
+     "row": 2,
+     "col": 5,
+     "tag": "B5",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.3037646040675032,
+      0.6572912159238425,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.32799653829511033,
+      0.6572912159238425,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 6,
+     "row": 2,
+     "col": 6,
+     "tag": "B6",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.3037646040675032,
+      0.7680657723929035,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.32799653829511033,
+      0.7680657723929035,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 7,
+     "row": 2,
+     "col": 7,
+     "tag": "B7",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.3037646040675032,
+      0.8788403288619645,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.32799653829511033,
+      0.8788403288619645,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 2,
+     "frames": 4,
+     "letter": "B",
+     "view": 8,
+     "row": 2,
+     "col": 8,
+     "tag": "B8",
+     "air": false,
+     "words": "walk, frame 2 of 4: passing \u2014 the RIGHT (red) leg swings forward under the body with the knee bent and the foot lifted, the LEFT (blue) leg straight under the hips; the body at its highest; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.3037646040675032,
+      0.9896148853310255,
+      0.5253137170056252
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.32799653829511033,
+      0.9896148853310255,
+      0.5253137170056252
+     ],
+     "ground": 0.5095283427087841,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 1,
+     "row": 3,
+     "col": 1,
+     "tag": "C1",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.5253137170056252,
+      0.21419299004759845,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.5495456512332324,
+      0.21419299004759845,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 2,
+     "row": 3,
+     "col": 2,
+     "tag": "C2",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.5253137170056252,
+      0.32496754651665943,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.5495456512332324,
+      0.32496754651665943,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 3,
+     "row": 3,
+     "col": 3,
+     "tag": "C3",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.5253137170056252,
+      0.43574210298572047,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.5495456512332324,
+      0.43574210298572047,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 4,
+     "row": 3,
+     "col": 4,
+     "tag": "C4",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.5253137170056252,
+      0.5465166594547815,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.5495456512332324,
+      0.5465166594547815,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 5,
+     "row": 3,
+     "col": 5,
+     "tag": "C5",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.5253137170056252,
+      0.6572912159238425,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.5495456512332324,
+      0.6572912159238425,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 6,
+     "row": 3,
+     "col": 6,
+     "tag": "C6",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.5253137170056252,
+      0.7680657723929035,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.5495456512332324,
+      0.7680657723929035,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 7,
+     "row": 3,
+     "col": 7,
+     "tag": "C7",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.5253137170056252,
+      0.8788403288619645,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.5495456512332324,
+      0.8788403288619645,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 3,
+     "frames": 4,
+     "letter": "C",
+     "view": 8,
+     "row": 3,
+     "col": 8,
+     "tag": "C8",
+     "air": false,
+     "words": "walk, frame 3 of 4: contact \u2014 the RIGHT (red) leg is forward with the heel down and the knee straight, the LEFT (blue) leg is behind on its toe; the mirror of frame 1 in the legs only; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.5253137170056252,
+      0.9896148853310255,
+      0.7468628299437473
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.5495456512332324,
+      0.9896148853310255,
+      0.7468628299437473
+     ],
+     "ground": 0.7310774556469061,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 1,
+     "row": 4,
+     "col": 1,
+     "tag": "D1",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.7468628299437473,
+      0.21419299004759845,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.7710947641713544,
+      0.21419299004759845,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 2,
+     "row": 4,
+     "col": 2,
+     "tag": "D2",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.7468628299437473,
+      0.32496754651665943,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.7710947641713544,
+      0.32496754651665943,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 3,
+     "row": 4,
+     "col": 3,
+     "tag": "D3",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.7468628299437473,
+      0.43574210298572047,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.7710947641713544,
+      0.43574210298572047,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 4,
+     "row": 4,
+     "col": 4,
+     "tag": "D4",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.7468628299437473,
+      0.5465166594547815,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.7710947641713544,
+      0.5465166594547815,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 5,
+     "row": 4,
+     "col": 5,
+     "tag": "D5",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.7468628299437473,
+      0.6572912159238425,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.7710947641713544,
+      0.6572912159238425,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 6,
+     "row": 4,
+     "col": 6,
+     "tag": "D6",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.7468628299437473,
+      0.7680657723929035,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.7710947641713544,
+      0.7680657723929035,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 7,
+     "row": 4,
+     "col": 7,
+     "tag": "D7",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.7468628299437473,
+      0.8788403288619645,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.7710947641713544,
+      0.8788403288619645,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "WALK",
+     "frame": 4,
+     "frames": 4,
+     "letter": "D",
+     "view": 8,
+     "row": 4,
+     "col": 8,
+     "tag": "D8",
+     "air": false,
+     "words": "walk, frame 4 of 4: passing \u2014 the LEFT (blue) leg swings forward under the body with the knee bent and the foot lifted, the RIGHT (red) leg straight under the hips; gun across the chest",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.7468628299437473,
+      0.9896148853310255,
+      0.9684119428818693
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.7710947641713544,
+      0.9896148853310255,
+      0.9684119428818693
+     ],
+     "ground": 0.9526265685850281,
+     "px_per_m": 202.1443298969072
+    }
+   ]
+  }
+ ]
+}

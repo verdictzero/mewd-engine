@@ -1,0 +1,680 @@
+{
+ "profile": "doom",
+ "views": 8,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 14,
+   "name": "throw",
+   "file": "sheet14-throw.png",
+   "width": 2311,
+   "height": 1733,
+   "aspect": "4:3",
+   "cols": 8,
+   "rows": 3,
+   "cell_w": 256,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "THROW"
+   ],
+   "cells": [
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 1,
+     "col": 1,
+     "tag": "THROW-1/1",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.09059434506635891,
+      0.21419299004759845,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.12290825158684363,
+      0.21419299004759845,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 1,
+     "col": 2,
+     "tag": "THROW-1/2",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.09059434506635891,
+      0.32496754651665943,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.12290825158684363,
+      0.32496754651665943,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 1,
+     "col": 3,
+     "tag": "THROW-1/3",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.09059434506635891,
+      0.43574210298572047,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.12290825158684363,
+      0.43574210298572047,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 1,
+     "col": 4,
+     "tag": "THROW-1/4",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.09059434506635891,
+      0.5465166594547815,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.12290825158684363,
+      0.5465166594547815,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 1,
+     "col": 5,
+     "tag": "THROW-1/5",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.09059434506635891,
+      0.6572912159238425,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.12290825158684363,
+      0.6572912159238425,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 1,
+     "col": 6,
+     "tag": "THROW-1/6",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.09059434506635891,
+      0.7680657723929035,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.12290825158684363,
+      0.7680657723929035,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 1,
+     "col": 7,
+     "tag": "THROW-1/7",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.09059434506635891,
+      0.8788403288619645,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.12290825158684363,
+      0.8788403288619645,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 1,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 1,
+     "col": 8,
+     "tag": "THROW-1/8",
+     "air": false,
+     "words": "throw, frame 1 of 3: the wind-up \u2014 the rifle held in the LEFT hand only, the right arm drawn far back and up behind the head holding the GRENADE, the torso twisted to the right",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.09059434506635891,
+      0.9896148853310255,
+      0.38603577611079054
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.12290825158684363,
+      0.9896148853310255,
+      0.38603577611079054
+     ],
+     "ground": 0.3649855741488748,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 2,
+     "col": 1,
+     "tag": "THROW-2/1",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.38603577611079054,
+      0.21419299004759845,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.41834968263127525,
+      0.21419299004759845,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 2,
+     "col": 2,
+     "tag": "THROW-2/2",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.38603577611079054,
+      0.32496754651665943,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.41834968263127525,
+      0.32496754651665943,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 2,
+     "col": 3,
+     "tag": "THROW-2/3",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.38603577611079054,
+      0.43574210298572047,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.41834968263127525,
+      0.43574210298572047,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 2,
+     "col": 4,
+     "tag": "THROW-2/4",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.38603577611079054,
+      0.5465166594547815,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.41834968263127525,
+      0.5465166594547815,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 2,
+     "col": 5,
+     "tag": "THROW-2/5",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.38603577611079054,
+      0.6572912159238425,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.41834968263127525,
+      0.6572912159238425,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 2,
+     "col": 6,
+     "tag": "THROW-2/6",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.38603577611079054,
+      0.7680657723929035,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.41834968263127525,
+      0.7680657723929035,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 2,
+     "col": 7,
+     "tag": "THROW-2/7",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.38603577611079054,
+      0.8788403288619645,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.41834968263127525,
+      0.8788403288619645,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 2,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 2,
+     "col": 8,
+     "tag": "THROW-2/8",
+     "air": false,
+     "words": "throw, frame 2 of 3: the RELEASE \u2014 the right arm snapped straight forward and up at full stretch, the torso twisted to the left and leaning in, the rifle in the left hand",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.38603577611079054,
+      0.9896148853310255,
+      0.6814772071552222
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.41834968263127525,
+      0.9896148853310255,
+      0.6814772071552222
+     ],
+     "ground": 0.6604270051933064,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 1,
+     "row": 3,
+     "col": 1,
+     "tag": "THROW-3/1",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.10341843357853743,
+      0.6814772071552222,
+      0.21419299004759845,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.10341843357853743,
+      0.7137911136757069,
+      0.21419299004759845,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 2,
+     "row": 3,
+     "col": 2,
+     "tag": "THROW-3/2",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.21419299004759845,
+      0.6814772071552222,
+      0.32496754651665943,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.21419299004759845,
+      0.7137911136757069,
+      0.32496754651665943,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 3,
+     "row": 3,
+     "col": 3,
+     "tag": "THROW-3/3",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.32496754651665943,
+      0.6814772071552222,
+      0.43574210298572047,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.32496754651665943,
+      0.7137911136757069,
+      0.43574210298572047,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 4,
+     "row": 3,
+     "col": 4,
+     "tag": "THROW-3/4",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.43574210298572047,
+      0.6814772071552222,
+      0.5465166594547815,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.43574210298572047,
+      0.7137911136757069,
+      0.5465166594547815,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 5,
+     "row": 3,
+     "col": 5,
+     "tag": "THROW-3/5",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.5465166594547815,
+      0.6814772071552222,
+      0.6572912159238425,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.5465166594547815,
+      0.7137911136757069,
+      0.6572912159238425,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 6,
+     "row": 3,
+     "col": 6,
+     "tag": "THROW-3/6",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
+     "cell": [
+      0.6572912159238425,
+      0.6814772071552222,
+      0.7680657723929035,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.6572912159238425,
+      0.7137911136757069,
+      0.7680657723929035,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 7,
+     "row": 3,
+     "col": 7,
+     "tag": "THROW-3/7",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
+     "cell": [
+      0.7680657723929035,
+      0.6814772071552222,
+      0.8788403288619645,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.7680657723929035,
+      0.7137911136757069,
+      0.8788403288619645,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    },
+    {
+     "anim": "THROW",
+     "frame": 3,
+     "frames": 3,
+     "letter": null,
+     "view": 8,
+     "row": 3,
+     "col": 8,
+     "tag": "THROW-3/8",
+     "air": false,
+     "words": "throw, frame 3 of 3: the follow-through \u2014 the right arm swinging down across the body, the weight on the front foot, the rifle in the left hand",
+     "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
+     "cell": [
+      0.8788403288619645,
+      0.6814772071552222,
+      0.9896148853310255,
+      0.9769186381996537
+     ],
+     "figure": [
+      0.8788403288619645,
+      0.7137911136757069,
+      0.9896148853310255,
+      0.9769186381996537
+     ],
+     "ground": 0.955868436237738,
+     "px_per_m": 202.1443298969072
+    }
+   ]
+  }
+ ]
+}

@@ -1883,6 +1883,91 @@ ROCKETS THAT RUN OUT, AND A THINNER TRAIL
   spot: no detonation, no mark, it is gone. Its trail drops a puff every
   TRAIL.step 28 units instead of 14, each living 36 tics instead of 44.
 
+POSE TEMPLATES FOR AN IMAGE MODEL
+
+  At the user's request ("a generic and adaptable sprite sheet with
+  all conceivable contingencies — walking, running, shooting, crouch-
+  crawling, dying — a super generic human pose visual metadata sprite
+  sheet that, when paired with base character images and fed to an
+  image model with an extremely explicit prompt, results in consistent
+  Doom style character sheets"). tools/spritegen/, three parts and the
+  pictures they make; its README.md is the manual.
+
+  THE TEMPLATES (tools/spritegen/pose_sheet.py -> out/doom, out/mewd).
+  A sheet is a grid of equal cells on flat magenta, and in every cell a
+  grey mannequin in one pose from one angle: a stick figure with capsule
+  limbs, its right arm and leg tinted red and its left blue, a dark
+  patch for the face where the face shows, a dark bar for the gun, a
+  yellow star for a muzzle flash, a compass in the band above it with
+  the camera at the bottom and an arrow the way it faces. The band
+  carries the cell's tag (A1, B5, H, RUN-2/3); a panel beside each row
+  says the pose in words. The mannequin is drawn, not painted: a rig
+  of fifteen joints in metres posed by angles (lean, twist, each
+  shoulder's pitch and spread and inward swing, each elbow, each hip,
+  each knee, and a root transform for the whole body: its height, its
+  pitch and roll for lying down), turned about the vertical by the
+  view's angle, projected from a camera ten degrees above level,
+  depth-sorted and drawn far-first and a little darker. Every cycle is
+  one function of phase at four frames; the gibs are the standing
+  figure's parts thrown by seeded velocities and fallen under gravity
+  to the floor. So the eight views of a pose come off one definition
+  and the mirrored pairs really are mirrors.
+  The views are Doom's and the troop strips': 1 head on, 2 a quarter
+  turn toward the viewer's left, 3 side on facing left, 4 three
+  quarters from behind, 5 from behind, and 6, 7, 8 the mirrors of 4,
+  3, 2. out/mewd is the game's own four sheets with five views (walk
+  A-D; aim, fire, pain E-G; death H-N; gibs O-W: exactly states.gd's
+  TROOPS, prep-troops.mjs's eleven rows), 51 cells. out/doom is those
+  with all eight views and thirteen more for the battle-royale
+  direction, which have no states in the game yet: run, crouch and
+  crouch walk, prone and prone crawl, knocked-down crawl, jump, melee,
+  reload, throw, use, free fall, swim, victory; 402 cells on 17
+  sheets. Beside each sheet a JSON manifest gives every cell's box as a
+  fraction of the picture, its tag, animation, frame, view, whether it
+  is in the air, and its words; and a prompt file. KEY.png is the
+  legend and the eight views seen from above, to go with every
+  request. The sheets are padded to an aspect an image model can
+  return (1:1, 4:3, 16:9 ...) and saved as palette PNGs.
+
+  THE PROMPT (tools/spritegen/PROMPT.md, and each sheet's .prompt.txt
+  with that sheet's own contract appended: its grid, its columns'
+  angles, its rows' poses cell by cell, its tags). Written long and
+  repetitive on purpose: what each mark on the mannequin means, the
+  grid contract the cutter depends on (same rows and columns, one
+  figure a cell, nothing across a line, the bands untouched, flat
+  #FF00FF behind every figure, no shadow, no ring, no arrow), the
+  angle contract (what each of the eight views shows and the ways it
+  goes wrong), the pose contract, the Doom style (a photographed clay
+  model crushed to a palette at sixty pixels: hard edges, a dark
+  outline, three to five flat tones a material, light from above and
+  in front that does not turn with the figure, slightly big heads and
+  hands), the identity lock (one character in every cell, the same
+  build, clothes, colours and gun, asymmetry on the same side in every
+  view), a list of don'ts and a checklist. A slot for the user's own
+  notes on the character; a retouch line for one bad cell.
+
+  THE CUTTER (tools/spritegen/cut_sheet.py NAME IMAGE...). Reads the
+  model's output back off the manifest: each cell cut by its
+  fractions (any return size), the magenta keyed by how magenta each
+  pixel is and unmixed out of the halo as prep-troops does, specks
+  dropped, the figure trimmed, and everything scaled by ONE factor
+  (the manifest's pixels per metre against --height, 60 for a
+  standing figure as the SWAT) so a corpse is as long as the man was
+  tall; the alpha cut to one bit and the colour bled as candy-girls-
+  strip does. Writes assets/people/<name>.png in the troop strip's
+  shape — A to G in five views, then H to W, 64 x 64 cells, the figure
+  centred and standing on the bottom, an `air` frame kept at its
+  height — and prints the TROOPS and _strip lines to add. Checked by
+  cutting the mewd templates themselves: 51 cells, 3264 x 64, the
+  SWAT strip's size.
+
+  WHAT IT CANNOT PROMISE: the model's obedience. The README lists what
+  goes wrong (a wrong angle in one cell, the character drifting
+  between sheets, a moved grid, soft shading, scale drift, mirrored
+  views that do not match) and what to do about each; the five-view
+  profile, fewer cells a sheet and a retouch of the one bad cell are
+  the usual answers.
+
 TESTS
 
     tools/godot-test.sh
