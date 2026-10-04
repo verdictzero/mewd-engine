@@ -1,6 +1,7 @@
 {
  "profile": "civ",
  "kind": "civilian",
+ "props": true,
  "views": 8,
  "background": [
   255,

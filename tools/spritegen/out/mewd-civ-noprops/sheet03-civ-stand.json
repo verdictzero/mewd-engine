@@ -1,0 +1,441 @@
+{
+ "profile": "mewd-civ-noprops",
+ "kind": "civilian",
+ "props": false,
+ "views": 5,
+ "background": [
+  255,
+  0,
+  255
+ ],
+ "cell_px": 512,
+ "camera_pitch_deg": 10.0,
+ "figure_height_m": 1.8,
+ "sheets": [
+  {
+   "sheet": 3,
+   "name": "civ-stand",
+   "file": "sheet03-civ-stand.png",
+   "width": 2126,
+   "height": 1701,
+   "aspect": "5:4",
+   "cols": 5,
+   "rows": 3,
+   "cell_w": 368,
+   "cell_h": 512,
+   "band": 56,
+   "anims": [
+    "IDLE_CIV",
+    "COWER",
+    "HANDS_UP"
+   ],
+   "cells": [
+    {
+     "anim": "IDLE_CIV",
+     "frame": 1,
+     "frames": 1,
+     "letter": "I",
+     "view": 1,
+     "row": 1,
+     "col": 1,
+     "tag": "I1",
+     "air": false,
+     "words": "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.11759172154280338,
+      0.08289241622574955,
+      0.29068673565381,
+      0.3838918283362728
+     ],
+     "figure": [
+      0.11759172154280338,
+      0.11581422692533803,
+      0.29068673565381,
+      0.3838918283362728
+     ],
+     "ground": 0.35440329218107,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "IDLE_CIV",
+     "frame": 1,
+     "frames": 1,
+     "letter": "I",
+     "view": 2,
+     "row": 1,
+     "col": 2,
+     "tag": "I2",
+     "air": false,
+     "words": "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.29068673565381,
+      0.08289241622574955,
+      0.46378174976481656,
+      0.3838918283362728
+     ],
+     "figure": [
+      0.29068673565381,
+      0.11581422692533803,
+      0.46378174976481656,
+      0.3838918283362728
+     ],
+     "ground": 0.35440329218107,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "IDLE_CIV",
+     "frame": 1,
+     "frames": 1,
+     "letter": "I",
+     "view": 3,
+     "row": 1,
+     "col": 3,
+     "tag": "I3",
+     "air": false,
+     "words": "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.46378174976481656,
+      0.08289241622574955,
+      0.6368767638758231,
+      0.3838918283362728
+     ],
+     "figure": [
+      0.46378174976481656,
+      0.11581422692533803,
+      0.6368767638758231,
+      0.3838918283362728
+     ],
+     "ground": 0.35440329218107,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "IDLE_CIV",
+     "frame": 1,
+     "frames": 1,
+     "letter": "I",
+     "view": 4,
+     "row": 1,
+     "col": 4,
+     "tag": "I4",
+     "air": false,
+     "words": "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.6368767638758231,
+      0.08289241622574955,
+      0.8099717779868297,
+      0.3838918283362728
+     ],
+     "figure": [
+      0.6368767638758231,
+      0.11581422692533803,
+      0.8099717779868297,
+      0.3838918283362728
+     ],
+     "ground": 0.35440329218107,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "IDLE_CIV",
+     "frame": 1,
+     "frames": 1,
+     "letter": "I",
+     "view": 5,
+     "row": 1,
+     "col": 5,
+     "tag": "I5",
+     "air": false,
+     "words": "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.8099717779868297,
+      0.08289241622574955,
+      0.9830667920978363,
+      0.3838918283362728
+     ],
+     "figure": [
+      0.8099717779868297,
+      0.11581422692533803,
+      0.9830667920978363,
+      0.3838918283362728
+     ],
+     "ground": 0.35440329218107,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "COWER",
+     "frame": 1,
+     "frames": 1,
+     "letter": "J",
+     "view": 1,
+     "row": 2,
+     "col": 1,
+     "tag": "J1",
+     "air": false,
+     "words": "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.11759172154280338,
+      0.3838918283362728,
+      0.29068673565381,
+      0.6848912404467961
+     ],
+     "figure": [
+      0.11759172154280338,
+      0.41681363903586127,
+      0.29068673565381,
+      0.6848912404467961
+     ],
+     "ground": 0.6554027042915933,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "COWER",
+     "frame": 1,
+     "frames": 1,
+     "letter": "J",
+     "view": 2,
+     "row": 2,
+     "col": 2,
+     "tag": "J2",
+     "air": false,
+     "words": "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.29068673565381,
+      0.3838918283362728,
+      0.46378174976481656,
+      0.6848912404467961
+     ],
+     "figure": [
+      0.29068673565381,
+      0.41681363903586127,
+      0.46378174976481656,
+      0.6848912404467961
+     ],
+     "ground": 0.6554027042915933,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "COWER",
+     "frame": 1,
+     "frames": 1,
+     "letter": "J",
+     "view": 3,
+     "row": 2,
+     "col": 3,
+     "tag": "J3",
+     "air": false,
+     "words": "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.46378174976481656,
+      0.3838918283362728,
+      0.6368767638758231,
+      0.6848912404467961
+     ],
+     "figure": [
+      0.46378174976481656,
+      0.41681363903586127,
+      0.6368767638758231,
+      0.6848912404467961
+     ],
+     "ground": 0.6554027042915933,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "COWER",
+     "frame": 1,
+     "frames": 1,
+     "letter": "J",
+     "view": 4,
+     "row": 2,
+     "col": 4,
+     "tag": "J4",
+     "air": false,
+     "words": "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.6368767638758231,
+      0.3838918283362728,
+      0.8099717779868297,
+      0.6848912404467961
+     ],
+     "figure": [
+      0.6368767638758231,
+      0.41681363903586127,
+      0.8099717779868297,
+      0.6848912404467961
+     ],
+     "ground": 0.6554027042915933,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "COWER",
+     "frame": 1,
+     "frames": 1,
+     "letter": "J",
+     "view": 5,
+     "row": 2,
+     "col": 5,
+     "tag": "J5",
+     "air": false,
+     "words": "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.8099717779868297,
+      0.3838918283362728,
+      0.9830667920978363,
+      0.6848912404467961
+     ],
+     "figure": [
+      0.8099717779868297,
+      0.41681363903586127,
+      0.9830667920978363,
+      0.6848912404467961
+     ],
+     "ground": 0.6554027042915933,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HANDS_UP",
+     "frame": 1,
+     "frames": 1,
+     "letter": "K",
+     "view": 1,
+     "row": 3,
+     "col": 1,
+     "tag": "K1",
+     "air": false,
+     "words": "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened",
+     "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
+     "cell": [
+      0.11759172154280338,
+      0.6848912404467961,
+      0.29068673565381,
+      0.9858906525573192
+     ],
+     "figure": [
+      0.11759172154280338,
+      0.7178130511463845,
+      0.29068673565381,
+      0.9858906525573192
+     ],
+     "ground": 0.9564021164021165,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HANDS_UP",
+     "frame": 1,
+     "frames": 1,
+     "letter": "K",
+     "view": 2,
+     "row": 3,
+     "col": 2,
+     "tag": "K2",
+     "air": false,
+     "words": "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened",
+     "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
+     "cell": [
+      0.29068673565381,
+      0.6848912404467961,
+      0.46378174976481656,
+      0.9858906525573192
+     ],
+     "figure": [
+      0.29068673565381,
+      0.7178130511463845,
+      0.46378174976481656,
+      0.9858906525573192
+     ],
+     "ground": 0.9564021164021165,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HANDS_UP",
+     "frame": 1,
+     "frames": 1,
+     "letter": "K",
+     "view": 3,
+     "row": 3,
+     "col": 3,
+     "tag": "K3",
+     "air": false,
+     "words": "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened",
+     "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
+     "cell": [
+      0.46378174976481656,
+      0.6848912404467961,
+      0.6368767638758231,
+      0.9858906525573192
+     ],
+     "figure": [
+      0.46378174976481656,
+      0.7178130511463845,
+      0.6368767638758231,
+      0.9858906525573192
+     ],
+     "ground": 0.9564021164021165,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HANDS_UP",
+     "frame": 1,
+     "frames": 1,
+     "letter": "K",
+     "view": 4,
+     "row": 3,
+     "col": 4,
+     "tag": "K4",
+     "air": false,
+     "words": "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened",
+     "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
+     "cell": [
+      0.6368767638758231,
+      0.6848912404467961,
+      0.8099717779868297,
+      0.9858906525573192
+     ],
+     "figure": [
+      0.6368767638758231,
+      0.7178130511463845,
+      0.8099717779868297,
+      0.9858906525573192
+     ],
+     "ground": 0.9564021164021165,
+     "px_per_m": 192.7422680412371
+    },
+    {
+     "anim": "HANDS_UP",
+     "frame": 1,
+     "frames": 1,
+     "letter": "K",
+     "view": 5,
+     "row": 3,
+     "col": 5,
+     "tag": "K5",
+     "air": false,
+     "words": "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened",
+     "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
+     "cell": [
+      0.8099717779868297,
+      0.6848912404467961,
+      0.9830667920978363,
+      0.9858906525573192
+     ],
+     "figure": [
+      0.8099717779868297,
+      0.7178130511463845,
+      0.9830667920978363,
+      0.9858906525573192
+     ],
+     "ground": 0.9564021164021165,
+     "px_per_m": 192.7422680412371
+    }
+   ]
+  }
+ ]
+}

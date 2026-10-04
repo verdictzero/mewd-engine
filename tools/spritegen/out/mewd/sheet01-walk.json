@@ -1,6 +1,7 @@
 {
  "profile": "mewd",
  "kind": "troop",
+ "props": false,
  "views": 5,
  "background": [
   255,

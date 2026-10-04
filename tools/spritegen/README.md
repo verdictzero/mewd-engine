@@ -15,6 +15,8 @@ tools/spritegen/
   out/doom/       17 troop sheets, 8 views                    (--profile doom, the default)
   out/mewd-civ/   the 5 sheets a civilian strip needs, 5 views (--profile mewd-civ)
   out/civ/        19 non-combatant sheets, 8 views             (--profile civ)
+  out/mewd-civ-noprops/, out/civ-noprops/
+                  the same civilians with nothing ever in the hands (--profile ...-noprops)
 ```
 
 ## The sheets
@@ -68,6 +70,12 @@ these in eight). Nothing in the hands, or a prop the row names:
 | 18 civ-lie | on the back asleep, curled on the side, slumped against a wall (not drawn) | | 8 |
 | 19 civ-swim-fall | swim, 4 frames; free fall | | 8 |
 
+The no-props sets (`mewd-civ-noprops`, `civ-noprops`) are the civilian
+profiles with the four sheets that need a prop (carry, phone, work,
+pickup) left out, a key that shows no prop, and prompts that never
+name one. Use them for a townie who must never be drawn holding
+anything: the model is not told that props exist.
+
 Troop sheets 01 to 04 are exactly the game's troop format (`states.gd`
 TROOPS: A to G turned, H to W flat; `tools/prep-troops.mjs` describes
 the SWAT and ARMY sheets the user drew the same way). The civilian
@@ -83,8 +91,11 @@ mannequin in each cell is the pose and the camera angle: its right arm
 and leg are tinted red, its left blue; a dark patch marks the face; a
 dark bar is the gun; a brown shape is a civilian's prop (a box, a bag,
 a phone, a broom); a yellow star a muzzle flash; a compass in the band
-shows the facing from above. The band above each figure carries the
-cell's tag (`A1`, `B5`, `H`, `RUN-2/3`). The JSON beside each sheet has
+shows the facing from above. `KEY.png` is per set and explains only
+the marks that set uses: a troop's shows the gun and the flash, a
+civilian's the prop, or the empty hands. The band above each figure
+carries the cell's tag (`A1`, `B5`, `H`, `RUN-2/3`). The JSON beside
+each sheet has
 every cell's box as fractions of the picture, so the cutter works at
 whatever size the model returns. No mannequin touches its band or its
 cell's edges: the generator checks every cell as it draws and reports
@@ -99,6 +110,8 @@ any that would.
    python3 tools/spritegen/pose_sheet.py --profile mewd        # the game's four, 5 views -> out/mewd
    python3 tools/spritegen/pose_sheet.py --profile civ         # 19 civilian sheets, 8 views -> out/civ
    python3 tools/spritegen/pose_sheet.py --profile mewd-civ    # a civilian strip's five, 5 views -> out/mewd-civ
+   python3 tools/spritegen/pose_sheet.py --profile civ-noprops       # the civilians, nothing in the hands -> out/civ-noprops
+   python3 tools/spritegen/pose_sheet.py --profile mewd-civ-noprops  # the strip's five, the same way -> out/mewd-civ-noprops
    ```
 
    Start with `out/mewd` for a fighter or `out/mewd-civ` for a
@@ -143,7 +156,8 @@ any that would.
    `Standees._strip` lines to add. A sheet name that exists in both
    the 5-view and the 8-view profile is cut by the 5-view manifest
    unless the picture is the exact size of the other, or `--profile
-   doom` (or `civ`) says so; a `civ-` sheet is never cut as a troop's.
+   doom` (or `civ`, or a `-noprops` twin) says so; a `civ-` sheet is
+   never cut as a troop's.
    Lying and gib frames wider than the cell are shrunk to fit and
    listed; that is Doom's own economy (the SWAT corpse spans its cell
    too). `--height` sets a standing figure's height in the strip (60,
@@ -173,10 +187,12 @@ what to do:
   03 than on sheet 01). Give every request the same character pictures
   AND a good cell from an earlier sheet as an extra reference, and say
   so in the notes.
-- **A weapon creeps into a civilian's hands**, or the chair gets drawn
-  under the sitter. The civilian block of the prompt says no three
-  ways; repeat it in the notes ("she is unarmed; nothing in her hands
-  but what the row names"), and retouch the cell.
+- **A weapon creeps into a civilian's hands**, or a thing the row did
+  not ask for, or the chair gets drawn under the sitter. The civilian
+  block of the prompt says no three ways; repeat it in the notes ("she
+  is unarmed; nothing in her hands but what the row names"), and
+  retouch the cell. For a townie who never holds anything, use the
+  no-props sets: they never tell the model that props exist.
 - **The grid moves** (a cell merged, a row dropped). Regenerate; it is
   usually fine on the second try. Fewer rows per sheet are easier:
   `--views 5` halves the cells on every turned sheet.

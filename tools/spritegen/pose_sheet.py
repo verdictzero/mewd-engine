@@ -9,6 +9,8 @@ style character sheets").
     python3 tools/spritegen/pose_sheet.py --profile mewd      # the game's own four troop sheets, into out/mewd
     python3 tools/spritegen/pose_sheet.py --profile civ       # every non-combatant sheet, into out/civ
     python3 tools/spritegen/pose_sheet.py --profile mewd-civ  # the five a civilian strip needs, 5 views, into out/mewd-civ
+    python3 tools/spritegen/pose_sheet.py --profile civ-noprops       # the civilians with nothing ever in the hands
+    python3 tools/spritegen/pose_sheet.py --profile mewd-civ-noprops  # the strip's five, the same way
     python3 tools/spritegen/pose_sheet.py --views 5           # Doom's economy: 5 views, mirror the rest
     python3 tools/spritegen/pose_sheet.py --list              # what the sheets hold
 
@@ -22,7 +24,15 @@ picking up, limping, burning, dancing, lying, swimming, falling, and an
 unarmed death and gibs) and `mewd-civ` (the five of those a civilian
 strip would need, five views: walk A-D, flee E-H, stand I, cower J,
 hands up K, death L-R, gibs S-Z). Their sheet names start with `civ-` so
-the cutter never mistakes a civilian walk for a troop's.
+the cutter never mistakes a civilian walk for a troop's. THE NO-PROPS
+SETS (at the user's request: "make a no props set too"), `civ-noprops`
+and `mewd-civ-noprops`, are the civilian profiles with nothing ever in
+the hands: the sheets that need a prop (carrying, phoning, working,
+picking up) are left out, their KEY.png shows no prop and their prompts
+never name one, so the model is never tempted to invent something to
+hold. Each profile's KEY.png shows only the marks its own sheets use: a
+troop key the gun and the flash, a civilian key the prop or the empty
+hands.
 
 WHAT IT MAKES. A set of PNG sheets, each a grid of cells on a flat
 magenta ground. In every cell stands a grey mannequin — a stick figure
@@ -1101,8 +1111,27 @@ PROFILES = {
         ("civ-swim-fall", ["SWIM", "FALL"]),
     ],
 }
+
+
+def _has_prop(keys):
+    return any(f["pose"].get("prop") for q in keys for f in ANIMS[q]["frames"])
+
+
+# the no-props sets (at the user's request: "make a no props set too"):
+# the civilian profiles with every sheet that puts something in the
+# hands left out. Their key shows no prop and their prompt never names
+# one, so the model is never tempted to invent something to hold.
+PROFILES["mewd-civ-noprops"] = [(n, k) for n, k in PROFILES["mewd-civ"] if not _has_prop(k)]
+PROFILES["civ-noprops"] = [(n, k) for n, k in PROFILES["civ"] if not _has_prop(k)]
 # what the sheets are of: it goes in the title, the manifest and the prompt
-KIND = {"mewd": "troop", "doom": "troop", "mewd-civ": "civilian", "civ": "civilian"}
+KIND = {"mewd": "troop", "doom": "troop", "mewd-civ": "civilian", "civ": "civilian",
+        "mewd-civ-noprops": "civilian", "civ-noprops": "civilian"}
+
+
+def has_props(profile):
+    """Whether a profile's civilians ever hold a prop (a troop's never do)."""
+    return KIND[profile] == "civilian" and not profile.endswith("-noprops")
+
 
 BG = (255, 0, 255)
 FRAME = (28, 28, 28)
@@ -1328,30 +1357,52 @@ def save_png(im, path):
     q.save(path, optimize=True)
 
 
-def key_sheet(out_dir, ss=2):
+def key_sheet(out_dir, kind="troop", props=False, ss=2):
     """KEY.png: what the mannequin's marks mean, and the eight views from
-    above, to go in with every request."""
+    above, to go in with every request. Each kind of set gets its own:
+    only the marks its sheets use are shown and explained (a troop's
+    gun and flash; a civilian's prop, or its empty hands)."""
     W, H = 2048, 1152
     im = Image.new("RGB", (W * ss, H * ss), FRAME)
     d = ImageDraw.Draw(im)
     d.text((40 * ss, 28 * ss), "KEY TO THE POSE TEMPLATES", font=font(54 * ss, True), fill=INK)
     d.text((40 * ss, 100 * ss), "read this with every sheet: what the mannequin's marks mean, and where the camera is for each view",
            font=font(28 * ss), fill=(210, 210, 210))
-    # the legend figures: a troop aiming, a civilian with a box
+    # the legend figures: a troop aiming; a civilian at ease, and one
+    # with a box where the set has props
     lx, ly = 40 * ss, 170 * ss
     d.rectangle([lx, ly, lx + 560 * ss, ly + 900 * ss], fill=BG)
     scale = 900 * 0.74 / (HEIGHT + 0.14) * ss
-    draw_mannequin(d, pose(**dict(aim_arms(), flash=True)), -30.0, scale, (lx + 150 * ss, ly + 900 * 0.92 * ss), ss)
-    draw_mannequin(d, carry(0), -30.0, scale, (lx + 410 * ss, ly + 900 * 0.92 * ss), ss)
+    if kind == "troop":
+        figures = [pose(**dict(aim_arms(), flash=True))]
+    elif props:
+        figures = [IDLE_CIV[0][0], carry(0)]
+    else:
+        figures = [IDLE_CIV[0][0]]
+    xs = [lx + 280 * ss] if len(figures) == 1 else [lx + 150 * ss, lx + 410 * ss]
+    for p, x in zip(figures, xs):
+        draw_mannequin(d, p, -30.0, scale, (x, ly + 900 * 0.92 * ss), ss)
     f = font(23 * ss)
     notes = [
         "GREY MANNEQUIN = the pose, the camera angle, the scale and the placement of the figure in its cell. It is NOT the character.",
         "RED arm and leg = the character's RIGHT side.",
         "BLUE arm and leg = the character's LEFT side.",
         "DARK PATCH on the head = the FACE. No patch = the head is seen from behind.",
-        "DARK BAR in the hands = the gun (the character's own weapon). Troop sheets only.",
-        "BROWN THING in the hands = a prop the row's words name (a box, a bag, a phone, a broom). Civilian sheets only; draw that thing.",
-        "YELLOW STAR = a muzzle flash, only in FIRE frames.",
+    ]
+    if kind == "troop":
+        notes += [
+            "DARK BAR in the hands = the gun (the character's own weapon).",
+            "YELLOW STAR = a muzzle flash, only in FIRE frames.",
+        ]
+    elif props:
+        notes += [
+            "BROWN THING in the hands = a prop the row's words name (a box, a bag, a phone, a broom); draw that thing. There is never a gun on a civilian sheet.",
+        ]
+    else:
+        notes += [
+            "THE HANDS ARE EMPTY in every cell of this set: nothing is held, nothing is carried, nothing is drawn in them. There is never a gun on a civilian sheet.",
+        ]
+    notes += [
         "RED SPOTS = blood, only in death and wounded frames.",
         "WHITE ARROW on the ground = the way the figure faces.",
         "PURPLE RING on the ground = where the feet stand; it marks the ground line. REMOVE the ring and the arrow in the output.",
@@ -1387,14 +1438,48 @@ def key_sheet(out_dir, ss=2):
     save_png(im, os.path.join(out_dir, "KEY.png"))
 
 
-def sheet_prompt(master, sheet, cells, title, fname, kind="troop"):
-    """The master prompt with this sheet's own contract appended."""
+# what the master prompt says about props, and what a no-props set says
+# instead (the words name no object at all, so there is nothing to prime
+# the model with)
+NO_PROPS_MASTER = [
+    ("  - A BROWN THING in the hands (a box between them, a bag hanging from one, a small bar at an ear, "
+     "a long pole to the floor) = a PROP the row's words name: a box, a bag, a phone, a broom. Civilian "
+     "sheets only. Draw that thing in the character's hands.\n", ""),
+    ("Where the mannequin holds a BROWN PROP, the character holds the thing the row's words name (a box, "
+     "a bag, a phone, a broom), the same one in every cell of that row. Where the mannequin's hands are "
+     "empty, the character's hands are empty.",
+     "The hands are EMPTY in every cell: nothing held, nothing carried, nothing drawn in them."),
+    ("  [ ] On a civilian sheet: no weapon anywhere; the props the rows name, and nothing else, in the hands.",
+     "  [ ] On a civilian sheet: no weapon anywhere; the hands empty in every cell."),
+]
+
+
+def sheet_prompt(master, sheet, cells, title, fname, kind="troop", props=True):
+    """The master prompt with this sheet's own contract appended. A
+    no-props civilian set gets a master that never names a prop."""
+    if kind == "civilian" and not props:
+        for old, new in NO_PROPS_MASTER:
+            if old not in master:
+                raise SystemExit("PROMPT.md no longer has the prop line this set must drop: %r" % old[:50])
+            master = master.replace(old, new)
     lines = []
     lines.append("=" * 78)
     lines.append("THIS SHEET: %s  (file %s)" % (title, fname))
     lines.append("=" * 78)
     lines.append("")
-    if kind == "civilian":
+    if kind == "civilian" and not props:
+        lines.append("THIS IS A NON-COMBATANT SHEET, AND NOTHING IS EVER HELD. The character is a CIVILIAN: a "
+                     "townsperson, a shopper, a bystander, a hostage. Say it three ways so it cannot be missed: "
+                     "NO WEAPON in any cell; NO GUN, no knife, no bat, nothing held as a weapon, in any hand, in "
+                     "any frame, even if the CHARACTER picture shows one (then leave it out); the mannequin on "
+                     "this sheet NEVER holds anything, and the character never holds anything either. THE HANDS "
+                     "ARE EMPTY IN EVERY CELL: nothing held, nothing carried, nothing invented to give the hands "
+                     "something to do; an open hand shows its fingers, a hanging hand is loosely closed. Where "
+                     "the words say a chair or a wall is not drawn, do not draw it: the character sits or leans "
+                     "on nothing, on flat magenta. The expression follows the row: at ease, afraid, screaming, "
+                     "smiling, asleep.")
+        lines.append("")
+    elif kind == "civilian":
         lines.append("THIS IS A NON-COMBATANT SHEET. The character is a CIVILIAN: a townsperson, a shopper, a "
                      "bystander, a hostage, a worker. Say it three ways so it cannot be missed: NO WEAPON in any "
                      "cell; NO GUN, no knife, no bat, nothing held as a weapon, in any hand, in any frame, even if "
@@ -1461,7 +1546,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--profile", choices=sorted(PROFILES), default="doom",
                     help="mewd: the game's own troop sheets; doom: those and every extra (default); "
-                         "mewd-civ: a civilian strip's five; civ: those and every other thing a townie does")
+                         "mewd-civ: a civilian strip's five; civ: those and every other thing a townie does; "
+                         "mewd-civ-noprops and civ-noprops: the same with nothing ever in the hands")
     ap.add_argument("--views", type=int, choices=(5, 8), default=None,
                     help="views per turned frame: 5 (mirror the rest, the mewd defaults) or 8 (the doom and civ default)")
     ap.add_argument("--cell", type=int, default=512, help="cell height in pixels (default 512)")
@@ -1471,11 +1557,12 @@ def main():
     args = ap.parse_args()
     views = args.views or (5 if args.profile.startswith("mewd") else 8)
     kind = KIND[args.profile]
+    props = has_props(args.profile)
     args.out = args.out or os.path.join(HERE, "out", args.profile)
     os.makedirs(args.out, exist_ok=True)
     master_path = os.path.join(HERE, "PROMPT.md")
     master = open(master_path).read() if os.path.exists(master_path) else "{{SHEET}}"
-    manifest = dict(profile=args.profile, kind=kind, views=views, background=list(BG), cell_px=args.cell,
+    manifest = dict(profile=args.profile, kind=kind, props=props, views=views, background=list(BG), cell_px=args.cell,
                     camera_pitch_deg=CAM_PITCH, figure_height_m=HEIGHT, sheets=[])
     n = 0
     for k, (name, keys) in enumerate(PROFILES[args.profile]):
@@ -1501,7 +1588,7 @@ def main():
         with open(os.path.join(args.out, fname[:-4] + ".json"), "w") as f:
             json.dump(dict(manifest, sheets=[entry]), f, indent=1)
         with open(os.path.join(args.out, fname[:-4] + ".prompt.txt"), "w") as f:
-            f.write(sheet_prompt(master, sheet, cells, title, fname, kind))
+            f.write(sheet_prompt(master, sheet, cells, title, fname, kind, props))
         n += len(cells)
         print("%-28s %2dx%d cells  %4dx%4d (%s)  %s" % (fname, sheet.cols, sheet.nrows, sheet.W, sheet.H, sheet.ratio,
                                                       ", ".join(a["key"] for a in anims)))
@@ -1509,7 +1596,7 @@ def main():
         return
     with open(os.path.join(args.out, "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=1)
-    key_sheet(args.out)
+    key_sheet(args.out, kind, props)
     print("%d cells on %d sheets, KEY.png and manifest.json in %s" % (n, len(manifest["sheets"]), args.out))
 
 

@@ -2201,6 +2201,28 @@ POSE TEMPLATES FOR AN IMAGE MODEL
   themselves: the troops' 51 cells, 3264 x 64, the SWAT strip's size;
   the civilians' 70 cells, 4480 x 64, none empty.
 
+  THE NO-PROPS SETS (at the user's request, on seeing the box in the
+  key: "why are civs carrying boxes" ... "make a no props set too").
+  civ-noprops and mewd-civ-noprops are the civilian profiles with
+  nothing ever in the hands. The four sheets that need a prop
+  (carrying, phoning, working, picking up) are left out, which the
+  generator decides by looking at the poses rather than by a list;
+  civ-noprops is 15 sheets, 383 cells, and mewd-civ-noprops the
+  strip's five, 70 cells, the same pictures as mewd-civ with a
+  different key and prompt. Their prompts drop the three prop lines
+  of the master and open with a block that says the hands are empty
+  in every cell, naming no object at all, so there is nothing to
+  prime the model with; a PROMPT.md edit that loses one of those
+  lines stops the generator rather than letting a prop line through.
+  While at it, KEY.png became one per kind of set: a troop's shows
+  the aiming figure (whole now; its flash used to clip the panel's
+  edge), the gun and the flash; a civilian's shows the figure at
+  ease and, where the set has props, the one with the box; the marks
+  a set never uses are no longer explained to the model. The cutter
+  takes the two new profiles, and a civilian sheet falls to a
+  civilian profile whichever twin is asked for. The templates cut
+  into a 70-cell strip as before.
+
   WHAT IT CANNOT PROMISE: the model's obedience. The README lists what
   goes wrong (a wrong angle in one cell, the character drifting
   between sheets, a moved grid, soft shading, scale drift, mirrored

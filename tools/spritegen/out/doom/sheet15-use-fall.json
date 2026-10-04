@@ -1,6 +1,7 @@
 {
  "profile": "doom",
  "kind": "troop",
+ "props": false,
  "views": 8,
  "background": [
   255,

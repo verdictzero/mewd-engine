@@ -14,11 +14,13 @@ one reads the filled sheet back off the template's manifest).
                         myguy.sheet01-walk.png
     --manifest DIR      where the templates and their JSON are (default
                         tools/spritegen/out, every profile)
-    --profile P         mewd (default), doom, mewd-civ or civ: which
-                        manifest cuts a sheet name two profiles share
-                        (the troops' 01 to 04, the civilians' 01 to 05),
-                        when the picture is not the exact size of either;
-                        a civ- sheet always falls to a civ profile
+    --profile P         mewd (default), doom, mewd-civ, civ, mewd-civ-
+                        noprops or civ-noprops: which manifest cuts a
+                        sheet name two profiles share (the troops' 01 to
+                        04, the civilians' 01 to 05, and more between a
+                        civilian set and its no-props twin), when the
+                        picture is not the exact size of either; a civ-
+                        sheet always falls to a civ profile
     --cells DIR         also write every cell on its own (PNG, keyed and
                         trimmed, at game scale)
     --height PX         a standing figure's height in the strip
@@ -212,7 +214,7 @@ def main():
     ap.add_argument("--no-strip", action="store_true")
     ap.add_argument("--strip", help="the strip's path (default assets/people/<name>.png)")
     ap.add_argument("--key", help="RRGGBB ground colour; default measured")
-    ap.add_argument("--profile", choices=("mewd", "doom", "mewd-civ", "civ"), default="mewd",
+    ap.add_argument("--profile", choices=("mewd", "doom", "mewd-civ", "civ", "mewd-civ-noprops", "civ-noprops"), default="mewd",
                     help="which profile's manifest to cut a sheet name two profiles share by (default mewd; "
                          "a civ- sheet falls to mewd-civ)")
     args = ap.parse_args()
@@ -237,7 +239,7 @@ def main():
             # sheet under the civilian twin of it), else the shape
             W, H = Image.open(image).size
             want = args.profile
-            if match[0]["kind"] == "civilian" and not want.endswith("civ"):
+            if match[0]["kind"] == "civilian" and "civ" not in want:
                 want = want + "-civ" if want == "mewd" else "civ"
             exact = [s for s in match if (s["width"], s["height"]) == (W, H)]
             prof = [s for s in match if s["profile"] == want]
