@@ -300,7 +300,7 @@ func _box_state() -> String:
 		t += " beam out %d" % p.beam_tics
 	if pause.visible:
 		t += ", paused"
-	t += "\nactors %d, gibs %d, gore %d, pieces %d" % [game.actors.size(), game.giblets.chunks.count,
+	t += "\nactors %d (%d asleep), gibs %d, gore %d, pieces %d" % [game.actors.size(), game.asleep, game.giblets.chunks.count,
 		game.fx.gore.count, game.chunks.count() if game.chunks != null else 0]
 	return t
 

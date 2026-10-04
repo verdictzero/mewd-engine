@@ -1693,6 +1693,24 @@ TWO CRASHES ON THE HANDHELD, THE ROCKET LAG, THE HOUSES, THE CROWD
   anywhere: about 200 unicorns and foals a game, twenty or more of them
   within 150 m of the start. candy_test checks that.
 
+THE FAR CROWD DOES NOT EXIST
+
+  At the user's request ("make sure girls and unicorns have LOD and don't
+  exist / do anything beyond a certain distance"). Somebody calm — alive,
+  not alight, not afraid, after nobody, not frozen, drilled or ashen —
+  further than Game.SLEEP_FAR (200 m, where Standees stopped drawing the
+  crowd anyway) from you is ASLEEP: no tic, no row. Who is awake is
+  counted every AWAKE_EVERY (8) tics into Game.awake, and the tic and
+  Standees.draw walk that list instead of every actor, so a sleeper costs
+  nothing at all, not even a distance test. Inside it the old LOD stands:
+  past LOD_FAR (37 m) the idle think one tic in four. Anything spawned
+  (a fireball, a body) is awake at once, and a sleeper shot from far off
+  has something on by the next count and wakes. Not in a match, whose
+  worlds must agree. On CANDY LAND at the start: 944 actors, 255 awake.
+  The BlackBox's state line counts the sleepers. (island_test's walk sets
+  the crowd's bodies aside as it does the houses: six hundred girls round
+  the start could box it in.)
+
 TESTS
 
     tools/godot-test.sh

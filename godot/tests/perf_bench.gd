@@ -90,6 +90,8 @@ func _init() -> void:
 	out["looks"] = looks
 	# THE STEADY STATE: frames and the script's share of them
 	out["steady"] = await _frames(40)
+	out["awake"] = game.awake.size()
+	out["asleep"] = game.asleep
 	# A ROCKET INTO A CROWD
 	var ring := _ring(p, 8, 150.0)
 	await _frames(5)

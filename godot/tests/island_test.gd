@@ -87,6 +87,13 @@ func _init() -> void:
 	# own walls are candy_test's)
 	var kept_cells: Dictionary = lv._house_cells
 	lv._house_cells = {}
+	# (and the crowd: six hundred candy girls round the start can box a walk
+	# in — walking among people is candy_test's)
+	var stood_solid := []
+	for a in game.actors:
+		if a.solid:
+			stood_solid.append(a)
+			a.solid = false
 	for t in 350:
 		var cmd := {"fwd": 1.0, "side": 0.0, "run": true, "jump": false, "look": Vector2(), "attack": false,
 			"slot": 0, "cycle": 0, "use": false}
@@ -97,6 +104,8 @@ func _init() -> void:
 			stray = maxf(stray, absf(p.z - lv.floor_at(p.x, p.y)))
 		moved = maxf(moved, sqrt(U.dist2(p.x, p.y, x0, y0)))
 	lv._house_cells = kept_cells
+	for a in stood_solid:
+		a.solid = true
 	check(moved > 400.0, "you walk (%.0f units out)" % moved)
 	check(stray < 2.0, "and your feet keep to the ground (worst %.1f units)" % stray)
 	# THE COAST: nobody walks off it

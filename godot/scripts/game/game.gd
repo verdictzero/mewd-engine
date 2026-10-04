@@ -9,6 +9,14 @@ extends Node3D
 const BASE_FOV := 72.0
 ## past this, an idle somebody thinks one tic in four (tic)
 const LOD_FAR := 1200.0
+## AND PAST THIS THEY DO NOT EXIST (at the user's request: "make sure
+## girls and unicorns have LOD and don't exist / do anything beyond a
+## certain distance"): somebody calm further than this from you neither
+## thinks nor is drawn — 200 m, where the crowd stopped being drawn
+## anyway (Standees.CULL_FAR). Who is awake is decided every AWAKE_EVERY
+## tics (`awake`), not every tic, so the sleepers cost nothing at all.
+const SLEEP_FAR := 6400.0
+const AWAKE_EVERY := 8
 const MOUSE_SENS := 0.0022
 const MAX_TICS := 6
 ## SLOW MOTION (at the user's request): the world runs one tic in this
@@ -476,7 +484,7 @@ func _process(dt: float) -> void:
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
 	_prof_add("forest_view", t0)
 	t0 = Time.get_ticks_usec()
-	standees.draw(actors, camera.position, tics, Vector2(cos(player.angle), sin(player.angle)) if weapon3d != null else Vector2())
+	standees.draw(awake if net == null and not awake.is_empty() else actors, camera.position, tics, Vector2(cos(player.angle), sin(player.angle)) if weapon3d != null else Vector2())
 	_prof_add("standees", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.draw_for(camera, _acc / U.SEC)
@@ -621,9 +629,15 @@ func tic() -> void:
 	var lx: float = player.x if lod else 0.0
 	var ly: float = player.y if lod else 0.0
 	var lod_far2 := LOD_FAR * LOD_FAR
+	if not lod:
+		awake = actors
+	elif tics % AWAKE_EVERY == 0 or awake.is_empty():
+		_wake(lx, ly)
 	# AND THE FRIGHTENED far off take one in two: a blast panics half the
 	# crowd at once, every one of them looking for a way out every tic
-	for a: Actor in actors:
+	for a: Actor in awake:
+		if a.removed:
+			continue
 		if lod and a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.target == null \
 				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and (tics + a.id) % (2 if a.panic > 0 else 4) != 0:
 			var ddx: float = a.x - lx
@@ -830,6 +844,10 @@ func _spawn_things() -> void:
 func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:
 	var act := Actor.new(self, type, x, y, a, opts)
 	actors.append(act)
+	# (awake from the start, wherever it is: a fireball cannot wait for
+	# the next count, _wake)
+	if awake != actors and not awake.is_empty():
+		awake.append(act)
 	return act
 
 ## A solid thing in the way of `who` stepping to (nx, ny), or null. A
@@ -1105,6 +1123,29 @@ func weapon_system(kind: String):
 		"charge":
 			return beam
 	return null
+
+## WHO IS AWAKE (see SLEEP_FAR): everybody within it, and anybody anywhere
+## with something on — not the living crowd (a blast, blood, a lamp in
+## pieces), dead or dying, alight, afraid, after somebody, frozen, drilled
+## or ashen. A sleeper shot from far off has something on by the next
+## count, and wakes.
+var awake: Array = []
+var asleep := 0
+func _wake(px: float, py: float) -> void:
+	var out: Array = []
+	var far2 := SLEEP_FAR * SLEEP_FAR
+	for a: Actor in actors:
+		if a.removed:
+			continue
+		if a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.target == null and a.panic == 0 \
+				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and a.frost <= 0.0:
+			var dx: float = a.x - px
+			var dy: float = a.y - py
+			if dx * dx + dy * dy > far2:
+				continue
+		out.append(a)
+	asleep = actors.size() - out.size()
+	awake = out
 
 ## Being shot at wakes the place up, and so does setting fire to it.
 func noise(_who, _r: float) -> void:
