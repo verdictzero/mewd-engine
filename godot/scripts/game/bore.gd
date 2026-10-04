@@ -186,7 +186,13 @@ func draw(cam: Camera3D, t: float) -> void:
 	var red := Color(1.0, 0.16, 0.10)
 	var any := false
 	if active() and not aim.is_empty():
+		# THE LINE LEAVES THE GUN AS DRAWN (at the user's report: "cerebral
+		# bore laser sight is not aligned to gun"): from the held model's
+		# muzzle on the screen (Game.muzzle_view), as a round's streak does,
+		# not from the fixed point beside the eye the shot itself flies from
 		var o: Vector3 = game.nozzle(game.player)
+		if game.has_method("muzzle_view"):
+			o = game.muzzle_view(game.player, o)
 		var e := Vector3(aim.x, aim.y, aim.z)
 		if lock != null:
 			e = Vector3(lock.x, lock.y, lock.z + lock.height * BORE.headAt)

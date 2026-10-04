@@ -19,6 +19,13 @@
 // the surface's last `fade` of it either way fades out, as does a
 // surface that turns away from the mark's normal (a mark laid on the
 // ground is not smeared down a cliff, nor up somebody standing in it).
+// AND NOT ACROSS AN EDGE (at the user's request: "make sure decals
+// don't affect billboard sprites"): where the depth jumps between one
+// pixel and the next — the rim of a plant or a person against the
+// ground behind them — the normal read off it is nonsense and could
+// pass the facing test, so a jump of more than DP_EDGE of the depth is
+// discarded outright. (The marks are also drawn before every sprite:
+// Decals.PRIORITY.)
 //
 // THE BOX IS DRAWN FROM INSIDE (cull_front) WITH NO DEPTH TEST: its back
 // faces cover every pixel its volume does, whether the eye is outside it
@@ -34,6 +41,9 @@ uniform bool gl_depth = false;
 uniform float thick = 0.5;
 // which far share of that depth (each side) fades out
 uniform float fade = 0.4;
+// a depth jump between neighbouring pixels past this share of the depth
+// is an edge, not a surface
+const float DP_EDGE = 0.15;
 varying flat vec4 dp_i0;
 varying flat vec4 dp_i1;
 varying flat vec4 dp_i2;
@@ -70,6 +80,7 @@ varying flat vec3 dp_n;
 		vec4 dp_vp = INV_PROJECTION_MATRIX * vec4(dp_ndc, 1.0); \
 		dp_vp.xyz /= dp_vp.w; \
 		depth = -dp_vp.z; \
+		if (max(abs(dFdx(depth)), abs(dFdy(depth))) > depth * DP_EDGE) discard; \
 		wp = (INV_VIEW_MATRIX * vec4(dp_vp.xyz, 1.0)).xyz; \
 		vec3 dp_sn = normalize(cross(dFdx(wp), dFdy(wp))); \
 		vec4 dp_w = vec4(wp, 1.0); \

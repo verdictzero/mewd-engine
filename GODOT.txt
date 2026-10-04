@@ -2219,6 +2219,113 @@ THE DOOR FOR GOOD; NOT PENNSYLVANIA
   ISLANDFIELD_*.tres, and their runs in tools/godot-test.sh. The builds
   bake two islands now.
 
+
+ROUND SIX: THE FALL HALVED AND A TANK FOR THE STICK; THE BUSTER RIFLE;
+PLANTS IN THE GROUND, LO-FI; PYRES; THE MICRO-QUEUES; MARKS OFF THE
+SPRITES; THE BORE IN HAND
+
+  At the user's request, eleven things in one round:
+
+  THE POD FALLS TWICE AS FAST: DROP.drag_slow is a terminal of 32 m/s
+  (half the first 70, twice the 16 of round five); the ride is about
+  forty seconds, the burn lit near 50 m. AND THE STICK HAS A TANK
+  ("limited maneuvering fuel"): DROP.rcs_fuel is 30 nozzle-seconds,
+  spent by every nozzle the stick fires (`_rcs` with from_tank; a tilt
+  is four nozzles, so seven or eight seconds of hard stick); dry, the
+  stick is dead. The autopilot's levelling and the retros do not draw
+  on it — a pod that could not stand itself up would be a crash. The
+  readout shows R C S nn%, or R C S  D R Y. drop_test: hands off, the
+  tank is full; a hand on the stick spends it; dry, a stick does not
+  tilt the pod.
+
+  LOTS MORE SCORCH MARKS AT THE LANDING: the six blast marks close in
+  as before, and twenty-six more out to ten metres — scorches (the dark
+  blot a hot spot leaves: Decals.scorch, new, in the hole pool) and
+  smaller blast marks, smaller the further out. drop_test counts 24 at
+  least.
+
+  THE POSITRON LANCE IS THE BUSTER RIFLE AGAIN ("destroying a massive
+  swath of whatever is in front of it, leave a scorched earth line on
+  the ground"): BEAM_RADIUS 48, 96, 160 — ten metres across at the top
+  stage — and at the shot, once, THE SWATH (BeamSystem._swath): a walk
+  from the muzzle to where the column stops, a step of 1.1 radii, and
+  at each step every plant inside the column blown up (VegDamage.column:
+  within the radius and half the plant's width, foot to top against the
+  column's height), the grass mown where the column is low, and where
+  the axis is within two radii of the ground a SCORCH 2.4 radii across
+  laid in it — a glowing slag every fourth — the whole way out, so the
+  line follows a hillside and stops where the column lifts off it. The
+  level is still the shape it was: marks and sprites. weapons_test
+  checks the width and the line.
+
+  TREES AND BUSHES IN THE GROUND: the candy sprites carry a band of
+  clear pixels under the plant, a tenth to a fifth of the picture, so a
+  quad standing on the ground stood its plant that much in the air.
+  VegScatter._bottom_pad reads each sprite's used rect once and the
+  plant is sunk that share of its height on top of `sink` and the
+  slope's share; the grass scatter does the same in its quad's offset.
+  The veg bake's signature covers the scatter's code, so the islands
+  were baked again (the builds do it themselves).
+
+  LO-FI TEXELS, CONSISTENTLY, REVERSIBLY (SHADER_veg_billboard
+  `lofi_texels_per_m`, 32, and `lofi_min_texels`, 64): every plant's
+  picture is sampled on a grid of 32 texels to the metre of the plant's
+  own size, never finer than the picture and never coarser than 64
+  across — a bush two metres across gets 64, a tuft of grass 64, a 14 m
+  tree its own 256 — so a bush up close is near a tree's coarseness
+  instead of ten times finer. The sampling, not the pictures: the mip
+  is chosen off the real footprint (textureGrad), the burn map reads
+  the same grid. The scatters hand the shader `quad_size`. TO REVERSE
+  IT set lofi_texels_per_m to 0: texel for texel, as before. (24 and 32
+  first: the grass at your feet was blocks; 32 and 64 is coarse without
+  being blocks.)
+
+  FIRE SPRITES, NO SPREAD ("bring back fire sprites but not fire
+  spreading for stuff that gets blown up"): a plant blown up BURNS where
+  it stood (Effects.pyre: licks of the body-fire flame off the ground,
+  a spark every fourth tic, smoke every tenth, its light, dying down
+  over its last third, one to three seconds by the plant's height; 40
+  at once at most, the oldest let go) and sets NOTHING alight — it is a
+  picture of a fire where something was, not a fire. damage_test counts
+  the pyres and that nothing burns.
+
+  THE MICRO-QUEUES ("a slight delay on multiple vegetation and people
+  explosions events ... to lessen cpu load"): yes, it makes sense — a
+  rocket into a wood was forty bursts of pieces in one frame. Plants:
+  VegDamage.blow_up bursts BLOW_PER_TIC (6) a tic and queues the rest
+  (`tic` drains it, oldest first); a blast sorts its plants nearest
+  first, so a wood goes up as a ripple outward. People: Game.explode
+  sorts its victims by distance, the nearest BLAST_PER_TIC (4) take the
+  blast now and the rest four a tic after (_blasts_tic). Nothing is
+  lost: a queued plant that is already gone is skipped, a queued victim
+  already dead is skipped. damage_test: the nearest at once, the rest a
+  tic or two after; drop_test drains the queue before it looks.
+
+  MARKS OFF THE SPRITES ("make sure decals don't affect billboard
+  sprites"), two ways. Every decal material has render_priority -4
+  (Decals.PRIORITY; the gore decals too): the marks, the people, the
+  pieces and the particles are all transparent, and Godot draws
+  transparent things by priority first and distance after, so a mark is
+  drawn under whoever stands in it, never over them. And in
+  decal_project.gdshaderinc, a pixel whose depth jumps more than 15% of
+  itself to the next (DP_EDGE) — the rim of a plant or a person against
+  the ground behind — is discarded outright: the normal read off such
+  an edge was nonsense and could pass the facing test (the plants are
+  opaque and in the depth buffer; the facing test already kept the
+  ground's marks off their vertical faces).
+
+  THE CEREBRAL BORE IN HAND ("i want to be able to see more of the
+  cerebral bore"): held further out and a size up (Weapon3D GUNS: fit
+  0.95 of GUN_LENGTH, out 2.3, a touch right and down), so the drum and
+  the body are in the frame and not a corner of the drum. AND ITS LASER
+  LEAVES THE GUN ("laser sight is not aligned to gun"): the line drawn
+  from the sight (BoreSystem.draw) started at Game.nozzle, the fixed
+  point beside the eye every shot flies from; now it starts at the held
+  model's muzzle as drawn on the screen (Game.muzzle_view, what a
+  round's streak already used). lance_shot has a `bore` mode for the
+  picture: the gun in hand, the line out of its muzzle to the first
+  shopper.
+
 TESTS
 
     tools/godot-test.sh

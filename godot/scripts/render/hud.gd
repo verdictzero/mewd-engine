@@ -116,7 +116,9 @@ func _draw() -> void:
 	if drop != null and drop.active and drop.phase == "drop":
 		var r: Dictionary = drop.readout()
 		var ds := int(roundf(13.0 * s))
-		var lines := ["A L T  %5.0f m" % r.alt, "F A L L  %4.0f m/s" % r.fall, "T I L T  %3.0f°" % r.tilt]
+		var fuel := float(r.get("fuel", 1.0))
+		var lines := ["A L T  %5.0f m" % r.alt, "F A L L  %4.0f m/s" % r.fall, "T I L T  %3.0f°" % r.tilt,
+			("R C S  %3.0f%%" % (fuel * 100.0)) if fuel > 0.0 else "R C S   D R Y"]
 		var y0 := M + ds
 		for ln in lines:
 			var lw := font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds).x

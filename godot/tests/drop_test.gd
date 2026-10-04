@@ -17,6 +17,11 @@ extends SceneTree
 var game
 var fails := 0
 
+## the plants' micro-queue run down (VegDamage.BLOW_PER_TIC a tic)
+func _drain(vd) -> void:
+	for k in 12:
+		vd.tic()
+
 func check(ok: bool, what: String) -> void:
 	print(("  ok   " if ok else "  FAIL ") + what)
 	if not ok:
@@ -103,16 +108,18 @@ func _run() -> void:
 			fire_out_tic = d.ticks
 	var t: int = game.tics - t0
 	check(d.phase != "drop", "it comes down")
-	check(t > 55 * 35 and t < 120 * 35, "in %.1f s: the slow fall, a minute and more (400%% slower)" % (t / 35.0))
+	check(t > 28 * 35 and t < 70 * 35, "in %.1f s: the slow fall, half a minute and more" % (t / 35.0))
 	check(fastest > 120.0 and fastest < 160.0, "falling at up to %.0f m/s at the top, then at terminal" % fastest)
 	check(d.max_heat > 0.9 and fire_out_at > 0.0 and last_heat <= 0.0,
 		"the reentry fire burned, and was out by %.0f m, before the ground" % fire_out_at)
 	check(fire_out_tic > 0 and fire_out_tic <= int(3.2 * 35), "and it lasted %.1f s" % (fire_out_tic / 35.0))
-	check(burned_at > 5.0 and burned_at < 60.0, "the autopilot lit the retros at %.0f m, low, for the slow fall" % burned_at)
+	check(burned_at > 15.0 and burned_at < 110.0, "the autopilot lit the retros at %.0f m, low, for the slow fall" % burned_at)
 	check(burn_tics < 9 * 35, "and the burn was over in %.1f s" % (burn_tics / 35.0))
 	check(d.touchdown_speed <= DropPod.DROP.land_speed + 1.0, "and landed at %.1f m/s" % d.touchdown_speed)
 	check(rad_to_deg(d.tilt()) < 20.0, "near enough level (%.0f degrees)" % rad_to_deg(d.tilt()))
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
+	check(d.scorches >= 24, "the ground scorched all round it (%d marks)" % d.scorches)
+	check(absf(d.fuel - DropPod.DROP.rcs_fuel) < 1e-3, "hands off, the stick's tank is full (%.1f)" % d.fuel)
 	print("  (the exhaust and the landing hurt %d plants on the way down)" % d.plants_hit)
 	var vd = game.veg_damage
 	if vd != null and vd.veg != null:
@@ -197,6 +204,7 @@ func _run() -> void:
 			var q0: Dictionary = pool[0]
 			var over := VegDamage.to_game(q0.pos + Vector3(0.0, q0.h + 3.0, 0.0))
 			var n0: int = vd.downwash(over, 2.0 * um, 0.45, 30.0 * um, 30.0)
+			_drain(vd)
 			check(n0 >= 1 and _hurt(vd, q0), "the retros' downwash into a plant's top shreds it (%d touched)" % n0)
 			# an RCS jet aimed down through a plant's middle from four metres
 			# off and two up (level, on a slope, it can start in the ground)
@@ -204,14 +212,17 @@ func _run() -> void:
 			var mid := VegDamage.to_game(q1.pos + Vector3(0.0, q1.h * 0.5, 0.0))
 			var from := mid + Vector3(4.0 * um, 0.0, 2.0 * um)
 			var n1: int = vd.jet(from, (mid - from).normalized(), 7.0 * um, 2.0 * um, 30.0)
+			_drain(vd)
 			check(n1 >= 1 and _hurt(vd, q1), "an RCS jet through a plant hurts it (%d touched)" % n1)
 			# the door through one
 			var q2: Dictionary = pool[2]
 			var n2: int = vd.sweep(VegDamage.to_game(q2.pos + Vector3(0.0, q2.h * 0.4, 0.0)), DropPod.DOOR_HIT_R * um, mid)
+			_drain(vd)
 			check(n2 >= 1 and _gone(vd, q2), "the door through a plant shreds it")
 			# and where a pod comes down, everything
 			var q3: Dictionary = pool[3]
 			var n3: int = vd.clear(VegDamage.to_game(q3.pos), DropPod.HULL_R * um)
+			_drain(vd)
 			check(n3 >= 1 and _gone(vd, q3), "where a pod comes down, nothing left standing")
 	# ---- hands on: the pod tilts, the RCS fires ------------------------
 	game.queue_free()
@@ -229,6 +240,9 @@ func _run() -> void:
 		if d.fired[i] > 0.0 and d.nozzles[i].kind != "rcs":
 			rcs_only = false
 	check(rcs_only, "with the RCS nozzles, not the retros")
+	# THE TANK: the stick spends it; dry, the stick is dead
+	check(d.fuel < DropPod.DROP.rcs_fuel - 1.0 and d.fuel > 0.0, "and the stick has spent some of its tank (%.1f of %.0f)" % [d.fuel, DropPod.DROP.rcs_fuel])
+	check(absf(d.readout().fuel - d.fuel / DropPod.DROP.rcs_fuel) < 1e-6, "which the readout shows")
 	# THE PITCH COUPLE: the bulge-top nozzles (over the retro bulges) fire
 	# up, on the side the pod tips toward; a top-ring nozzle fires on the
 	# far side — the two ends of the same turn
@@ -273,6 +287,15 @@ func _run() -> void:
 			blue = false
 	check(lit > 0 and out_ok, "the RCS jets out along the exhaust from the nozzles (%d lit)" % lit)
 	check(lit > 0 and blue, "and bright blue")
+	var fuel_was: float = d.fuel
+	d.fuel = 0.0
+	for k in 30:
+		d.tic({"fwd": 0.0, "side": 0.0, "look": Vector2(), "attack": false})
+	var tilt_dry: float = d.tilt()
+	for k in 30:
+		d.tic({"fwd": 0.0, "side": 1.0, "look": Vector2(), "attack": false})
+	check(d.tilt() <= tilt_dry + 0.02 and d.fuel == 0.0, "dry, the stick does nothing (%.0f to %.0f degrees)" % [rad_to_deg(tilt_dry), rad_to_deg(d.tilt())])
+	d.fuel = fuel_was
 	var v0: float = d.vel.y
 	for k in 20:
 		d.tic({"fwd": 0.0, "side": 0.0, "look": Vector2(), "attack": true})

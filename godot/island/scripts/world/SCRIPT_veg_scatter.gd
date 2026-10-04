@@ -659,6 +659,29 @@ var _class_height: Array[Vector2] = []
 # Flat sprite index -> its quad's width over its height, so `_evaluate_cell`
 # knows how far a plant's quad reaches either side of its base (see `sink`).
 var _sprite_aspect := PackedFloat32Array()
+## AND HOW MUCH OF EACH SPRITE'S BOTTOM IS EMPTY (at the user's request:
+## "trees and bush sprites need to intersect the ground"): the candy
+## sprites carry a band of clear pixels under the plant — a tenth to a
+## fifth of the picture — so a quad whose base is on the ground stands
+## its plant that much in the air. Read off the picture once
+## (`_bottom_pad`), and the plant is sunk that share of its height on
+## top of `sink`, so the drawn plant's own foot is in the ground.
+var _sprite_pad := PackedFloat32Array()
+
+## The share of a sprite's height that is clear under the plant.
+static func _bottom_pad(tex: Texture2D) -> float:
+	if tex == null:
+		return 0.0
+	var img: Image = tex.get_image()
+	if img == null or img.is_empty():
+		return 0.0
+	if img.is_compressed():
+		img = img.duplicate()
+		img.decompress()
+	var used := img.get_used_rect()
+	if used.size.y <= 0:
+		return 0.0
+	return clampf(float(img.get_height() - used.end.y) / float(img.get_height()), 0.0, 0.5)
 # Class -> SQUARED cull distance, resolved once in `_build_multimeshes` from the
 # `Distance` exports and, where those are 0, from the class material's own
 # `far_end`. This is what makes the cull and the fade the same number.
@@ -734,6 +757,7 @@ func _build_multimeshes() -> void:
 	_class_span.resize(3)
 	_class_height.resize(3)
 	_sprite_aspect.clear()
+	_sprite_pad.clear()
 	_class_view_sq.resize(3)
 	_fill_fp.resize(3)
 	var sets := [tree_sprites, bush_sprites, fern_sprites]
@@ -770,6 +794,9 @@ func _build_multimeshes() -> void:
 
 			var mat: ShaderMaterial = (mats[cls] as ShaderMaterial).duplicate()
 			mat.set_shader_parameter("albedo_tex", tex)
+			# (the quad's size in the instance's metres, for the lo-fi texel
+			# grid: SHADER_veg_billboard `lofi_texels_per_m`)
+			mat.set_shader_parameter("quad_size", quad.size)
 			# And the burn map that goes with it, found by name beside the sprite —
 			# see `VegBurn.bind_map`. The duplicate is the only place this can be set:
 			# the map is per-SPRITE and the shared material is per-class.
@@ -797,6 +824,7 @@ func _build_multimeshes() -> void:
 
 			_meshes.append(mm)
 			_sprite_aspect.append(quad.size.x)
+			_sprite_pad.append(_bottom_pad(tex))
 			_instances.append(inst)
 		_class_span[cls] = Vector2i(first, _meshes.size() - first)
 		_class_height[cls] = heights[cls]
@@ -2217,6 +2245,10 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 		# the slope's share of the sink: half the quad's width down the gradient
 		var aspect := _sprite_aspect[sprite] if sprite >= 0 and sprite < _sprite_aspect.size() else 1.0
 		var down := minf(0.5 * h * wj * aspect * grad.length(), h * sink_most)
+		# and the clear band under the picture, so the plant itself is in
+		# the ground (see `_sprite_pad`)
+		var pad := _sprite_pad[sprite] if sprite >= 0 and sprite < _sprite_pad.size() else 0.0
+		down += h * pad
 		# Sub-plant 0 sits on the cell's own jittered point; the rest spread across
 		# the cell. They read as a CLUMP at the grid scale, which is what both
 		# classes using this want — a thicket and a patch of understory.

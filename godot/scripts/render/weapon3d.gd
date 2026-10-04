@@ -16,7 +16,9 @@ const VIEW := {"pos": [0.33, -0.40, -0.33], "yaw": 0.17, "pitch": 0.04, "roll": 
 const GUNS := {
 	"FLAMER": {"url": "flamethrower.glb", "fit": GUN_LENGTH, "out": 3.0, "tint": [1, 1, 1]},
 	"EXTINGUISHER": {"url": "extinguisher.glb", "fit": GUN_LENGTH, "out": 2.8, "tint": [0.72, 1.02, 1.45]},
-	"BORE": {"url": "bore.glb", "fit": GUN_LENGTH * 0.67, "out": 1.33, "tint": [1.6, 0.30, 0.22]},
+	# (held further out and a size up, at the user's request: "i want to be
+	# able to see more of the cerebral bore")
+	"BORE": {"url": "bore.glb", "fit": GUN_LENGTH * 0.95, "out": 2.3, "pos": [0.06, -0.04, 0], "rot": [0.0, 0.05, 0.0], "tint": [1.6, 0.30, 0.22]},
 	"MINIGUN": {"url": "minigun.glb", "fit": GUN_LENGTH * 1.25, "out": 2.6, "tint": [1.7, 1.4, 0.8], "heat": "minigun_barrel_mat", "spin": 6.0},
 	# THE LANCE has a SCREEN and a LENS in it (js/scope.js): `display` is
 	# the material the file paints flat that is the panel on the rear

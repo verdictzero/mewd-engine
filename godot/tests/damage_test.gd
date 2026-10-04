@@ -129,7 +129,13 @@ func _init() -> void:
 	var grass = game.veg_damage.grass
 	var mown0: int = grass._mown.size() if grass != null else 0
 	game.missiles.detonate(gp)
+	var q0: int = vd.queued()
+	# (the micro-queue: a few burst at once, the rest over the next tics)
+	for k in 12:
+		game.tic()
 	var after := vd.near(best.x, best.y, 2.5).size()
+	check(q0 > 0 and vd.queued() == 0, "the nearest of them at once, the rest a tic or two after (%d waited)" % q0)
+	check(game.fx.pyres.size() > 0, "and they burn where they stood (%d pyres), setting nothing alight" % game.fx.pyres.size())
 	check(before > 0 and after < before, "a rocket in a wood blows the plants by it to pieces (%d of %d left)" % [after, before])
 	check(game.chunks.count() > c0 + before * 6, "pieces of themselves (%d)" % (game.chunks.count() - c0))
 	var reach := MissileSystem.WARHEAD.radius / IslandLevel.U_PER_M

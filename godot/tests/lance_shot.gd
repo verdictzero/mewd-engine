@@ -14,6 +14,8 @@
 ##   side    let go, and the head turned to see the column in profile
 ##   above   let go, and the eye lifted over the hedges behind the muzzle
 ##   sear    the discharge over, walked up to the wall it landed on
+##   bore    the CEREBRAL BORE in hand instead, its sight on the first
+##           shopper (for the gun's hold and the laser's line)
 extends SceneTree
 
 var lofi: Lofi
@@ -68,7 +70,7 @@ func _frame() -> void:
 	frames += 1
 	var p = game.player
 	if frames == 2:
-		p.weapon = "LANCE"
+		p.weapon = "BORE" if mode == "bore" else "LANCE"
 		run = _clear_run(p)
 		start = Vector2(p.x, p.y)
 		for a in game.actors:
@@ -79,7 +81,9 @@ func _frame() -> void:
 			game.spawn("SHOPPER", p.x + cos(run.x) * d + sin(run.x) * (k - 1) * 14.0, p.y + sin(run.x) * d - cos(run.x) * (k - 1) * 14.0, run.x + PI, {"variant": k})
 		p.angle = run.x
 		p.pitch = float(OS.get_environment("PITCH")) if OS.get_environment("PITCH") != "" else 0.0
-	if frames == 8:
+	if frames == 8 and mode == "bore":
+		_tics(20, false)
+	if frames == 8 and mode != "bore":
 		# seven seconds and a bit of trigger
 		_tics(7 * 35 + 20, true)
 		if mode in ["charge", "aim"]:

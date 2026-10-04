@@ -33,6 +33,18 @@
 ## person is not the level. And so the line STOPS at the first wall: a
 ## column that cuts nothing cannot go through anything (see _impact).
 ##
+## BUT IT IS THE BUSTER RIFLE AGAIN (at the user's request: "make posi
+## lance like Wing Zero's buster rifle again, destroying a massive swath
+## of whatever is in front of it, leave a scorched earth line on the
+## ground"): ten metres across at the top stage (BEAM_RADIUS), and at
+## the shot, once, THE SWATH (_swath): every plant the column passes
+## through is blown to pieces and burns where it stood (VegDamage.column,
+## the pyres), the grass under it mown, and where the column runs along
+## the ground — within a couple of radii of it — a LINE OF SCORCHES is
+## laid in the ground, a glowing slag every few, the whole way to where
+## it stops. The marks are decals and the plants are sprites: the level
+## is still exactly the shape it was.
+##
 ## HOW IT IS DRAWN: a TUBE, real geometry rebuilt every frame round the
 ## axis, because the player is looking along it and a view-facing quad
 ## seen end-on is a line one pixel wide. Four nested shells (a flat
@@ -54,12 +66,16 @@ extends Node3D
 ## street with nothing at the end of it.
 const BEAM_RANGE := 8200.0
 
-## AND HOW WIDE, by stage. It was 46, 82 and 130 — a column eight people
-## wide that took the entire front of a house — and at the user's request
-## this is not a weapon of mass destruction any more: forty-eight across
-## at the top stage takes the person the crosshair was on and at most a
-## shoulder of whoever is pressed against them.
-const BEAM_RADIUS := [10.0, 16.0, 24.0]
+## AND HOW WIDE, by stage. It was 46, 82 and 130; then, for a while, a
+## rifle's 10, 16 and 24; now (at the user's request: "destroying a
+## massive swath of whatever is in front of it") a column ten metres
+## across at the top stage — the whole front of a house, a wood's worth
+## of trees, everybody on the road.
+const BEAM_RADIUS := [48.0, 96.0, 160.0]
+## THE SCORCHED EARTH LINE: a scorch every `step` radii along the ground
+## under the column, `size` radii across, where the column's axis is
+## within `near` radii of the ground; and a glowing slag every `slag`th
+const LINE := {"step": 1.1, "size": 2.4, "near": 2.0, "slag": 4}
 
 ## WHAT IT DOES TO SOMETHING SOFT, per tic, by stage. There is no
 ## survivable stage and there is not meant to be.
@@ -149,6 +165,8 @@ var killed := 0
 var reach := BEAM_RANGE
 var hit := {}
 var seared := 0        ## marks left, for the tests
+var scorched := 0      ## scorches along the ground, for the tests
+var swathed := 0       ## plants blown by the last shot, for the tests
 ## the line, map space: the muzzle, the heading, and the rise per unit
 ## of ground
 var from := Vector3()
@@ -216,6 +234,7 @@ func fire(player, st: int) -> void:
 	# laid every tic would be forty of the same sear on top of each other
 	_impact()
 	_sear()
+	_swath()
 	# THE MUZZLE GOES FIRST: a flash and a ring of dust at the metal is
 	# the half second that says it left a gun
 	var fx = game.fx
@@ -332,6 +351,44 @@ func _sear() -> int:
 		count += 1
 	seared += count
 	return count
+
+## THE SWATH, once, at the shot: a walk along the column from the muzzle
+## to where it stops, a step of LINE.step radii, and at each step every
+## plant inside the column blown up (VegDamage.column: queued, so a wood
+## goes up over a few tics and not in one), the grass mown where it is
+## low, and the scorched earth line laid where the axis is near the
+## ground — the ground's own height asked at every step, so the line
+## follows a hillside and stops where the column lifts off it.
+func _swath() -> void:
+	swathed = 0
+	var lv = game.level
+	if lv == null or not lv.has_method("floor_at"):
+		return
+	var vd = game.veg_damage
+	var d = game.decals
+	var r := radius()
+	var ux := cos(angle)
+	var uy := sin(angle)
+	var step: float = maxf(r * LINE.step, 40.0)
+	var s := HIDE
+	var k := 0
+	while s < reach:
+		var x := from.x + ux * s
+		var y := from.y + uy * s
+		var z := from.z + slope * s
+		var f: float = lv.floor_at(x, y)
+		var low: bool = f > IslandLevel.NO_FLOOR and z - f < r * LINE.near
+		if vd != null:
+			swathed += vd.column(Vector3(x, y, z), r, from, low)
+		if low and d != null and d.has_method("scorch"):
+			var at := Vector3(x, y, f)
+			if k % int(LINE.slag) == int(LINE.slag) - 1 and d.has_method("slag"):
+				d.slag(at, Vector3(0, 0, 1), r * 1.3, dir())
+			else:
+				d.scorch(at, Vector3(0, 0, 1), r * LINE.size)
+			scorched += 1
+		s += step
+		k += 1
 
 # ------------------------------------------------------------------
 # One tic of it

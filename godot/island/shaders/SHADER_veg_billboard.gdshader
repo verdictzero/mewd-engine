@@ -167,6 +167,22 @@ render_mode cull_disabled, unshaded;
 // a stump that is still smouldering is a legal state. See the `stump` uniform.
 
 uniform sampler2D albedo_tex : source_color, filter_nearest_mipmap;
+// THE LO-FI TEXEL GRID (at the user's request: "make all vegetation texel
+// density consistently lo-fi, but don't overdo it, and make it
+// reversible"): every plant's picture is sampled on a grid of
+// `lofi_texels_per_m` texels to the metre of the plant's own size — a
+// bush two metres across gets 64 texels across it, a tuft of grass 64
+// (`lofi_min_texels`, the floor: at 32 the grass at your feet was
+// blocks), a 14 m tree its picture's own 256, since 32 a metre would be
+// more than it has — so a bush up close is near a tree's coarseness
+// instead of ten times finer. The pictures are
+// untouched; this is in the sampling. REVERSIBLE: set lofi_texels_per_m
+// to 0 and every plant is sampled texel for texel as before. `quad_size`
+// is the mesh's size in the instance's metres (the scatters set it).
+uniform float lofi_texels_per_m = 32.0;
+uniform float lofi_min_texels = 64.0;
+uniform vec2 quad_size = vec2(1.0, 1.0);
+varying flat vec2 v_cells;
 // THE SAME PICTURE, FILTERED, for a plant smaller on the screen than in
 // its picture (at the user's request: every sprite had "a sparkly
 // outline"). Minified, a nearest fetch picks one of the several texels
@@ -660,6 +676,15 @@ void vertex() {
 	float sx = length(MODEL_MATRIX[0].xyz);
 	float sy = length(MODEL_MATRIX[1].xyz);
 
+	// the lo-fi grid: this plant's size in metres times the texels a metre,
+	// never finer than the picture (see `lofi_texels_per_m`)
+	vec2 tex_size = vec2(textureSize(albedo_tex, 0));
+	v_cells = tex_size;
+	if (lofi_texels_per_m > 0.0) {
+		vec2 world = vec2(sx * quad_size.x, sy * quad_size.y);
+		v_cells = clamp(max(world * lofi_texels_per_m, vec2(lofi_min_texels)), vec2(1.0), tex_size);
+	}
+
 	vec3 up = vec3(0.0, 1.0, 0.0);
 	vec3 right = INV_VIEW_MATRIX[0].xyz;
 	right = normalize(right - up * dot(up, right));
@@ -769,9 +794,15 @@ void fragment() {
 	vec2 uv = vec2(mix(UV.x, 1.0 - UV.x, v_flip), UV.y);
 	// (how many texels one pixel covers, as log2: nearest at one to one and
 	// under, filtered from two up — see `albedo_smooth`)
-	vec2 foot = max(abs(dFdx(uv)), abs(dFdy(uv))) * vec2(textureSize(albedo_tex, 0));
+	vec2 duvx = dFdx(uv);
+	vec2 duvy = dFdy(uv);
+	vec2 foot = max(abs(duvx), abs(duvy)) * vec2(textureSize(albedo_tex, 0));
 	float minified = clamp(log2(max(max(foot.x, foot.y), 1e-6)), 0.0, 1.0);
-	vec4 tex = mix(texture(albedo_tex, uv), texture(albedo_smooth, uv), minified);
+	// THE LO-FI GRID: the picture read at the middle of its cell on the
+	// coarser grid (`v_cells`), the mip chosen off the real footprint
+	// (a snapped coordinate has no gradient of its own)
+	uv = (floor(uv * v_cells) + 0.5) / v_cells;
+	vec4 tex = mix(textureGrad(albedo_tex, uv, duvx, duvy), textureGrad(albedo_smooth, uv, duvx, duvy), minified);
 	if (tex.a < alpha_scissor) {
 		discard;
 	}
@@ -801,7 +832,7 @@ void fragment() {
 	// every instance in the scene as shipped, so the whole block costs one `flat`
 	// compare until something turns it on.
 	if (v_burn > 0.0) {
-		vec4 bm = texture(burn_map, uv);
+		vec4 bm = textureGrad(burn_map, uv, duvx, duvy);
 
 		// Sweep the order field. The remap is what makes the two ends absolute:
 		// pushed out by `soft` at both, so `v_burn` = 1 drives even the

@@ -338,11 +338,21 @@ func _build_multimeshes() -> void:
 		var quad := QuadMesh.new()
 		quad.size = tuft_size
 		# The pivot is the tuft's BASE, not its middle: the scatter places it on
-		# the ground, and a centre-pivoted quad would bury half of it.
-		quad.center_offset = Vector3(0.0, tuft_size.y * 0.5 - sink, 0.0)
+		# the ground, and a centre-pivoted quad would bury half of it — and the
+		# clear band under the picture (the candy tufts carry one, a tenth to a
+		# fifth of it) is sunk too, so the drawn tuft's foot is in the ground
+		# (at the user's request; the plants do the same: VegScatter._bottom_pad)
+		var pad: float = 0.0
+		var scatter_script: Script = load("res://godot/island/scripts/world/SCRIPT_veg_scatter.gd")
+		if scatter_script != null:
+			pad = scatter_script.call("_bottom_pad", tex)
+		quad.center_offset = Vector3(0.0, tuft_size.y * 0.5 - sink - tuft_size.y * pad, 0.0)
 
 		var mat: ShaderMaterial = material.duplicate()
 		mat.set_shader_parameter("albedo_tex", tex)
+		# (the quad's size in the instance's metres, for the lo-fi texel grid:
+		# SHADER_veg_billboard `lofi_texels_per_m`)
+		mat.set_shader_parameter("quad_size", quad.size)
 		# (and the same picture for the filtered fetch where a tuft is minified:
 		# SHADER_veg_billboard `albedo_smooth`)
 		mat.set_shader_parameter("albedo_smooth", tex)

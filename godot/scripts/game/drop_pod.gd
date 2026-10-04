@@ -52,12 +52,17 @@
 ## DROP.heat_lo, so it dies as the retros slow it. Gravity, air drag
 ## and a capsule's own stability (base first). THE FALL IS SLOW (at the
 ## user's request: "make descent 400% slower please so the player has
-## time to maneuver"): the air is thin at the top (DROP.drag, terminal
-## about 70 m/s, the fire's three seconds) and thickens over the next
-## DROP.brake_secs to DROP.drag_slow — terminal 16 m/s, a quarter of
-## what it was — so the ride from the top is well over a minute, most of
-## it at that walking-pace fall, with the stick live all the way down
-## until the last DROP.level_below metres.
+## time to maneuver", then "pod needs to fall twice as fast"): the air
+## is thin at the top (DROP.drag, terminal about 70 m/s, the fire's
+## three seconds) and thickens over the next DROP.brake_secs to
+## DROP.drag_slow — terminal 32 m/s, half of what the fall was at
+## first — so the ride from the top is half a minute and more, the
+## stick live all the way down until the last DROP.level_below metres.
+## AND THE STICK HAS A TANK (at the user's request: "limited maneuvering
+## fuel"): DROP.rcs_fuel nozzle-seconds of RCS, spent by every nozzle
+## the STICK fires (`fuel`, on the readout); dry, the stick does
+## nothing. The autopilot's levelling and the retros are not the
+## tank's — a pod that could not stand itself up would be a crash.
 ## The move keys tilt the pod — the RCS brings its rate to what is asked
 ## and kills it again — and with nothing asked the RCS levels it; the look
 ## turns the eye round it; FIRE lights the retros. THE AUTOPILOT flies a
@@ -103,9 +108,9 @@ const DROP := {
 	"g": 9.8,
 	"drag": 0.0020,         # a = -drag * v|v| at the top: terminal about 70 m/s, the
 	                        # speed the reentry fire needs (its three seconds)
-	"drag_slow": 0.0383,    # the drag once the air has thickened (the fall after the
-	                        # fire): terminal 16 m/s, a quarter of the 70 (at the
-	                        # user's request: "400% slower")
+	"drag_slow": 0.00957,   # the drag once the air has thickened (the fall after the
+	                        # fire): terminal 32 m/s (at the user's request: "400%
+	                        # slower", then "twice as fast": half of the first 70)
 	"brake_secs": 3.0,      # s after the fire for the air to thicken from one to the other
 	"retro": 6.0,           # m/s^2 a skirt nozzle gives: canted 37 degrees out, all
 	                        # eight lift 8 * 6 * 0.61 = 29 m/s^2, two g net of gravity
@@ -114,6 +119,8 @@ const DROP := {
 	                        # the burn lit near 230 m from terminal (sooner than the
 	                        # first cut's 170), and all over in six seconds
 	"rcs": 1.2,             # m/s^2 a shoulder or top nozzle gives
+	"rcs_fuel": 30.0,       # nozzle-seconds of RCS the stick has (a tilt is four
+	                        # nozzles: seven or eight seconds of hard stick)
 	"inertia": 3.0,         # m^2: angular acceleration = torque / mass / this (half
 	                        # size, half the lever: the turns as quick as they were)
 	"rate": 0.9,            # rad/s the RCS turns at when asked
@@ -173,6 +180,7 @@ var max_heat := 0.0
 ## what the exhaust and the door have done to the plants and the people,
 ## counted, for the tests
 var plants_hit := 0
+var scorches := 0       ## marks laid at the touchdown, for the tests
 var door_kills := 0
 
 ## the sim, in metres in the renderer's axes (`att`: the pod's attitude,
@@ -189,6 +197,8 @@ var phase := ""
 var phase_tics := 0
 var active := false
 var retro_on := false
+## THE STICK'S TANK: nozzle-seconds of RCS left (DROP.rcs_fuel to begin)
+var fuel: float = DROP.rcs_fuel
 var auto_burn := false
 var retro_level := 0.0
 ## the autopilot's burn, once lit: "" none, "burn" the suicide burn, "final"
@@ -540,7 +550,13 @@ func _fly(cmd: Dictionary) -> void:
 	# ---- the RCS: a rate for the tilt asked; else turned to the attitude
 	# wanted (upright, or leaning on the drift) ---------------------------
 	var want_ang := Vector3.ZERO
-	if want_tilt.length_squared() > 1e-4:
+	# (the stick draws on the tank; dry, it is dead — the levelling below
+	# is the autopilot's and free)
+	var stick := want_tilt.length_squared() > 1e-4
+	if stick and fuel <= 0.0:
+		want_tilt = Vector3.ZERO
+		stick = false
+	if stick:
 		var axis := Vector3.UP.cross(want_tilt.normalized())
 		want_ang = axis * DROP.rate * minf(1.0, want_tilt.length())
 		# (never past 50 degrees over)
@@ -550,7 +566,7 @@ func _fly(cmd: Dictionary) -> void:
 		want_ang = up.cross(want_up) * (1.2 if piloted else 0.4)
 	_acc_tmp = Vector3.ZERO
 	_alpha_tmp = Vector3.ZERO
-	_rcs(want_ang - ang)
+	_rcs(want_ang - ang, stick)
 	var acc := _acc_tmp
 	var alpha := _alpha_tmp
 	# ---- the retros: full on the trigger (but the last metres are the
@@ -615,12 +631,14 @@ func _drag() -> float:
 	return lerpf(DROP.drag, DROP.drag_slow, k)
 ## THE RCS: for a wanted change of spin (world, rad/s), fire the nozzles
 ## whose turning is that way, as hard as the want is. Their push and turn
-## are added to _acc_tmp and _alpha_tmp.
-func _rcs(want: Vector3) -> void:
+## are added to _acc_tmp and _alpha_tmp. `from_tank`: the stick's turn,
+## which spends `fuel` (a nozzle-second per nozzle per second at full).
+func _rcs(want: Vector3, from_tank := false) -> void:
 	var need := want.length()
 	if need < 0.02:
 		return
 	var level := clampf(need / 0.6, 0.15, 1.0)
+	var dt := 1.0 / U.TICRATE
 	var wdir := want / need
 	var centre := att * Vector3(0, 3.0 * POD_SCALE, 0)
 	for i in nozzles.size():
@@ -635,6 +653,8 @@ func _rcs(want: Vector3) -> void:
 			continue
 		fired[i] = maxf(fired[i], level)
 		fires += 1
+		if from_tank:
+			fuel = maxf(0.0, fuel - level * dt)
 		_acc_tmp += f * level
 		_alpha_tmp += torque * level / DROP.inertia
 
@@ -702,18 +722,32 @@ func _touchdown(ground: float) -> void:
 	game.play_sound("explode", null)
 	for k in 12:
 		game.fx.puff(gx + randf_range(-80.0, 80.0), gy + randf_range(-80.0, 80.0), gz + 8.0, 60.0, 90)
-	# the scorch is a RING round the hull, not under it: a mark laid at the
-	# middle would paint the pod's own floor (a projected decal takes any
-	# surface in its box)
+	# THE SCORCHING is a RING round the hull, not under it: a mark laid at
+	# the middle would paint the pod's own floor (a projected decal takes
+	# any surface in its box). Six blast marks close in, and (at the
+	# user's request: "lots more scorch marks around pod when landing") a
+	# scatter of scorches and smaller blast marks out to ten metres, the
+	# retros' last seconds burnt into the ground
 	if game.decals != null:
+		var marks := []
 		for k in 6:
 			var a := k * TAU / 6.0 + 0.3
-			var r := (HULL_R + 1.8) * um
-			var sx := gx + cos(a) * r
-			var sy := gy + sin(a) * r
+			marks.append([a, (HULL_R + 1.8) * um, 80.0, false])
+		for k in 26:
+			var a := randf() * TAU
+			var r := (HULL_R + 1.4 + pow(randf(), 1.4) * 8.5) * um
+			marks.append([a, r, randf_range(30.0, 75.0) * (1.0 - 0.4 * r / (12.0 * um)), k % 3 != 0])
+		for m in marks:
+			var sx: float = gx + cos(m[0]) * m[1]
+			var sy: float = gy + sin(m[0]) * m[1]
 			var sf: float = game.level.floor_at(sx, sy)
-			if sf > IslandLevel.NO_FLOOR:
-				game.decals.blast(Vector3(sx, sy, sf), Vector3(0, 0, 1), 80.0)
+			if sf <= IslandLevel.NO_FLOOR:
+				continue
+			if m[3]:
+				game.decals.scorch(Vector3(sx, sy, sf), Vector3(0, 0, 1), m[2])
+			else:
+				game.decals.blast(Vector3(sx, sy, sf), Vector3(0, 0, 1), m[2])
+			scorches += 1
 	# nothing left growing through the hull, and round it the plants blown
 	# flat as a blast would
 	if game.veg_damage != null:
@@ -1007,4 +1041,5 @@ func place_camera(cam: Camera3D, f: float) -> void:
 ## retros, the autopilot, the reentry fire
 func readout() -> Dictionary:
 	return {"alt": altitude(), "fall": -vel.y, "tilt": rad_to_deg(tilt()), "retro": retro_level,
-		"auto": auto_burn, "phase": phase, "speed": vel.length(), "heat": heat}
+		"auto": auto_burn, "phase": phase, "speed": vel.length(), "heat": heat,
+		"fuel": fuel / DROP.rcs_fuel}

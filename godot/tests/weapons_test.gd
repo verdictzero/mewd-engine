@@ -302,8 +302,12 @@ func _lance(p, run: Vector2) -> void:
 	var lv = game.level
 	check(h.is_empty() or absf(h.at.z - lv.floor_at(h.at.x, h.at.y)) < 8.0 or sqrt(U.dist2(h.at.x, h.at.y, p.x, p.y)) > run.y - 60.0,
 		"LANCE: the column ran on over open ground, or stopped in it")
-	check(game.decals.sears == 1 and game.decals.slags == 3 + 7, "LANCE: one sear and %d slag on it" % game.decals.slags)
-	check(beam.seared == 1 + game.decals.slags, "LANCE: and the beam counts them all (%d)" % beam.seared)
+	check(game.decals.sears == 1 and game.decals.slags >= 3 + 7, "LANCE: one sear and %d slag on it" % game.decals.slags)
+	check(beam.seared == 1 + 10, "LANCE: and the beam counts the crater's (%d)" % beam.seared)
+	# THE BUSTER RIFLE: the column ten metres across, and the scorched
+	# earth line under it, the whole way out
+	check(BeamSystem.BEAM_RADIUS[2] >= 150.0, "LANCE: the column is %.0f units across at the top stage" % (BeamSystem.BEAM_RADIUS[2] * 2.0))
+	check(beam.scorched >= 8 and game.decals.scorches >= beam.scorched * 3 / 4, "LANCE: a scorched earth line of %d marks along the ground under it" % beam.scorched)
 	check(beam.glow > 0.0, "LANCE: the light outlives the column")
 	check(p.debug or p.ammo.cells == cells1 - 1, "LANCE: one cell spent")
 

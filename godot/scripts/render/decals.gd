@@ -53,6 +53,14 @@ const NUKE_SIZE := 300.0
 const STREAK_REACH := 260.0
 
 const THICK := {"hole": 1.0, "blood": 0.6, "heat": 0.6, "sear": 0.5, "blast": 0.45}
+## EVERY MARK IS DRAWN BEFORE EVERY SPRITE (at the user's request: "make
+## sure decals don't affect billboard sprites"): the marks are
+## transparent, so are the people, the pieces and the particles, and
+## Godot draws transparent things by priority first and distance after —
+## at this priority a mark is under whoever is standing in it, never
+## over them. (A plant is opaque and drawn before both; the decal shader
+## keeps off it by its facing and by the edge of it: decal_project.)
+const PRIORITY := -4
 ## THE BIG MARKS ARE BAKED (at the user's request: "the more rocket impact
 ## decals in view, the lower the FPS"): a mark's picture is drawn once,
 ## when it is laid, into its slot's tile of a 2D viewport that is never
@@ -102,6 +110,7 @@ func _ready() -> void:
 		# (a material a pool, for the pool's own depth)
 		var pm: ShaderMaterial = mat if k == "hole" else mat.duplicate()
 		pm.set_shader_parameter("thick", U.col(THICK[k]))
+		pm.render_priority = PRIORITY
 		_mats.append(pm)
 		var quad := BoxMesh.new()
 		quad.size = Vector3(1, 1, 1)
@@ -131,6 +140,7 @@ func _ready() -> void:
 	sear_mat.shader = preload("res://godot/shaders/sear_decal.gdshader")
 	sear_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
 	sear_mat.set_shader_parameter("thick", U.col(THICK.sear))
+	sear_mat.render_priority = PRIORITY
 	var squad := BoxMesh.new()
 	squad.size = Vector3(1, 1, 1)
 	squad.material = sear_mat
@@ -155,6 +165,7 @@ func _ready() -> void:
 	blast_mat.shader = preload("res://godot/shaders/blast_decal.gdshader")
 	blast_mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
 	blast_mat.set_shader_parameter("thick", U.col(THICK.blast))
+	blast_mat.render_priority = PRIORITY
 	var bquad := BoxMesh.new()
 	bquad.size = Vector3(1, 1, 1)
 	bquad.material = blast_mat
@@ -339,6 +350,12 @@ func _light_at(at: Vector3) -> float:
 	var g = get_parent()
 	var s: Level.Sector = g.level.span_at(at.x, at.y, at.z)
 	return s.light if s else 0.8
+
+## A SCORCH laid outright (the pod's landing, the lance's line along the
+## ground): the dark blot a hot spot leaves, at `size`.
+func scorch(at: Vector3, normal: Vector3, size: float) -> void:
+	_put("hole", at, normal, size, KIND_SCORCH, _light_at(at))
+	scorches += 1
 
 ## A round into a surface. `hot`: the minigun's, whose rim glows.
 func hole(at: Vector3, normal: Vector3, hot: bool) -> void:

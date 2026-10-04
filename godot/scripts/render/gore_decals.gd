@@ -53,6 +53,7 @@ func _init(g) -> void:
 	mat.shader = preload("res://godot/shaders/gore_decal.gdshader")
 	mat.set_shader_parameter("thick", U.col(0.6))
 	mat.set_shader_parameter("gl_depth", U.col(RenderingServer.get_rendering_device() == null))
+	mat.render_priority = Decals.PRIORITY
 	var quad := BoxMesh.new()
 	quad.size = Vector3(1, 1, 1)
 	quad.material = mat

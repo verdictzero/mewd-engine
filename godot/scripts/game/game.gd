@@ -748,6 +748,7 @@ func tic() -> void:
 	t0 = Time.get_ticks_usec()
 	if veg_damage != null:
 		veg_damage.tic()
+	_blasts_tic()
 	_prof_add("tic.veg_damage", t0)
 	t0 = Time.get_ticks_usec()
 	trophies.tic()
@@ -1107,6 +1108,13 @@ func explode(a, opts := {}) -> void:
 	# the plants and the grass round it blown to pieces (VegDamage)
 	if veg_damage != null:
 		veg_damage.blast(Vector3(a.x, a.y, az), radius)
+	# THE MICRO-QUEUE (at the user's request: "put a slight delay on
+	# multiple vegetation and people explosions events in a micro-queue to
+	# lessen cpu load"): the nearest BLAST_PER_TIC take the blast now and
+	# the rest a tic or two later, so a rocket into a crowd is not twenty
+	# bursts of pieces in one frame — the far ones go a beat after, which
+	# is how a blast reads anyway
+	var hit := []
 	for o in actors_in_cone_around(a, radius):
 		if typeof(a) == TYPE_OBJECT and o == a:
 			continue
@@ -1114,9 +1122,33 @@ func explode(a, opts := {}) -> void:
 		if level.layered and level.sight_blocked(a.x, a.y, az + 16.0, o.x, o.y, o.z + o.height * 0.5):
 			continue
 		var d := sqrt(U.dist2(a.x, a.y, o.x, o.y))
-		o.damage(roundf(dmg * (1.0 - d / radius)), null, {"fire": true})
-		if o.has_method("ignite"):
-			o.ignite(ign)
+		hit.append([d, o, roundf(dmg * (1.0 - d / radius)), ign])
+	hit.sort_custom(func(p, q): return p[0] < q[0])
+	for i in hit.size():
+		if i < BLAST_PER_TIC:
+			_blast_one(hit[i])
+		else:
+			_blast_queue.append(hit[i])
+
+## how many of a blast's victims take it the tic it goes off; the rest
+## BLAST_PER_TIC a tic after
+const BLAST_PER_TIC := 4
+var _blast_queue: Array = []
+
+func _blast_one(e: Array) -> void:
+	var o = e[1]
+	if o.removed or o.dead:
+		return
+	o.damage(e[2], null, {"fire": true})
+	if o.has_method("ignite"):
+		o.ignite(e[3])
+
+## The blast queue, BLAST_PER_TIC a tic.
+func _blasts_tic() -> void:
+	var n := 0
+	while not _blast_queue.is_empty() and n < BLAST_PER_TIC:
+		_blast_one(_blast_queue.pop_front())
+		n += 1
 
 func on_monster_killed(_a, _source) -> void:
 	kills += 1

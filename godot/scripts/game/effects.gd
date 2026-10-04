@@ -63,6 +63,14 @@ var gore: Particles
 ## which of the gore pool's slots are DROPS (1) rather than mist (0):
 ## a drop stops at the floor, the mist at nothing
 var gore_kind := PackedByteArray()
+## THE PYRES (at the user's request: "bring back fire sprites but not
+## fire spreading for stuff that gets blown up"): where a plant was blown
+## up, a fire burns for a few seconds — licks of the body-fire pool's
+## flame off the ground, a spark and a puff of smoke now and then, and
+## its light — and sets NOTHING alight: it is a picture of a fire where
+## something was, not a fire. [x, y, z, size, tics left, tics total]
+var pyres: Array = []
+const PYRES_MOST := 40
 ## the per-tic budget and the light the burning bodies throw, both reset
 ## by the first caller in a tic rather than by the frame
 var _fire_tic := -1
@@ -334,12 +342,53 @@ func fireball(x: float, y: float, z: float, size := 90.0, life := 22) -> void:
 		"drag": 0.94, "gravity": -0.01,
 	})
 
+## A PYRE lit at (x, y, z) (the game's units), `size` units of flame, for
+## `tics`. The oldest goes when there are PYRES_MOST already.
+func pyre(x: float, y: float, z: float, size := 24.0, tics := 70) -> void:
+	if pyres.size() >= PYRES_MOST:
+		pyres.pop_front()
+	pyres.append([x, y, z, size, tics, tics])
+
+## One tic of every pyre: a lick a tic, dying down over its last third;
+## a spark every fourth tic and smoke every tenth, phased so a wood of
+## them is not in step.
+func _pyres_tic() -> void:
+	if pyres.is_empty():
+		return
+	var w := _wind()
+	var i := 0
+	while i < pyres.size():
+		var q: Array = pyres[i]
+		var left: int = q[4]
+		var k: float = minf(1.0, float(left) / maxf(1.0, q[5] * 0.35))
+		var size: float = q[3] * (0.5 + 0.5 * k)
+		glow_at(q[0], q[1], 0.4 * k)
+		body_flames.spawn({
+			"x": q[0] + (_r() - 0.5) * size * 0.9, "y": q[1] + (_r() - 0.5) * size * 0.9, "z": q[2] + 3.0 + _r() * size * 0.5,
+			"vx": (_r() - 0.5) * 0.6 + w.x * 0.5, "vy": (_r() - 0.5) * 0.6 + w.y * 0.5, "vz": 0.6 + _r() * 0.9,
+			"life": 10 + (U.p_random() % 12),
+			"size0": maxf(6.0, size * 0.8), "size1": maxf(3.0, size * 0.3),
+			"c0": Color(1, 1, 1, 0.95), "c1": Color(1, 0.65, 0.25, 0.0),
+			"frame": float(U.p_random() % body_flames.frames), "frameRate": 0.5,
+			"drag": 0.93, "gravity": -0.02,
+		})
+		if (game.tics + i) % 4 == 0:
+			ember(q[0], q[1], q[2] + size * 0.5, 1, 0.9 * k)
+		if (game.tics + i * 3) % 10 == 0:
+			puff(q[0] + (_r() - 0.5) * size, q[1] + (_r() - 0.5) * size, q[2] + size * 1.2, size * 0.9, 110)
+		q[4] = left - 1
+		if q[4] <= 0:
+			pyres.remove_at(i)
+		else:
+			i += 1
+
 # ------------------------------------------------------------------
 # One tic
 # ------------------------------------------------------------------
 
 func tic() -> void:
 	var lv: Level = game.level
+	_pyres_tic()
 	embers.tic(func(_i: int, nx: float, ny: float, nz: float) -> bool:
 		# embers go out on the floor (of the storey they were in)
 		var s := lv.span_at(nx, ny, embers.pz[_i])

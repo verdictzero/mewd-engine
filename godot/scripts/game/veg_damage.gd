@@ -54,6 +54,15 @@ const SHAKE_MAX := 0.7
 const TUFTS_THROWN := 24
 ## the index buckets over a tile (m)
 const BUCKET := 8.0
+## THE MICRO-QUEUE (at the user's request: "put a slight delay on
+## multiple vegetation and people explosions events in a micro-queue to
+## lessen cpu load"): a blast that takes a wood blows up this many plants
+## a tic and queues the rest, so forty bursts of pieces are spread over
+## seven tics instead of one frame — and the wood goes up in a ripple,
+## which looks better than all at once anyway
+const BLOW_PER_TIC := 6
+## how long a blown-up plant burns where it stood (tics), by its height
+const PYRE_TICS := [40, 110]
 
 var game
 var veg = null
@@ -63,6 +72,12 @@ var changed := {}
 ## tile key -> {"n": rows when indexed, "b": {Vector2i: [[sprite, row], ...]}}
 var _index := {}
 var _checked := 0
+
+## the plants waiting their turn to burst: [plant, from, force]
+var _queue: Array = []
+var _queued := {}
+var _blown_tic := -1
+var _blown_n := 0
 
 func _init(g, scatter, grass_scatter = null) -> void:
 	game = g
@@ -242,10 +257,25 @@ static func to_game(m: Vector3) -> Vector3:
 
 ## SHREDDED: its picture in pieces (SpriteChunks, from `from`, the game's
 ## units) — the bigger the plant, the more pieces and the smaller each —
-## a puff of leaves, and its row gone.
+## a puff of leaves, and its row gone; AND IT BURNS where it stood for a
+## few seconds (Effects.pyre: fire sprites, embers and smoke, at the
+## user's request — "bring back fire sprites but not fire spreading for
+## stuff that gets blown up" — a fire that is a picture and sets nothing
+## else alight). BLOW_PER_TIC a tic; the rest wait their turn (`tic`).
 func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
-	if p.gone:
+	if p.gone or _queued.has(p.key):
 		return
+	if _blown_tic != game.tics:
+		_blown_tic = game.tics
+		_blown_n = 0
+	if _blown_n >= BLOW_PER_TIC:
+		_queued[p.key] = true
+		_queue.append([p, from, force])
+		return
+	_blown_n += 1
+	_burst(p, from, force)
+
+func _burst(p: Dictionary, from: Vector3, force: float) -> void:
 	var tex := _picture(p)
 	var at := to_game(p.pos)
 	var w: float = p.w * IslandLevel.U_PER_M
@@ -253,7 +283,14 @@ func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
 	if game.chunks != null and tex != null:
 		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, w, h, from, pieces_for(p.w, p.h), force, 0.0, true)
 	game.fx.puff(at.x, at.y, at.z + h * 0.4, minf(60.0, w * 0.5), 70)
+	if game.fx.has_method("pyre"):
+		var k := clampf(p.h / 12.0, 0.0, 1.0)
+		game.fx.pyre(at.x, at.y, at.z, clampf(w * 0.4, 10.0, 48.0), int(lerpf(PYRE_TICS[0], PYRE_TICS[1], k)))
 	_write(p, p.custom, true)
+
+## How many plants are still waiting to burst.
+func queued() -> int:
+	return _queue.size()
 
 ## How many pieces a plant `w` x `h` metres goes to: about a piece for
 ## every metre square of it (a fern a handful, a tall tree forty), so a
@@ -292,7 +329,10 @@ func blast(at: Vector3, radius: float) -> void:
 	if veg != null:
 		var inner := reach * BLOW_SHARE
 		var outer := reach * SHAKE_SHARE
-		for p in near(m.x, m.y, outer):
+		# nearest first: the micro-queue then goes off as a ripple outward
+		var ps := near(m.x, m.y, outer)
+		ps.sort_custom(func(a, b): return Vector2(a.pos.x - m.x, a.pos.z - m.y).length_squared() < Vector2(b.pos.x - m.x, b.pos.z - m.y).length_squared())
+		for p in ps:
 			# (a plant's own height counts: the blast has to reach its middle)
 			if at.z >= (p.pos.y + p.h * 0.8) * IslandLevel.U_PER_M:
 				continue
@@ -371,6 +411,30 @@ func jet(at: Vector3, dir: Vector3, length: float, width: float, hits: float) ->
 			if q.z < f:
 				break
 	return touched.size()
+
+## THE LANCE'S COLUMN at one step of its walk (BeamSystem._swath): every
+## plant within `r` units of `at` (plus half its own width) whose span,
+## foot to top, the column's height crosses, blown up; and if the column
+## is `low`, the grass round `at` mown. How many plants it took.
+func column(at: Vector3, r: float, from: Vector3, low: bool) -> int:
+	var um := IslandLevel.U_PER_M
+	var mx := at.x / um
+	var mz := -at.y / um
+	var my := at.z / um
+	var rm := r / um
+	var n := 0
+	if veg != null:
+		for p in near(mx, mz, rm + 3.0):
+			var d := Vector2(p.pos.x - mx, p.pos.z - mz).length()
+			if d > rm + p.w * 0.5 or my + rm < p.pos.y or my - rm > p.pos.y + p.h:
+				continue
+			if p.gone or _queued.has(p.key):
+				continue
+			blow_up(p, from, 1.4)
+			n += 1
+	if low:
+		mow(mx, mz, rm, from, 1.3, 4)
+	return n
 
 ## THE DOWNWASH under a pod on its retros: the skirt's nozzles round `at`
 ## (the game's units, their middle), the exhaust going down from a ring
@@ -522,5 +586,14 @@ func ray(a: Vector3, b: Vector3, max_t: float) -> Dictionary:
 func tic() -> void:
 	if veg == null:
 		return
+	# the queue: BLOW_PER_TIC of them a tic, oldest first
+	var n := 0
+	while not _queue.is_empty() and n < BLOW_PER_TIC:
+		var e: Array = _queue.pop_front()
+		var p: Dictionary = e[0]
+		_queued.erase(p.key)
+		if not p.gone:
+			_burst(p, e[1], e[2])
+		n += 1
 	if game.tics % U.TICRATE == 0:
 		_keep()
