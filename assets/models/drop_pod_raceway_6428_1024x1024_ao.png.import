@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bl1hecno57mxp"
-path="res://.godot/imported/drop_pod_hazard_stripe_1974_512_paint.png-969dda313e8b93e5fd4fd046a32fc7f3.ctex"
+uid="uid://bxx6ooytkpvjg"
+path="res://.godot/imported/drop_pod_raceway_6428_1024x1024_ao.png-04771fc97667c168b0ed239ff008c831.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "e9f2a776cd0c1e291c5a6d10d90e0b19"
+"md5": "d9ae360011c7b7925f0ad7b81ee835b7"
 }
 
 [deps]
 
-source_file="res://assets/models/drop_pod_hazard_stripe_1974_512_paint.png"
-dest_files=["res://.godot/imported/drop_pod_hazard_stripe_1974_512_paint.png-969dda313e8b93e5fd4fd046a32fc7f3.ctex"]
+source_file="res://assets/models/drop_pod_raceway_6428_1024x1024_ao.png"
+dest_files=["res://.godot/imported/drop_pod_raceway_6428_1024x1024_ao.png-04771fc97667c168b0ed239ff008c831.ctex"]
 
 [params]
 

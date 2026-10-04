@@ -2120,6 +2120,52 @@ DIAMONDS, AND OUT OF THE DOOR
   The dust under a burn near the ground is less (the pod is under 14 m
   for longer now, and the puffs gathered into a cloud over it).
 
+THE DROP, ROUND FOUR: THE NEW POD, DITHERED; THE PLASMA IN LAYERS;
+BLUE JETS
+
+  At the user's request: the second pod model (dropPodV2), "appropriately
+  de-res the model's textures and apply RGB 32 32 32 bayer dithering to
+  the color textures (after resize)"; "make the re-entry burn
+  multilayered, multiple particle types, higher res, sparks, smoke,
+  colour shifts"; "when I meant shallower I want a reentry shield-ish
+  shaped plasma barrier spewing out at an angle similar to the bottom
+  of the shield"; "make the thrusters bright bright blue".
+
+  THE MODEL: assets/models/drop_pod.glb is the second pod — the same
+  hull, door and twenty markers, with a greebled band (an emissive map)
+  — put through tools/pod-textures.py: every colour map (base colour,
+  emissive, and the raceway's AO, which a material uses as its colour)
+  shrunk to 512 across and ordered-dithered to 32 levels a channel with
+  an 8x8 Bayer matrix after the shrink, so the dither is at the texels'
+  own scale; every data map (metal/rough, normal) shrunk to 256 and
+  left undithered (dither on a normal map is noise in the lighting).
+  17 MB to 3 MB. The importer extracts the textures beside it as
+  before (drop_pod_*.png).
+
+  THE PLASMA (reentry.gdshader `layer`, DropPod._make_fire), three
+  meshes turned to the way the pod is going:
+  - THE BOW SHOCK (0): a dish the shield's own shape standing a
+    quarter-radius off it, the hottest, white-blue at its middle and
+    yellow at the rim, only its front half drawn.
+  - THE SKIRT (1): a sheet off the shield's rim flaring out and back at
+    the angle of the hull's foot, to half the hull's height — a
+    shuttlecock — white-yellow at the rim, orange outward, torn into
+    streaks running outward at speed.
+  - THE WAKE (2): the same, wider and further back, thin and red.
+  Higher res again: smooth noise at two scales and forty segments round
+  (the blocky cut is gone). The sizes jump every frame. COLOUR SHIFTS
+  two ways: along each layer from white through orange to red, and over
+  the three seconds as the fire dies (`age`): blue-white at its hottest
+  to a dull red at the end. FOUR KINDS OF PARTICLE every tic: sparks
+  off the shield's rim; small bright flecks of plasma off the skirt,
+  short-lived; bigger fireballs further back in the wake; and smoke, a
+  dark trail behind and a wisp off the skirt.
+
+  THE JETS, BRIGHT BLUE, all of them (pod_flame.gdshader): white at the
+  nozzle, electric blue in the diamonds' bellies, a deeper blue toward
+  the point, the retros a shade paler than the RCS; the shock diamonds
+  as they were. drop_test expects blue of both.
+
 TESTS
 
     tools/godot-test.sh

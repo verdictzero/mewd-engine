@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bl1hecno57mxp"
-path="res://.godot/imported/drop_pod_hazard_stripe_1974_512_paint.png-969dda313e8b93e5fd4fd046a32fc7f3.ctex"
+uid="uid://bln3ufrqm7rr2"
+path="res://.godot/imported/drop_pod_greeble_44492_1024_basecolor.png-efdd94d3e353716398fba3b57e2e2ae7.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "e9f2a776cd0c1e291c5a6d10d90e0b19"
+"md5": "308dae6e976b64dd4a0371ad13132799"
 }
 
 [deps]
 
-source_file="res://assets/models/drop_pod_hazard_stripe_1974_512_paint.png"
-dest_files=["res://.godot/imported/drop_pod_hazard_stripe_1974_512_paint.png-969dda313e8b93e5fd4fd046a32fc7f3.ctex"]
+source_file="res://assets/models/drop_pod_greeble_44492_1024_basecolor.png"
+dest_files=["res://.godot/imported/drop_pod_greeble_44492_1024_basecolor.png-efdd94d3e353716398fba3b57e2e2ae7.ctex"]
 
 [params]
 

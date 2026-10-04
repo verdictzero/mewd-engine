@@ -142,8 +142,8 @@ var fires := 0                       # nozzle firings, counted, for the tests
 ## going), their materials, the hull's glow, the light on it, and how hot
 ## (0..1, the speed's); the hottest it has been, for the tests
 var fire: Node3D
-var fire_cap: MeshInstance3D
-var fire_tail: MeshInstance3D
+## the bow shock, the skirt, the wake (see _make_fire), their materials
+var fire_parts: Array = []
 var fire_mats: Array = []
 var heat_mat: ShaderMaterial
 var fire_light: OmniLight3D
@@ -317,10 +317,10 @@ static func _jet_mesh() -> ArrayMesh:
 			st.add_index(a1); st.add_index(b0); st.add_index(b1)
 	return st.commit()
 
-## a jet's colour, and in its alpha its kind (pod_flame.gdshader): the RCS
-## blue (0), the retros orange (1)
+## a jet's colour — bright blue, all of them, at the user's request — and
+## in its alpha its kind (pod_flame.gdshader): the RCS 0, the retros 1
 static func _flame_color(kind: String) -> Color:
-	return Color(0.2, 0.45, 1.0, 0.0) if kind == "rcs" else Color(1.0, 0.5, 0.15, 1.0)
+	return Color(0.25, 0.6, 1.0, 0.0) if kind == "rcs" else Color(0.3, 0.65, 1.0, 1.0)
 
 ## THE REENTRY FIRE (see the header): a cap and a tail, turned in `draw`
 ## to the way the pod is going, the hull's glow and a light; hidden cold.
@@ -328,54 +328,49 @@ func _make_fire() -> void:
 	var sh: Shader = load("res://godot/shaders/reentry.gdshader")
 	fire = Node3D.new()
 	add_child(fire)
-	var cap := MeshInstance3D.new()
+	# THE BOW SHOCK: a dish of plasma standing off the shield, the shape
+	# of the shield (a flattened ball, only its front half drawn)
 	var ball := SphereMesh.new()
 	ball.radius = 1.0
 	ball.height = 2.0
-	ball.radial_segments = 12
-	ball.rings = 6
-	cap.mesh = ball
-	var cm := ShaderMaterial.new()
-	cm.shader = sh
-	cm.set_shader_parameter("tail", 0.0)
-	cap.material_override = cm
-	cap.scale = Vector3(HULL_R * 1.25, HULL_R * 0.75, HULL_R * 1.25)
-	cap.position = Vector3(0.0, HULL_R * 0.45, 0.0)
-	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	fire.add_child(cap)
-	var tail := MeshInstance3D.new()
-	var cone := CylinderMesh.new()
-	# (wider at the top than the hull, or the depth test hides it inside)
-	cone.top_radius = 0.8
-	cone.bottom_radius = 1.0
-	cone.height = 1.0
-	cone.radial_segments = 14
-	cone.rings = 4
-	cone.cap_top = false
-	cone.cap_bottom = false
-	tail.mesh = cone
-	var tm := ShaderMaterial.new()
-	tm.shader = sh
-	tm.set_shader_parameter("tail", 1.0)
-	tail.material_override = tm
-	# (shallow: the sheath only a little past the hull's top)
-	var tl := TALL * 1.25
-	tail.scale = Vector3(HULL_R * 1.22, tl, HULL_R * 1.22)
-	tail.position = Vector3(0.0, tl * 0.5 - HULL_R * 0.1, 0.0)
-	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	fire.add_child(tail)
-	fire_cap = cap
-	fire_tail = tail
-	fire_mats = [cm, tm]
+	ball.radial_segments = 32
+	ball.rings = 16
+	fire_parts.append(_fire_part(ball, sh, 0.0))
+	# THE SKIRT: a sheet of plasma from the shield's rim flaring out and
+	# back at the angle of the hull's foot, and THE WAKE outside it,
+	# wider, taller, thinner, redder (CylinderMesh: bottom at the rim,
+	# the top wide — a shuttlecock)
+	for layer in [1.0, 2.0]:
+		var cone := CylinderMesh.new()
+		cone.bottom_radius = 1.0
+		cone.top_radius = 2.3 if layer < 1.5 else 2.9
+		cone.height = 1.0
+		cone.radial_segments = 40
+		cone.rings = 10
+		cone.cap_top = false
+		cone.cap_bottom = false
+		fire_parts.append(_fire_part(cone, sh, layer))
 	heat_mat = ShaderMaterial.new()
 	heat_mat.shader = load("res://godot/shaders/pod_heat.gdshader")
 	fire_light = OmniLight3D.new()
-	fire_light.light_color = Color(1.0, 0.55, 0.25)
+	fire_light.light_color = Color(1.0, 0.6, 0.3)
 	fire_light.omni_range = 30.0
 	fire_light.shadow_enabled = false
 	fire_light.position = Vector3(0.0, -HULL_R * 0.3, 0.0)
 	fire.add_child(fire_light)
 	fire.visible = false
+
+func _fire_part(mesh: Mesh, sh: Shader, layer: float) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("layer", layer)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	fire.add_child(mi)
+	fire_mats.append(m)
+	return mi
 
 # ------------------------------------------------------------------
 # THE RIDE
@@ -616,17 +611,27 @@ func _rcs(want: Vector3) -> void:
 ## thrown off, a smoke trail after — the more and the bigger, the hotter.
 func _trail() -> void:
 	var um := IslandLevel.U_PER_M
-	# (behind the pod along its way, clear of the hull: anywhere in the
-	# last tic's stretch past its top)
 	var back := -vel.normalized()
 	var step := vel.length() / U.TICRATE
-	var q := pos + back * (TALL * 1.1 + randf() * step)
-	game.fx.fireball(q.x * um, -q.z * um, q.y * um, 36.0 + 44.0 * heat, 6 + int(heat * 6))
-	var s := pos + back * (TALL * 1.4 + randf() * step)
-	game.fx.puff(s.x * um, -s.z * um, s.y * um, 26.0 + 34.0 * heat, 90)
-	# sparks off the shield, thrown wide: a shower of them, every tic
-	var e := pos + back * TALL * 0.8
-	game.fx.ember(e.x * um, -e.z * um, e.y * um, 5 + int(heat * 9.0), 2.6)
+	# SPARKS: a shower off the shield's rim, thrown wide, every tic
+	var e := pos + back * TALL * 0.6
+	game.fx.ember(e.x * um, -e.z * um, e.y * um, 6 + int(heat * 10.0), 2.8)
+	# FLECKS: small bright bits of plasma coming off the skirt, short-lived
+	for k in 2 + int(heat * 3.0):
+		var a := randf() * TAU
+		var f := pos + back * (TALL * randf_range(0.3, 0.9)) + Vector3(cos(a), 0.0, sin(a)) * HULL_R * randf_range(0.9, 1.5)
+		game.fx.fireball(f.x * um, -f.z * um, f.y * um, 14.0 + 16.0 * heat, 4 + int(heat * 4))
+	# FIREBALLS: bigger, fewer, further back in the wake
+	if ticks % 2 == 0:
+		var q := pos + back * (TALL * 1.2 + randf() * step)
+		game.fx.fireball(q.x * um, -q.z * um, q.y * um, 40.0 + 50.0 * heat, 8 + int(heat * 8))
+	# SMOKE: a dark trail behind, and a wisp off the skirt
+	var s := pos + back * (TALL * 1.5 + randf() * step)
+	game.fx.puff(s.x * um, -s.z * um, s.y * um, 28.0 + 36.0 * heat, 100)
+	if ticks % 3 == 0:
+		var a2 := randf() * TAU
+		var w := pos + back * TALL * 0.8 + Vector3(cos(a2), 0.0, sin(a2)) * HULL_R * 1.6
+		game.fx.puff(w.x * um, -w.z * um, w.y * um, 18.0, 50)
 
 ## THE EXHAUST INTO THE PLANTS (VegDamage), every third tic low down: the
 ## retros' downwash under the skirt — a column spreading as it goes down,
@@ -870,16 +875,28 @@ func _draw_fire(b: Basis) -> void:
 	xv = xv.normalized()
 	var zv := xv.cross(yv).normalized()
 	fire.transform = Transform3D(Basis(xv, yv, zv), Vector3.ZERO)
-	# VIOLENT: the sheath and the cap jump in size and lean every frame
-	var j := randf_range(0.8, 1.25)
-	var tl := TALL * 1.25 * j
-	fire_tail.scale = Vector3(HULL_R * randf_range(1.25, 1.5), tl, HULL_R * randf_range(1.25, 1.5))
-	fire_tail.position = Vector3(randf_range(-0.2, 0.2), tl * 0.5 - HULL_R * 0.1, randf_range(-0.2, 0.2))
-	fire_cap.scale = Vector3(HULL_R * randf_range(1.1, 1.4), HULL_R * randf_range(0.6, 0.9), HULL_R * randf_range(1.1, 1.4))
+	# the layers, jumping a little every frame: the bow shock a dish a
+	# quarter-radius ahead of the shield; the skirt from the rim, flaring
+	# at the hull's foot's angle to half the hull's height; the wake past it
+	var bow: MeshInstance3D = fire_parts[0]
+	bow.scale = Vector3(HULL_R * randf_range(1.1, 1.2), HULL_R * randf_range(0.32, 0.4), HULL_R * randf_range(1.1, 1.2))
+	bow.position = Vector3(0.0, -HULL_R * 0.22, 0.0)
+	var skirt: MeshInstance3D = fire_parts[1]
+	var sk := TALL * randf_range(0.5, 0.62)
+	skirt.scale = Vector3(HULL_R * randf_range(0.95, 1.05), sk, HULL_R * randf_range(0.95, 1.05))
+	skirt.position = Vector3(0.0, sk * 0.5 - HULL_R * 0.05, 0.0)
+	var wake: MeshInstance3D = fire_parts[2]
+	var wk := TALL * randf_range(0.75, 0.95)
+	wake.scale = Vector3(HULL_R * randf_range(1.0, 1.15), wk, HULL_R * randf_range(1.0, 1.15))
+	wake.position = Vector3(randf_range(-0.15, 0.15), wk * 0.5, randf_range(-0.15, 0.15))
 	for m: ShaderMaterial in fire_mats:
 		m.set_shader_parameter("heat", heat)
 	heat_mat.set_shader_parameter("heat", heat)
 	fire_light.light_energy = heat * randf_range(6.0, 12.0)
+	# and the colour of the whole thing shifts as it dies: blue-white
+	# hottest, orange, then red (the shader's `age`)
+	for m: ShaderMaterial in fire_mats:
+		m.set_shader_parameter("age", 1.0 - heat)
 
 ## The jets, each nozzle's as hard as it fired: a chain of shock diamonds
 ## out along the exhaust to a point, the RCS blue, the retros orange.

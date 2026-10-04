@@ -8,7 +8,7 @@
 ## posts round the hull, the player standing on the deck and walking out
 ## of the door down onto the ground; and with a hand on the stick the pod
 ## tilts, its RCS firing blue jets of shock diamonds out along the
-## exhaust, FIRE lighting the orange retros. And the exhaust's and the door's own work
+## exhaust, FIRE lighting the retros, blue too. And the exhaust's and the door's own work
 ## on plants (VegDamage downwash, jet, sweep, clear), plant by plant.
 ##
 ##   godot --headless --script res://godot/tests/drop_test.gd -- --map=candyland
@@ -243,7 +243,7 @@ func _run() -> void:
 		if not (c.b > c.r and c.a < 0.5):
 			blue = false
 	check(lit > 0 and out_ok, "the RCS jets out along the exhaust from the nozzles (%d lit)" % lit)
-	check(lit > 0 and blue, "and blue")
+	check(lit > 0 and blue, "and bright blue")
 	var v0: float = d.vel.y
 	for k in 20:
 		d.tic({"fwd": 0.0, "side": 0.0, "look": Vector2(), "attack": true})
@@ -254,9 +254,9 @@ func _run() -> void:
 			continue
 		var tf: Transform3D = d.flame_transform(i, 1.0)
 		var c: Color = DropPod._flame_color("retro")
-		if tf.basis.y.normalized().dot(d.nozzles[i].dir) < 0.95 or not (c.r > c.b and c.a > 0.5):
+		if tf.basis.y.normalized().dot(d.nozzles[i].dir) < 0.95 or not (c.b > c.r and c.a > 0.5):
 			back_ok = false
-	check(back_ok, "the retros' jets out along their exhaust too, orange")
+	check(back_ok, "the retros' jets out along their exhaust too, bright blue")
 	var jet: ArrayMesh = DropPod._jet_mesh()
 	var arr: Array = jet.surface_get_arrays(0)
 	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
