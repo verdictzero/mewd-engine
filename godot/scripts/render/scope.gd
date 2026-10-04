@@ -263,7 +263,10 @@ func update(p, t: int) -> bool:
 		cell = clampf(float(p.ammo.get("cells", 0)) / float(Weapons.TANKS.cells[0]), 0.0, 1.0)
 	var hold: float = p.hold_fraction() if p != null else 0.0
 	# THE DIRTY KEY, and everything in it is something that is DRAWN
-	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%d" % [1 if held else 0, roundi(charge * 120.0), roundi(hold * 90.0), stage,
+	# (the charge and the hold in steps of a few pixels of their rings, so
+	# the panel is redrawn a few times a second while charging, not every
+	# tic: the handheld's second crash was mid-charge)
+	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%d" % [1 if held else 0, roundi(charge * 40.0), roundi(hold * 36.0), stage,
 		roundi(cell * 60.0), zoom_index, 1 if firing else 0, (t >> 1) & 7 if firing else 0,
 		(t >> 2) & 1 if hold > 0.0 and hold < 0.25 else 0]
 	if key == _key:
@@ -359,8 +362,55 @@ static func _tick(c: Control, cx: float, cy: float, r: float, w: float, at: floa
 	var u := Vector2(cos(a), sin(a))
 	c.draw_line(Vector2(cx, cy) + u * (r - w * len / 2.0), Vector2(cx, cy) + u * (r + w * len / 2.0), colour, 2.0)
 
+## A LABEL IN STROKES, NOT A FONT (at the user's report: the lance
+## crashing the handheld partway into a charge, a second time). The
+## panel is a SubViewport redrawn as the charge climbs, and the one
+## thing that happened for the first time three seconds in was a glyph
+## at a new size — the stage digit — rasterised by the fallback font
+## into its atlas while the viewport was being drawn. No font touches
+## these panels now: the digits are seven segments, the x two strokes,
+## the m three, the dot a dot — the few characters the gauges ever say
+## ("3", "2.1x", "120m"), centred on (x, y), `px` tall.
+const _SEG := {
+	"0": [0, 1, 2, 4, 5, 6], "1": [2, 5], "2": [0, 2, 3, 4, 6], "3": [0, 2, 3, 5, 6], "4": [1, 2, 3, 5],
+	"5": [0, 1, 3, 5, 6], "6": [0, 1, 3, 4, 5, 6], "7": [0, 2, 5], "8": [0, 1, 2, 3, 4, 5, 6], "9": [0, 1, 2, 3, 5, 6],
+}
 static func _label(c: Control, s: String, x: float, y: float, px: float, colour: Color) -> void:
-	var font := ThemeDB.fallback_font
-	var fs := roundi(px)
-	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	c.draw_string(font, Vector2(x - w / 2.0, y + fs * 0.36), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, colour)
+	var h := px * 0.72
+	var w := h * 0.55
+	var gap := h * 0.3
+	var thick := maxf(1.5, px * 0.09)
+	# the widths, to centre the run
+	var total := 0.0
+	for ch in s:
+		total += (w * 0.3 if ch == "." else (w * 1.25 if ch == "m" else w)) + gap
+	total -= gap
+	var cx := x - total / 2.0
+	var top := y - h / 2.0
+	for ch in s:
+		if _SEG.has(ch):
+			# the seven segments: a b c d e f g as 0..6 — top, top-left,
+			# top-right, middle, bottom-left, bottom-right, bottom
+			var ends := [
+				[Vector2(0, 0), Vector2(w, 0)], [Vector2(0, 0), Vector2(0, h / 2.0)], [Vector2(w, 0), Vector2(w, h / 2.0)],
+				[Vector2(0, h / 2.0), Vector2(w, h / 2.0)], [Vector2(0, h / 2.0), Vector2(0, h)], [Vector2(w, h / 2.0), Vector2(w, h)],
+				[Vector2(0, h), Vector2(w, h)]]
+			for k in _SEG[ch]:
+				c.draw_line(Vector2(cx, top) + ends[k][0], Vector2(cx, top) + ends[k][1], colour, thick)
+			cx += w + gap
+		elif ch == "x":
+			c.draw_line(Vector2(cx, top + h * 0.35), Vector2(cx + w, top + h), colour, thick)
+			c.draw_line(Vector2(cx + w, top + h * 0.35), Vector2(cx, top + h), colour, thick)
+			cx += w + gap
+		elif ch == "m":
+			var mw := w * 1.25
+			for k in 3:
+				var sx := cx + mw * k / 2.0
+				c.draw_line(Vector2(sx, top + h * 0.4), Vector2(sx, top + h), colour, thick)
+			c.draw_line(Vector2(cx, top + h * 0.4), Vector2(cx + mw, top + h * 0.4), colour, thick)
+			cx += mw + gap
+		elif ch == ".":
+			c.draw_rect(Rect2(cx, top + h - thick, thick, thick), colour)
+			cx += w * 0.3 + gap
+		else:
+			cx += w + gap

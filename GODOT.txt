@@ -2476,6 +2476,34 @@ POSE TEMPLATES FOR AN IMAGE MODEL
   the usual answers. Nothing here has been run against the image model
   itself.
 
+THE LANCE'S CHARGE CRASH, SECOND LOOK: NO FONT ON THE PANEL
+
+  At the user's report ("posi lance crashing again on charge (during
+  mid charge)"), still only on the handheld (RG557, Mali) and still not
+  here (lance_shot charge and aim, quit_test's full charge, under the
+  Mobile renderer). What happens ONLY while charging: the scope's
+  gauges are redrawn (a 2D SubViewport, UPDATE_ONCE each time a number
+  on them moves), the lens's `charge` uniform climbs, and the charge
+  loop's pitch slides. And what happened for the FIRST TIME three
+  seconds in — "mid charge" — was a glyph at a new size: the stage
+  digit, 32 px, rasterised by ThemeDB's fallback font into its atlas
+  while that viewport was being drawn (the magnification label was 20
+  px from the first frame). A font atlas grown mid-draw on a Mali
+  driver is the likeliest thing in that list to kill a process without
+  a word. So:
+    - NO FONT TOUCHES THE PANELS (Scope._label, which the thermal sight
+      uses too): the digits are seven segments, the x two strokes, the
+      m three, the dot a dot — the few characters the gauges ever say
+      ("3", "2.1x", "120m") — drawn with draw_line.
+    - THE GAUGES ARE REDRAWN A FEW TIMES A SECOND while charging, not
+      every tic: the dirty key steps the charge ring in 40ths and the
+      hold ring in 36ths (were 120 and 90).
+    - THE BLACK BOX gets "lance: charging" and "lance: charge stage N"
+      as each comes, so the next box says exactly how far in it was.
+  If it still goes, the line at the foot of the title (THE LAST RUN DID
+  NOT END CLEANLY, and what it was doing) is the thing to photograph.
+
+
 TESTS
 
     tools/godot-test.sh

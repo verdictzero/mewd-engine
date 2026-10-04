@@ -486,7 +486,13 @@ func lance_tic(attack: bool) -> void:
 		if charge == 0:
 			hold = 0
 			game.play_sound("lancestart", self)
+		var st_was := charge_stage()
 		charge = mini(CHARGE_MAX, charge + 1)
+		# (the black box: each stage as it comes, for the handheld's crash)
+		if charge_stage() != st_was:
+			BlackBox.mark("lance: charge stage %d" % charge_stage())
+		if charge == 1:
+			BlackBox.mark("lance: charging")
 		# AND AT THE TOP THERE IS A WINDOW, and at the end of it the coil
 		# vents and you start the seven seconds again
 		if charge >= CHARGE_MAX:
