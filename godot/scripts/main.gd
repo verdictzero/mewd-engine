@@ -228,6 +228,8 @@ func start_game() -> void:
 	# a headless bot in a match looks at nothing: the island's ground only
 	if _arg("--netbot") and DisplayServer.get_name() == "headless":
 		game.draw_world = false
+	# (the pod hangs at the top until the loading screen is gone)
+	game.loading = loading != null
 	lofi.world.add_child(game)
 	# and from here on this game is one player in the host's world
 	if net_client != null:
@@ -291,6 +293,7 @@ func start_game() -> void:
 		game.gore_decals.warm_end()
 		Warmup.end(warm)
 		loading.finish()
+	game.loading = false
 	BlackBox.mark("playing")
 
 ## What the BlackBox keeps of the game, twice a second

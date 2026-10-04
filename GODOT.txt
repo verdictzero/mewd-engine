@@ -1959,6 +1959,107 @@ ROCKETS THAT RUN OUT, AND A THINNER TRAIL
   spot: no detonation, no mark, it is gone. Its trail drops a puff every
   TRAIL.step 28 units instead of 14, each living 36 tics instead of 44.
 
+THE DROP, SMALLER, FASTER, ON FIRE
+
+  At the user's request: "pod is too big, size it down"; "player stuck
+  in floor of pod on spawn"; "descent needs to be 300% faster with
+  reentry fireball until slowdown"; "rcs thruster cones need to be
+  reversed / blue shifted"; "rcs thrusters retros and landing should
+  destroy vegetation"; "door popping off should destroy things and
+  people it hits". godot/scripts/game/drop_pod.gd again.
+
+  HALF THE SIZE. The model is drawn at DropPod.POD_SCALE (0.5): 3.9 m
+  across, 3.6 m tall, the door 1.8 m high, the inside floor 0.6 m over
+  the base and the inside wall 1.7 m out. The nozzles are read off the
+  model at its own size and kept at the pod's; DROP.inertia is halved
+  with the levers, so it turns as quickly as it did; the eye rides 14 m
+  behind, not 24. The posts round the landed hull are 24 thinner ones
+  (PODWALL, 10 units round, 128 tall) at its wall, and the gap in them
+  is the door's width: a post whose middle is nearer the line out of the
+  door than the door's half-width and its own radius is left out. Three
+  more stand across the doorway until the door is off.
+
+  OFF THE FLOOR. The model's inside floor is 1.2 m over its base (0.6 m
+  now). The player stood at the base with the eye 1.5 m up, which put
+  the eye 0.3 m over the floor, and walking off, in the ground under
+  it. Now THE DECK: IslandLevel.add_deck lays a round floor over the
+  ground, and floor_at answers the higher of the two. The pod lays its
+  inside floor as one when it lands. The player rides and stands on it
+  with the eye 1.5 m over it, a round goes into it, and the door is a
+  step down onto the ground. And the door: its place was taken from the
+  file without the model's own offset (the hull node sits 15 m along in
+  the file), so it blew off 15 m in front of the pod. It comes off its
+  frame now.
+
+  THREE TIMES AS FAST, IN THE FIRE. The pod comes in 2000 m up at
+  280 m/s, out of orbit, with drag for a terminal speed of 210 m/s
+  (three times the 70 it was), and is down in about ten and a half
+  seconds where it took forty. The retros are stronger, to stop it:
+  12 m/s^2 a nozzle, five g net. THE AUTOPILOT flies a proper suicide
+  burn. Each tic it works out the braking it would take to be down to
+  DROP.aim_speed (3 m/s) a metre over the ground, lights the retros when
+  that comes to DROP.plan (0.8) of what they have, near 815 m, and holds
+  them at that braking all the way down, so the pod comes in fast and
+  stops at the last, touching down at about 3.5 m/s. For the last two
+  seconds at the fall's speed it has the attitude: it leans against any
+  drift while it burns (at this speed the air no longer kills the drift)
+  and stands the pod up for the ground. FIRE still lights the retros
+  full, but the last 8 m are the autopilot's.
+  HELD AT THE TOP: the game ticks under the loading screen (about 400
+  tics on this machine's slow software picture), and a ten-second ride
+  would be over before it was seen. The pod hangs where it begins until
+  the island is up and Main's loading screen is gone (Game.loading), and
+  only then falls.
+  THE REENTRY FIRE is the speed's: fiercest over 230 m/s, out under
+  150 m/s, so it burns all the way to the burn and dies as the retros
+  slow the pod, out by about 280 m. A white-hot cap round the heat shield
+  and a tail of flame streaming back past the hull, both turned to the
+  way the pod is going and torn by noise (godot/shaders/reentry.gdshader);
+  the shield glowing orange up the hull's foot (pod_heat.gdshader, the
+  hull's overlay while it burns); an orange light on the hull; and fire,
+  sparks and a smoke trail left behind it along the way it came. The HUD
+  says REENTRY. The fire is MIXED over what is behind it, not added: the
+  first cut added it, and against the bright sky it was a pale white
+  lampshade round the pod.
+
+  THE FLAMES. The RCS cones are turned round, wide at the nozzle and
+  pointed out along the jet, and blue; a jet fired lightly is still
+  near half its length, so it is seen to fire. The retros stay orange
+  plumes spreading from the nozzle. Still one MultiMesh, coloured per
+  nozzle (godot/shaders/pod_flame.gdshader: pale at the nozzle, the
+  colour deepening further out, gone at the end). Mixed, not added, for
+  the same reason as the fire: a blue jet added to a blue sky is white.
+
+  WHAT THE EXHAUST AND THE DOOR DO (VegDamage):
+  - THE DOWNWASH (`downwash`), every third tic under 70 m: a column under
+    the skirt spreading as it goes down, to 30 m under the nozzles at
+    full. Every plant whose top is in it is hurt, shaken and then
+    shredded, the more the nearer. Once it reaches the ground it takes
+    the plants and grass in a ring round it as well, up to 6 m wider
+    than the column the nearer the ground.
+  - EACH RCS JET firing low down (`jet`): 7 m out along it and 2 m round
+    at its end. Every plant it passes through is hurt, and the grass
+    where it runs along the ground is mown.
+  - THE LANDING: nothing left standing within a metre of the hull
+    (`clear`), the plants round it blown flat as a 12 m blast would, the
+    grass mown.
+  - THE DOOR (DropPod._door_hits, VegDamage.sweep): every tic of its
+    flight, anybody within a metre of it at its height is blown apart
+    (a lamp knocked to pieces), and every plant it goes through is
+    shredded. It goes on a little slower for each.
+
+  godot/tests/drop_test.gd rides it down in frames, so the plants'
+  tiles load round the eye as they do in play: down in about 11 s,
+  falling at up to 274 m/s, the fire out before the ground, the burn lit
+  near 815 m, landing at about 3.5 m/s, level, on land, nothing growing
+  through the hull, the deck a floor. Inside, the eye is 1.5 m over the
+  deck; a candy girl standing in the door's way is blown apart; the posts
+  leave the door's gap; the player walks out of the door onto the
+  ground. The downwash, a jet, the door and a landing are each tried on
+  a plant of its own; and the RCS cones point out along the jet, blue,
+  the retros back at the nozzle, orange. candy_shot --drop --stick holds
+  the stick all the way down, for a picture of the RCS firing.
+
 TESTS
 
     tools/godot-test.sh

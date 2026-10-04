@@ -66,11 +66,32 @@ func _init(g: IslandGround, title := "ISLAND") -> void:
 	world = {"noSquads": true}
 	map_light = {}
 
+## DECKS laid over the ground (at the user's request, the landed drop
+## pod's inside floor: "player stuck in floor of pod"): round floors
+## {x, y, r2, z} in the game's units, standing over the ground where they
+## are. floor_at answers the higher of the ground and any deck over the
+## point, so a body inside the pod stands on its floor, a round goes into
+## it, and walking out of the door is a step down. (add_deck)
+var decks: Array = []
+
 ## THE GROUND under the game's (x, y), in the game's units, or NO_FLOOR
-## off the island.
+## off the island (and the top of a deck where one is laid).
 func floor_at(x: float, y: float) -> float:
 	var m := ground.height(x / U_PER_M, -y / U_PER_M)
-	return NO_FLOOR if m <= IslandGround.VOID else m * U_PER_M
+	if m <= IslandGround.VOID:
+		return NO_FLOOR
+	var f := m * U_PER_M
+	if not decks.is_empty():
+		for d in decks:
+			var dx: float = x - d.x
+			var dy: float = y - d.y
+			if dx * dx + dy * dy < d.r2 and d.z > f:
+				f = d.z
+	return f
+
+## A round deck `r` units across at (x, y), its top at z (the game's units).
+func add_deck(x: float, y: float, r: float, z: float) -> void:
+	decks.append({"x": x, "y": y, "r2": r * r, "z": z})
 
 ## Whether a body of this radius can stand here: on the island, with its
 ## whole circle clear of the coast.

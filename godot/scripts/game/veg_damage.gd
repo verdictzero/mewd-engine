@@ -310,9 +310,9 @@ func blast(at: Vector3, radius: float) -> void:
 func nick(at: Vector3) -> void:
 	mow(at.x / IslandLevel.U_PER_M, -at.y / IslandLevel.U_PER_M, NICK, at, 0.6)
 
-## The grass within `r` metres of (mx, mz) gone, each tuft (up to
-## TUFTS_THROWN of them) thrown from `from` as a few pieces of its picture.
-func mow(mx: float, mz: float, r: float, from: Vector3, force: float) -> void:
+## The grass within `r` metres of (mx, mz) gone, each tuft (up to `throw`
+## of them) thrown from `from` as a few pieces of its picture.
+func mow(mx: float, mz: float, r: float, from: Vector3, force: float, throw := TUFTS_THROWN) -> void:
 	if grass == null:
 		return
 	var cut: Array = grass.mow(mx, mz, r)
@@ -320,12 +320,121 @@ func mow(mx: float, mz: float, r: float, from: Vector3, force: float) -> void:
 		return
 	cut.shuffle()
 	var ts: Vector2 = grass.tuft_size * IslandLevel.U_PER_M
-	for e in cut.slice(0, TUFTS_THROWN):
+	for e in cut.slice(0, throw):
 		var tex: Texture2D = grass.sprites[e[1]] if e[1] < grass.sprites.size() else null
 		if tex == null:
 			continue
 		var at := to_game(e[0])
 		game.chunks.burst(tex, Rect2(0, 0, 1, 1), at, ts.x, ts.y, from, 4, force * 0.6, 0.0, true)
+
+# ------------------------------------------------------------------
+# THE DROP POD (DropPod, at the user's request: "rcs thrusters, retros
+# and landing should destroy vegetation", and "door popping off should
+# destroy things and people it hits")
+# ------------------------------------------------------------------
+
+## A JET from `at` along `dir` (the game's units, `dir` a unit vector),
+## `length` units long and `width` units round at its far end (a third of
+## that at the nozzle): every plant it passes through — within reach of
+## the trunk or the crown, between the foot and the top — takes up to
+## `hits` rounds' worth (`hurt`: shaken, then shredded), fewer further
+## out; and the grass where it runs along the ground mown, until it goes
+## into the ground and stops.
+## How many plants it touched.
+func jet(at: Vector3, dir: Vector3, length: float, width: float, hits: float) -> int:
+	var um := IslandLevel.U_PER_M
+	var touched := {}
+	var mowed := false
+	var steps := maxi(1, ceili(length / 48.0))
+	for i in range(1, steps + 1):
+		var t := float(i) / steps
+		var q := at + dir * length * t
+		var r := width * (0.3 + 0.7 * t) / um
+		var mx := q.x / um
+		var mz := -q.y / um
+		var my := q.z / um
+		if veg != null:
+			for p in near(mx, mz, r + 2.5):
+				if touched.has(p.key):
+					continue
+				var d := Vector2(p.pos.x - mx, p.pos.z - mz).length()
+				if d > r + p.w * 0.35 or my < p.pos.y - r or my > p.pos.y + p.h + r:
+					continue
+				touched[p.key] = true
+				hurt(p, hits * (1.0 - 0.6 * t), q - dir * 40.0, 1.0)
+		# along the ground it mows (once a jet), into it it stops
+		var f: float = game.level.floor_at(q.x, q.y)
+		if f > IslandLevel.NO_FLOOR and q.z - f < 40.0:
+			if not mowed:
+				mow(mx, mz, r, q - dir * 40.0, 0.9, 4)
+				mowed = true
+			if q.z < f:
+				break
+	return touched.size()
+
+## THE DOWNWASH under a pod on its retros: the skirt's nozzles round `at`
+## (the game's units, their middle), the exhaust going down from a ring
+## `r0` units round and spreading `spread` units out for every unit down,
+## to `reach` units under them. Every plant whose top is in it takes up to
+## `hits` rounds' worth, fewer the further down; and once it reaches the
+## ground the grass round under it is mown, a wider ring the nearer.
+## How many plants it touched.
+func downwash(at: Vector3, r0: float, spread: float, reach: float, hits: float) -> int:
+	var um := IslandLevel.U_PER_M
+	var mx := at.x / um
+	var mz := -at.y / um
+	var my := at.z / um
+	var reach_m := reach / um
+	var n := 0
+	if veg != null:
+		for p in near(mx, mz, (r0 + spread * reach) / um + 2.5):
+			var down := maxf(0.0, my - (p.pos.y + p.h))
+			if down > reach_m:
+				continue
+			var d := Vector2(p.pos.x - mx, p.pos.z - mz).length()
+			if d > r0 / um + spread * down + p.w * 0.35:
+				continue
+			hurt(p, hits * (1.0 - 0.7 * down / reach_m), at, 1.2)
+			n += 1
+	var f: float = game.level.floor_at(at.x, at.y)
+	if f > IslandLevel.NO_FLOOR and at.z - f < reach:
+		var h := at.z - f
+		mow(mx, mz, (r0 + spread * h) / um * (1.0 - 0.5 * h / reach), Vector3(at.x, at.y, f + 8.0), 1.1, 6)
+	return n
+
+## WHERE THE POD COMES DOWN: every plant standing within `r` units of
+## `at` (the game's units) blown to pieces, whatever its height, and the
+## grass there mown — nothing is left growing through the hull.
+func clear(at: Vector3, r: float) -> int:
+	var um := IslandLevel.U_PER_M
+	var n := 0
+	if veg != null:
+		for p in near(at.x / um, -at.y / um, r / um):
+			blow_up(p, at, 1.4)
+			n += 1
+	mow(at.x / um, -at.y / um, r / um, at, 1.3)
+	return n
+
+## WHAT A FLYING THING TAKES WITH IT (the pod's door, blown off): every
+## plant within `r` units of `at` (the game's units) and at its height —
+## between the foot and most of the way up — blown to pieces, thrown from
+## `from`. How many.
+func sweep(at: Vector3, r: float, from: Vector3) -> int:
+	if veg == null:
+		return 0
+	var um := IslandLevel.U_PER_M
+	var mx := at.x / um
+	var mz := -at.y / um
+	var my := at.z / um
+	var rm := r / um
+	var n := 0
+	for p in near(mx, mz, rm + 2.5):
+		var d := Vector2(p.pos.x - mx, p.pos.z - mz).length()
+		if d > rm + p.w * 0.35 or my < p.pos.y - rm or my > p.pos.y + p.h * 0.9 + rm:
+			continue
+		blow_up(p, from, 1.3)
+		n += 1
+	return n
 
 ## A ROUND through the plant: a scrap of it thrown off, the plant shaken,
 ## and enough of them shred it (`hits_for`). (The plant's picture stays

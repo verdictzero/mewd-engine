@@ -14,7 +14,8 @@
 ## less 12 m, turned back to look at the island's side.
 ## (--far: 140 m off)
 ## --drop: the game begins in the pod, dropping; the picture at `tics`, or
-## with --phase=landed|inside|out, 12 tics into that phase.
+## with --phase=landed|inside|out, 12 tics into that phase. (--stick: a
+## hand on the stick all the way down, so the RCS fires)
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
 ##
@@ -57,6 +58,11 @@ func _frame() -> void:
 		return
 	var p = game.player
 	var args := OS.get_cmdline_user_args()
+	if "--stick" in args and game.drop != null:
+		if game.drop.phase == "drop":
+			Input.action_press("fwd")
+		else:
+			Input.action_release("fwd")
 	if _start < 0:
 		_start = game.tics
 		p.health = 100000

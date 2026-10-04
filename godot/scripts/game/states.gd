@@ -188,9 +188,11 @@ static func build() -> void:
 		"wounds": 12,
 	}
 	ACTORS["BLOOD"] = {"name": "Blood", "spawn": "BLUD_REST", "radius": 8, "height": 1}
+	# THE DROP POD'S WALL (DropPod): unseen posts in a ring round the
+	# landed pod, a gap left at the door — a pod 4 m tall
+	ACTORS["PODWALL"] = {"name": "Pod wall", "spawn": "PODWALL_STAND", "radius": 10, "height": 128, "solid": true, "shootable": false}
 	# A HEADSTONE: granite, thirty-two tall — it stops you and you can see
 	# over it — one of eight photographs by its variant (js/states.js)
-	ACTORS["PODWALL"] = {"name": "Pod wall", "spawn": "PODWALL_STAND", "radius": 30, "height": 220, "solid": true, "shootable": false}
 	ACTORS["GRAVESTONE"] = {"name": "Headstone", "spawn": "GRAV_STAND", "radius": 10, "height": 32, "solid": true, "variants": 8}
 	ACTORS["BLAST"] = {"name": "Blast", "spawn": "BLAST1", "radius": 8, "height": 96, "fullbright": true}
 	ACTORS["PUFF"] = {"name": "Puff", "spawn": "PUFF1", "radius": 4, "height": 8}

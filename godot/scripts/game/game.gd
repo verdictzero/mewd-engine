@@ -200,6 +200,9 @@ var _island_built := false
 ## in the pod, and the map is yours when its door blows
 var drop: DropPod = null
 var drop_in := false
+## true while Main's loading screen is up: the pod hangs at the top until
+## it is gone (the ride is ten seconds, and they would pass under it)
+var loading := false
 ## false: walk the island, draw none of it (a dedicated server, a bot)
 var draw_world := true
 func start_map(which: String) -> void:
