@@ -14,10 +14,10 @@
 ## the user's request — in the same column, and one of those starts the
 ## game; the others shake their heads.
 ##
-## THE LAYERS, at the user's request, top to bottom: this menu; MEWD, in
-## front of the dither; the blue, over the finished frame; the dither;
-## the logo's SHADOWS, drawn into the picture (`shade`, a Control inside
-## the world's buffer); the forest in grey.
+## THE LAYERS, at the user's request, top to bottom: this menu; MEWD and
+## its SHADOWS, softer than they were, in front of the dither (`shade`, a
+## Control under the logo on the title's own layer); the blue, over the
+## finished frame; the dither; the forest in grey.
 class_name Title
 extends Control
 
@@ -121,16 +121,17 @@ func show_page(levels: bool) -> void:
 static func _spaced(s: String) -> String:
 	return " ".join(s.split(""))
 
-## The shadows go into the picture — `into` is a Control inside the
-## world's buffer; `k` maps this screen's pixels to that buffer's.
+## The shadows go into `into`, a Control under the logo; `k` maps this
+## screen's pixels to its.
 func attach_shade(into: Control) -> void:
 	shade = into
 	var img: Image = logo.texture.get_image()
 	img.decompress()
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	# a wide dark halo, and a tight drop shadow down and right
-	for p in [[0.10, 0.0, 0.01, 5.0, 0.03, 0.72], [0.03, 0.012, 0.03, 3.0, 0.008, 0.9]]:
+	# a wide dark halo, and a tight drop shadow down and right — both
+	# lighter than they were (at the user's request: less pronounced)
+	for p in [[0.10, 0.0, 0.01, 5.0, 0.03, 0.38], [0.03, 0.012, 0.03, 3.0, 0.008, 0.45]]:
 		var r := TextureRect.new()
 		r.texture = tex
 		r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

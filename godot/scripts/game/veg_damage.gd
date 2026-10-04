@@ -225,10 +225,11 @@ func blow_up(p: Dictionary, from: Vector3, force := 1.0) -> void:
 	_write(p, p.custom, true)
 
 ## How many pieces a plant `w` x `h` metres goes to: about a piece for
-## every 0.6 m square of it (a fern a handful, a tall tree eighty), so a
-## big plant's pieces come out no bigger than a small one's.
+## every metre square of it (a fern a handful, a tall tree forty), so a
+## big plant's pieces come out no bigger than a small one's — and none so
+## small they read as glitter.
 static func pieces_for(w: float, h: float) -> int:
-	return clampi(int(w * h / 0.36), 6, 80)
+	return clampi(int(w * h), 6, 40)
 
 ## A BLAST at `at` (the game's units) reaching `radius` (units): the plants
 ## close to it shredded, and the grass under it, if it went off near the

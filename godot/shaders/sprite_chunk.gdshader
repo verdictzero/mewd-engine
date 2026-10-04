@@ -17,7 +17,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, skip_vertex_transform;
 #include "res://godot/shaders/world_light.gdshaderinc"
 #include "res://godot/shaders/thermal.gdshaderinc"
 
-uniform sampler2D picture : filter_nearest_mipmap;
+uniform sampler2D picture : filter_nearest;
 // 1: the picture is sRGB as loaded (a plant's); 0: decoded already (a strip's)
 uniform bool srgb = false;
 // A PLANT'S PIECE fades out close to the eye as the plants do (metres: gone
@@ -64,6 +64,12 @@ void vertex() {
 	vec3 world = mid + right * q.x + up * q.y;
 	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
 	depth = -VERTEX.z;
+	// A PIECE TOO SMALL TO SEE IS NOT DRAWN (at the user's request: far off,
+	// a cloud of pieces a pixel or two across read as coloured glitter):
+	// under about three pixels on screen it collapses to nothing
+	vec4 mid_v = VIEW_MATRIX * vec4(mid, 1.0);
+	float px = max(w, h) * PROJECTION_MATRIX[1][1] * 0.5 * VIEWPORT_SIZE.y / max(-mid_v.z, 1e-3);
+	if (px < 3.0 || mid_v.z > 0.0) VERTEX = vec3(0.0, 0.0, 1.0);
 	local = UV * 2.0 - 1.0;
 	seed = fract(sin(dot(mid.xz, vec2(12.9898, 78.233))) * 43758.5453);
 	vec4 r = INSTANCE_CUSTOM;
@@ -75,7 +81,9 @@ void fragment() {
 	float a = atan(local.y, local.x);
 	float edge = 0.78 + 0.16 * sin(a * 5.0 + seed * 20.0) + 0.08 * sin(a * 11.0 + seed * 7.0);
 	if (length(local) > edge) discard;
-	vec4 c = texture(picture, UV);
+	// (its own texels, never a mip: a picture's mips run the colours of its
+	// clear texels into the leaf, which is the glitter again)
+	vec4 c = textureLod(picture, UV, 0.0);
 	if (srgb) c.rgb = mix(c.rgb / 12.92, pow((c.rgb + 0.055) / 1.055, vec3(2.4)), step(0.04045, c.rgb));
 	if (c.a < 0.5) discard;
 	// fading away, and a plant's piece near the eye: the screen door

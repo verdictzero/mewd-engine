@@ -133,6 +133,9 @@ script = ExtResource("18_grass")
 island_world_path = NodePath("../IslandWorld")
 sprites = [ExtResource("c_grass_01"), ExtResource("c_grass_02"), ExtResource("c_grass_03"), ExtResource("c_grass_04")]
 material = ExtResource("19_grassmat")
+grass_grid = 0.7
+tuft_size = Vector2(0.85, 0.8)
+view_distance = 70.0
 
 [node name="VegBurn" type="Node3D" parent="."]
 script = ExtResource("20_vegburn")

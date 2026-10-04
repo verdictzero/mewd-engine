@@ -23,7 +23,7 @@
 ; with it: a tuft that hazed out at a different rate than the ground it stands on
 ; would float off the surface in the distance.
 ;
-; `far_end` must stay at or under `GrassScatter.view_distance` (90 m) -- the
+; `far_end` must stay at or under `GrassScatter.view_distance` (70 m here) -- the
 ; shader dithers a tuft away over [far_start, far_end] while the scatter simply
 ; stops emitting it past view_distance, so a longer fade would pop.
 ;
@@ -53,8 +53,8 @@ shader_parameter/wind_speed = 0.9
 shader_parameter/wind_scale = 11.0
 shader_parameter/near_gone = 0.0
 shader_parameter/near_solid = 0.0
-shader_parameter/far_start = 65.0
-shader_parameter/far_end = 90.0
+shader_parameter/far_start = 50.0
+shader_parameter/far_end = 70.0
 shader_parameter/fog_enabled = true
 shader_parameter/fog_color = Color(0.62, 0.8, 1, 1)
 shader_parameter/fog_distance_start = 850.0

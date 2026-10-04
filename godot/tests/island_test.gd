@@ -82,6 +82,11 @@ func _init() -> void:
 	var moved := 0.0
 	var x0: float = p.x
 	var y0: float = p.y
+	# (a town's houses set aside for it: from the middle of a square, a walk
+	# that turns every two seconds can fetch up against one — the houses'
+	# own walls are candy_test's)
+	var kept_cells: Dictionary = lv._house_cells
+	lv._house_cells = {}
 	for t in 350:
 		var cmd := {"fwd": 1.0, "side": 0.0, "run": true, "jump": false, "look": Vector2(), "attack": false,
 			"slot": 0, "cycle": 0, "use": false}
@@ -91,6 +96,7 @@ func _init() -> void:
 		if p.z <= lv.floor_at(p.x, p.y) + 0.5:
 			stray = maxf(stray, absf(p.z - lv.floor_at(p.x, p.y)))
 		moved = maxf(moved, sqrt(U.dist2(p.x, p.y, x0, y0)))
+	lv._house_cells = kept_cells
 	check(moved > 400.0, "you walk (%.0f units out)" % moved)
 	check(stray < 2.0, "and your feet keep to the ground (worst %.1f units)" % stray)
 	# THE COAST: nobody walks off it

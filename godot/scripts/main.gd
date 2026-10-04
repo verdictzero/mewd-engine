@@ -138,15 +138,16 @@ func join_host(where: String) -> void:
 func show_title() -> void:
 	forest = TitleForest.new()
 	lofi.world.add_child(forest)
-	# the logo's shadows, inside the picture and so under the dither
-	shade = Control.new()
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lofi.world.add_child(shade)
 	lofi.set_tint(TitleForest.BLUE)
 	title_layer = CanvasLayer.new()
 	title_layer.layer = 2
 	add_child(title_layer)
+	# the logo's shadows, IN FRONT OF the dither now (at the user's request),
+	# on the title's own layer under the logo, at the screen's resolution
+	shade = Control.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_layer.add_child(shade)
 	title = Title.new()
 	title_layer.add_child(title)
 	title.attach_shade(shade)

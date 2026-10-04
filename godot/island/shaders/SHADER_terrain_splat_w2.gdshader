@@ -177,6 +177,30 @@ uniform float build_paving : hint_range(0.0, 1.0) = 0.0;
 uniform sampler2D build_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
 uniform float build_scale = 4.0;
 
+group_uniforms roads;
+// MEWD — THE ROADS AND THE TOWNS DRAWN FROM THEIR OWN LINES (at the user's
+// request, CANDY LAND: "make road textures follow the axis of the road, make
+// splats tighter", "give roads grass padding on each side", "grass padding
+// between town and cliffs"). The game hands the island's roads over as
+// straight segments and its square towns as (centre, half-side, angle)
+// (Game._road_uniforms), and where there are any the fragment works out the
+// nearest road for itself: the road is CRISP at its own width (the field's
+// soft ramp is not used for its edge), its texture runs along it, a strip of
+// grass `road_info.y` wide lies either side of it, and a town is paved only
+// to `town_pad` inside its edge, the rest of its flat grass. Off while
+// `road_count` and `town_count` are 0 (every other island).
+uniform int road_count = 0;
+// (ax, az, bx, bz), island metres
+uniform vec4 road_seg[64];
+// (half-width, grass padding either side), metres
+uniform vec2 road_info[64];
+uniform int town_count = 0;
+// (centre x, centre z, half-side, angle of its sides in x/z)
+uniform vec4 town[16];
+uniform float town_pad = 5.0;
+// how soft a road's or a pavement's edge is, metres
+uniform float road_edge = 0.2;
+
 group_uniforms steep_stone;
 // THE STONE UP THE ISLAND'S SIDES (at the user's request, CANDY LAND: "the
 // stone comes right up to where the slope on the edge of the island ends,
@@ -622,6 +646,54 @@ void fragment() {
 
 	// ---- ground layers: one top projection each ---------------------------
 	vec2 p = world_pos.xz;
+	// ---- the roads and towns off their own lines (see `road_count`) --------
+	vec2 path_p = p;
+	if (road_count > 0 || town_count > 0) {
+		float field_road = max(path, build);
+		// THE TOWNS: paved to `town_pad` inside the edge, grass round that
+		float paved = 0.0;
+		for (int i = 0; i < 16; i++) {
+			if (i >= town_count) break;
+			vec4 t = town[i];
+			vec2 d = p - t.xy;
+			vec2 ax = vec2(cos(t.w), sin(t.w));
+			float m = max(abs(dot(d, ax)), abs(dot(d, vec2(-ax.y, ax.x))));
+			if (m > t.z + 2.0) continue;
+			paved = max(paved, 1.0 - smoothstep(t.z - town_pad - road_edge, t.z - town_pad + road_edge, m));
+		}
+		// THE ROADS: the nearest, by how far inside its edge
+		float best = 1e9;
+		float pad = 0.0;
+		vec2 along = vec2(1.0, 0.0);
+		vec2 a0 = vec2(0.0);
+		for (int i = 0; i < 64; i++) {
+			if (i >= road_count) break;
+			vec4 sg = road_seg[i];
+			vec2 ab = sg.zw - sg.xy;
+			float l2 = max(dot(ab, ab), 1e-4);
+			float h = clamp(dot(p - sg.xy, ab) / l2, 0.0, 1.0);
+			float e = length(p - sg.xy - ab * h) - road_info[i].x;
+			if (e < best) {
+				best = e;
+				pad = road_info[i].y;
+				along = ab * inversesqrt(l2);
+				a0 = sg.xy;
+			}
+		}
+		float road = 1.0 - smoothstep(-road_edge, road_edge, best);
+		// its texture along it: x down the road, y across
+		vec2 rel = p - a0;
+		path_p = vec2(dot(rel, along), dot(rel, vec2(-along.y, along.x)));
+		// the grass beside it, and wherever the field graded ground the
+		// crisp lines leave out
+		float verge = (best > 0.0 && best < pad) ? 1.0 : 0.0;
+		float hard = max(road, paved);
+		float grass_here = max(verge, field_road) * (1.0 - hard);
+		path = road;
+		build = paved * (1.0 - road);
+		w = mix(w, vec4(0.0, 1.0, 0.0, 0.0), hard);
+		w = mix(w, vec4(1.0, 0.0, 0.0, 0.0), grass_here);
+	}
 	vec3 grass_a = texture(grass_albedo, p / max(grass_scale, 1e-4)).rgb * grass_tint;
 	vec3 soil_a = texture(soil_albedo, p / max(soil_scale, 1e-4)).rgb * soil_tint;
 	vec3 sand_a = texture(sand_albedo, p / max(sand_scale, 1e-4)).rgb * sand_tint;
@@ -642,7 +714,7 @@ void fragment() {
 		grass_a = mix(grass_a, golf_a, golf);
 	}
 	if (path > 0.0) {
-		vec3 path_a = texture(path_albedo, p / max(path_scale, 1e-4)).rgb * path_tint;
+		vec3 path_a = texture(path_albedo, path_p / max(path_scale, 1e-4)).rgb * path_tint;
 		soil_a = mix(soil_a, path_a, path);
 	}
 	if (build_paving > 0.0 && build > 0.0) {

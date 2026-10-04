@@ -85,6 +85,12 @@ static func decoded(t: Texture2D, mips := true) -> Texture2D:
 		img.decompress()
 	img.clear_mipmaps()
 	img.convert(Image.FORMAT_RGBA8)
+	# THE CLEAR TEXELS TAKE THEIR NEIGHBOURS' COLOUR first (at the user's
+	# request: the people had a sparkly outline): whatever colour an
+	# exporter left in a see-through texel was averaged into the edge by
+	# the mips, and the cut-out at half alpha showed it as a rim of stray
+	# colours that crawled as they moved
+	img.fix_alpha_edges()
 	img.srgb_to_linear()
 	if mips:
 		img.generate_mipmaps()

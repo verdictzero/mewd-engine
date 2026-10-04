@@ -1492,6 +1492,51 @@ BIG MARKS IN COARSE SQUARES
   are as they were.
 
 
+NO GLITTER, SMALLER GRASS, ROADS ALONG THEMSELVES, GENTLER TOWNS
+
+  At the user's request ("what is all this sparkly weird stuff when
+  stuff blows up? eliminate that"; "NPC sprites on island 0 had a weird
+  sparkly outline too"):
+    - THE GLITTER was the plants' pieces far off: a cloud of them each a
+      pixel or two across, drawn from their pictures' mips, which run the
+      colours of a picture's clear texels into the leaf — and the screen
+      door fading them, averaged down by the pixel filter, came out as
+      soft coloured blobs. Now a piece reads only its picture's own
+      texels (no mips), a piece under about three pixels on screen is not
+      drawn at all, and a plant goes to about a piece a metre square (40
+      at most), not eighty.
+    - THE OUTLINE on the people: the same thing on their strips — the
+      colour left in a see-through texel was averaged into the edge by
+      the mips and showed at the cut-out as a crawling rim. TexBank.decoded
+      now gives every clear texel its opaque neighbours' colour
+      (Image.fix_alpha_edges) before the mips are made.
+
+  THE GRASS, smaller and denser (at the user's request): CANDY LAND's
+  tufts 0.85 x 0.8 m (were 1.25 x 1.15) on a 0.7 m grid (was 1 m), about
+  twice as many to the metre; seen out to 70 m (was 90), so the count
+  drawn stays near what it was.
+
+  THE ROADS, at the user's request ("make road textures follow the axis
+  of the road, and make splats tighter"; "give roads grass padding on
+  each side"; the towns "less violent drop-offs, smoother, grass padding
+  between town and cliffs, cliffs less steep"):
+    - The game hands the ground's shader the roads as straight segments
+      and the square towns as centre, half-side and angle
+      (Game._road_uniforms, SHADER_terrain_splat_w2's `roads`). Each
+      fragment finds its nearest road: the road is crisp at its own width
+      (a fifth of a metre of edge, where the field's ramp was metres),
+      its cobbles run along it, and a 3 m strip of grass lies either side
+      (Islands.LIST "road_verge"). A town is paved to 5 m inside its edge
+      and grass from there out ("town_verge"); its own streets run
+      through to the roads. Only on islands that ask (both CANDY LANDs).
+    - THE BANKS: a square town's edge is banked over 16 m (was 1.5 m, a
+      cliff), so it meets the ground round it in a grassy slope.
+      CANDY LAND and CANDY LAND XS baked again for it.
+
+  THE TITLE (at the user's request): MEWD's shadows are lighter and are
+  drawn in front of the dither now, on the title's own layer under the
+  logo, not into the picture.
+
 TESTS
 
     tools/godot-test.sh

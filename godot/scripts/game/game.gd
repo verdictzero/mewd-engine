@@ -201,6 +201,7 @@ func start_map(which: String) -> void:
 	var field: Resource = iw.field
 	var chunk: float = iw.chunk_size
 	var roads := _roads_of(field)
+	_road_uniforms(iw, field, spec)
 	# A WORLD NOBODY LOOKS AT (a dedicated server, a bot) walks on the
 	# ground and draws none of it
 	if not draw_world:
@@ -735,6 +736,53 @@ func _roads_of(field: Resource) -> Dictionary:
 				for d in [Vector2.RIGHT.rotated(rot), Vector2.UP.rotated(rot)]:
 					out.paths.append([a - d * half, a + d * half, street])
 	return out
+
+## THE ROADS AND TOWNS INTO THE GROUND'S SHADER (at the user's request,
+## CANDY LAND: road textures along the road, tight edges, grass beside the
+## roads and round the towns' paving; SHADER_terrain_splat_w2's `roads`):
+## every road a segment in the island's metres with its half-width and the
+## grass either side (the towns' own streets none), every square town its
+## centre, half-side and angle. Only for an island that asks ("road_verge"
+## in Islands.LIST); every other one is drawn as before.
+func _road_uniforms(iw: Node, field: Resource, spec: Dictionary) -> void:
+	var mat := iw.get("terrain_material") as ShaderMaterial
+	if mat == null:
+		return
+	if not spec.has("road_verge") or field == null or not bool(field.get("zone_enabled")):
+		mat.set_shader_parameter("road_count", 0)
+		mat.set_shader_parameter("town_count", 0)
+		return
+	var f: Resource = field.clone()
+	var isl = f.island_in_cell(f.hub_cell())
+	var segs := PackedVector4Array()
+	var info := PackedVector2Array()
+	var towns := PackedVector4Array()
+	for z in f.zones_for(isl):
+		if z.kind == f.ZONE_PATH and segs.size() < 64:
+			segs.append(Vector4(z.a.x, z.a.y, z.b.x, z.b.y))
+			info.append(Vector2(float(z.width), float(spec.road_verge)))
+		elif z.kind == f.ZONE_BUILD and bool(z.get("square")) and towns.size() < 16:
+			towns.append(Vector4(z.a.x, z.a.y, float(z.width), float(z.get("rot"))))
+			var street := float(z.get("street"))
+			if street > 0.0:
+				var half := float(z.width)
+				for d in [Vector2.RIGHT.rotated(float(z.get("rot"))), Vector2.DOWN.rotated(float(z.get("rot")))]:
+					if segs.size() < 64:
+						var a: Vector2 = z.a - d * half
+						var b: Vector2 = z.a + d * half
+						segs.append(Vector4(a.x, a.y, b.x, b.y))
+						info.append(Vector2(street, 0.0))
+	var nr := segs.size()
+	var nt := towns.size()
+	segs.resize(64)
+	info.resize(64)
+	towns.resize(16)
+	mat.set_shader_parameter("road_seg", segs)
+	mat.set_shader_parameter("road_info", info)
+	mat.set_shader_parameter("town", towns)
+	mat.set_shader_parameter("road_count", nr)
+	mat.set_shader_parameter("town_count", nt)
+	mat.set_shader_parameter("town_pad", float(spec.get("town_verge", 5.0)))
 
 ## WHERE A HERD MAY GRAZE (CANDY LAND's unicorns): open grass — no
 ## wood, no road, square or their banks, gentle ground — asked of a copy

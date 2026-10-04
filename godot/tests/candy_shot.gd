@@ -57,7 +57,7 @@ func _frame() -> void:
 		_start = game.tics
 		p.health = 100000
 		# the island's own colours, as main.gd's prefs give them
-		lofi.for_island(game.island_spec, true)
+		lofi.for_island(game.island_spec, not "--clean" in args)
 		if "--house" in args and not game.level.houses.is_empty():
 			var best = null
 			for h in game.level.houses:

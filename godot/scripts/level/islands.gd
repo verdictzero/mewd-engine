@@ -19,6 +19,11 @@
 ##            {count, adults: [least, most], foals: [least, most]}
 ##   lamps    (optional) street lamps along the island's roads, this far
 ##            apart in metres
+##   road_verge (optional) the roads and towns drawn off their own lines
+##            (Game._road_uniforms): a strip of grass this many metres wide
+##            either side of every road, the road's texture along it
+##   town_verge (optional, with road_verge) a square town paved to this
+##            many metres inside its edge, grass from there to the bank
 class_name Islands
 extends RefCounted
 
@@ -38,7 +43,7 @@ const LIST := [
 	# to say hello (Actor.A_Greet) until something frightens them
 	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 360,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
-		"exposure": 0.8, "knee": 0.65,
+		"exposure": 0.8, "knee": 0.65, "road_verge": 3.0, "town_verge": 5.0,
 		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
 		# the gingerbread houses round the squares (IslandLevel.place_houses):
 		# the model's footprint in metres (half its width, its back and its
@@ -53,7 +58,7 @@ const LIST := [
 	# are as many as will fit, on less ground
 	{"key": "candyland-xs", "title": "CANDY LAND XS", "scene": "res://godot/island/scenes/candy_land_xs.tscn", "people": 360,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
-		"exposure": 0.8, "knee": 0.65,
+		"exposure": 0.8, "knee": 0.65, "road_verge": 3.0, "town_verge": 5.0,
 		"herds": {"count": 12, "adults": [3, 6], "foals": [1, 3]},
 		# the gingerbread houses round the squares (IslandLevel.place_houses):
 		# the model's footprint in metres (half its width, its back and its
