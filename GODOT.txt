@@ -1750,37 +1750,138 @@ THE SHAKE, AND PLANTS THAT TAKE A BEATING FIRST
   outside the blast shaken but standing, and a tree shaken on the first
   round.
 
-THE DECAL LOG
+THE PERFORMANCE LOG
 
-  At the user's request ("massive lag with too many decals; don't correct
-  anything yet, but add verbose logging to a log file"). Nothing about the
-  marks has changed. DecalLog (godot/scripts/core/decal_log.gd) writes
-  what they cost:
-  - On a desktop it writes mewd-decals.log in the user's home folder
+  At the user's request: first "massive lag with too many decals; don't
+  correct anything yet, but add verbose logging to a log file", then,
+  with the first log read, "add logging for LITERALLY EVERYTHING with
+  frame and cpu counts". Nothing about the game has changed for it.
+  PerfLog (godot/scripts/core/perf_log.gd) writes what everything costs:
+  - On a desktop it writes mewd-perf.log in the user's home folder
     (%USERPROFILE% on Windows).
   - On the handheld it writes to user://.
   - Each game writes it afresh and keeps the game before as
-    mewd-decals.prev.log.
+    mewd-perf.prev.log.
 
-  The log has these lines:
+  Every line is stamped with the milliseconds since the game began and
+  the frame. The lines:
+  - FRAME, every frame:
+    - the frame's wall time, the engine's whole _process and
+      _physics_process time, the renderer's CPU and GPU time for the
+      frame before, draw calls, primitives and objects;
+    - sec: every section of Game._process and Game.tic in ms, each timed
+      on the microsecond clock (Game._prof_add feeds the log): look,
+      tics (and within them tic.players, tic.weather, tic.actors,
+      tic.tracers, tic.decals, tic.streams, tic.guns, tic.escalation,
+      tic.fx, tic.giblets, tic.chunks, tic.bleed, tic.veg_damage,
+      tic.trophies, tic.rest), camera, draw.beam, touch+zoom, scopes,
+      weather+light, forest_view, standees, draw.tracers, draw.streams,
+      draw.guns, draw.escalation, draw.fx, draw.giblets, draw.chunks,
+      draw.trophies, weapon3d; and isl.*: the island's own nodes
+      (IslandWorld, VegScatter, GrassScatter, VegBurn, TimeOfDay,
+      CloudSea, HorizonClouds), whose _process the log runs itself, after
+      Game's, so each can be timed; other is what the engine's process
+      total has that no section accounts for, log the log's own cost;
+    - n: the counts — tics this frame, actors awake and asleep, sprite
+      rows written, pieces, gibs, particles, missiles, bores, live marks
+      by pool, heat spots, nodes, objects, orphans, static memory, video
+      memory;
+    - did: what happened this frame — hitscans, spawns, wounds, gibs,
+      explosions, marks laid by kind, plant rows written, and whether the
+      plant and grass scatters are owed a rescan and how many of their
+      tiles are pending.
   - PLACE: every mark laid, with its pool and kind, the slot it took, the
     pool's live count after it, and where and how big it was. A full pool
     is noted, since the oldest mark is then overwritten.
-  - SEC, once a second:
-    - fps and the worst frame;
-    - the CPU's and the GPU's render time (measured for the log);
-    - draw calls, primitives, objects and video memory;
-    - every pool's live count and the heat spots;
-    - how many marks were laid;
-    - how many live marks stand in front of the eye, and COVERAGE: the
-      screen share their boxes cover, added up, which is fill and what a
-      projected decal costs a Mali;
-    - the crowd, the pieces and the gibs, for comparison;
-    - what the log's own second cost.
-  - SPIKE: any frame over 40 ms, with what was laid in it.
+  - SEC, once a second: fps, the worst frame, the marks laid, and every
+    section's average over the second, biggest first.
+  - SPIKE: any frame over 40 ms, with its three biggest sections and
+    what was laid in it.
+  - EVENT: what the BlackBox marks (a level, a gun change, a pause, a
+    quit).
 
   Lines are buffered and flushed once a second. Headless runs (the tests)
-  write nothing unless given --decal-log.
+  write nothing unless given --perf-log.
+
+  WHAT THE FIRST LOG SAID (a Quadro M6000, 1920 x 1008, three and a half
+  minutes of Candy Land): the GPU took 3 to 4 ms a frame nearly the whole
+  run, the renderer's CPU under a millisecond, and every pool was full
+  (hole 400, gore 480) from the first minute while the game held 60 fps —
+  so the number of marks is not the lag. The spikes (40 to 90 ms) came
+  with the minigun firing (holes laid, trees shot), with eight hundred
+  plant pieces in the air, once at 215 ms on a gib, and at the end a
+  stretch where the GPU climbed to 62 ms as rockets filled the blast pool
+  and then five seconds at 7 fps with the GPU at 3 ms and nothing laid:
+  script time, which the first log could not place and this one can.
+
+THE HILLS: SOFTER TOWNS, STONE ON THE STEEP, NO PLANTS ON IT, NO LAMPS UP IT
+
+  At the user's request ("smooth terrain around villages even further,
+  change the threshold at which cliff textures occur and at which
+  vegetation occurs, and add which street lamps occur; we've got steep
+  hills with no cliff and vegetation spawning in a weird clipped way").
+  Slopes here are 1 - the normal's up: 0.17 is 34 degrees, 0.26 is 42.
+  - TOWNS: square_apron 30 -> 60 m on both Candy Lands, so a town's bank
+    runs out over twice the distance at half the grade.
+  - STONE: the terrain shader's steep stone (SHADER_terrain_splat_w2
+    `steep_stone`, which was off) is on in MAT_terrain_splat_w2: ground
+    steeper than 0.17 turns to the cliff wall's own rock, whole by 0.24,
+    with the wall's texture, scale, tint, mean and contrast. The baked
+    rock splat band under it is lowered to match (rock_follows_veg off,
+    rock_slope_lo 0.16, rock_slope_hi 0.26; it was 0.29..0.42, which is
+    45 to 54 degrees — the hills never got there).
+  - PLANTS: VegScatter max_slope 0.35 -> 0.18 on both Candy Lands (it was
+    49 degrees: trees stood on ground the stone now covers, and on a
+    slope a billboard is sunk until its downhill corner is in the ground,
+    which buried the uphill half of it — the "clipped" look), sink_most
+    0.3 -> 0.15, the field's forest_max_slope 0.42 -> 0.26 (the woods thin
+    from 0.18), the grass's max_slope 0.42 -> 0.22. The veg bake's
+    signature carries the scatter's exports, so the bakes follow.
+  - LAMPS: a lamp stands only where the kerb's ground is gentler than
+    IslandLevel.LAMP_SLOPE (0.12, 28 degrees) and within LAMP_STEP (1.5 m)
+    of the road's own height — a road cut into a hillside has its kerb up
+    the bank, and a lamp up there stood in the hill.
+
+THE BIG MARKS ARE BAKED
+
+  At the user's request ("the more rocket impact decals in view, the
+  lower the FPS"; "fix it"). The first performance log had said so: in
+  its last stretch the GPU went from 4 ms a frame to 62 as the blast
+  pool filled, and blast_decal.gdshader was why. A crater's picture —
+  four octaves of noise several times over, the cracks, the rays, a
+  26-step shrapnel loop — was drawn again EVERY FRAME for EVERY PIXEL of
+  every crater's box, with no depth test to skip any of it (a projected
+  decal cannot have one), so thirty craters in view ran the whole thing
+  thirty times a pixel. The pool count never mattered; what was in front
+  of the eye did.
+
+  Now a mark's picture is drawn ONCE, when it is laid. Decals has a bake
+  atlas: a 2D SubViewport (1024 x 320: the blast pool's 160 slots as 16
+  tiles a row, each tile two 32 x 32 layers side by side) that is never
+  cleared after its first draw. Decals._bake puts a ColorRect over the
+  slot's tile with blast_bake.gdshader (the noise and the shapes exactly
+  as they were, in a canvas shader with blending off so its channels
+  are stored as numbers) and asks the viewport for one draw; the rect is
+  put away the frame after. The mark's row carries its slot in custom y
+  (its whole part; the seed in the fraction), and blast_decal.gdshader
+  fetches the tile — two texture reads, nearest, which is the 32-texel
+  LOW RES the marks already had — and does only what moves: the heat
+  dying, the shockwave ring, the embers' flicker (one noise), the
+  rainbow turning and the glints twinkling, the arc figure's crackle.
+  What each layer holds is in blast_bake.gdshader's header. The viewport
+  is HDR under Mobile (U.raw_out) so nothing is gamma-bent on the way
+  through. The sears (sear_decal.gdshader, the lance's) still draw
+  theirs every frame; they are the same kind of shader and the next to
+  bake if the lance shows the same lag.
+
+ROCKETS THAT RUN OUT, AND A THINNER TRAIL
+
+  At the user's request ("rockets need to stop existing after a certain
+  flight distance, and have less dense smoke trails"). A rocket that has
+  flown MissileSystem.MISSILE.range (4800 units, 150 m — past the
+  seeker's 131 m lock, so a locked shot still arrives) is removed on the
+  spot: no detonation, no mark, it is gone. Its trail drops a puff every
+  TRAIL.step 28 units instead of 14, each living 36 tics instead of 44.
 
 TESTS
 

@@ -25,9 +25,14 @@ extends Node3D
 
 const SEEKER := {"range": 4200.0, "cone": 0.105, "track": 0.21, "hold": 0.34, "grace": 18, "first": 16, "next": 11, "most": 4}
 const MISSILE := {"speed0": 12.0, "speed1": 58.0, "accel": 1.13, "boost": 5, "turn": 0.085, "kick": 0.075,
-	"life": 7 * 35, "reach": 14.0, "gap": 4, "lead": 40.0}
+	"life": 7 * 35, "reach": 14.0, "gap": 4, "lead": 40.0,
+	# A ROCKET STOPS EXISTING past this far flown (units: 150 m, past the
+	# seeker's 131 m lock), at the user's request — no bang, it is gone
+	"range": 4800.0}
 const WARHEAD := {"direct": 420, "splash": 150, "radius": 190.0, "heat": 240.0, "heatRadius": 90.0, "ignite": 260, "self": 0.5}
-const TRAIL := {"step": 14.0, "max": 1000, "life": 44, "size0": 6.0, "size1": 34.0, "light": 0.82}
+## (a puff every `step` units: 28, half what it was, and shorter-lived —
+## "less dense smoke trails", at the user's request)
+const TRAIL := {"step": 28.0, "max": 1000, "life": 36, "size0": 6.0, "size1": 34.0, "light": 0.82}
 ## nose to tail, in map units
 const ROCKET_LENGTH := 16.0
 const BOOM := {"tics": 3, "frames": 8, "size": 136.0}
@@ -327,7 +332,7 @@ func launch(p, target, tube: int) -> Dictionary:
 		d += Vector3(sin(p.angle) * right * MISSILE.kick, -cos(p.angle) * right * MISSILE.kick, up * MISSILE.kick * 0.8)
 		d = d.normalized()
 	var s := {"x": o.x, "y": o.y, "z": o.z, "dx": d.x, "dy": d.y, "dz": d.z, "speed": MISSILE.speed0,
-		"target": target, "life": MISSILE.life, "tics": 0, "tube": tube, "seed": U.p_random() / 255.0}
+		"target": target, "life": MISSILE.life, "tics": 0, "tube": tube, "seed": U.p_random() / 255.0, "flown": 0.0}
 	shots.append(s)
 	fired += 1
 	game.play_sound("missile", p)
@@ -340,6 +345,11 @@ func _fly_tic() -> void:
 	for i in range(shots.size() - 1, -1, -1):
 		var s: Dictionary = shots[i]
 		s.tics += 1
+		# flown its range: gone, quietly (MISSILE.range)
+		s.flown = float(s.get("flown", 0.0)) + float(s.speed)
+		if s.flown >= MISSILE.range:
+			shots.remove_at(i)
+			continue
 		var t = s.target if s.target != null and is_hot(s.target) else null
 		if t == null:
 			s.target = null

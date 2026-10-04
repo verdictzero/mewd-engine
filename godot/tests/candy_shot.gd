@@ -69,6 +69,24 @@ func _frame() -> void:
 			p.angle = best.angle + PI
 			p.sector = game.level.sector_at(p.x, p.y)
 			p.z = game.level.floor_at(p.x, p.y)
+		if "--bank" in args:
+			# THE TOWN FROM ITS BANK: 110 m out from the start (a town's
+			# middle), the way the ground rises most, looking back down at it
+			var best_a := 0.0
+			var best_z := -INF
+			for k in 24:
+				var ang := k * TAU / 24.0
+				var q := Vector2(p.x, p.y) + Vector2(cos(ang), sin(ang)) * 110.0 * 32.0
+				var z: float = game.level.floor_at(q.x, q.y)
+				if game.level.on_land(q.x, q.y, 32.0) and z > best_z:
+					best_z = z
+					best_a = ang
+			var at := Vector2(p.x, p.y) + Vector2(cos(best_a), sin(best_a)) * 110.0 * 32.0
+			p.x = at.x
+			p.y = at.y
+			p.angle = best_a + PI
+			p.sector = game.level.sector_at(p.x, p.y)
+			p.z = game.level.floor_at(p.x, p.y)
 		if "--edge" in args:
 			# walk out from the start until the ground runs out, then back 12 m
 			var dir := Vector2(cos(p.angle), sin(p.angle))
@@ -97,7 +115,8 @@ func _frame() -> void:
 				var d := tp.distance_to(Vector2(p.x, p.y))
 				if d < 15.0 * 32.0:
 					continue
-				var eye := tp + (Vector2(p.x, p.y) - tp).normalized() * 14.0 * 32.0
+				# (--near: four metres back, for a look at the crater)
+				var eye := tp + (Vector2(p.x, p.y) - tp).normalized() * (4.0 if "--near" in args else 14.0) * 32.0
 				if not game.level.on_land(eye.x, eye.y, 0.0) or not vd.near(eye.x / 32.0, -eye.y / 32.0, 1.5).is_empty():
 					continue
 				best = tp

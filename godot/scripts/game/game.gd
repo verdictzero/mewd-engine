@@ -275,8 +275,8 @@ func start_map(which: String) -> void:
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
 	add_child(gore_decals)
-	# what the marks cost, written down (at the user's request: DecalLog)
-	DecalLog.begin(self)
+	# what the marks cost, written down (at the user's request: PerfLog)
+	PerfLog.begin(self)
 	fx = Effects.new(self)
 	add_child(fx)
 	giblets = Giblets.new(self)
@@ -410,6 +410,7 @@ func _process(dt: float) -> void:
 		net.poll()
 	dt = minf(dt, 0.25)
 	clock += dt
+	var t0 := Time.get_ticks_usec()
 	U.gset("shake_clock", clock)
 	# the look, every frame
 	var keyturn := Input.get_axis("turn_left", "turn_right") * 2.6 * dt
@@ -434,8 +435,9 @@ func _process(dt: float) -> void:
 		player.turn((Vector2(_look.x + keyturn, _look.y) + pad_look) * slow)
 	_look = Vector2()
 	_acc += dt / float(SLOW_MO) if slow_mo else dt
+	_prof_add("look", t0)
 	var n := 0
-	var t0 := Time.get_ticks_usec()
+	t0 = Time.get_ticks_usec()
 	while _acc >= U.SEC and n < MAX_TICS:
 		_acc -= U.SEC
 		n += 1
@@ -445,10 +447,15 @@ func _process(dt: float) -> void:
 	if n == MAX_TICS:
 		_acc = 0.0
 	# the others, slid to where they were a moment ago
+	t0 = Time.get_ticks_usec()
 	if net != null:
 		net.frame()
 	_place_camera(_acc / U.SEC)
+	_prof_add("camera", t0)
+	t0 = Time.get_ticks_usec()
 	beam.draw((tics + _acc / U.SEC) * U.SEC, dt)
+	_prof_add("draw.beam", t0)
+	t0 = Time.get_ticks_usec()
 	scope.held = lance
 	thermal.held = launcher
 	green_thermal.held = potato
@@ -477,6 +484,7 @@ func _process(dt: float) -> void:
 	_zoom = false
 	# (off the step it is at now, not the one it was at when the look was taken)
 	camera.fov = BASE_FOV * (sighted.view_scale() if sighted != null else 1.0)
+	_prof_add("touch+zoom", t0)
 	t0 = Time.get_ticks_usec()
 	scope.render(camera)
 	thermal.render(camera)
@@ -484,9 +492,11 @@ func _process(dt: float) -> void:
 	scope.update(player, tics)
 	thermal.update(player, tics)
 	green_thermal.update(player, tics)
+	_prof_add("scopes", t0)
+	t0 = Time.get_ticks_usec()
 	weather.apply(dt)
 	_island_light()
-	_prof_add("scopes+weather", t0)
+	_prof_add("weather+light", t0)
 	t0 = Time.get_ticks_usec()
 	forest_view.draw(camera.position, (tics + _acc / U.SEC) * U.SEC)
 	_prof_add("forest_view", t0)
@@ -495,9 +505,13 @@ func _process(dt: float) -> void:
 	_prof_add("standees", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.draw_for(camera, _acc / U.SEC)
+	_prof_add("draw.tracers", t0)
+	t0 = Time.get_ticks_usec()
 	flame.particles.draw()
 	frost.particles.draw()
 	rain.pool.draw()
+	_prof_add("draw.streams", t0)
+	t0 = Time.get_ticks_usec()
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
 	arc.draw(camera)
@@ -507,12 +521,20 @@ func _process(dt: float) -> void:
 	_prof_add("draw.escalation", t0)
 	t0 = Time.get_ticks_usec()
 	fx.draw()
-	giblets.draw()
-	chunks.draw()
-	trophies.draw()
 	_prof_add("draw.fx", t0)
+	t0 = Time.get_ticks_usec()
+	giblets.draw()
+	_prof_add("draw.giblets", t0)
+	t0 = Time.get_ticks_usec()
+	chunks.draw()
+	_prof_add("draw.chunks", t0)
+	t0 = Time.get_ticks_usec()
+	trophies.draw()
+	_prof_add("draw.trophies", t0)
+	t0 = Time.get_ticks_usec()
 	if weapon3d != null:
 		weapon3d.update_for(player, player.firing(), dt, player.sector.light if player.sector else 1.0)
+	_prof_add("weapon3d", t0)
 	_prof_frame()
 
 ## --prof: where a frame's time goes, averaged and printed every 2 s —
@@ -526,8 +548,11 @@ var _prof_tics := 0
 var _prof_last := {}
 var _prof_last_tics := 0.0
 func _prof_add(k: String, t0: int) -> void:
+	var dt := Time.get_ticks_usec() - t0
 	if _prof_on:
-		_prof[k] = _prof.get(k, 0) + Time.get_ticks_usec() - t0
+		_prof[k] = _prof.get(k, 0) + dt
+	# (and every section to the performance log, when there is one)
+	PerfLog.section(k, dt)
 
 ## the last average, a short line: the tics, the crowd, the rest
 func prof_text() -> String:
@@ -537,8 +562,8 @@ func prof_text() -> String:
 	var ms := func(k: String) -> float: return float(t.get(k, 0.0)) / 1000.0
 	return "tics %.1f (x%.1f, people %.1f) · crowd %.1f (%d rows) · guns %.1f · fx %.1f · scopes %.1f ms" % [
 		ms.call("tics"), _prof_last_tics, ms.call("tic.actors"), ms.call("standees"), standees.written,
-		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx") + ms.call("tic.giblets"),
-		ms.call("scopes+weather")]
+		ms.call("draw.guns") + ms.call("tic.guns"), ms.call("draw.fx") + ms.call("tic.fx") + ms.call("tic.giblets") + ms.call("draw.giblets") + ms.call("draw.chunks") + ms.call("tic.chunks"),
+		ms.call("scopes") + ms.call("weather+light")]
 
 func _prof_frame() -> void:
 	if not _prof_on:
@@ -608,6 +633,8 @@ func tic() -> void:
 	# a player here from a player on another machine (js/game.js)
 	# in slow motion the players take SLOW_MO tics to the world's one, and
 	# are drawn sliding from where they stood before the first of them
+	PerfLog.did("tic")
+	var t0 := Time.get_ticks_usec()
 	var reps: int = SLOW_MO if slow_mo and net == null else 1
 	var stood: Array = []
 	for p: Player in players:
@@ -623,8 +650,11 @@ func tic() -> void:
 	if reps > 1:
 		for i in players.size():
 			players[i].prev = stood[i]
+	_prof_add("tic.players", t0)
+	t0 = Time.get_ticks_usec()
 	weather.tic()
-	var t0 := Time.get_ticks_usec()
+	_prof_add("tic.weather", t0)
+	t0 = Time.get_ticks_usec()
 	# THE CROWD FAR OFF THINKS LESS OFTEN (at the user's request, for
 	# speed): somebody ALIVE with nothing on — not alight, not afraid, no
 	# target, not held — further than LOD_FAR from the player takes one
@@ -655,15 +685,18 @@ func tic() -> void:
 	_prof_add("tic.actors", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.tic()
+	_prof_add("tic.tracers", t0)
+	t0 = Time.get_ticks_usec()
 	if decals != null:
 		decals.tic()
 	_prof_add("tic.decals", t0)
-	t0 = Time.get_ticks_usec()
 	t0 = Time.get_ticks_usec()
 	forest.wind = weather.wind()
 	rain.tic()
 	flame.tic()
 	frost.tic()
+	_prof_add("tic.streams", t0)
+	t0 = Time.get_ticks_usec()
 	bore.tic()
 	missiles.tic()
 	potatoes.tic()
@@ -677,12 +710,21 @@ func tic() -> void:
 	_prof_add("tic.fx", t0)
 	t0 = Time.get_ticks_usec()
 	giblets.tic()
+	_prof_add("tic.giblets", t0)
+	t0 = Time.get_ticks_usec()
 	chunks.tic()
+	_prof_add("tic.chunks", t0)
+	t0 = Time.get_ticks_usec()
 	_bleed_tic()
+	_prof_add("tic.bleed", t0)
+	t0 = Time.get_ticks_usec()
 	if veg_damage != null:
 		veg_damage.tic()
+	_prof_add("tic.veg_damage", t0)
+	t0 = Time.get_ticks_usec()
 	trophies.tic()
-	_prof_add("tic.giblets", t0)
+	_prof_add("tic.trophies", t0)
+	t0 = Time.get_ticks_usec()
 	if big_message_tics > 0:
 		big_message_tics -= 1
 		if big_message_tics == 0:
@@ -697,6 +739,7 @@ func tic() -> void:
 	# run left the player looking at (NetGame)
 	if net != null:
 		net.tic()
+	_prof_add("tic.rest", t0)
 
 ## a picture's eye, off the body (--eye=rise,pitch): rise, pitch degrees
 var eye_hook := Vector2.ZERO
@@ -849,6 +892,7 @@ func _spawn_things() -> void:
 		actors.append(a)
 
 func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:
+	PerfLog.did("spawn")
 	var act := Actor.new(self, type, x, y, a, opts)
 	actors.append(act)
 	# (awake from the start, wherever it is: a fireball cannot wait for
@@ -910,6 +954,7 @@ func scare(x: float, y: float, r: float) -> void:
 ## to": the body's own picture is NOT thrown in pieces, that was the
 ## pieces of a drawing and not of a person)
 func gib(a: Actor) -> void:
+	PerfLog.did("gib")
 	# (a body a warhead killed is eviscerated by it, pieces and all:
 	# MissileSystem.detonate marks it, and the burst is the fireball alone)
 	giblets.burst(a, 0 if a.has_meta("warhead") and gore_decals.bleeds(a) else -1)
@@ -936,6 +981,7 @@ func _burst_picture(a: Actor, pieces: int, force: float, wet: float) -> void:
 ## great deal of blood: a gout on along the round's way, a mist, and a
 ## run of spurts after (bleeders). A lamp throws its piece and a spark.
 func wound(a: Actor, opts: Dictionary) -> void:
+	PerfLog.did("wound")
 	var at: Vector3 = opts.get("at", Vector3(a.x, a.y, a.z + a.height * 0.6))
 	var dir: Vector3 = opts.get("dir", Vector3(cos(a.angle), sin(a.angle), 0.0))
 	var d2 := Vector2(dir.x, dir.y).normalized()
@@ -1019,6 +1065,7 @@ func actors_in_cone_around(at, radius: float) -> Array:
 ## the grid, a burn on the floor under it, the building if `structure`
 ## says so, and everybody in `radius` hurt by how near and set alight.
 func explode(a, opts := {}) -> void:
+	PerfLog.did("explode")
 	var radius: float = opts.get("radius", 150.0)
 	var dmg: float = opts.get("damage", 60.0)
 	var ign: int = opts.get("ignite", 320)
@@ -1214,6 +1261,7 @@ func targets_for(from) -> Array:
 ## opts: pitch, from (Vector3 map-space muzzle), shot, hot. Returns the
 ## thing hit, or null; last_hit is where it stopped.
 func hitscan(from, ang: float, range: float, dmg: float, opts := {}):
+	PerfLog.did("hitscan")
 	var pitch: float = opts.get("pitch", 0.0)
 	var cp := cos(pitch)
 	var o: Vector3 = opts.get("from", Vector3(from.x, from.y, from.eye_z()))

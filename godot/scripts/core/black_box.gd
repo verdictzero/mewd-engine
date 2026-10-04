@@ -35,6 +35,7 @@ static func previous() -> String:
 ## Something that happened, written now (a quit, a level, a weapon change).
 static func mark(what: String) -> void:
 	_event = what
+	PerfLog.event(what)
 	_lines.append("%d %s" % [Time.get_ticks_msec(), what])
 	if _lines.size() > 8:
 		_lines = _lines.slice(_lines.size() - 8)

@@ -53,6 +53,14 @@ const NUKE_SIZE := 300.0
 const STREAK_REACH := 260.0
 
 const THICK := {"hole": 1.0, "blood": 0.6, "heat": 0.6, "sear": 0.5, "blast": 0.45}
+## THE BIG MARKS ARE BAKED (at the user's request: "the more rocket impact
+## decals in view, the lower the FPS"): a mark's picture is drawn once,
+## when it is laid, into its slot's tile of a 2D viewport that is never
+## cleared (blast_bake.gdshader), and blast_decal.gdshader samples the
+## tile from then on. A tile is two 32 x 32 layers side by side; the atlas
+## is the blast pool laid out ATLAS_ACROSS tiles a row.
+const ATLAS_ACROSS := 16
+const TILE := Vector2(64, 32)
 
 class Pool:
 	var mm: MultiMesh
@@ -165,8 +173,58 @@ func _ready() -> void:
 	bmi.sorting_offset = -0.5
 	add_child(bmi)
 	pools["blast"] = bp
+	# the bake atlas: a 2D viewport the pool's size in tiles, drawn into
+	# only when a mark is laid (UPDATE_ONCE), never cleared after the first
+	var rows := ceili(float(BLAST_POOL) / ATLAS_ACROSS)
+	bake_vp = SubViewport.new()
+	bake_vp.disable_3d = true
+	bake_vp.transparent_bg = true
+	bake_vp.size = Vector2i(int(TILE.x) * ATLAS_ACROSS, int(TILE.y) * rows)
+	bake_vp.render_target_clear_mode = SubViewport.CLEAR_MODE_ONCE
+	bake_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(bake_vp)
+	U.raw_out(bake_vp)
+	blast_mat.set_shader_parameter("atlas", bake_vp.get_texture())
+	blast_mat.set_shader_parameter("atlas_across", U.col(float(ATLAS_ACROSS)))
+	blast_mat.set_shader_parameter("atlas_down", U.col(float(rows)))
+
+## the bake atlas, and the rects that draw into it: one a mark laid this
+## frame, hidden again once the viewport has drawn them
+var bake_vp: SubViewport
+var _bake_free: Array = []
+var _bake_busy: Array = []
+var baked := 0
+
+## A big mark's picture drawn into its slot's tile (blast_bake.gdshader),
+## on the viewport's next draw.
+func _bake(slot: int, kind: float, seed: float) -> void:
+	var r: ColorRect
+	if _bake_free.is_empty():
+		r = ColorRect.new()
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://godot/shaders/blast_bake.gdshader")
+		r.material = m
+		r.size = TILE
+		bake_vp.add_child(r)
+	else:
+		r = _bake_free.pop_back()
+	r.position = Vector2(float(slot % ATLAS_ACROSS) * TILE.x, float(slot / ATLAS_ACROSS) * TILE.y)
+	r.material.set_shader_parameter("kind", U.col(kind))
+	r.material.set_shader_parameter("seed", U.col(seed))
+	r.visible = true
+	_bake_busy.append([r, Engine.get_process_frames()])
+	bake_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	baked += 1
 
 func _process(_dt: float) -> void:
+	# the tiles drawn last frame: their rects put away
+	var f := Engine.get_process_frames()
+	for i in range(_bake_busy.size() - 1, -1, -1):
+		if int(_bake_busy[i][1]) < f:
+			var r: ColorRect = _bake_busy[i][0]
+			r.visible = false
+			_bake_free.append(r)
+			_bake_busy.remove_at(i)
 	for m in _mats:
 		m.set_shader_parameter("now", U.col(_now()))
 	if sear_mat != null:
@@ -210,7 +268,7 @@ func heat(at: Vector3, normal: Vector3) -> void:
 		var basis := Basis.looking_at(-gn, up).rotated(gn, _hseed[best] * TAU).scaled(Vector3.ONE * HEAT.size)
 		p.mm.set_instance_transform(best, Transform3D(basis, pos))
 		p.mm.visible_instance_count = p.cap
-		DecalLog.placed("heat", KIND_HEAT, best, _hlive, p.cap, at, HEAT.size)
+		PerfLog.placed("heat", KIND_HEAT, best, _hlive, p.cap, at, HEAT.size)
 	_hs[best] = minf(1.0, _hs[best] + HEAT.per)
 	_hpeak[best] = maxf(_hpeak[best], _hs[best])
 	p.mm.set_instance_custom_data(best, Color(KIND_HEAT, _hseed[best], _hs[best], _hlight[best]))
@@ -275,7 +333,7 @@ func _put(pool: String, at: Vector3, normal: Vector3, size: float, kind: float, 
 	var slot := p.next
 	p.next = (p.next + 1) % p.cap
 	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
-	DecalLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
+	PerfLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
 
 func _light_at(at: Vector3) -> float:
 	var g = get_parent()
@@ -381,11 +439,17 @@ func _put_thrown(pool: String, at: Vector3, normal: Vector3, size: float, d: Vec
 	var s: Level.Sector = get_parent().level.span_at(at.x, at.y, at.z)
 	# w: the surface's light, plus two if it is under the sky
 	var light := (s.light if s else 0.8) + (2.0 if s != null and s.sky > 0.5 else 0.0)
-	p.mm.set_instance_custom_data(p.next, Color(kind, randf(), _now(), light))
 	var slot := p.next
+	var seed := randf() * 0.999
+	if pool == "blast":
+		# (its picture baked into its tile; y carries the slot and the seed)
+		_bake(slot, kind, seed)
+		p.mm.set_instance_custom_data(slot, Color(kind, float(slot) + seed, _now(), light))
+	else:
+		p.mm.set_instance_custom_data(slot, Color(kind, seed, _now(), light))
 	p.next = (p.next + 1) % p.cap
 	p.mm.visible_instance_count = p.cap if p.next == 0 else maxi(p.mm.visible_instance_count, p.next)
-	DecalLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
+	PerfLog.placed(pool, kind, slot, p.mm.visible_instance_count, p.cap, at, size)
 
 ## THE WARM-UP (Main, under the loading screen): one mark of every kind
 ## laid on the ground at `at` for a few frames, so each shader is compiled

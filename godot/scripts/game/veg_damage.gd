@@ -205,6 +205,7 @@ func _write(p: Dictionary, custom: Vector4, gone: bool) -> void:
 			buf[k + j] = 0.0
 	bufs[i] = buf
 	changed[p.key] = [tile, i, p.row, custom, gone or bool(changed.get(p.key, [0, 0, 0, 0, false])[4])]
+	PerfLog.did("veg.write")
 	# owed a re-pack, and soon (SCRIPT_veg_scatter.gd `_fill`)
 	veg._fill_owed[i] = 1
 	veg._force_rescan = true

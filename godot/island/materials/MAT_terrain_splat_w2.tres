@@ -297,6 +297,21 @@ shader_parameter/rock_albedo = ExtResource("9_rock_a")
 shader_parameter/rock_normal = ExtResource("10_rock_n")
 shader_parameter/rock_scale = 12.0
 shader_parameter/rock_tint = Color(2.8, 2.8, 2.8, 1)
+; THE CLIFF WALL'S STONE ON THE STEEP HILLS (at the user's request: "steep
+; hills with no cliff" — change the threshold at which cliff textures occur):
+; the ground steeper than steep_lo (1 - normal.y: 0.17 is 34 degrees) turns
+; to the cliff wall's own rock, whole by steep_hi (0.24, 41 degrees), the
+; same texture, scale, tint, mean and contrast as MAT_cliff_wall.tres so the
+; hillside and the island's wall are one stone. The baked rock splat
+; (ISLANDFIELD rock_slope_lo/hi, 0.16..0.26) starts where this does.
+shader_parameter/steep_stone = 1.0
+shader_parameter/steep_lo = 0.17
+shader_parameter/steep_hi = 0.24
+shader_parameter/stone_albedo = ExtResource("9_rock_a")
+shader_parameter/stone_scale = 12.0
+shader_parameter/stone_tint = Color(2.8, 2.8, 2.8, 1)
+shader_parameter/stone_mean = Color(0.043, 0.034, 0.025, 1)
+shader_parameter/stone_contrast = 0.7
 shader_parameter/triplanar_sharpness = 4.0
 shader_parameter/sand_albedo = ExtResource("11_sand_a")
 shader_parameter/sand_normal = ExtResource("12_sand_n")

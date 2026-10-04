@@ -13,7 +13,7 @@
 ;     squares (at the user's request): dead level, round, cut into the
 ;     hillside with a steep bank of half their radius (10 m at least),
 ;     the roads running into them; and the roads' edges straight
-;   * square_pads = true, square_apron 30 m, build_pad_radius 30..36 m
+;   * square_pads = true, square_apron 60 m, build_pad_radius 30..36 m
 ;     THE TOWNS ARE SQUARES (at the user's request: "flat squares, a road
 ;     intersection, no hills, cut out of the surrounding terrain using
 ;     cliffs, divided into quadrants, 4 houses per quadrant"): each a dead
@@ -89,7 +89,7 @@ build_pad_radius_min = 30.0
 build_pad_radius_max = 36.0
 build_pad_radius_ratio = 0.45
 square_pads = true
-square_apron = 30.0
+square_apron = 60.0
 build_area_fraction = 0.1
 zone_irregularity = 0.0
 zone_noise_scale = 70.0
@@ -123,7 +123,7 @@ forest_enabled = true
 forest_scale = 520.0
 forest_coverage = 0.38
 forest_edge = 0.06
-forest_max_slope = 0.42
+forest_max_slope = 0.26
 forest_coast_margin = 0.14
 forest_litter = 0.34
 sand_enabled = false
@@ -139,9 +139,9 @@ sand_max_slope = 0.28
 sand_coast_margin = 0.18
 sand_end_clear = 20.0
 sand_rough_gain = 0.0
-rock_follows_veg = true
-rock_slope_lo = 0.42
-rock_slope_hi = 0.68
+rock_follows_veg = false
+rock_slope_lo = 0.16
+rock_slope_hi = 0.26
 curvature_radius = 4.0
 soil_concavity = 0.9
 rock_convexity = 1.2

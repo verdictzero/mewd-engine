@@ -249,6 +249,11 @@ func flat_run(x: float, y: float, most := 2000.0, bearings := 32) -> Vector2:
 ## each side of every road, staggered.
 ## THE HOUSES (`house_spec`, Islands "houses") go round the squares
 ## (place_houses) before anybody is put down, so nobody starts in one.
+## a street lamp stands only on ground gentler than this (1 - the normal's
+## z: 0.12 is 28 degrees) and within this (units) of the road's own height
+const LAMP_SLOPE := 0.12
+const LAMP_STEP := 48.0
+
 func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0.0, herds := {}, meadow = null,
 		house_spec := {}, clear = null) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -365,9 +370,19 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 			var side := Vector2(-dir.y, dir.x) * (float(r[2]) + 40.0)
 			for k in range(1, int(len / step) + 1):
 				for s in [1.0, -1.0]:
-					var q: Vector2 = a + dir * (k * step - (step * 0.5 if s < 0.0 else 0.0)) + side * s
-					if on_land(q.x, q.y, 32.0) and not in_house(q.x, q.y, 32.0):
-						things.append({"type": "LAMP", "x": q.x, "y": q.y, "angle": 0.0})
+					var along: float = k * step - (step * 0.5 if s < 0.0 else 0.0)
+					var q: Vector2 = a + dir * along + side * s
+					if not on_land(q.x, q.y, 32.0) or in_house(q.x, q.y, 32.0):
+						continue
+					# AND NOT ON THE STEEP (at the user's request: a threshold for
+					# which lamps occur): a lamp stands only where the kerb's ground
+					# is gentler than LAMP_SLOPE and no more than LAMP_STEP above or
+					# below the road's middle — a road cut into a hillside has its
+					# kerb up the bank, and a lamp up there stood in the hill
+					var mid: Vector2 = a + dir * along
+					if 1.0 - normal_at(q.x, q.y).z > LAMP_SLOPE or absf(floor_at(q.x, q.y) - floor_at(mid.x, mid.y)) > LAMP_STEP:
+						continue
+					things.append({"type": "LAMP", "x": q.x, "y": q.y, "angle": 0.0})
 
 ## A point on land within `r` of `c`, whose ground rises no more than
 ## `max_slope` (rise over run) — the first of a few hundred tries that is,
