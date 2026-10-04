@@ -13,10 +13,12 @@ one reads the filled sheet back off the template's manifest).
                         manifest: rename the downloads so, e.g.
                         myguy.sheet01-walk.png
     --manifest DIR      where the templates and their JSON are (default
-                        tools/spritegen/out, both profiles)
-    --profile P         mewd (default) or doom: which manifest cuts a
-                        sheet name both profiles have (01 to 04), when
-                        the picture is not the exact size of either
+                        tools/spritegen/out, every profile)
+    --profile P         mewd (default), doom, mewd-civ or civ: which
+                        manifest cuts a sheet name two profiles share
+                        (the troops' 01 to 04, the civilians' 01 to 05),
+                        when the picture is not the exact size of either;
+                        a civ- sheet always falls to a civ profile
     --cells DIR         also write every cell on its own (PNG, keyed and
                         trimmed, at game scale)
     --height PX         a standing figure's height in the strip
@@ -42,10 +44,13 @@ the turned frames A B C D E F G, five views each in view order (1 head
 on, 2 quarter, 3 side, 4 three-quarters-back, 5 back), then the flat
 frames H to W, one each, every cell `--cell` square with the figure
 centred and standing on the bottom, a frame marked `air` in the
-manifest kept at its height above the ground line instead. A frame the
-images do not cover is left clear and named in the report. An
-eight-view sheet's views 6, 7, 8 are not used by the strip (the game
-mirrors 2, 3, 4) but are written with --cells.
+manifest kept at its height above the ground line instead. The letters
+come off the profile's own manifest, so a civilian set is laid the same
+way with its own: A to K turned (walk, flee, stand, cower, hands up),
+L to Z flat (death, gibs). A frame the images do not cover is left
+clear and named in the report. An eight-view sheet's views 6, 7, 8 are
+not used by the strip (the game mirrors 2, 3, 4) but are written with
+--cells.
 
 Needs Pillow and numpy."""
 import argparse
@@ -59,9 +64,18 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-TURN = "ABCDEFG"
-FLAT = "HIJKLMNOPQRSTUVW"
 VIEWS = 5
+
+
+def letters_of(sheets):
+    """The turned and the flat frame letters of a profile, in order, off
+    its sheets' lettered cells (the troops' ABCDEFG / HIJKLMNOPQRSTUVW)."""
+    turn, flat = set(), set()
+    for s in sheets:
+        for c in s["cells"]:
+            if c["letter"]:
+                (turn if c["view"] else flat).add(c["letter"])
+    return "".join(sorted(turn)), "".join(sorted(flat))
 
 
 def key_alpha(rgb, key):
@@ -198,17 +212,19 @@ def main():
     ap.add_argument("--no-strip", action="store_true")
     ap.add_argument("--strip", help="the strip's path (default assets/people/<name>.png)")
     ap.add_argument("--key", help="RRGGBB ground colour; default measured")
-    ap.add_argument("--profile", choices=("mewd", "doom"), default="mewd",
-                    help="which profile's manifest to cut a sheet name both profiles have by (default mewd)")
+    ap.add_argument("--profile", choices=("mewd", "doom", "mewd-civ", "civ"), default="mewd",
+                    help="which profile's manifest to cut a sheet name two profiles share by (default mewd; "
+                         "a civ- sheet falls to mewd-civ)")
     args = ap.parse_args()
     name = args.name.upper()
     sheets = []
     for j in sorted(glob.glob(os.path.join(args.manifest, "sheet*.json")) + glob.glob(os.path.join(args.manifest, "*", "sheet*.json"))):
         m = json.load(open(j))
-        sheets.append(dict(m["sheets"][0], profile=m.get("profile", "")))
+        sheets.append(dict(m["sheets"][0], profile=m.get("profile", ""), kind=m.get("kind", "troop")))
     if not sheets:
         sys.exit("no sheet manifests under %s: run pose_sheet.py first" % args.manifest)
     cells = {}
+    used = []
     for image in args.images:
         base = os.path.basename(image)
         match = [s for s in sheets if ("sheet%02d-%s" % (s["sheet"], s["name"])) in base]
@@ -216,14 +232,24 @@ def main():
             names = sorted({"sheet%02d-%s" % (s["sheet"], s["name"]) for s in sheets})
             sys.exit("%s: which sheet is it? name the file after one of: %s" % (base, ", ".join(names)))
         if len(match) > 1:
-            # the same sheet in both profiles: the one the picture is the
-            # exact size of, else the profile asked for, else the shape
+            # the same sheet in two profiles: the one the picture is the
+            # exact size of, else the profile asked for (a civilian
+            # sheet under the civilian twin of it), else the shape
             W, H = Image.open(image).size
+            want = args.profile
+            if match[0]["kind"] == "civilian" and not want.endswith("civ"):
+                want = want + "-civ" if want == "mewd" else "civ"
             exact = [s for s in match if (s["width"], s["height"]) == (W, H)]
-            prof = [s for s in match if s["profile"] == args.profile]
+            prof = [s for s in match if s["profile"] == want]
             match = exact or prof or match
             match.sort(key=lambda s: abs((s["width"] / s["height"]) / (W / H) - 1))
+        used.append(match[0])
         cells.update(cut(match[0], image, args))
+    # the strip's letters: the whole profile's, so a sheet not given is
+    # reported missing rather than silently left out
+    profile = used[0]["profile"]
+    TURN, FLAT = letters_of([s for s in sheets if s["profile"] == profile])
+    kind = used[0]["kind"]
     if args.cells:
         os.makedirs(args.cells, exist_ok=True)
         for tag, (fig, ground, c) in cells.items():
@@ -258,7 +284,12 @@ def main():
         print("  not covered by the images given, left clear: %s" % ", ".join(missing))
     if over:
         print("  too big for the cell, shrunk to fit (lower --height?): %s" % ", ".join(over))
-    print("  states.gd TROOPS line:")
+    if kind == "civilian":
+        print("  a civilian strip (walk %s, flee %s, stand %s, cower %s, hands up %s; death %s, gibs %s): the game has no"
+              " state table for one yet (states.gd _troop is the troops'); its TROOPS-shaped line would be:"
+              % (TURN[0:4], TURN[4:8], TURN[8], TURN[9], TURN[10], FLAT[:7], FLAT[7:]))
+    else:
+        print("  states.gd TROOPS line:")
     print('    "%s": {"sprite": "%s", "turn": "%s", "flat": "%s", "views": %d, "strip": "%s"},' % (name, name, TURN, FLAT, VIEWS, name.lower()))
     print("  standees.gd _ready:")
     print('    _strip("%s", "res://assets/people/%s.png", Vector2(%d, %d))' % (name, name.lower(), S, S))

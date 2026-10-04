@@ -5,10 +5,24 @@ that, when paired with base character images ... and fed to an image
 model with an extremely explicit prompt, results in consistent Doom
 style character sheets").
 
-    python3 tools/spritegen/pose_sheet.py                 # everything, into tools/spritegen/out/doom
-    python3 tools/spritegen/pose_sheet.py --profile mewd  # the game's own four troop sheets, into out/mewd
-    python3 tools/spritegen/pose_sheet.py --views 5       # Doom's economy: 5 views, mirror the rest
-    python3 tools/spritegen/pose_sheet.py --list          # what the sheets hold
+    python3 tools/spritegen/pose_sheet.py                     # every troop sheet, into tools/spritegen/out/doom
+    python3 tools/spritegen/pose_sheet.py --profile mewd      # the game's own four troop sheets, into out/mewd
+    python3 tools/spritegen/pose_sheet.py --profile civ       # every non-combatant sheet, into out/civ
+    python3 tools/spritegen/pose_sheet.py --profile mewd-civ  # the five a civilian strip needs, 5 views, into out/mewd-civ
+    python3 tools/spritegen/pose_sheet.py --views 5           # Doom's economy: 5 views, mirror the rest
+    python3 tools/spritegen/pose_sheet.py --list              # what the sheets hold
+
+THE NON-COMBATANTS (at the user's request: "extrapolate and do this for
+non combatants too") are the same rig with nothing in its hands, or a
+prop in them: a brown box, bag, phone or broom where the troops have the
+dark bar of a gun. Their profiles are `civ` (nineteen sheets: unarmed
+walk, fleeing, standing about, cowering, hands up, sitting, talking,
+waving and clapping, carrying, phoning, sweeping and kneeling at work,
+picking up, limping, burning, dancing, lying, swimming, falling, and an
+unarmed death and gibs) and `mewd-civ` (the five of those a civilian
+strip would need, five views: walk A-D, flee E-H, stand I, cower J,
+hands up K, death L-R, gibs S-Z). Their sheet names start with `civ-` so
+the cutter never mistakes a civilian walk for a troop's.
 
 WHAT IT MAKES. A set of PNG sheets, each a grid of cells on a flat
 magenta ground. In every cell stands a grey mannequin — a stick figure
@@ -58,8 +72,11 @@ FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 # ---------------------------------------------------------------------------
 # The rig, in metres. A 1.80 m figure.
 # ---------------------------------------------------------------------------
-L = dict(pelvis=0.98, spine=0.30, neck=0.17, head=0.13, head_r=0.115,
-         shoulder=0.20, uarm=0.29, farm=0.27, hip=0.10, thigh=0.44,
+# (a touch stockier than life, as Doom's people are: the Zombieman the
+# user sent measures about six heads tall and well over half as wide as
+# he is tall across the shoulders and arms)
+L = dict(pelvis=0.98, spine=0.30, neck=0.17, head=0.13, head_r=0.13,
+         shoulder=0.22, uarm=0.29, farm=0.27, hip=0.10, thigh=0.44,
          shin=0.43, foot=0.23, heel=0.06)
 HEIGHT = 1.80
 
@@ -68,6 +85,7 @@ HEIGHT = 1.80
 DEFAULT = dict(
     root_x=0.0, root_y=L["pelvis"], root_z=0.0,
     root_pitch=0.0, root_roll=0.0, root_yaw=0.0,
+    # lean + bows the torso FORWARD; head_pitch + tips the face UP; twist + turns the chest to the figure's left
     lean=0.0, twist=0.0, roll=0.0, head_pitch=0.0, head_yaw=0.0,
     ra_pitch=0.0, ra_abd=6.0, ra_yaw=0.0, ra_flex=0.0,   # yaw: a forward arm swung inward
     la_pitch=0.0, la_abd=6.0, la_yaw=0.0, la_flex=0.0,
@@ -75,6 +93,7 @@ DEFAULT = dict(
     ll_pitch=0.0, ll_abd=3.0, ll_knee=0.0, ll_ankle=0.0,
     weapon="two",      # "two" both hands, "right"/"left" hanging from that hand, "aim" (see aim_axis), None
     aim_axis="forward",  # for weapon "aim": the gun along the body's forward, or "up" (a prone body's length)
+    prop=None,         # a non-combatant's thing in hand: "box" (both hands), "bag" (right hand), "phone" (right hand), "broom" (both)
     flash=False,       # a muzzle flash on the gun
     blood=0.0,         # 0..1, how much blood to spatter about
     gib=None,          # (seed, t) : the body in pieces, t seconds into it
@@ -131,8 +150,8 @@ def skeleton(p):
         heel = ankle + Rf @ V(0, 0, -L["heel"])
         for n, v in (("hip", hip), ("knee", knee), ("ankle", ankle), ("toe", toe), ("heel", heel)):
             J[side + "_" + n] = W(v)
-    # torso and head
-    Rt = ry(p["twist"]) @ rz(p["roll"]) @ rx(-p["lean"])
+    # torso and head (rx(+lean) bows it forward, toward +z)
+    Rt = ry(p["twist"]) @ rz(p["roll"]) @ rx(p["lean"])
     chest = Rt @ V(0, L["spine"], 0)
     neck = chest + Rt @ V(0, L["neck"], 0)
     Rh = Rt @ ry(p["head_yaw"]) @ rx(-p["head_pitch"])
@@ -164,7 +183,7 @@ def skeleton(p):
     elif w == "aim":
         axis = R_root @ (V(0, 1, 0) if p["aim_axis"] == "up" else V(0, 0, 1))
         J["stock"] = J["r_hand"] - axis * 0.22
-        J["muzzle"] = J["r_hand"] + axis * 0.78
+        J["muzzle"] = J["r_hand"] + axis * (0.52 if p["aim_axis"] == "up" else 0.62)
     elif w == "right":
         axis = J["r_farm_dir"]
         J["stock"] = J["r_hand"] - axis * 0.30
@@ -182,6 +201,45 @@ def skeleton(p):
                 floor = L["head_r"]
             if v[1] < floor:
                 v[1] = floor
+    # a non-combatant's prop, from the hands (after the clamp, so it sits
+    # where the hands really are)
+    pr = p["prop"]
+    if pr == "box":
+        # a box held by its sides between the two hands, as deep as it is wide
+        rh, lh = J["r_hand"], J["l_hand"]
+        mid = (rh + lh) / 2
+        across = lh - rh
+        hw = max(0.14, np.linalg.norm(across) / 2)
+        across = across / max(1e-6, np.linalg.norm(across))
+        fwd = R_root @ V(0, 0, 1)
+        fwd = fwd - across * float(fwd @ across)
+        fwd = fwd / max(1e-6, np.linalg.norm(fwd))
+        up = np.cross(fwd, across)
+        up = up / max(1e-6, np.linalg.norm(up))
+        J["box"] = [mid + across * (hw * sx) + fwd * (0.17 * sz) + up * (0.15 * sy)
+                    for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
+    elif pr == "bag":
+        # a bag hanging from the right hand
+        h = J["r_hand"]
+        side = R_root @ V(1, 0, 0)
+        J["bag"] = [h + side * 0.05, h - side * 0.05, h - side * 0.14 + V(0, -0.40, 0), h + side * 0.14 + V(0, -0.40, 0)]
+        J["bag_handle"] = (h, h + V(0, -0.08, 0))
+    elif pr == "phone":
+        up = R_root @ V(0, 1, 0)
+        J["phone"] = (J["r_hand"] - up * 0.05, J["r_hand"] + up * 0.10)
+    elif pr == "broom":
+        # a broom through both hands, its head on the floor ahead
+        hi, lo = (J["r_hand"], J["l_hand"]) if J["r_hand"][1] >= J["l_hand"][1] else (J["l_hand"], J["r_hand"])
+        axis = lo - hi
+        if np.linalg.norm(axis) < 0.1 or axis[1] >= -0.05:
+            axis = R_root @ V(0, -0.7, 0.7)
+        axis = axis / np.linalg.norm(axis)
+        t = min(1.5, (hi[1] - 0.04) / -axis[1])
+        end = hi + axis * t
+        perp = np.cross(axis, V(0, 1, 0))
+        perp = perp / max(1e-6, np.linalg.norm(perp))
+        J["broom"] = (hi - axis * 0.25, end)
+        J["broom_head"] = (end - perp * 0.17, end + perp * 0.17)
     return J
 
 
@@ -190,16 +248,17 @@ def skeleton(p):
 COL = dict(torso=(150, 150, 150), head=(172, 172, 172), face=(48, 48, 48),
            right=(214, 112, 96), left=(98, 140, 220), gun=(34, 34, 34),
            flash=(255, 228, 64), blood=(170, 18, 18), outline=(20, 20, 20),
-           ground=(60, 0, 60), arrow=(255, 255, 255))
+           ground=(60, 0, 60), arrow=(255, 255, 255),
+           prop=(158, 108, 58), prop_dark=(96, 62, 30))
 
 # (joint a, joint b, thickness in metres, colour key)
 PARTS = [
-    ("pelvis", "chest", 0.20, "torso"), ("chest", "neck", 0.17, "torso"),
-    ("r_shoulder", "l_shoulder", 0.11, "torso"), ("r_hip", "l_hip", 0.13, "torso"),
-    ("r_shoulder", "r_elbow", 0.09, "right"), ("r_elbow", "r_hand", 0.08, "right"),
-    ("l_shoulder", "l_elbow", 0.09, "left"), ("l_elbow", "l_hand", 0.08, "left"),
-    ("r_hip", "r_knee", 0.12, "right"), ("r_knee", "r_ankle", 0.10, "right"), ("r_heel", "r_toe", 0.08, "right"),
-    ("l_hip", "l_knee", 0.12, "left"), ("l_knee", "l_ankle", 0.10, "left"), ("l_heel", "l_toe", 0.08, "left"),
+    ("pelvis", "chest", 0.24, "torso"), ("chest", "neck", 0.20, "torso"),
+    ("r_shoulder", "l_shoulder", 0.12, "torso"), ("r_hip", "l_hip", 0.14, "torso"),
+    ("r_shoulder", "r_elbow", 0.10, "right"), ("r_elbow", "r_hand", 0.09, "right"),
+    ("l_shoulder", "l_elbow", 0.10, "left"), ("l_elbow", "l_hand", 0.09, "left"),
+    ("r_hip", "r_knee", 0.13, "right"), ("r_knee", "r_ankle", 0.11, "right"), ("r_heel", "r_toe", 0.09, "right"),
+    ("l_hip", "l_knee", 0.13, "left"), ("l_knee", "l_ankle", 0.11, "left"), ("l_heel", "l_toe", 0.09, "left"),
 ]
 
 CAM_PITCH = 10.0  # degrees above level, looking down
@@ -231,13 +290,74 @@ def gib_parts(p, J):
         d = mid + V(v[0] * ease, v[1] * t - 4.9 * t * t, v[2] * ease)
         d[0] = max(-0.85, min(0.85, d[0]))
         d[1] = max(0.08, min(1.75, d[1]))
+        d[2] = max(-0.5, min(0.5, d[2]))
         R = ry(spin * t) @ rz(spin * 0.7 * t)
-        out.append((d + R @ (pa - mid), d + R @ (pb - mid), th, col))
+        ea, eb = d + R @ (pa - mid), d + R @ (pb - mid)
+        ea[1], eb[1] = max(0.04, ea[1]), max(0.04, eb[1])  # a spinning piece's end stays above the floor too
+        out.append((ea, eb, th, col))
     hv = rng.uniform(-1, 1, 3) * V(1.4, 0, 0.8) + V(0, 4.5, 0)
     h = J["head"] + V(hv[0] * ease, hv[1] * t - 4.9 * t * t, hv[2] * ease)
     h[0] = max(-0.85, min(0.85, h[0]))
     h[1] = max(L["head_r"], min(1.75, h[1]))
+    h[2] = max(-0.5, min(0.5, h[2]))
     return out, h
+
+
+def figure_points(p):
+    """Every drawn point of a figure with its radius in metres: what the
+    cell has to hold."""
+    J = skeleton(p)
+    pts = []
+    if p["gib"] is not None:
+        parts, h = gib_parts(p, J)
+        for a, b, th, col in parts:
+            pts += [(a, th / 2), (b, th / 2)]
+        pts.append((h, L["head_r"]))
+    else:
+        for a, b, th, col in PARTS:
+            pts += [(J[a], th / 2), (J[b], th / 2)]
+        pts.append((J["head"], L["head_r"]))
+        if p["weapon"]:
+            pts += [(J["stock"], 0.03), (J["muzzle"], 0.14 if p["flash"] else 0.03)]
+        for k in ("box", "bag"):
+            if k in J:
+                pts += [(q, 0.02) for q in J[k]]
+        for k in ("phone", "broom", "broom_head"):
+            if k in J:
+                pts += [(J[k][0], 0.06), (J[k][1], 0.06)]
+    return pts
+
+
+def figure_extent(p, yaw, scale):
+    """The projected box of a figure about its origin, in pixels:
+    (left, top, right, bottom), thickness included."""
+    xs, ys = [], []
+    for q, rad in figure_points(p):
+        sx, sy, _ = project(q, yaw, scale, (0.0, 0.0))
+        r = rad * scale
+        xs += [sx - r, sx + r]
+        ys += [sy - r, sy + r]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def hull(pts):
+    """The convex hull of 2D points (monotone chain), for a prop's outline."""
+    pts = sorted(set((round(x, 2), round(y, 2)) for x, y in pts))
+    if len(pts) <= 2:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, up = [], []
+    for q in pts:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], q) <= 0:
+            lo.pop()
+        lo.append(q)
+    for q in reversed(pts):
+        while len(up) >= 2 and cross(up[-2], up[-1], q) <= 0:
+            up.pop()
+        up.append(q)
+    return lo[:-1] + up[:-1]
 
 
 def draw_mannequin(draw, p, yaw, scale, origin, ss):
@@ -245,6 +365,7 @@ def draw_mannequin(draw, p, yaw, scale, origin, ss):
     J = skeleton(p)
     gib = p["gib"] is not None
     segs = []
+    polys = []  # (3D points, colour): a prop drawn as the hull of its corners
     if gib:
         parts, head_pos = gib_parts(p, J)
         for a, b, th, col in parts:
@@ -255,6 +376,16 @@ def draw_mannequin(draw, p, yaw, scale, origin, ss):
             segs.append((J[a], J[b], th, COL[col]))
         if p["weapon"]:
             segs.append((J["stock"], J["muzzle"], 0.055, COL["gun"]))
+        if "box" in J:
+            polys.append((J["box"], COL["prop"]))
+        if "bag" in J:
+            polys.append((J["bag"], COL["prop"]))
+            segs.append((J["bag_handle"][0], J["bag_handle"][1], 0.03, COL["prop_dark"]))
+        if "phone" in J:
+            segs.append((J["phone"][0], J["phone"][1], 0.065, COL["prop_dark"]))
+        if "broom" in J:
+            segs.append((J["broom"][0], J["broom"][1], 0.035, COL["prop"]))
+            segs.append((J["broom_head"][0], J["broom_head"][1], 0.11, COL["prop_dark"]))
 
     # the ground mark: a flat ring and an arrow the way the body faces
     gx, gz = J["pelvis"][0], J["pelvis"][2]
@@ -279,6 +410,9 @@ def draw_mannequin(draw, p, yaw, scale, origin, ss):
     if not gib and p["weapon"] and p["flash"]:
         pm = project(J["muzzle"], yaw, scale, origin)
         items.append((pm[2] + 0.5, "flash", pm, None, 0.14, COL["flash"]))
+    for pts, col in polys:
+        pp = [project(q, yaw, scale, origin) for q in pts]
+        items.append((sum(q[2] for q in pp) / len(pp), "poly", hull([q[:2] for q in pp]), None, 0, col))
     items.sort(key=lambda it: it[0])
     depths = [it[0] for it in items]
     lo, hi = min(depths), max(depths)
@@ -286,7 +420,10 @@ def draw_mannequin(draw, p, yaw, scale, origin, ss):
         k = 0.78 + 0.22 * ((depth - lo) / (hi - lo) if hi > lo else 1.0)
         c = tuple(int(min(255, v * k)) for v in col)
         w = max(2, int(th * scale))
-        if kind == "seg":
+        if kind == "poly":
+            if len(pa) >= 3:
+                draw.polygon(pa, fill=c, outline=COL["outline"], width=max(1, int(3 * ss)))
+        elif kind == "seg":
             draw.line([pa[:2], pb[:2]], fill=COL["outline"], width=w + int(4 * ss))
             for q in (pa, pb):
                 r = (w + int(4 * ss)) / 2
@@ -325,7 +462,7 @@ def draw_mannequin(draw, p, yaw, scale, origin, ss):
         for _ in range(n):
             a = rng.uniform(0, 2 * math.pi)
             d = rng.uniform(0.1, 0.5 + 0.8 * p["blood"])
-            q = project(V(cx + d * math.cos(a), 0.004, cz + d * math.sin(a)), yaw, scale, origin)
+            q = project(V(cx + d * math.cos(a), 0.004, cz + min(0.5, d) * 0.5 * math.sin(a)), yaw, scale, origin)
             rr = rng.uniform(0.02, 0.07) * scale * (0.6 + p["blood"])
             draw.ellipse([q[0] - rr, q[1] - rr * 0.35, q[0] + rr, q[1] + rr * 0.35], fill=COL["blood"])
     return J
@@ -399,7 +536,7 @@ def crouch_walk(i):
 def prone(**kw):
     """Flat on the belly, head toward the camera in view 1, chest and
     head raised on the elbows."""
-    base = dict(root_y=0.16, root_pitch=90, lean=-24, head_pitch=-62,
+    base = dict(root_y=0.16, root_pitch=90, lean=24, head_pitch=-62,
                 ra_pitch=128, ra_abd=28, ra_flex=96, la_pitch=128, la_abd=28, la_flex=96,
                 rl_pitch=-4, ll_pitch=-4, rl_abd=8, ll_abd=8, rl_ankle=70, ll_ankle=70)
     base.update(kw)
@@ -412,12 +549,12 @@ def prone_crawl(i):
     s = math.sin(ph)
     return prone(ra_pitch=128 + 30 * s, la_pitch=128 - 30 * s, ra_abd=28 + 10 * s, la_abd=28 - 10 * s,
                  rl_abd=8 + 22 * max(0, -s), ll_abd=8 + 22 * max(0, s),
-                 rl_knee=50 * max(0, -s), ll_knee=50 * max(0, s), lean=-20, head_pitch=-58)
+                 rl_knee=50 * max(0, -s), ll_knee=50 * max(0, s), lean=20, head_pitch=-58)
 
 
 def prone_aim(flash=False):
     return prone(ra_pitch=190, ra_abd=8, ra_yaw=-15, ra_flex=95, la_pitch=195, la_abd=4, la_yaw=-20, la_flex=25,
-                 lean=-30, head_pitch=-66, weapon="aim", aim_axis="up", flash=flash)
+                 lean=30, head_pitch=-66, weapon="aim", aim_axis="up", flash=flash)
 
 
 def crawl_knocked(i):
@@ -425,7 +562,7 @@ def crawl_knocked(i):
     t = i / 4
     ph = 2 * math.pi * t
     s = math.sin(ph)
-    return pose(root_y=0.22, root_pitch=76, root_roll=14, lean=-10, head_pitch=-40, twist=10 * s,
+    return pose(root_y=0.22, root_pitch=76, root_roll=14, lean=10, head_pitch=-40, twist=10 * s,
                 ra_pitch=132 + 36 * s, ra_abd=34, ra_flex=70, la_pitch=100 - 30 * s, la_abd=22, la_flex=110,
                 rl_pitch=6, ll_pitch=-6, rl_abd=4, ll_abd=14, rl_knee=22 + 18 * max(0, s), ll_knee=12,
                 rl_ankle=70, ll_ankle=70, weapon=None, blood=0.35)
@@ -435,7 +572,7 @@ def swim(i):
     t = i / 4
     ph = 2 * math.pi * t
     s = math.sin(ph)
-    return pose(root_y=0.42, root_pitch=84, lean=-14, head_pitch=-50, head_yaw=30 * s,
+    return pose(root_y=0.42, root_pitch=84, lean=14, head_pitch=-50, head_yaw=30 * s,
                 ra_pitch=100 + 70 * s, ra_abd=20, ra_flex=20 + 30 * max(0, s),
                 la_pitch=100 - 70 * s, la_abd=20, la_flex=20 + 30 * max(0, -s),
                 rl_pitch=-10 * s, ll_pitch=10 * s, rl_knee=14, ll_knee=14, rl_ankle=72, ll_ankle=72,
@@ -464,7 +601,7 @@ RUN_WORDS = [
 
 ATTACK = [
     (pose(**aim_arms()), "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward"),
-    (pose(**dict(aim_arms(), lean=1, ra_pitch=24, la_pitch=80, flash=True)), "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash"),
+    (pose(**dict(aim_arms(), lean=-1, ra_pitch=24, la_pitch=80, flash=True)), "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash"),
     (pose(lean=-16, head_pitch=22, ra_pitch=-20, ra_abd=52, ra_flex=30, la_pitch=-10, la_abd=60, la_flex=20,
           rl_pitch=10, rl_knee=22, ll_pitch=-6, ll_knee=8, weapon="right"),
      "PAIN: hit — the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little"),
@@ -486,7 +623,7 @@ DEATH = [
     (pose(root_y=0.22, root_pitch=-72, root_yaw=48, lean=0, head_pitch=10, ra_pitch=-40, ra_abd=50, ra_flex=10, la_pitch=-30, la_abd=44, la_flex=20,
           rl_pitch=10, rl_knee=70, ll_pitch=22, ll_knee=50, weapon=None, blood=0.6),
      "death, frame 5 of 7: nearly down — the body almost flat on its back, twisted a little across the picture, the legs still folded"),
-    (pose(**fallen_pose(), lean=4, head_pitch=6, ra_pitch=-50, ra_abd=58, ra_flex=12, la_pitch=-20, la_abd=70, la_flex=24,
+    (pose(**fallen_pose(), lean=-4, head_pitch=6, ra_pitch=-50, ra_abd=58, ra_flex=12, la_pitch=-20, la_abd=70, la_flex=24,
           rl_pitch=8, rl_knee=30, ll_pitch=16, ll_knee=12, rl_abd=10, ll_abd=14, weapon=None, blood=0.75),
      "death, frame 6 of 7: DOWN — lying flat on its back ACROSS the picture, the head to the viewer's LEFT and the feet to the viewer's RIGHT, face up, arms sprawled, one knee still a little bent, a pool of blood"),
     (pose(**fallen_pose(), lean=0, head_pitch=-4, head_yaw=30, ra_pitch=-60, ra_abd=66, ra_flex=6, la_pitch=-10, la_abd=78, la_flex=10,
@@ -494,34 +631,39 @@ DEATH = [
      "death, frame 7 of 7: THE CORPSE, the frame that stays — flat on its back across the picture, head to the viewer's LEFT, face turned up and a little toward the camera, legs straight, arms flung wide, the pool of blood spread; this must read as the same body as frame 6, settled"),
 ]
 
-GIB_WORDS = [
-    "violent death, frame 1 of 9: the body still whole but BURSTING — arms thrown up, the torso rocked back, blood erupting from the chest",
-    "violent death, frame 2 of 9: the body COMING APART — head, arms, legs and torso separating, flung upward and outward, blood everywhere",
-    "violent death, frame 3 of 9: the pieces flying apart at their widest and highest, trailing blood",
-    "violent death, frame 4 of 9: the pieces beginning to fall",
-    "violent death, frame 5 of 9: the pieces falling, the lower ones hitting the ground",
-    "violent death, frame 6 of 9: most pieces on the ground, a few still dropping",
-    "violent death, frame 7 of 9: everything landed, a wide spread of parts and blood",
-    "violent death, frame 8 of 9: the parts settling, the blood pooling wider",
-    "violent death, frame 9 of 9: THE REMAINS, the frame that stays — a low heap of parts in a wide pool of blood, nothing standing, nothing taller than a knee",
+# (seconds into the burst, what it looks like); the troops take all nine,
+# a civilian strip eight (its letters run out at Z)
+GIB_STEPS = [
+    (0, "the body still whole but BURSTING — arms thrown up, the torso rocked back, blood erupting from the chest"),
+    (0.14, "the body COMING APART — head, arms, legs and torso separating, flung upward and outward, blood everywhere"),
+    (0.3, "the pieces flying apart at their widest and highest, trailing blood"),
+    (0.46, "the pieces beginning to fall"),
+    (0.62, "the pieces falling, the lower ones hitting the ground"),
+    (0.8, "most pieces on the ground, a few still dropping"),
+    (1.0, "everything landed, a wide spread of parts and blood"),
+    (1.25, "the parts settling, the blood pooling wider"),
+    (1.6, "THE REMAINS, the frame that stays — a low heap of parts in a wide pool of blood, nothing standing, nothing taller than a knee"),
 ]
 
 
-def gibs():
+def gibs(n=9):
+    steps = GIB_STEPS if n == 9 else GIB_STEPS[:5] + GIB_STEPS[6:]
     out = []
     first = pose(lean=-26, head_pitch=30, ra_pitch=-40, ra_abd=70, ra_flex=40, la_pitch=-40, la_abd=70, la_flex=40,
                  rl_pitch=10, rl_knee=20, ll_pitch=-10, weapon=None, blood=0.6)
-    out.append((first, GIB_WORDS[0]))
-    for i in range(1, 9):
-        t = [0, 0.14, 0.3, 0.46, 0.62, 0.8, 1.0, 1.25, 1.6][i]
-        out.append((pose(weapon=None, gib=(11, t), blood=min(1.0, 0.5 + 0.08 * i)), GIB_WORDS[i]))
+    for i, (t, words) in enumerate(steps):
+        w = "violent death, frame %d of %d: %s" % (i + 1, n, words)
+        if i == 0:
+            out.append((first, w))
+        else:
+            out.append((pose(weapon=None, gib=(11, t), blood=min(1.0, 0.5 + 0.08 * i)), w))
     return out
 
 
 JUMP = [
     (port_arms(root_y=0.80, lean=16, head_pitch=-6, rl_pitch=48, ll_pitch=48, rl_knee=76, ll_knee=76, ra_pitch=20, la_pitch=50),
      "jump, frame 1 of 3: the crouch before the leap — knees bent deep, leaning forward, about to push off; gun across the chest"),
-    (port_arms(root_y=1.42, lean=6, rl_pitch=56, ll_pitch=70, rl_knee=92, ll_knee=108, ra_pitch=48, la_pitch=70),
+    (port_arms(root_y=1.34, lean=6, rl_pitch=56, ll_pitch=70, rl_knee=92, ll_knee=108, ra_pitch=48, la_pitch=70),
      "jump, frame 2 of 3: IN THE AIR at the top of the leap — the whole figure well off the ground, both knees tucked up, feet nowhere near the ground line; gun across the chest"),
     (port_arms(root_y=0.74, lean=22, head_pitch=-10, rl_pitch=52, ll_pitch=52, rl_knee=84, ll_knee=84, rl_abd=14, ll_abd=14, ra_pitch=24, la_pitch=52),
      "jump, frame 3 of 3: the landing — feet wide, knees bent deep to take the fall, leaning forward; gun across the chest"),
@@ -552,15 +694,243 @@ THROW = [
 ]
 USE = [(port_arms(ra_pitch=86, ra_abd=-4, ra_flex=4, la_pitch=10, la_abd=8, la_flex=30, weapon="left", lean=6),
         "use / interact: the RIGHT arm reaching straight out ahead at chest height, the hand open, as if pressing a switch or taking something; the rifle hanging in the LEFT hand pointing down")]
-FALL = [(pose(root_y=1.10, root_pitch=82, lean=-18, head_pitch=-50, ra_pitch=100, ra_abd=78, ra_flex=20, la_pitch=100, la_abd=78, la_flex=20,
+FALL = [(pose(root_y=1.10, root_pitch=82, lean=18, head_pitch=-50, ra_pitch=100, ra_abd=78, ra_flex=20, la_pitch=100, la_abd=78, la_flex=20,
               rl_abd=26, ll_abd=26, rl_knee=36, ll_knee=36, rl_ankle=60, ll_ankle=60, weapon=None),
          "free fall / skydive: belly down IN THE AIR, well above the ground line, arms and legs spread wide like a star, head up looking forward; no gun in hand")]
 VICTORY = [
-    (pose(ra_pitch=170, ra_abd=24, ra_flex=10, la_pitch=170, la_abd=24, la_flex=10, weapon="right", lean=-6, head_pitch=14),
-     "victory, frame 1 of 2: both arms thrust straight up over the head, the rifle held high in the right hand, chest out, head back"),
-    (pose(ra_pitch=150, ra_abd=60, ra_flex=20, la_pitch=150, la_abd=60, la_flex=20, weapon="right", lean=-4, head_pitch=10, root_y=1.06, rl_knee=24, ll_knee=24, rl_pitch=16, ll_pitch=16),
-     "victory, frame 2 of 2: a little hop off the ground, arms wide and high, the rifle in the right hand"),
+    (pose(ra_pitch=170, ra_abd=-24, ra_flex=10, la_pitch=170, la_abd=-24, la_flex=10, weapon="two", lean=-6, head_pitch=14),
+     "victory, frame 1 of 2: both arms thrust straight up, the rifle held HORIZONTALLY OVER THE HEAD in both hands, chest out, head back"),
+    (pose(ra_pitch=150, ra_abd=-46, ra_flex=20, la_pitch=150, la_abd=-46, la_flex=20, weapon="two", lean=-4, head_pitch=10, root_y=1.06, rl_knee=24, ll_knee=24, rl_pitch=16, ll_pitch=16),
+     "victory, frame 2 of 2: a little hop off the ground, arms wide and high in a V, the rifle held across over the head in both hands"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# THE NON-COMBATANTS (at the user's request): the same rig, empty-handed
+# or with a prop. The arm angles that put a hand somewhere (over the
+# head, on a hip, at an ear, on the ground) were solved numerically
+# against the rig and rounded.
+# ---------------------------------------------------------------------------
+def civ(**kw):
+    """A pose with nothing in its hands."""
+    base = dict(weapon=None)
+    base.update(kw)
+    return pose(**base)
+
+
+HANG = dict(ra_pitch=3, ra_abd=9, ra_flex=10, la_pitch=3, la_abd=9, la_flex=10)  # arms hanging loose
+R_HANG = dict(ra_pitch=3, ra_abd=9, ra_flex=10)
+L_HANG = dict(la_pitch=3, la_abd=9, la_flex=10)
+HIPS = dict(ra_pitch=-42, ra_abd=4, ra_yaw=63, ra_flex=84, la_pitch=-42, la_abd=4, la_yaw=63, la_flex=84)  # hands on the hips
+OVER_HEAD = dict(ra_pitch=98, ra_abd=22, ra_yaw=20, ra_flex=120, la_pitch=98, la_abd=22, la_yaw=20, la_flex=120)  # hands clasped over a bowed head
+KNEEL = dict(root_y=0.52, rl_pitch=14, rl_knee=132, ll_pitch=14, ll_knee=132, rl_ankle=60, ll_ankle=60)  # both knees down, shins flat behind
+
+
+def arms_swing(t, amp=28.0, flex=22.0):
+    """Arms swinging against the legs: the right arm forward with the
+    left leg (t=.25)."""
+    s = math.sin(2 * math.pi * t)
+    return dict(ra_pitch=amp * s, la_pitch=-amp * s, ra_abd=7, la_abd=7,
+                ra_flex=flex + 12 * max(0.0, s), la_flex=flex + 12 * max(0.0, -s))
+
+
+def walk_civ(i):
+    t = (i + 1) / 4
+    k = legs_cycle(t, amp=30)
+    k.update(arms_swing(t))
+    k.update(lean=3, root_y=k["root_y"] - 0.01)
+    return civ(**k)
+
+
+def flee(i):
+    """Running for it, arms up and flailing."""
+    t = (i + 1) / 4
+    k = legs_cycle(t, amp=44, lift=95)
+    s = math.sin(2 * math.pi * t)
+    k.update(lean=14, root_y=k["root_y"] + 0.02, head_pitch=10,
+             ra_pitch=150 + 15 * s, ra_abd=-40, ra_flex=12 + 8 * s,
+             la_pitch=150 - 15 * s, la_abd=-40, la_flex=12 - 8 * s)
+    return civ(**k)
+
+
+def carry(i):
+    """Walking with a box held in front, by its sides."""
+    t = (i + 1) / 4
+    k = legs_cycle(t, amp=24)
+    k.update(lean=-5, root_y=k["root_y"] - 0.01, prop="box",
+             ra_pitch=30, ra_abd=-26, ra_yaw=-37, ra_flex=0, la_pitch=30, la_abd=-26, la_yaw=-37, la_flex=0)
+    return civ(**k)
+
+
+def limp(i):
+    """Walking hurt: the right leg stiff and favoured, the left hand
+    pressed to the right side, the body dipping on the bad leg."""
+    t = (i + 1) / 4
+    ph = 2 * math.pi * t
+    k = legs_cycle(t, amp=18, lift=40)
+    k["rl_pitch"] *= 0.5
+    k["rl_knee"] = k["rl_knee"] * 0.5 + 22
+    k["ll_knee"] += 8
+    k["root_y"] = L["pelvis"] - 0.06 - 0.05 * max(0.0, -math.sin(ph))
+    k.update(lean=15, head_pitch=-12, twist=-6,
+             la_pitch=13, la_abd=-16, la_yaw=39, la_flex=47,
+             ra_pitch=-5 + 12 * math.sin(ph), ra_abd=12, ra_flex=15, blood=0.12)
+    return civ(**k)
+
+
+def burn(i):
+    """Alight and running, arms thrown up. The game draws the fire itself."""
+    s = 1 if i == 0 else -1
+    k = legs_cycle(0.25 if i == 0 else 0.75, amp=36, lift=80)
+    k.update(lean=10, head_pitch=18, root_y=k["root_y"] + 0.01,
+             ra_pitch=160 + 12 * s, ra_abd=-45, ra_flex=10 + 20 * max(0, s),
+             la_pitch=160 - 12 * s, la_abd=-45, la_flex=10 + 20 * max(0, -s))
+    return civ(**k)
+
+
+def dance(i):
+    s = [1, 0, -1, 0][i]
+    c = [0, 1, 0, -1][i]
+    up = dict(pitch=165, abd=-40, yaw=0, flex=8)       # an arm thrown up and out
+    out = dict(pitch=0, abd=88, yaw=0, flex=0)         # an arm straight out to the side
+    hip = dict(pitch=-42, abd=4, yaw=63, flex=84)      # a hand on the hip
+    r, l = [(up, hip), (out, out), (hip, up), (up, up)][i]
+    arms = {"ra_" + k: v for k, v in r.items()}
+    arms.update({"la_" + k: v for k, v in l.items()})
+    return civ(root_x=0.06 * s, roll=-8 * s, twist=10 * s, head_yaw=10 * s, root_y=L["pelvis"] - 0.03 - 0.04 * abs(c),
+               rl_pitch=6, ll_pitch=6, rl_knee=18 + 16 * max(0, -s) + 14 * abs(c), ll_knee=18 + 16 * max(0, s) + 14 * abs(c),
+               rl_abd=10, ll_abd=10, **arms)
+
+
+WALK_CIV_WORDS = [
+    "walk, frame 1 of 4: contact — the LEFT (blue) leg forward with the heel down and the knee straight, the RIGHT (red) leg behind on its toe; the RIGHT arm swung forward and the LEFT arm back, both hanging loose, hands empty",
+    "walk, frame 2 of 4: passing — the RIGHT (red) leg swings forward under the body with the knee bent, the LEFT (blue) leg straight under the hips; the arms passing the sides; hands empty",
+    "walk, frame 3 of 4: contact — the RIGHT (red) leg forward with the heel down, the LEFT (blue) leg behind on its toe; the LEFT arm swung forward and the RIGHT arm back; hands empty",
+    "walk, frame 4 of 4: passing — the LEFT (blue) leg swings forward under the body with the knee bent, the RIGHT (red) leg straight under the hips; the arms passing the sides; hands empty",
+]
+FLEE_WORDS = [
+    "FLEEING in panic, frame 1 of 4: a long running stride — the LEFT (blue) leg far forward, the RIGHT (red) leg driving back, the body leaning forward, BOTH ARMS THROWN UP over the head and flailing, the mouth open",
+    "fleeing, frame 2 of 4: the RIGHT (red) knee driven high, the LEFT (blue) leg straight behind, the body at its highest, both arms up and waving",
+    "fleeing, frame 3 of 4: a long stride — the RIGHT (red) leg far forward, the LEFT (blue) leg driving back, leaning forward, both arms up and flailing",
+    "fleeing, frame 4 of 4: the LEFT (blue) knee driven high, the RIGHT (red) leg straight behind, both arms up and waving",
+]
+CARRY_WORDS = [
+    "carrying a box, frame 1 of 4: walking with a cardboard BOX held in front of the belly by its two sides, both arms nearly straight, the LEFT (blue) leg forward, leaning back a little under the weight",
+    "carrying a box, frame 2 of 4: the RIGHT (red) leg passing under the body, the box held steady in front",
+    "carrying a box, frame 3 of 4: the RIGHT (red) leg forward, the box held steady",
+    "carrying a box, frame 4 of 4: the LEFT (blue) leg passing under the body, the box held steady",
+]
+LIMP_WORDS = [
+    "LIMPING, wounded, frame 1 of 4: a hobbling walk — the LEFT (blue) leg takes a normal step forward while the RIGHT (red) leg stays stiff and barely bends, the LEFT hand pressed to a wound on the right side of the belly, the body bent forward, a few drops of blood on the ground",
+    "limping, frame 2 of 4: the RIGHT (red) leg dragged forward, half bent, the body dipping low on it, the left hand still on the wound",
+    "limping, frame 3 of 4: the RIGHT (red) leg forward but stiff and short, the weight shifting off it fast, the left hand on the wound",
+    "limping, frame 4 of 4: the LEFT (blue) leg swinging through to take the weight again, the body rising, the left hand on the wound",
+]
+BURN_WORDS = [
+    "ON FIRE, frame 1 of 2: running blindly with BOTH ARMS THROWN STRAIGHT UP and flailing, the head thrown back, the LEFT (blue) leg forward; draw the person only — the game draws the flames over them — but the clothes and hair may be singed and the face screaming",
+    "on fire, frame 2 of 2: the RIGHT (red) leg forward, the arms flailing the other way, still screaming; no flames drawn",
+]
+DANCE_WORDS = [
+    "dancing, frame 1 of 4: hips swung to the figure's LEFT, the RIGHT (red) arm thrown up high, the LEFT (blue) hand down by the hip, the left knee bent",
+    "dancing, frame 2 of 4: squared up, knees bent in a bounce, both arms held straight out to the sides at shoulder height",
+    "dancing, frame 3 of 4: hips swung to the figure's RIGHT, the LEFT (blue) arm thrown up high, the RIGHT (red) hand down by the hip, the right knee bent",
+    "dancing, frame 4 of 4: squared up, knees bent in a bounce, both arms raised high and wide",
+]
+
+IDLE_CIV = [(civ(**HANG, rl_abd=4, ll_abd=4),
+             "standing still, at ease: weight even on both feet a little apart, both arms hanging loose at the sides, hands EMPTY, head level, looking straight ahead")]
+COWER = [(civ(root_y=0.62, lean=35, head_pitch=-30, rl_pitch=78, ll_pitch=78, rl_knee=118, ll_knee=118, rl_abd=10, ll_abd=10,
+              rl_ankle=-8, ll_ankle=-8, **OVER_HEAD),
+          "COWERING: crouched down low on bent knees, the torso bent forward, the head bowed, BOTH HANDS clasped over the back of the head, elbows in front of the face; afraid")]
+HANDS_UP = [(civ(ra_pitch=165, ra_abd=-22, ra_flex=6, la_pitch=165, la_abd=-22, la_flex=6, lean=-3, head_pitch=4, rl_abd=4, ll_abd=4),
+             "HANDS UP, surrendering: standing, BOTH ARMS raised straight up over the head, palms open and forward, the head up, the face frightened")]
+POSES = [
+    (civ(ra_pitch=25, ra_abd=-27, ra_yaw=54, ra_flex=88, la_pitch=18, la_abd=-25, la_yaw=53, la_flex=84, lean=-2, rl_abd=5, ll_abd=5),
+     "standing with the ARMS CROSSED over the chest, each hand tucked under the other arm, weight even, head level"),
+    (civ(**HIPS, rl_abd=8, ll_abd=8, lean=-2),
+     "standing with both HANDS ON THE HIPS, elbows out wide, feet apart, head level"),
+    (civ(ra_pitch=-10, ra_abd=2, ra_yaw=34, ra_flex=48, la_pitch=-10, la_abd=2, la_yaw=34, la_flex=48, lean=-3, head_pitch=-4, rl_abd=4, ll_abd=4),
+     "standing with the HANDS IN THE POCKETS, elbows a little back, shoulders slack, head a touch down"),
+]
+HIDE = [
+    (civ(lean=-8, twist=-20, head_yaw=35, head_pitch=-6, ra_pitch=57, ra_abd=-16, ra_yaw=25, ra_flex=103, la_pitch=47, la_abd=-2, la_yaw=17, la_flex=104,
+         rl_pitch=-10, ll_pitch=12, ll_knee=18, rl_abd=6),
+     "FLINCHING: standing, turned away a little, leaning back, BOTH FOREARMS raised in front of the face to shield it, the head turned aside, one knee bent"),
+    (civ(**KNEEL, lean=30, head_pitch=-35, ra_pitch=137, ra_abd=34, ra_yaw=-59, ra_flex=118, la_pitch=137, la_abd=34, la_yaw=-59, la_flex=118),
+     "KNEELING AND COVERING: on both knees with the shins flat behind, bent forward, the head bowed low, both hands clasped over the back of the head, elbows forward"),
+    (civ(**KNEEL, ra_pitch=136, ra_abd=39, ra_yaw=23, ra_flex=125, la_pitch=136, la_abd=39, la_yaw=23, la_flex=125),
+     "KNEELING, HANDS BEHIND THE HEAD: on both knees, the torso upright, both hands laced behind the head with the elbows out wide, looking straight ahead; a prisoner"),
+]
+SIT = [
+    (civ(root_y=0.50, rl_pitch=90, ll_pitch=90, rl_knee=90, ll_knee=90, rl_abd=6, ll_abd=6, lean=4,
+         ra_pitch=2, ra_abd=44, ra_yaw=97, ra_flex=0, la_pitch=2, la_abd=44, la_yaw=97, la_flex=0),
+     "SITTING ON A CHAIR (the chair is NOT drawn): thighs level, shins straight down, both feet flat on the ground, the hands resting on the knees, torso upright, head level"),
+    (civ(root_y=0.12, rl_pitch=85, ll_pitch=85, rl_knee=12, ll_knee=12, rl_ankle=-20, ll_ankle=-20, rl_abd=8, ll_abd=8, lean=-10, head_pitch=2,
+         ra_pitch=-11, ra_abd=16, ra_yaw=-47, ra_flex=28, la_pitch=-11, la_abd=16, la_yaw=-47, la_flex=28),
+     "SITTING ON THE GROUND with the legs stretched out in front, toes up, leaning back a little on both hands planted on the ground behind the hips"),
+    (civ(root_y=0.12, rl_pitch=70, ll_pitch=70, rl_abd=50, ll_abd=50, rl_knee=135, ll_knee=135, rl_ankle=30, ll_ankle=30, lean=6,
+         ra_pitch=30, ra_abd=38, ra_yaw=45, ra_flex=0, la_pitch=30, la_abd=38, la_yaw=45, la_flex=0),
+     "SITTING CROSS-LEGGED on the ground: knees out wide and low, the feet tucked in under the opposite knee, the hands resting on the knees, torso upright"),
+]
+TALK = [
+    (civ(ra_pitch=25, ra_abd=-7, ra_yaw=-12, ra_flex=91, **L_HANG, head_yaw=-8, lean=2, rl_pitch=-4, ll_pitch=6),
+     "TALKING: standing, the RIGHT (red) forearm raised in front with the hand open and palm up as if making a point, the LEFT (blue) arm hanging, the head turned a little to the right"),
+    (civ(ra_pitch=20, ra_abd=35, ra_flex=105, la_pitch=20, la_abd=35, la_flex=105, head_pitch=4, lean=-3),
+     "SHRUGGING: both forearms raised out to the sides with the palms up and the elbows at the waist, the shoulders hunched up, the head tilted — 'who knows?'"),
+    (civ(ra_pitch=92, ra_abd=6, ra_yaw=6, ra_flex=0, **L_HANG, head_pitch=2, lean=3, rl_pitch=-4, ll_pitch=8),
+     "POINTING: the RIGHT (red) arm straight out ahead at shoulder height, the index finger pointing the way the figure faces, the LEFT (blue) arm hanging"),
+]
+GREET = [
+    (civ(ra_pitch=160, ra_abd=-42, ra_flex=0, **L_HANG, head_pitch=4),
+     "WAVING, frame 1 of 2: the RIGHT (red) arm raised straight up and out to the side, the hand above head height with the palm forward, the LEFT (blue) arm hanging; smiling"),
+    (civ(ra_pitch=172, ra_abd=-12, ra_flex=0, **L_HANG, head_pitch=4, head_yaw=6),
+     "waving, frame 2 of 2: the same raised RIGHT arm swung in toward the head, nearly straight up, mid-wave; smiling"),
+    (civ(ra_pitch=-44, ra_abd=60, ra_yaw=96, ra_flex=90, la_pitch=-44, la_abd=60, la_yaw=96, la_flex=90, lean=2),
+     "CLAPPING, frame 1 of 2: both hands apart in front of the chest, elbows out, about to clap"),
+    (civ(ra_pitch=18, ra_abd=-39, ra_yaw=1, ra_flex=75, la_pitch=18, la_abd=-39, la_yaw=1, la_flex=75, lean=2),
+     "clapping, frame 2 of 2: both hands together in front of the chest, the clap"),
+    (civ(ra_pitch=160, ra_abd=-45, ra_flex=10, la_pitch=160, la_abd=-45, la_flex=10, head_pitch=12, lean=-4),
+     "CHEERING: both arms thrust up high and wide in a V, the head back, the mouth open in a shout"),
+]
+PHONE = [
+    (civ(ra_pitch=93, ra_abd=-24, ra_yaw=90, ra_flex=141, la_pitch=-42, la_abd=4, la_yaw=63, la_flex=84, head_yaw=-6, head_pitch=-3, prop="phone"),
+     "ON THE PHONE: standing, the RIGHT (red) hand holding a PHONE to the right ear with the elbow out, the LEFT (blue) hand on the hip, the head tilted a little toward the phone"),
+    (civ(ra_pitch=13, ra_abd=-6, ra_yaw=23, ra_flex=85, la_pitch=10, la_abd=-20, la_yaw=10, la_flex=80, head_pitch=-35, lean=4, prop="phone"),
+     "LOOKING AT A PHONE: standing, both hands held together in front of the chest holding a PHONE, the head bent well down looking at it, shoulders rounded"),
+]
+WORK = [
+    (civ(lean=20, head_pitch=-20, ra_pitch=-10, ra_abd=-29, ra_yaw=-15, ra_flex=101, la_pitch=5, la_abd=47, la_yaw=93, la_flex=0,
+         rl_pitch=-8, ll_pitch=14, ll_knee=10, prop="broom"),
+     "SWEEPING, frame 1 of 2: bent forward a little, a BROOM held in both hands — the RIGHT (red) hand high on the handle at the chest, the LEFT (blue) hand low — its head on the ground ahead and to the figure's left, the LEFT (blue) foot forward"),
+    (civ(lean=20, head_pitch=-20, twist=12, ra_pitch=-10, ra_abd=-29, ra_yaw=-15, ra_flex=101, la_pitch=5, la_abd=25, la_yaw=55, la_flex=0,
+         rl_pitch=-8, ll_pitch=14, ll_knee=10, prop="broom"),
+     "sweeping, frame 2 of 2: the same stance, the broom swept across to the figure's right, the torso turned with it"),
+    (civ(root_y=0.55, lean=50, head_pitch=-30, rl_pitch=90, rl_knee=90, ll_pitch=0, ll_knee=90, ll_ankle=70,
+         ra_pitch=65, ra_abd=-13, ra_yaw=3, ra_flex=3, la_pitch=65, la_abd=-13, la_yaw=3, la_flex=3),
+     "KNEELING AT WORK: down on the LEFT (blue) knee with the RIGHT (red) foot flat on the ground ahead, bent over, both arms reaching down to something on the ground in front at knee height, the head down looking at it"),
+]
+PICKUP = [
+    (civ(root_y=0.55, lean=70, head_pitch=-20, rl_pitch=78, ll_pitch=78, rl_knee=118, ll_knee=118, rl_abd=12, ll_abd=12,
+         ra_pitch=20, ra_abd=80, ra_yaw=79, ra_flex=0, la_pitch=-12, la_abd=-44, la_yaw=-17, la_flex=149),
+     "PICKING UP, frame 1 of 2: squatting right down with the torso bent far forward, the RIGHT (red) arm reaching straight down to the ground in front, the LEFT (blue) forearm resting across the left knee, looking down at the thing"),
+    (civ(root_y=0.78, lean=22, rl_pitch=50, ll_pitch=50, rl_knee=75, ll_knee=75, rl_abd=8, ll_abd=8, head_pitch=-6,
+         ra_pitch=10, ra_abd=12, ra_flex=5, la_pitch=41, la_abd=-1, la_yaw=3, la_flex=0, prop="bag"),
+     "picking up, frame 2 of 2: rising from the squat, knees still bent, the RIGHT (red) hand hanging at the side holding a BAG (or whatever the character would pick up), the LEFT (blue) hand on the left knee"),
+]
+LIE = [
+    (civ(**fallen_pose(), ra_pitch=-4, ra_abd=14, ra_flex=0, la_pitch=-4, la_abd=14, la_flex=0, rl_abd=6, ll_abd=6, head_yaw=20, head_pitch=4),
+     "LYING ON THE BACK, asleep or out cold: flat along the ground, the head to the viewer's LEFT and the feet to the viewer's RIGHT in view 1, face up and turned a little toward the camera, arms at the sides, legs straight; no blood, no wound"),
+    (civ(root_y=0.21, root_roll=90, rl_pitch=80, ll_pitch=85, rl_knee=110, ll_knee=105, rl_abd=4, ll_abd=10,
+         ra_pitch=60, ra_abd=8, ra_flex=110, la_pitch=50, la_abd=10, la_flex=100, lean=14, head_pitch=-16),
+     "LYING CURLED ON THE SIDE: on the RIGHT side with the knees drawn up and the arms folded in to the chest, the head to the viewer's LEFT in view 1, facing the camera; asleep, or hiding"),
+    (civ(root_y=0.12, rl_pitch=80, ll_pitch=80, rl_knee=30, ll_knee=50, rl_abd=10, ll_abd=14, lean=-12, head_pitch=-40, twist=-8,
+         ra_pitch=-6, ra_abd=20, ra_flex=4, la_pitch=0, la_abd=25, la_flex=40),
+     "SLUMPED SITTING: on the ground with the back against a wall that is NOT drawn, legs out in front with one knee up, the arms limp at the sides, the head hanging forward on the chest; exhausted or hurt, no blood"),
+]
+DEATH_CIV = [(pose(**dict(DEATH[i][0], weapon=None)), w) for i, w in enumerate([
+    "death, frame 1 of 7: the killing hit — standing, rocked back, both arms flung out, the hands EMPTY, a first spatter of blood",
+    "death, frame 2 of 7: the knees buckle — sinking, the back arched, arms loose",
+] + [w for _, w in DEATH[2:]])]
 
 VIEW_NAMES = {
     1: ("FRONT", "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT"),
@@ -587,6 +957,11 @@ def anim(key, name, frames, views, cell="tall", air=None, letters=None, words=No
             p, w = f, words[i]
         out.append({"pose": p, "words": w, "air": bool(air and i in air)})
     return dict(key=key, name=name, frames=out, views=views, cell=cell, letters=letters)
+
+
+def letter_of(a, i):
+    """The Doom frame letter of an animation's frame, or None."""
+    return a["letters"][i] if a["letters"] and i < len(a["letters"]) else None
 
 
 # the animations, each with the Doom frame letters it takes where it has
@@ -641,6 +1016,27 @@ ANIMS = {
     ]),
     "FALL": anim("FALL", "FREE FALL / SKYDIVE", FALL, 8, cell="square", air=[0]),
     "VICTORY": anim("VICTORY", "VICTORY (emote)", VICTORY, 1, air=[1]),
+    # the non-combatants; the letters are a civilian strip's (A-K turned, L-Z flat)
+    "WALK_CIV": anim("WALK_CIV", "WALK (unarmed)", [walk_civ(i) for i in range(4)], 8, words=WALK_CIV_WORDS, letters="ABCD"),
+    "FLEE": anim("FLEE", "FLEE (panic run)", [flee(i) for i in range(4)], 8, words=FLEE_WORDS, letters="EFGH"),
+    "IDLE_CIV": anim("IDLE_CIV", "STAND (at ease)", IDLE_CIV, 8, letters="I"),
+    "COWER": anim("COWER", "COWER", COWER, 8, letters="J"),
+    "HANDS_UP": anim("HANDS_UP", "HANDS UP", HANDS_UP, 8, letters="K"),
+    "DEATH_CIV": anim("DEATH_CIV", "DEATH (unarmed)", DEATH_CIV, 1, cell="square", letters="LMNOPQR"),
+    "XDEATH_CIV": anim("XDEATH_CIV", "VIOLENT DEATH (gibs)", gibs(8), 1, cell="square", letters="STUVWXYZ"),
+    "POSES": anim("POSES", "STANDING ABOUT (arms crossed, hands on hips, hands in pockets)", POSES, 8),
+    "HIDE": anim("HIDE", "FLINCH, KNEEL AND COVER, KNEEL HANDS BEHIND HEAD", HIDE, 8),
+    "SIT": anim("SIT", "SIT (chair, ground, cross-legged)", SIT, 8, cell="square"),
+    "TALK": anim("TALK", "TALK, SHRUG, POINT", TALK, 8),
+    "GREET": anim("GREET", "WAVE, CLAP, CHEER", GREET, 8),
+    "CARRY": anim("CARRY", "CARRY A BOX", [carry(i) for i in range(4)], 8, words=CARRY_WORDS),
+    "PHONE": anim("PHONE", "PHONE (talk, look)", PHONE, 8),
+    "WORK": anim("WORK", "WORK (sweep, kneel)", WORK, 8, cell="square"),
+    "PICKUP": anim("PICKUP", "PICK UP", PICKUP, 8, cell="square"),
+    "LIMP": anim("LIMP", "LIMP (wounded walk)", [limp(i) for i in range(4)], 8, words=LIMP_WORDS),
+    "BURN": anim("BURN", "ON FIRE", [burn(i) for i in range(2)], 8, words=BURN_WORDS),
+    "DANCE": anim("DANCE", "DANCE", [dance(i) for i in range(4)], 8, words=DANCE_WORDS),
+    "LIE": anim("LIE", "LIE (on the back, curled, slumped)", LIE, 8, cell="square"),
 }
 
 # the sheets: which animations go together on one picture. The game's
@@ -673,7 +1069,40 @@ PROFILES = {
         ("swim", ["SWIM"]),
         ("victory", ["VICTORY"]),
     ],
+    # the non-combatants: a civilian strip's five, then every other thing
+    # a townie does. The names start with civ- so a civilian walk is
+    # never cut as a troop's.
+    "mewd-civ": [
+        ("civ-walk", ["WALK_CIV"]),
+        ("civ-flee", ["FLEE"]),
+        ("civ-stand", ["IDLE_CIV", "COWER", "HANDS_UP"]),
+        ("civ-death", ["DEATH_CIV"]),
+        ("civ-gibs", ["XDEATH_CIV"]),
+    ],
+    "civ": [
+        ("civ-walk", ["WALK_CIV"]),
+        ("civ-flee", ["FLEE"]),
+        ("civ-stand", ["IDLE_CIV", "COWER", "HANDS_UP"]),
+        ("civ-death", ["DEATH_CIV"]),
+        ("civ-gibs", ["XDEATH_CIV"]),
+        ("civ-poses", ["POSES"]),
+        ("civ-hide", ["HIDE"]),
+        ("civ-sit", ["SIT"]),
+        ("civ-talk", ["TALK"]),
+        ("civ-greet", ["GREET"]),
+        ("civ-carry", ["CARRY"]),
+        ("civ-phone", ["PHONE"]),
+        ("civ-work", ["WORK"]),
+        ("civ-pickup", ["PICKUP"]),
+        ("civ-limp", ["LIMP"]),
+        ("civ-burn", ["BURN"]),
+        ("civ-dance", ["DANCE"]),
+        ("civ-lie", ["LIE"]),
+        ("civ-swim-fall", ["SWIM", "FALL"]),
+    ],
 }
+# what the sheets are of: it goes in the title, the manifest and the prompt
+KIND = {"mewd": "troop", "doom": "troop", "mewd-civ": "civilian", "civ": "civilian"}
 
 BG = (255, 0, 255)
 FRAME = (28, 28, 28)
@@ -739,9 +1168,10 @@ class Sheet:
         if kinds == {"flat"}:
             self.cell_w, self.cell_h = cell_px, int(cell_px * 0.62)
         elif kinds == {"tall"}:
-            self.cell_w, self.cell_h = cell_px // 2, cell_px
+            self.cell_w, self.cell_h = int(cell_px * 0.72), cell_px
         else:
             self.cell_w, self.cell_h = cell_px, cell_px
+        self.crossings = []  # cells whose figure would not fit, from render()
         self.flat = kinds == {"flat"}
         self.nominal = cell_px
         self.band = int(cell_px * 0.11)
@@ -830,7 +1260,7 @@ class Sheet:
             x0, y0, _, y1 = self.cell_box(r, 0)
             rx0 = (x0 - self.rowh_w) * ss
             d.rectangle([rx0, y0 * ss, x0 * ss, y1 * ss], fill=BAND, outline=GRID, width=2 * ss)
-            letter = a["letters"][i] if a["letters"] else "-"
+            letter = letter_of(a, i) or "-"
             d.text((rx0 + 10 * ss, y0 * ss + 10 * ss), "ROW %d" % (r + 1), font=f_row, fill=INK)
             d.text((rx0 + 10 * ss, y0 * ss + 10 * ss + self.cell_h * 0.07 * ss), a["name"], font=f_row2, fill=INK)
             d.text((rx0 + 10 * ss, y0 * ss + 10 * ss + self.cell_h * 0.125 * ss),
@@ -844,7 +1274,7 @@ class Sheet:
                 d.rectangle([X0, Y0, X1, Y1], fill=BG)
                 # the label band
                 d.rectangle([X0, Y0, X1, Y0 + self.band * ss], fill=BAND)
-                letter = a["letters"][i] if a["letters"] else None
+                letter = letter_of(a, i)
                 tag = ("%s%d" % (letter, v) if letter else "%s-%d/%d" % (a["key"], i + 1, v)) if v else (letter or "%s-%d" % (a["key"], i + 1))
                 d.text((X0 + 8 * ss, Y0 + 5 * ss), tag, font=f_cell, fill=INK)
                 sub = "%s %d/%d" % (a["key"], i + 1, len(a["frames"]))
@@ -852,13 +1282,26 @@ class Sheet:
                     sub += " · " + VIEW_SHORT[v]
                     compass_icon(d, X1 - self.band * 0.5 * ss, Y0 + self.band * 0.5 * ss, self.band * 0.36 * ss, VIEW_YAW[v], ss)
                 d.text((X0 + 8 * ss, Y0 + self.band * 0.56 * ss), sub, font=f_cell2, fill=(220, 220, 220))
-                # the figure: feet on a ground line 92% down the figure box
+                # the figure: feet on a ground line 89% down the figure box
+                # (72% in a flat cell), centred on its own extent, not its
+                # pelvis, so a stride or a levelled rifle stays inside
                 fx0, fy0, fx1, fy1 = fbox
-                scale = (self.nominal - self.band) * 0.86 / (HEIGHT + 0.14) * ss
-                ground_y = fy0 + (fy1 - fy0) * (0.80 if self.flat else 0.92)
-                origin = ((fx0 + fx1) / 2 * ss, ground_y * ss)
+                scale = (self.nominal - self.band) * 0.82 / (HEIGHT + 0.14) * ss
+                ground_y = fy0 + (fy1 - fy0) * (0.72 if self.flat else 0.89)
                 yaw = VIEW_YAW[v] if v else 0.0
+                ex0, ey0, ex1, ey1 = figure_extent(a["frames"][i]["pose"], yaw, scale)
+                origin = ((fx0 + fx1) / 2 * ss - (ex0 + ex1) / 2, ground_y * ss)
+                margin = 6 * ss
+                over = []
+                if origin[1] + ey0 < fy0 * ss + margin:
+                    over.append("band by %dpx" % round((fy0 * ss + margin - origin[1] - ey0) / ss))
+                if origin[1] + ey1 > fy1 * ss - margin:
+                    over.append("bottom by %dpx" % round((origin[1] + ey1 - fy1 * ss + margin) / ss))
+                if ex1 - ex0 > (fx1 - fx0) * ss - 2 * margin:
+                    over.append("sides by %dpx" % round((ex1 - ex0 - (fx1 - fx0) * ss + 2 * margin) / ss))
                 draw_mannequin(d, a["frames"][i]["pose"], yaw, scale, origin, ss)
+                if over:
+                    self.crossings.append("%s %s" % (tag, ", ".join(over)))
                 cells.append(dict(
                     anim=a["key"], frame=i + 1, frames=len(a["frames"]), letter=letter, view=v,
                     row=r + 1, col=c + 1, tag=tag, air=a["frames"][i]["air"],
@@ -894,18 +1337,20 @@ def key_sheet(out_dir, ss=2):
     d.text((40 * ss, 28 * ss), "KEY TO THE POSE TEMPLATES", font=font(54 * ss, True), fill=INK)
     d.text((40 * ss, 100 * ss), "read this with every sheet: what the mannequin's marks mean, and where the camera is for each view",
            font=font(28 * ss), fill=(210, 210, 210))
-    # the legend figure
+    # the legend figures: a troop aiming, a civilian with a box
     lx, ly = 40 * ss, 170 * ss
     d.rectangle([lx, ly, lx + 560 * ss, ly + 900 * ss], fill=BG)
-    scale = 900 * 0.80 / (HEIGHT + 0.14) * ss
-    draw_mannequin(d, pose(**dict(aim_arms(), flash=True)), -30.0, scale, (lx + 280 * ss, ly + 900 * 0.92 * ss), ss)
-    f = font(25 * ss)
+    scale = 900 * 0.74 / (HEIGHT + 0.14) * ss
+    draw_mannequin(d, pose(**dict(aim_arms(), flash=True)), -30.0, scale, (lx + 150 * ss, ly + 900 * 0.92 * ss), ss)
+    draw_mannequin(d, carry(0), -30.0, scale, (lx + 410 * ss, ly + 900 * 0.92 * ss), ss)
+    f = font(23 * ss)
     notes = [
         "GREY MANNEQUIN = the pose, the camera angle, the scale and the placement of the figure in its cell. It is NOT the character.",
         "RED arm and leg = the character's RIGHT side.",
         "BLUE arm and leg = the character's LEFT side.",
         "DARK PATCH on the head = the FACE. No patch = the head is seen from behind.",
-        "DARK BAR in the hands = the gun (the character's own weapon).",
+        "DARK BAR in the hands = the gun (the character's own weapon). Troop sheets only.",
+        "BROWN THING in the hands = a prop the row's words name (a box, a bag, a phone, a broom). Civilian sheets only; draw that thing.",
         "YELLOW STAR = a muzzle flash, only in FIRE frames.",
         "RED SPOTS = blood, only in death and wounded frames.",
         "WHITE ARROW on the ground = the way the figure faces.",
@@ -915,7 +1360,7 @@ def key_sheet(out_dir, ss=2):
     ]
     y = ly
     for n in notes:
-        y = wrap_text(d, n, (lx + 600 * ss, y), 620 * ss, f, INK, H * ss) + 10 * ss
+        y = wrap_text(d, n, (lx + 600 * ss, y), 700 * ss, f, INK, H * ss) + 8 * ss
     # the eight views from above
     cx, cy, R = 1690 * ss, 600 * ss, 250 * ss
     d.text((cx - 300 * ss, cy - 400 * ss), "THE EIGHT VIEWS, SEEN FROM ABOVE", font=font(32 * ss, True), fill=INK)
@@ -942,13 +1387,26 @@ def key_sheet(out_dir, ss=2):
     save_png(im, os.path.join(out_dir, "KEY.png"))
 
 
-def sheet_prompt(master, sheet, cells, title, fname):
+def sheet_prompt(master, sheet, cells, title, fname, kind="troop"):
     """The master prompt with this sheet's own contract appended."""
     lines = []
     lines.append("=" * 78)
     lines.append("THIS SHEET: %s  (file %s)" % (title, fname))
     lines.append("=" * 78)
     lines.append("")
+    if kind == "civilian":
+        lines.append("THIS IS A NON-COMBATANT SHEET. The character is a CIVILIAN: a townsperson, a shopper, a "
+                     "bystander, a hostage, a worker. Say it three ways so it cannot be missed: NO WEAPON in any "
+                     "cell; NO GUN, no knife, no bat, nothing held as a weapon, in any hand, in any frame, even if "
+                     "the CHARACTER picture shows one (then leave it out); the mannequin on this sheet NEVER holds "
+                     "the dark bar of a gun, and the character never holds one either. Where the mannequin holds a "
+                     "BROWN THING, that is a PROP, and the row's words say what it is (a box, a bag, a phone, a "
+                     "broom): draw that thing, in the character's hands exactly where the mannequin's are, the "
+                     "same thing in every cell of that row, in the same Doom sprite style. Where the mannequin's "
+                     "hands are empty, the character's hands are EMPTY. Where the words say a chair or a wall is "
+                     "not drawn, do not draw it: the character sits or leans on nothing, on flat magenta. The "
+                     "expression follows the row: at ease, afraid, screaming, smiling, asleep.")
+        lines.append("")
     lines.append("THE GRID: %d columns across and %d rows down of equal cells, inside a dark frame, "
                  "with a label band above every figure, a header band above every column and a text "
                  "panel to the left of every row. The picture is %d x %d (aspect %s). Return an image "
@@ -968,8 +1426,9 @@ def sheet_prompt(master, sheet, cells, title, fname):
                      % (5 if sheet.cols >= 5 else sheet.cols))
     else:
         lines.append("THESE ARE FLAT FRAMES: one view only, from the front, in reading order (left to right, "
-                     "then the next row). They are the frames of a death as it happens; the last one is the "
-                     "frame that stays on the ground for ever.")
+                     "then the next row)." + (" They are the frames of a death as it happens; the last one is the "
+                                             "frame that stays on the ground for ever."
+                                             if any("DEATH" in a["key"] for a in sheet.anims) else ""))
     lines.append("")
     lines.append("THE ROWS ARE FRAMES (the cells, one by one):")
     for cell in cells:
@@ -1001,20 +1460,22 @@ def sheet_prompt(master, sheet, cells, title, fname):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--profile", choices=sorted(PROFILES), default="doom",
-                    help="mewd: the game's own troop sheets; doom: those and every extra (default)")
+                    help="mewd: the game's own troop sheets; doom: those and every extra (default); "
+                         "mewd-civ: a civilian strip's five; civ: those and every other thing a townie does")
     ap.add_argument("--views", type=int, choices=(5, 8), default=None,
-                    help="views per turned frame: 5 (mirror the rest, the mewd default) or 8 (the doom default)")
+                    help="views per turned frame: 5 (mirror the rest, the mewd defaults) or 8 (the doom and civ default)")
     ap.add_argument("--cell", type=int, default=512, help="cell height in pixels (default 512)")
     ap.add_argument("--out", help="output directory (default tools/spritegen/out/<profile>)")
     ap.add_argument("--only", help="only the sheets whose names contain this")
     ap.add_argument("--list", action="store_true", help="list the sheets and stop")
     args = ap.parse_args()
-    views = args.views or (5 if args.profile == "mewd" else 8)
+    views = args.views or (5 if args.profile.startswith("mewd") else 8)
+    kind = KIND[args.profile]
     args.out = args.out or os.path.join(HERE, "out", args.profile)
     os.makedirs(args.out, exist_ok=True)
     master_path = os.path.join(HERE, "PROMPT.md")
     master = open(master_path).read() if os.path.exists(master_path) else "{{SHEET}}"
-    manifest = dict(profile=args.profile, views=views, background=list(BG), cell_px=args.cell,
+    manifest = dict(profile=args.profile, kind=kind, views=views, background=list(BG), cell_px=args.cell,
                     camera_pitch_deg=CAM_PITCH, figure_height_m=HEIGHT, sheets=[])
     n = 0
     for k, (name, keys) in enumerate(PROFILES[args.profile]):
@@ -1022,7 +1483,8 @@ def main():
             continue
         anims = [ANIMS[q] for q in keys]
         sheet = Sheet(name, anims, views, args.cell)
-        title = "SHEET %02d  %s  ·  %s" % (k + 1, name.upper(), " + ".join(a["name"] for a in anims))
+        title = "%sSHEET %02d  %s  ·  %s" % ("CIVILIAN " if kind == "civilian" else "", k + 1, name.upper(),
+                                            " + ".join(a["name"] for a in anims))
         if args.list:
             print("%02d %-12s %dx%d cells %4dx%4d (%s)  %s" % (k + 1, name, sheet.cols, sheet.nrows, sheet.W, sheet.H, sheet.ratio,
                                                             ", ".join(a["key"] for a in anims)))
@@ -1030,6 +1492,8 @@ def main():
         fname = "sheet%02d-%s.png" % (k + 1, name)
         im, cells = sheet.render(title)
         save_png(im, os.path.join(args.out, fname))
+        for c in sheet.crossings:
+            print("  %s: the figure in %s crosses its cell: %s" % (fname, c.split(" ")[0], " ".join(c.split(" ")[1:])))
         entry = dict(sheet=k + 1, name=name, file=fname, width=sheet.W, height=sheet.H, aspect=sheet.ratio,
                      cols=sheet.cols, rows=sheet.nrows, cell_w=sheet.cell_w, cell_h=sheet.cell_h,
                      band=sheet.band, anims=[a["key"] for a in anims], cells=cells)
@@ -1037,7 +1501,7 @@ def main():
         with open(os.path.join(args.out, fname[:-4] + ".json"), "w") as f:
             json.dump(dict(manifest, sheets=[entry]), f, indent=1)
         with open(os.path.join(args.out, fname[:-4] + ".prompt.txt"), "w") as f:
-            f.write(sheet_prompt(master, sheet, cells, title, fname))
+            f.write(sheet_prompt(master, sheet, cells, title, fname, kind))
         n += len(cells)
         print("%-28s %2dx%d cells  %4dx%4d (%s)  %s" % (fname, sheet.cols, sheet.nrows, sheet.W, sheet.H, sheet.ratio,
                                                       ", ".join(a["key"] for a in anims)))

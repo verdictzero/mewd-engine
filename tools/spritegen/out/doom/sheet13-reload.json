@@ -1,5 +1,6 @@
 {
  "profile": "doom",
+ "kind": "troop",
  "views": 8,
  "background": [
   255,
@@ -14,12 +15,12 @@
    "sheet": 13,
    "name": "reload",
    "file": "sheet13-reload.png",
-   "width": 2311,
-   "height": 1733,
-   "aspect": "4:3",
+   "width": 3207,
+   "height": 1804,
+   "aspect": "16:9",
    "cols": 8,
    "rows": 3,
-   "cell_w": 256,
+   "cell_w": 368,
    "cell_h": 512,
    "band": 56,
    "anims": [
@@ -39,19 +40,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.09059434506635891,
-      0.21419299004759845,
-      0.38603577611079054
+      0.07452447770502027,
+      0.10643015521064302,
+      0.18927346429685063,
+      0.3902439024390244
      ],
      "figure": [
-      0.10341843357853743,
-      0.12290825158684363,
-      0.21419299004759845,
-      0.38603577611079054
+      0.07452447770502027,
+      0.13747228381374724,
+      0.18927346429685063,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -66,19 +67,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.09059434506635891,
-      0.32496754651665943,
-      0.38603577611079054
+      0.18927346429685063,
+      0.10643015521064302,
+      0.304022450888681,
+      0.3902439024390244
      ],
      "figure": [
-      0.21419299004759845,
-      0.12290825158684363,
-      0.32496754651665943,
-      0.38603577611079054
+      0.18927346429685063,
+      0.13747228381374724,
+      0.304022450888681,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -93,19 +94,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.09059434506635891,
-      0.43574210298572047,
-      0.38603577611079054
+      0.304022450888681,
+      0.10643015521064302,
+      0.4187714374805114,
+      0.3902439024390244
      ],
      "figure": [
-      0.32496754651665943,
-      0.12290825158684363,
-      0.43574210298572047,
-      0.38603577611079054
+      0.304022450888681,
+      0.13747228381374724,
+      0.4187714374805114,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -120,19 +121,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.09059434506635891,
-      0.5465166594547815,
-      0.38603577611079054
+      0.4187714374805114,
+      0.10643015521064302,
+      0.5335204240723418,
+      0.3902439024390244
      ],
      "figure": [
-      0.43574210298572047,
-      0.12290825158684363,
-      0.5465166594547815,
-      0.38603577611079054
+      0.4187714374805114,
+      0.13747228381374724,
+      0.5335204240723418,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -147,19 +148,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.09059434506635891,
-      0.6572912159238425,
-      0.38603577611079054
+      0.5335204240723418,
+      0.10643015521064302,
+      0.6482694106641721,
+      0.3902439024390244
      ],
      "figure": [
-      0.5465166594547815,
-      0.12290825158684363,
-      0.6572912159238425,
-      0.38603577611079054
+      0.5335204240723418,
+      0.13747228381374724,
+      0.6482694106641721,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -174,19 +175,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.09059434506635891,
-      0.7680657723929035,
-      0.38603577611079054
+      0.6482694106641721,
+      0.10643015521064302,
+      0.7630183972560025,
+      0.3902439024390244
      ],
      "figure": [
-      0.6572912159238425,
-      0.12290825158684363,
-      0.7680657723929035,
-      0.38603577611079054
+      0.6482694106641721,
+      0.13747228381374724,
+      0.7630183972560025,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -201,19 +202,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.09059434506635891,
-      0.8788403288619645,
-      0.38603577611079054
+      0.7630183972560025,
+      0.10643015521064302,
+      0.8777673838478328,
+      0.3902439024390244
      ],
      "figure": [
-      0.7680657723929035,
-      0.12290825158684363,
-      0.8788403288619645,
-      0.38603577611079054
+      0.7630183972560025,
+      0.13747228381374724,
+      0.8777673838478328,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -228,19 +229,19 @@
      "words": "reload, frame 1 of 3: the rifle lowered to the belly, the head bent to look down at it, the left hand pulling the magazine out of the bottom",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.09059434506635891,
-      0.9896148853310255,
-      0.38603577611079054
+      0.8777673838478328,
+      0.10643015521064302,
+      0.9925163704396632,
+      0.3902439024390244
      ],
      "figure": [
-      0.8788403288619645,
-      0.12290825158684363,
-      0.9896148853310255,
-      0.38603577611079054
+      0.8777673838478328,
+      0.13747228381374724,
+      0.9925163704396632,
+      0.3902439024390244
      ],
-     "ground": 0.3649855741488748,
-     "px_per_m": 202.1443298969072
+     "ground": 0.36243902439024395,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -255,19 +256,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.38603577611079054,
-      0.21419299004759845,
-      0.6814772071552222
+      0.07452447770502027,
+      0.3902439024390244,
+      0.18927346429685063,
+      0.6740576496674058
      ],
      "figure": [
-      0.10341843357853743,
-      0.41834968263127525,
-      0.21419299004759845,
-      0.6814772071552222
+      0.07452447770502027,
+      0.4212860310421286,
+      0.18927346429685063,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -282,19 +283,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.38603577611079054,
-      0.32496754651665943,
-      0.6814772071552222
+      0.18927346429685063,
+      0.3902439024390244,
+      0.304022450888681,
+      0.6740576496674058
      ],
      "figure": [
-      0.21419299004759845,
-      0.41834968263127525,
-      0.32496754651665943,
-      0.6814772071552222
+      0.18927346429685063,
+      0.4212860310421286,
+      0.304022450888681,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -309,19 +310,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.38603577611079054,
-      0.43574210298572047,
-      0.6814772071552222
+      0.304022450888681,
+      0.3902439024390244,
+      0.4187714374805114,
+      0.6740576496674058
      ],
      "figure": [
-      0.32496754651665943,
-      0.41834968263127525,
-      0.43574210298572047,
-      0.6814772071552222
+      0.304022450888681,
+      0.4212860310421286,
+      0.4187714374805114,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -336,19 +337,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.38603577611079054,
-      0.5465166594547815,
-      0.6814772071552222
+      0.4187714374805114,
+      0.3902439024390244,
+      0.5335204240723418,
+      0.6740576496674058
      ],
      "figure": [
-      0.43574210298572047,
-      0.41834968263127525,
-      0.5465166594547815,
-      0.6814772071552222
+      0.4187714374805114,
+      0.4212860310421286,
+      0.5335204240723418,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -363,19 +364,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.38603577611079054,
-      0.6572912159238425,
-      0.6814772071552222
+      0.5335204240723418,
+      0.3902439024390244,
+      0.6482694106641721,
+      0.6740576496674058
      ],
      "figure": [
-      0.5465166594547815,
-      0.41834968263127525,
-      0.6572912159238425,
-      0.6814772071552222
+      0.5335204240723418,
+      0.4212860310421286,
+      0.6482694106641721,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -390,19 +391,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.38603577611079054,
-      0.7680657723929035,
-      0.6814772071552222
+      0.6482694106641721,
+      0.3902439024390244,
+      0.7630183972560025,
+      0.6740576496674058
      ],
      "figure": [
-      0.6572912159238425,
-      0.41834968263127525,
-      0.7680657723929035,
-      0.6814772071552222
+      0.6482694106641721,
+      0.4212860310421286,
+      0.7630183972560025,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -417,19 +418,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.38603577611079054,
-      0.8788403288619645,
-      0.6814772071552222
+      0.7630183972560025,
+      0.3902439024390244,
+      0.8777673838478328,
+      0.6740576496674058
      ],
      "figure": [
-      0.7680657723929035,
-      0.41834968263127525,
-      0.8788403288619645,
-      0.6814772071552222
+      0.7630183972560025,
+      0.4212860310421286,
+      0.8777673838478328,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -444,19 +445,19 @@
      "words": "reload, frame 2 of 3: the left hand down and away from the rifle holding the FRESH MAGAZINE, the rifle held by the right hand only, still looking down",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.38603577611079054,
-      0.9896148853310255,
-      0.6814772071552222
+      0.8777673838478328,
+      0.3902439024390244,
+      0.9925163704396632,
+      0.6740576496674058
      ],
      "figure": [
-      0.8788403288619645,
-      0.41834968263127525,
-      0.9896148853310255,
-      0.6814772071552222
+      0.8777673838478328,
+      0.4212860310421286,
+      0.9925163704396632,
+      0.6740576496674058
      ],
-     "ground": 0.6604270051933064,
-     "px_per_m": 202.1443298969072
+     "ground": 0.6462527716186254,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -471,19 +472,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.6814772071552222,
-      0.21419299004759845,
-      0.9769186381996537
+      0.07452447770502027,
+      0.6740576496674058,
+      0.18927346429685063,
+      0.9578713968957872
      ],
      "figure": [
-      0.10341843357853743,
-      0.7137911136757069,
-      0.21419299004759845,
-      0.9769186381996537
+      0.07452447770502027,
+      0.70509977827051,
+      0.18927346429685063,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -498,19 +499,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.6814772071552222,
-      0.32496754651665943,
-      0.9769186381996537
+      0.18927346429685063,
+      0.6740576496674058,
+      0.304022450888681,
+      0.9578713968957872
      ],
      "figure": [
-      0.21419299004759845,
-      0.7137911136757069,
-      0.32496754651665943,
-      0.9769186381996537
+      0.18927346429685063,
+      0.70509977827051,
+      0.304022450888681,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -525,19 +526,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.6814772071552222,
-      0.43574210298572047,
-      0.9769186381996537
+      0.304022450888681,
+      0.6740576496674058,
+      0.4187714374805114,
+      0.9578713968957872
      ],
      "figure": [
-      0.32496754651665943,
-      0.7137911136757069,
-      0.43574210298572047,
-      0.9769186381996537
+      0.304022450888681,
+      0.70509977827051,
+      0.4187714374805114,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -552,19 +553,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.6814772071552222,
-      0.5465166594547815,
-      0.9769186381996537
+      0.4187714374805114,
+      0.6740576496674058,
+      0.5335204240723418,
+      0.9578713968957872
      ],
      "figure": [
-      0.43574210298572047,
-      0.7137911136757069,
-      0.5465166594547815,
-      0.9769186381996537
+      0.4187714374805114,
+      0.70509977827051,
+      0.5335204240723418,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -579,19 +580,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.6814772071552222,
-      0.6572912159238425,
-      0.9769186381996537
+      0.5335204240723418,
+      0.6740576496674058,
+      0.6482694106641721,
+      0.9578713968957872
      ],
      "figure": [
-      0.5465166594547815,
-      0.7137911136757069,
-      0.6572912159238425,
-      0.9769186381996537
+      0.5335204240723418,
+      0.70509977827051,
+      0.6482694106641721,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -606,19 +607,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.6814772071552222,
-      0.7680657723929035,
-      0.9769186381996537
+      0.6482694106641721,
+      0.6740576496674058,
+      0.7630183972560025,
+      0.9578713968957872
      ],
      "figure": [
-      0.6572912159238425,
-      0.7137911136757069,
-      0.7680657723929035,
-      0.9769186381996537
+      0.6482694106641721,
+      0.70509977827051,
+      0.7630183972560025,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -633,19 +634,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.6814772071552222,
-      0.8788403288619645,
-      0.9769186381996537
+      0.7630183972560025,
+      0.6740576496674058,
+      0.8777673838478328,
+      0.9578713968957872
      ],
      "figure": [
-      0.7680657723929035,
-      0.7137911136757069,
-      0.8788403288619645,
-      0.9769186381996537
+      0.7630183972560025,
+      0.70509977827051,
+      0.8777673838478328,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "RELOAD",
@@ -660,19 +661,19 @@
      "words": "reload, frame 3 of 3: the left hand slapping the magazine home under the rifle, the head starting to come back up",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.6814772071552222,
-      0.9896148853310255,
-      0.9769186381996537
+      0.8777673838478328,
+      0.6740576496674058,
+      0.9925163704396632,
+      0.9578713968957872
      ],
      "figure": [
-      0.8788403288619645,
-      0.7137911136757069,
-      0.9896148853310255,
-      0.9769186381996537
+      0.8777673838478328,
+      0.70509977827051,
+      0.9925163704396632,
+      0.9578713968957872
      ],
-     "ground": 0.955868436237738,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9300665188470068,
+     "px_per_m": 192.7422680412371
     }
    ]
   }

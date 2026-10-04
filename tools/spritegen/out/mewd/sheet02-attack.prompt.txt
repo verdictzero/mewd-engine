@@ -13,7 +13,8 @@ Its marks:
   - RED-tinted arm and leg = the character's RIGHT side.
   - BLUE-tinted arm and leg = the character's LEFT side.
   - A DARK PATCH on the head = the FACE, where it shows. No patch = you are looking at the back of the head.
-  - A DARK BAR in the hands = the character's gun.
+  - A DARK BAR in the hands = the character's gun. (Troop sheets only. A civilian sheet never has one.)
+  - A BROWN THING in the hands (a box between them, a bag hanging from one, a small bar at an ear, a long pole to the floor) = a PROP the row's words name: a box, a bag, a phone, a broom. Civilian sheets only. Draw that thing in the character's hands.
   - A YELLOW STAR at the end of the bar = a MUZZLE FLASH. It appears only in firing frames.
   - RED SPOTS on the ground = blood. Only in death and wounded frames.
   - A WHITE ARROW on the ground = the way the figure faces. A PURPLE RING on the ground = where the feet stand (the ground line).
@@ -23,6 +24,8 @@ Its marks:
 IMAGE "CHARACTER" (one or more pictures of a single person or humanoid): THE CHARACTER. This is the ONLY source of truth for WHO is drawn: face, hair, skin, eyes, build, height proportions, clothing, armour, colours, insignia, gloves, boots, the weapon if one is shown. Nothing about identity comes from anywhere else. Not from the mannequin (which is grey and generic), not from your imagination, not from "what a soldier usually looks like".
 
 IMAGE "KEY" (if attached): a legend of the mannequin's marks and a top-down diagram of the eight camera angles. Use it to resolve any doubt about an angle.
+
+IMAGE "STYLE" (if attached): a sheet of ORIGINAL DOOM SPRITES (the Zombieman, the marine) for the LOOK only. Copy its outline, its banded shading, its crushed palette, its stocky proportions, the way a corpse sprawls and the way the gibs heap. Copy NOTHING of its character: not the face, not the uniform, not the gun, not the colours. The character comes from the CHARACTER image alone.
 
 CHARACTER NOTES (filled in by the person sending this; may be empty):
 {{CHARACTER}}
@@ -106,7 +109,8 @@ Draw every figure as a DOOM SPRITE. Doom's monsters and marines were photographe
   - A DARK OUTLINE around the whole figure and between its major parts, one to two pixels thick at game scale (so a few pixels thick in this large picture). The outline is dark, not black everywhere: very dark brown or dark grey where the material is light.
   - LIMITED PALETTE SHADING: three to five flat tones per material (skin, cloth, metal, leather), banded, with no smooth gradients. Think of a photograph posterised to a few tones, then tidied.
   - LIGHT FROM ABOVE AND SLIGHTLY IN FRONT, the same in every cell. Tops of shoulders, the top of the head and the front of the chest catch the light; under the chin, under the arms and the backs of the legs are in shade. The light does NOT rotate with the figure between columns; the figure rotates under the light.
-  - SLIGHTLY EXAGGERATED PROPORTIONS for readability at 60 pixels: the head a touch large, hands and feet solid and clear, the gun a little oversized, the silhouette clean. Not cartoon, not chibi. Doom.
+  - DOOM'S PROPORTIONS, measured off its own sprites: STOCKY. About six heads tall (the head is NOT enlarged: it is a sixth of the height, a normal head on a thick body). Broad shoulders and thick arms, so that the figure is well over half as wide as it is tall across the shoulders and arms. Big boots, solid hands, the gun a little oversized. The silhouette clean and heavy. Not cartoon, not chibi, not a slim fashion figure. Doom.
+  - DOOM'S BODIES: a standing figure bobs a little through its walk and stays the same height otherwise. A corpse sprawls on its back across a width equal to the standing height and stands about half the standing height at its highest point (a raised knee, an arm): long and low, never a thin line. The gibs end as a wide low heap of red with a few recognisable parts, no taller than a knee.
   - SATURATED, PUNCHY COLOUR, as the character's own colours from the CHARACTER image, each pushed to read at a distance. Dark navy must still read as navy, not black.
   - BLOOD is bright red with darker red edges, in flat shapes, only where the template has blood.
   - The MUZZLE FLASH is a flat yellow-white starburst with an orange rim, like the Doom shotgun's.
@@ -124,7 +128,8 @@ It is ONE character in EVERY cell. Not a family of similar characters. Not "the 
   - The SAME CLOTHING AND ARMOUR, piece for piece, colour for colour, from every angle. If the CHARACTER image shows only the front, invent a plausible back ONCE and then keep it identical in every back view.
   - The SAME COLOURS: take them from the CHARACTER image. Do not drift warmer, cooler, lighter or darker from cell to cell.
   - ASYMMETRY STAYS PUT: a pauldron on the right shoulder stays on the right shoulder (the red side) in every view, including the mirrored ones. A badge on the left breast stays on the left (the blue side). A scar on the left cheek stays on the left cheek.
-  - THE SAME GUN in every cell where the mannequin holds the bar. If the CHARACTER image shows a weapon, that weapon. If it shows none, a plain assault rifle in the character's own palette, and then THAT rifle in every cell. The gun does not change model, size or colour between cells. Where the mannequin has no bar (a death, a crawl, a swim), the character has no gun in hand.
+  - THE SAME GUN in every cell where the mannequin holds the dark bar (troop sheets). If the CHARACTER image shows a weapon, that weapon. If it shows none, a plain assault rifle in the character's own palette, and then THAT rifle in every cell. The gun does not change model, size or colour between cells. Where the mannequin has no bar (a death, a crawl, a swim), the character has no gun in hand.
+  - ON A CIVILIAN SHEET (its title says CIVILIAN) there is NO WEAPON ANYWHERE, in any hand, in any cell, whatever the CHARACTER image shows. Where the mannequin holds a BROWN PROP, the character holds the thing the row's words name (a box, a bag, a phone, a broom), the same one in every cell of that row. Where the mannequin's hands are empty, the character's hands are empty.
   - NOTHING ADDED: no cape, no backpack, no extra pouches, no new weapon, no pet, no new accessory the CHARACTER image does not show. NOTHING REMOVED either.
 
 ############################################################################
@@ -142,6 +147,7 @@ It is ONE character in EVERY cell. Not a family of similar characters. Not "the 
   - Do not swap which hand holds the grip between cells.
   - Do not change the character's face, hair, build, clothes, colours or weapon between cells.
   - Do not add a muzzle flash where the template has none, or leave it out where the template has one.
+  - Do not put a weapon in a civilian's hands, and do not draw the chair, the wall or the floor a civilian sits on or leans against: the words say they are not drawn.
   - Do not draw a photograph, a painting, a 3D render with smooth shading, an anime cel, or a modern high-resolution game character. Draw a 1993 DOOM sprite.
   - Do not anti-alias the figure's edge against the magenta into a pink halo.
   - Do not sign, watermark, caption or decorate anything.
@@ -158,13 +164,14 @@ It is ONE character in EVERY cell. Not a family of similar characters. Not "the 
   [ ] The ground behind every figure is flat #FF00FF with no ring, no arrow, no shadow.
   [ ] Doom style: hard edges, dark outline, banded flat shading, light from above-front, no gradients, no blur.
   [ ] Muzzle flash only in the firing frames. Blood only where the template has blood.
+  [ ] On a civilian sheet: no weapon anywhere; the props the rows name, and nothing else, in the hands.
 If any box is unchecked, fix it before you output.
 
 ==============================================================================
 THIS SHEET: SHEET 02  ATTACK  ·  AIM, FIRE, PAIN  (file sheet02-attack.png)
 ==============================================================================
 
-THE GRID: 5 columns across and 3 rows down of equal cells, inside a dark frame, with a label band above every figure, a header band above every column and a text panel to the left of every row. The picture is 1701 x 1701 (aspect 1:1). Return an image of the same size and the same aspect, with the same 5 x 3 grid in the same place.
+THE GRID: 5 columns across and 3 rows down of equal cells, inside a dark frame, with a label band above every figure, a header band above every column and a text panel to the left of every row. The picture is 2126 x 1701 (aspect 5:4). Return an image of the same size and the same aspect, with the same 5 x 3 grid in the same place.
 
 THE COLUMNS ARE CAMERA ANGLES. Every cell in a column is seen from the same angle. Every cell in a row is the same instant of the same pose, turned.
   COLUMN 1 = VIEW 1, FRONT: head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT.

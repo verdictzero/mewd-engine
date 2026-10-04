@@ -1,0 +1,203 @@
+You are a sprite production artist for a 1993-style first-person shooter in the direct lineage of DOOM. Your one job in this request is to paint ONE specific character into a POSE TEMPLATE, cell by cell, so that the result can be cut up by a script into a game sprite sheet. The script is dumb. It cuts on a fixed grid. Anything you move, merge, drop, add or let drift breaks the cut. Precision beats beauty here. Read everything below before you draw a single pixel.
+
+############################################################################
+#  1. WHAT YOU HAVE BEEN GIVEN
+############################################################################
+
+IMAGE "TEMPLATE" (the big grid on magenta): THE POSE TEMPLATE. A grid of equal cells on a flat magenta (#FF00FF) ground, inside a dark frame. In every cell stands a grey MANNEQUIN: a stick figure with capsule limbs and a round head. The mannequin is METADATA, not a character. It tells you, for that cell and only that cell:
+  - the POSE (every joint: where each arm, each leg, the torso and the head are),
+  - the CAMERA ANGLE (which way the figure faces relative to you),
+  - the SCALE (how big the figure is in the cell) and
+  - the PLACEMENT (where its feet stand, where its head is).
+Its marks:
+  - RED-tinted arm and leg = the character's RIGHT side.
+  - BLUE-tinted arm and leg = the character's LEFT side.
+  - A DARK PATCH on the head = the FACE, where it shows. No patch = you are looking at the back of the head.
+  - A DARK BAR in the hands = the character's gun. (Troop sheets only. A civilian sheet never has one.)
+  - A BROWN THING in the hands (a box between them, a bag hanging from one, a small bar at an ear, a long pole to the floor) = a PROP the row's words name: a box, a bag, a phone, a broom. Civilian sheets only. Draw that thing in the character's hands.
+  - A YELLOW STAR at the end of the bar = a MUZZLE FLASH. It appears only in firing frames.
+  - RED SPOTS on the ground = blood. Only in death and wounded frames.
+  - A WHITE ARROW on the ground = the way the figure faces. A PURPLE RING on the ground = where the feet stand (the ground line).
+  - A small COMPASS in each cell's label band: the dot at the bottom is the camera, the yellow arrow is the way the figure faces, seen from above.
+  - The LABEL BAND above each figure gives the cell's tag (frame letter + view number, like "A1"), the animation and the view name.
+
+IMAGE "CHARACTER" (one or more pictures of a single person or humanoid): THE CHARACTER. This is the ONLY source of truth for WHO is drawn: face, hair, skin, eyes, build, height proportions, clothing, armour, colours, insignia, gloves, boots, the weapon if one is shown. Nothing about identity comes from anywhere else. Not from the mannequin (which is grey and generic), not from your imagination, not from "what a soldier usually looks like".
+
+IMAGE "KEY" (if attached): a legend of the mannequin's marks and a top-down diagram of the eight camera angles. Use it to resolve any doubt about an angle.
+
+IMAGE "STYLE" (if attached): a sheet of ORIGINAL DOOM SPRITES (the Zombieman, the marine) for the LOOK only. Copy its outline, its banded shading, its crushed palette, its stocky proportions, the way a corpse sprawls and the way the gibs heap. Copy NOTHING of its character: not the face, not the uniform, not the gun, not the colours. The character comes from the CHARACTER image alone.
+
+CHARACTER NOTES (filled in by the person sending this; may be empty):
+{{CHARACTER}}
+
+############################################################################
+#  2. WHAT YOU MUST PRODUCE
+############################################################################
+
+ONE image, the same size and the same aspect ratio as the TEMPLATE, with the same grid in the same place, in which EVERY mannequin has been replaced by THE CHARACTER:
+  - in EXACTLY that mannequin's pose,
+  - seen from EXACTLY that mannequin's camera angle,
+  - at EXACTLY that mannequin's scale and position in the cell (feet on the same ground line, head at the same height),
+  - drawn in the DOOM sprite style described in section 6,
+  - and EVERYTHING ELSE on the template left EXACTLY as it is: the dark frame, the black grid lines, the column header bands, the row text panels, the label bands and the text in them.
+
+Think of it as a find-and-replace: find each grey mannequin, replace it with the character in that pose from that angle. Nothing else changes.
+
+############################################################################
+#  3. THE GRID CONTRACT (non-negotiable, the script depends on it)
+############################################################################
+
+ 1. The output has the SAME NUMBER OF COLUMNS and the SAME NUMBER OF ROWS as the template. Not one more. Not one fewer. Count them before you finish.
+ 2. The grid lines stay WHERE THEY ARE. Do not move, thicken, thin, bend, remove or redraw them. Do not add new lines.
+ 3. ONE FIGURE PER CELL. Never two. Never zero. Never a figure shared between two cells. Never a figure that crosses a grid line into the next cell. If a limb or a gun barrel would cross a line, keep it inside: the mannequin's never does.
+ 4. NO CELL IS SKIPPED, LEFT GREY, LEFT WITH THE MANNEQUIN, OR DUPLICATED. Every cell gets its own freshly drawn figure matching its own mannequin.
+ 5. The LABEL BANDS and the TEXT PANELS stay EXACTLY as they are. Same words, same letters, same numbers, same compasses. They are how the script and the person check the result. Do not translate them, restyle them, cover them or let a figure overlap them.
+ 6. The GROUND BEHIND EVERY FIGURE IS FLAT, SOLID, PURE MAGENTA #FF00FF. No gradient. No vignette. No floor. No floor shadow. No drop shadow. No horizon. No dust. No texture. No glow around the figure. No outline halo. Nothing but #FF00FF touching the figure's edge.
+ 7. The purple RING and the white ARROW on the ground are template marks: DO NOT DRAW THEM. The ground under the character is bare #FF00FF. (The blood spots in death frames are the exception: those are real blood, draw them as blood.)
+ 8. No figure touches the label band above it. The mannequin's head never does; the character's must not either.
+ 9. The output is the SAME SIZE and SAME ASPECT RATIO as the template, with the grid in the same place. If you can choose an output size, choose the largest available.
+10. Nothing is added anywhere: no title, no signature, no watermark, no border decoration, no extra figures outside the grid, no "bonus" cells.
+
+############################################################################
+#  4. THE ANGLE CONTRACT (rotations)
+############################################################################
+
+On a sheet with turned frames, THE COLUMNS ARE CAMERA ANGLES. The camera walks around the character in eight equal steps, one eighth of a turn each, and the character does not move between columns. The same instant of the same pose, eight times, from eight places.
+
+  VIEW 1  FRONT:            the character faces the camera. Full face. Its RIGHT side is on YOUR LEFT. Its LEFT side is on YOUR RIGHT.
+  VIEW 2  FRONT-LEFT 3/4:   turned one eighth toward YOUR LEFT. Three-quarter face. Its LEFT shoulder is nearer you.
+  VIEW 3  LEFT PROFILE:     side on, facing YOUR LEFT. Pure profile. You see its LEFT side; its RIGHT arm and leg are mostly hidden behind. The nose points left.
+  VIEW 4  BACK-LEFT 3/4:    three-quarters from behind, facing away and to YOUR LEFT. Mostly back. The left edge of the face may just show. No eyes.
+  VIEW 5  BACK:             the character faces AWAY from you. You see the back of the head, the back, the heels. NO FACE. Its RIGHT side is on YOUR RIGHT.
+  VIEW 6  BACK-RIGHT 3/4:   the mirror image of view 4.
+  VIEW 7  RIGHT PROFILE:    the mirror image of view 3. Facing YOUR RIGHT. The nose points right.
+  VIEW 8  FRONT-RIGHT 3/4:  the mirror image of view 2.
+
+If a sheet has only five columns, they are views 1 to 5 and the game mirrors them for 6, 7 and 8.
+
+The mannequin's red and blue limbs tell you which side you are looking at in every cell. Trust them over your instinct. If the red (RIGHT) arm is nearer the camera, you are looking at the character's right side. If you can see the dark face patch, the face is visible from that angle; if you cannot, draw the back of the head, with NO facial features.
+
+Things that go wrong here, which you must not do:
+  - drawing the same front view in every column with the head merely turned: NO. The whole body turns. In the profile the body is narrow; in the back view there is no face.
+  - drawing view 3 and view 7 as the same picture: NO. They face opposite ways. Everything mirrors, including which hand holds the grip.
+  - putting the gun on the wrong side in the back view: NO. In view 5 the character's right hand is on YOUR right.
+  - making the figure in one column taller, wider or bigger-headed than in the next: NO. The same character, the same size, the same build, in all eight.
+
+############################################################################
+#  5. THE POSE CONTRACT (frames)
+############################################################################
+
+THE ROWS ARE FRAMES of an animation (or, on a flat sheet, the frames run left to right). Each mannequin shows one instant. Copy it joint for joint:
+  - Which leg is forward, which is back, how bent each knee is, which foot is lifted.
+  - Where each hand is, how bent each elbow is, where the gun points.
+  - How far the torso leans, twists or arches. How far the head tilts.
+  - How high the hips are: a crouch is low, a jump is in the air, a corpse is flat.
+The words in the row's text panel describe the same pose in plain language. Use the words to understand the mannequin; use the mannequin for the exact angles.
+
+Two consecutive frames must look like two consecutive instants of ONE motion by ONE body: same height, same build, same clothes, same gun. Only the pose changes. A walk cycle's four frames must loop: frame 4 flows back into frame 1.
+
+Where the template shows the gun pointing somewhere, the character's gun points there, from the same hands. Where the template shows a muzzle flash, draw a bright yellow-white flash with an orange edge at the muzzle, and nowhere else, and only in that frame. Where the template shows the figure in the air (a jump, a fall), the character is in the air at the same height, feet clear of the ground line. Where the template shows the figure lying down, the character lies flat along the same line, as long as the standing figure is tall, not propped up and not floating.
+
+############################################################################
+#  6. THE STYLE CONTRACT: DOOM (1993)
+############################################################################
+
+Draw every figure as a DOOM SPRITE. Doom's monsters and marines were photographed latex and clay models, and early 3D renders, turned on a stand through eight angles, shot under hard light, then crushed to a 256-colour palette and cleaned up by hand at about 60 pixels tall. That is the look. Concretely:
+
+  - A GAME SPRITE, not an illustration and not a photo. Chunky, solid, high-contrast, instantly readable as a silhouette.
+  - HARD EDGES. No soft blur, no anti-aliased fuzz against the magenta, no painterly strokes, no glow, no film grain, no depth of field.
+  - A DARK OUTLINE around the whole figure and between its major parts, one to two pixels thick at game scale (so a few pixels thick in this large picture). The outline is dark, not black everywhere: very dark brown or dark grey where the material is light.
+  - LIMITED PALETTE SHADING: three to five flat tones per material (skin, cloth, metal, leather), banded, with no smooth gradients. Think of a photograph posterised to a few tones, then tidied.
+  - LIGHT FROM ABOVE AND SLIGHTLY IN FRONT, the same in every cell. Tops of shoulders, the top of the head and the front of the chest catch the light; under the chin, under the arms and the backs of the legs are in shade. The light does NOT rotate with the figure between columns; the figure rotates under the light.
+  - DOOM'S PROPORTIONS, measured off its own sprites: STOCKY. About six heads tall (the head is NOT enlarged: it is a sixth of the height, a normal head on a thick body). Broad shoulders and thick arms, so that the figure is well over half as wide as it is tall across the shoulders and arms. Big boots, solid hands, the gun a little oversized. The silhouette clean and heavy. Not cartoon, not chibi, not a slim fashion figure. Doom.
+  - DOOM'S BODIES: a standing figure bobs a little through its walk and stays the same height otherwise. A corpse sprawls on its back across a width equal to the standing height and stands about half the standing height at its highest point (a raised knee, an arm): long and low, never a thin line. The gibs end as a wide low heap of red with a few recognisable parts, no taller than a knee.
+  - SATURATED, PUNCHY COLOUR, as the character's own colours from the CHARACTER image, each pushed to read at a distance. Dark navy must still read as navy, not black.
+  - BLOOD is bright red with darker red edges, in flat shapes, only where the template has blood.
+  - The MUZZLE FLASH is a flat yellow-white starburst with an orange rim, like the Doom shotgun's.
+  - NO BACKGROUND ELEMENTS. No floor, no wall, no sky, no shadow on the ground, no scenery. Magenta only.
+  - Draw it LARGE and CLEAN in this picture, in the visual language of a sprite that will be shrunk to about 60 pixels tall with nearest-neighbour sampling. Fine detail that would vanish at 60 pixels is wasted; bold detail that survives it is what we want.
+
+############################################################################
+#  7. THE CHARACTER IDENTITY LOCK
+############################################################################
+
+It is ONE character in EVERY cell. Not a family of similar characters. Not "the same guy in different lighting". The identical person.
+
+  - The SAME FACE, hair, skin tone, eye colour and expression family. From the back, no face at all, but the same hair and the same helmet or hat.
+  - The SAME BUILD: same height, same shoulder width, same waist, same leg length, in every cell. A standing figure's head top is at the same height in every standing cell. A lying body is as long as the standing one is tall.
+  - The SAME CLOTHING AND ARMOUR, piece for piece, colour for colour, from every angle. If the CHARACTER image shows only the front, invent a plausible back ONCE and then keep it identical in every back view.
+  - The SAME COLOURS: take them from the CHARACTER image. Do not drift warmer, cooler, lighter or darker from cell to cell.
+  - ASYMMETRY STAYS PUT: a pauldron on the right shoulder stays on the right shoulder (the red side) in every view, including the mirrored ones. A badge on the left breast stays on the left (the blue side). A scar on the left cheek stays on the left cheek.
+  - THE SAME GUN in every cell where the mannequin holds the dark bar (troop sheets). If the CHARACTER image shows a weapon, that weapon. If it shows none, a plain assault rifle in the character's own palette, and then THAT rifle in every cell. The gun does not change model, size or colour between cells. Where the mannequin has no bar (a death, a crawl, a swim), the character has no gun in hand.
+  - ON A CIVILIAN SHEET (its title says CIVILIAN) there is NO WEAPON ANYWHERE, in any hand, in any cell, whatever the CHARACTER image shows. Where the mannequin holds a BROWN PROP, the character holds the thing the row's words name (a box, a bag, a phone, a broom), the same one in every cell of that row. Where the mannequin's hands are empty, the character's hands are empty.
+  - NOTHING ADDED: no cape, no backpack, no extra pouches, no new weapon, no pet, no new accessory the CHARACTER image does not show. NOTHING REMOVED either.
+
+############################################################################
+#  8. DO NOT (the complete list of ways to fail)
+############################################################################
+
+  - Do not change the number of rows or columns. Do not merge cells. Do not leave a cell empty, grey, or with the mannequin still in it.
+  - Do not let any part of a figure cross a grid line or touch a label band.
+  - Do not draw a ground shadow, a floor, a gradient, a vignette, a glow, or any background at all. Magenta #FF00FF only.
+  - Do not leave the purple ring or the white arrow on the ground.
+  - Do not change the label text, the header text, the row text, or the compasses.
+  - Do not draw the figure larger or smaller than its mannequin, or standing somewhere else in the cell.
+  - Do not draw a front view in a column that calls for a back view, or a left profile where a right profile is called for.
+  - Do not draw a face on the back of a head.
+  - Do not swap which hand holds the grip between cells.
+  - Do not change the character's face, hair, build, clothes, colours or weapon between cells.
+  - Do not add a muzzle flash where the template has none, or leave it out where the template has one.
+  - Do not put a weapon in a civilian's hands, and do not draw the chair, the wall or the floor a civilian sits on or leans against: the words say they are not drawn.
+  - Do not draw a photograph, a painting, a 3D render with smooth shading, an anime cel, or a modern high-resolution game character. Draw a 1993 DOOM sprite.
+  - Do not anti-alias the figure's edge against the magenta into a pink halo.
+  - Do not sign, watermark, caption or decorate anything.
+
+############################################################################
+#  9. BEFORE YOU FINISH, CHECK
+############################################################################
+
+  [ ] Same number of columns and rows as the template; same grid; same labels; same size and aspect.
+  [ ] Every cell has exactly one figure, fully inside its cell, not touching the band.
+  [ ] Every figure is THE CHARACTER: same face, build, clothes, colours, gun.
+  [ ] Every figure is in its mannequin's pose, at its mannequin's size, on its mannequin's ground line.
+  [ ] Every column shows its camera angle: front, 3/4, profile, back, with the red/blue sides where the mannequin has them.
+  [ ] The ground behind every figure is flat #FF00FF with no ring, no arrow, no shadow.
+  [ ] Doom style: hard edges, dark outline, banded flat shading, light from above-front, no gradients, no blur.
+  [ ] Muzzle flash only in the firing frames. Blood only where the template has blood.
+  [ ] On a civilian sheet: no weapon anywhere; the props the rows name, and nothing else, in the hands.
+If any box is unchecked, fix it before you output.
+
+==============================================================================
+THIS SHEET: CIVILIAN SHEET 12  CIV-PHONE  ·  PHONE (talk, look)  (file sheet12-civ-phone.png)
+==============================================================================
+
+THIS IS A NON-COMBATANT SHEET. The character is a CIVILIAN: a townsperson, a shopper, a bystander, a hostage, a worker. Say it three ways so it cannot be missed: NO WEAPON in any cell; NO GUN, no knife, no bat, nothing held as a weapon, in any hand, in any frame, even if the CHARACTER picture shows one (then leave it out); the mannequin on this sheet NEVER holds the dark bar of a gun, and the character never holds one either. Where the mannequin holds a BROWN THING, that is a PROP, and the row's words say what it is (a box, a bag, a phone, a broom): draw that thing, in the character's hands exactly where the mannequin's are, the same thing in every cell of that row, in the same Doom sprite style. Where the mannequin's hands are empty, the character's hands are EMPTY. Where the words say a chair or a wall is not drawn, do not draw it: the character sits or leans on nothing, on flat magenta. The expression follows the row: at ease, afraid, screaming, smiling, asleep.
+
+THE GRID: 8 columns across and 2 rows down of equal cells, inside a dark frame, with a label band above every figure, a header band above every column and a text panel to the left of every row. The picture is 3207 x 1374 (aspect 21:9). Return an image of the same size and the same aspect, with the same 8 x 2 grid in the same place.
+
+THE COLUMNS ARE CAMERA ANGLES. Every cell in a column is seen from the same angle. Every cell in a row is the same instant of the same pose, turned.
+  COLUMN 1 = VIEW 1, FRONT: head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT.
+  COLUMN 2 = VIEW 2, FRONT-LEFT 3/4: turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away.
+  COLUMN 3 = VIEW 3, LEFT PROFILE: side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left.
+  COLUMN 4 = VIEW 4, BACK-LEFT 3/4: three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes.
+  COLUMN 5 = VIEW 5, BACK: from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT.
+  COLUMN 6 = VIEW 6, BACK-RIGHT 3/4: three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible.
+  COLUMN 7 = VIEW 7, RIGHT PROFILE: side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right.
+  COLUMN 8 = VIEW 8, FRONT-RIGHT 3/4: turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera.
+
+Say it again so it cannot be missed: in column 1 the character looks at you; in column 5 it has its back to you; between them it turns toward the viewer's left, one eighth of a turn per column. The same character, the same pose, the same instant — only the camera moves.
+
+THE ROWS ARE FRAMES (the cells, one by one):
+  ROW 1, PHONE — ON THE PHONE: standing, the RIGHT (red) hand holding a PHONE to the right ear with the elbow out, the LEFT (blue) hand on the hip, the head tilted a little toward the phone.
+  ROW 2, PHONE — LOOKING AT A PHONE: standing, both hands held together in front of the chest holding a PHONE, the head bent well down looking at it, shoulders rounded.
+
+THE LABELS. Each cell's band reads its tag, which is its frame letter and its view number (like 'A1'), or the animation's name and frame. The tags on this sheet, in reading order, are:
+  PHONE-1/1, PHONE-1/2, PHONE-1/3, PHONE-1/4, PHONE-1/5, PHONE-1/6, PHONE-1/7, PHONE-1/8, PHONE-2/1, PHONE-2/2, PHONE-2/3, PHONE-2/4, PHONE-2/5, PHONE-2/6, PHONE-2/7, PHONE-2/8
+
+FINAL CHECK FOR THIS SHEET: 16 cells, 16 figures, every one the same character, every label band untouched, flat #FF00FF behind every figure, no ring and no arrow left on the ground, no figure crossing a line.
+
+############################################################################
+#  A. (OPTIONAL) RETOUCHING ONE CELL
+############################################################################
+If a single cell came out wrong, send the OUTPUT back with the TEMPLATE and the CHARACTER and say:
+"Keep this image exactly as it is except cell <TAG>. Redraw only cell <TAG>: <what is wrong, e.g. 'it shows a front view; it must be the back view (view 5), no face, back of the head, the gun's grip in the right hand on the viewer's right'>. Same character, same size, same ground line, flat #FF00FF behind it, nothing else in the image changes."

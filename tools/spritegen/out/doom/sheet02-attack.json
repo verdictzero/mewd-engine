@@ -1,5 +1,6 @@
 {
  "profile": "doom",
+ "kind": "troop",
  "views": 8,
  "background": [
   255,
@@ -14,12 +15,12 @@
    "sheet": 2,
    "name": "attack",
    "file": "sheet02-attack.png",
-   "width": 2311,
-   "height": 2311,
-   "aspect": "1:1",
+   "width": 3320,
+   "height": 2213,
+   "aspect": "3:2",
    "cols": 8,
    "rows": 4,
-   "cell_w": 256,
+   "cell_w": 368,
    "cell_h": 512,
    "band": 56,
    "anims": [
@@ -40,19 +41,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.08221549112938122,
-      0.21419299004759845,
-      0.3037646040675032
+      0.08885542168674698,
+      0.06371441482150926,
+      0.1996987951807229,
+      0.29507455942159966
      ],
      "figure": [
-      0.10341843357853743,
-      0.10644742535698831,
-      0.21419299004759845,
-      0.3037646040675032
+      0.08885542168674698,
+      0.08901943063714415,
+      0.1996987951807229,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -67,19 +68,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.08221549112938122,
-      0.32496754651665943,
-      0.3037646040675032
+      0.1996987951807229,
+      0.06371441482150926,
+      0.3105421686746988,
+      0.29507455942159966
      ],
      "figure": [
-      0.21419299004759845,
-      0.10644742535698831,
-      0.32496754651665943,
-      0.3037646040675032
+      0.1996987951807229,
+      0.08901943063714415,
+      0.3105421686746988,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -94,19 +95,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.08221549112938122,
-      0.43574210298572047,
-      0.3037646040675032
+      0.3105421686746988,
+      0.06371441482150926,
+      0.4213855421686747,
+      0.29507455942159966
      ],
      "figure": [
-      0.32496754651665943,
-      0.10644742535698831,
-      0.43574210298572047,
-      0.3037646040675032
+      0.3105421686746988,
+      0.08901943063714415,
+      0.4213855421686747,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -121,19 +122,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.08221549112938122,
-      0.5465166594547815,
-      0.3037646040675032
+      0.4213855421686747,
+      0.06371441482150926,
+      0.5322289156626506,
+      0.29507455942159966
      ],
      "figure": [
-      0.43574210298572047,
-      0.10644742535698831,
-      0.5465166594547815,
-      0.3037646040675032
+      0.4213855421686747,
+      0.08901943063714415,
+      0.5322289156626506,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -148,19 +149,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.08221549112938122,
-      0.6572912159238425,
-      0.3037646040675032
+      0.5322289156626506,
+      0.06371441482150926,
+      0.6430722891566265,
+      0.29507455942159966
      ],
      "figure": [
-      0.5465166594547815,
-      0.10644742535698831,
-      0.6572912159238425,
-      0.3037646040675032
+      0.5322289156626506,
+      0.08901943063714415,
+      0.6430722891566265,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -175,19 +176,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.08221549112938122,
-      0.7680657723929035,
-      0.3037646040675032
+      0.6430722891566265,
+      0.06371441482150926,
+      0.7539156626506024,
+      0.29507455942159966
      ],
      "figure": [
-      0.6572912159238425,
-      0.10644742535698831,
-      0.7680657723929035,
-      0.3037646040675032
+      0.6430722891566265,
+      0.08901943063714415,
+      0.7539156626506024,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -202,19 +203,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.08221549112938122,
-      0.8788403288619645,
-      0.3037646040675032
+      0.7539156626506024,
+      0.06371441482150926,
+      0.8647590361445783,
+      0.29507455942159966
      ],
      "figure": [
-      0.7680657723929035,
-      0.10644742535698831,
-      0.8788403288619645,
-      0.3037646040675032
+      0.7539156626506024,
+      0.08901943063714415,
+      0.8647590361445783,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "IDLE",
@@ -229,19 +230,19 @@
      "words": "standing still, weight even on both feet, the gun held across the chest at port arms (right hand on the grip low by the right hip, left hand on the fore-end high by the left shoulder, the muzzle pointing up and to the figure's left), head level, looking straight ahead",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.08221549112938122,
-      0.9896148853310255,
-      0.3037646040675032
+      0.8647590361445783,
+      0.06371441482150926,
+      0.9756024096385543,
+      0.29507455942159966
      ],
      "figure": [
-      0.8788403288619645,
-      0.10644742535698831,
-      0.9896148853310255,
-      0.3037646040675032
+      0.8647590361445783,
+      0.08901943063714415,
+      0.9756024096385543,
+      0.29507455942159966
      ],
-     "ground": 0.28797922977066204,
-     "px_per_m": 202.1443298969072
+     "ground": 0.2724084952553095,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -256,19 +257,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.3037646040675032,
-      0.21419299004759845,
-      0.5253137170056252
+      0.08885542168674698,
+      0.29507455942159966,
+      0.1996987951807229,
+      0.52643470402169
      ],
      "figure": [
-      0.10341843357853743,
-      0.32799653829511033,
-      0.21419299004759845,
-      0.5253137170056252
+      0.08885542168674698,
+      0.32037957523723454,
+      0.1996987951807229,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -283,19 +284,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.3037646040675032,
-      0.32496754651665943,
-      0.5253137170056252
+      0.1996987951807229,
+      0.29507455942159966,
+      0.3105421686746988,
+      0.52643470402169
      ],
      "figure": [
-      0.21419299004759845,
-      0.32799653829511033,
-      0.32496754651665943,
-      0.5253137170056252
+      0.1996987951807229,
+      0.32037957523723454,
+      0.3105421686746988,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -310,19 +311,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.3037646040675032,
-      0.43574210298572047,
-      0.5253137170056252
+      0.3105421686746988,
+      0.29507455942159966,
+      0.4213855421686747,
+      0.52643470402169
      ],
      "figure": [
-      0.32496754651665943,
-      0.32799653829511033,
-      0.43574210298572047,
-      0.5253137170056252
+      0.3105421686746988,
+      0.32037957523723454,
+      0.4213855421686747,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -337,19 +338,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.3037646040675032,
-      0.5465166594547815,
-      0.5253137170056252
+      0.4213855421686747,
+      0.29507455942159966,
+      0.5322289156626506,
+      0.52643470402169
      ],
      "figure": [
-      0.43574210298572047,
-      0.32799653829511033,
-      0.5465166594547815,
-      0.5253137170056252
+      0.4213855421686747,
+      0.32037957523723454,
+      0.5322289156626506,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -364,19 +365,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.3037646040675032,
-      0.6572912159238425,
-      0.5253137170056252
+      0.5322289156626506,
+      0.29507455942159966,
+      0.6430722891566265,
+      0.52643470402169
      ],
      "figure": [
-      0.5465166594547815,
-      0.32799653829511033,
-      0.6572912159238425,
-      0.5253137170056252
+      0.5322289156626506,
+      0.32037957523723454,
+      0.6430722891566265,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -391,19 +392,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.3037646040675032,
-      0.7680657723929035,
-      0.5253137170056252
+      0.6430722891566265,
+      0.29507455942159966,
+      0.7539156626506024,
+      0.52643470402169
      ],
      "figure": [
-      0.6572912159238425,
-      0.32799653829511033,
-      0.7680657723929035,
-      0.5253137170056252
+      0.6430722891566265,
+      0.32037957523723454,
+      0.7539156626506024,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -418,19 +419,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.3037646040675032,
-      0.8788403288619645,
-      0.5253137170056252
+      0.7539156626506024,
+      0.29507455942159966,
+      0.8647590361445783,
+      0.52643470402169
      ],
      "figure": [
-      0.7680657723929035,
-      0.32799653829511033,
-      0.8788403288619645,
-      0.5253137170056252
+      0.7539156626506024,
+      0.32037957523723454,
+      0.8647590361445783,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -445,19 +446,19 @@
      "words": "aiming: the rifle shouldered and pointed STRAIGHT AHEAD along the direction the figure faces, the right hand on the grip at the chest, the left arm nearly straight out along the fore-end, the head tucked to the stock, the LEFT (blue) foot a half step forward",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.3037646040675032,
-      0.9896148853310255,
-      0.5253137170056252
+      0.8647590361445783,
+      0.29507455942159966,
+      0.9756024096385543,
+      0.52643470402169
      ],
      "figure": [
-      0.8788403288619645,
-      0.32799653829511033,
-      0.9896148853310255,
-      0.5253137170056252
+      0.8647590361445783,
+      0.32037957523723454,
+      0.9756024096385543,
+      0.52643470402169
      ],
-     "ground": 0.5095283427087841,
-     "px_per_m": 202.1443298969072
+     "ground": 0.5037686398554,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -472,19 +473,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.5253137170056252,
-      0.21419299004759845,
-      0.7468628299437473
+      0.08885542168674698,
+      0.52643470402169,
+      0.1996987951807229,
+      0.7577948486217804
      ],
      "figure": [
-      0.10341843357853743,
-      0.5495456512332324,
-      0.21419299004759845,
-      0.7468628299437473
+      0.08885542168674698,
+      0.551739719837325,
+      0.1996987951807229,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -499,19 +500,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.5253137170056252,
-      0.32496754651665943,
-      0.7468628299437473
+      0.1996987951807229,
+      0.52643470402169,
+      0.3105421686746988,
+      0.7577948486217804
      ],
      "figure": [
-      0.21419299004759845,
-      0.5495456512332324,
-      0.32496754651665943,
-      0.7468628299437473
+      0.1996987951807229,
+      0.551739719837325,
+      0.3105421686746988,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -526,19 +527,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.5253137170056252,
-      0.43574210298572047,
-      0.7468628299437473
+      0.3105421686746988,
+      0.52643470402169,
+      0.4213855421686747,
+      0.7577948486217804
      ],
      "figure": [
-      0.32496754651665943,
-      0.5495456512332324,
-      0.43574210298572047,
-      0.7468628299437473
+      0.3105421686746988,
+      0.551739719837325,
+      0.4213855421686747,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -553,19 +554,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.5253137170056252,
-      0.5465166594547815,
-      0.7468628299437473
+      0.4213855421686747,
+      0.52643470402169,
+      0.5322289156626506,
+      0.7577948486217804
      ],
      "figure": [
-      0.43574210298572047,
-      0.5495456512332324,
-      0.5465166594547815,
-      0.7468628299437473
+      0.4213855421686747,
+      0.551739719837325,
+      0.5322289156626506,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -580,19 +581,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.5253137170056252,
-      0.6572912159238425,
-      0.7468628299437473
+      0.5322289156626506,
+      0.52643470402169,
+      0.6430722891566265,
+      0.7577948486217804
      ],
      "figure": [
-      0.5465166594547815,
-      0.5495456512332324,
-      0.6572912159238425,
-      0.7468628299437473
+      0.5322289156626506,
+      0.551739719837325,
+      0.6430722891566265,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -607,19 +608,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.5253137170056252,
-      0.7680657723929035,
-      0.7468628299437473
+      0.6430722891566265,
+      0.52643470402169,
+      0.7539156626506024,
+      0.7577948486217804
      ],
      "figure": [
-      0.6572912159238425,
-      0.5495456512332324,
-      0.7680657723929035,
-      0.7468628299437473
+      0.6430722891566265,
+      0.551739719837325,
+      0.7539156626506024,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -634,19 +635,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.5253137170056252,
-      0.8788403288619645,
-      0.7468628299437473
+      0.7539156626506024,
+      0.52643470402169,
+      0.8647590361445783,
+      0.7577948486217804
      ],
      "figure": [
-      0.7680657723929035,
-      0.5495456512332324,
-      0.8788403288619645,
-      0.7468628299437473
+      0.7539156626506024,
+      0.551739719837325,
+      0.8647590361445783,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -661,19 +662,19 @@
      "words": "FIRING: exactly the aiming pose, and a bright yellow-white MUZZLE FLASH at the end of the barrel; the body rocked back a hair by the recoil; this is the only frame with a flash",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.5253137170056252,
-      0.9896148853310255,
-      0.7468628299437473
+      0.8647590361445783,
+      0.52643470402169,
+      0.9756024096385543,
+      0.7577948486217804
      ],
      "figure": [
-      0.8788403288619645,
-      0.5495456512332324,
-      0.9896148853310255,
-      0.7468628299437473
+      0.8647590361445783,
+      0.551739719837325,
+      0.9756024096385543,
+      0.7577948486217804
      ],
-     "ground": 0.7310774556469061,
-     "px_per_m": 202.1443298969072
+     "ground": 0.7351287844554903,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -688,19 +689,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "head on: the figure faces the camera straight on; the face is fully visible; its RIGHT (red) side is on the viewer's LEFT and its LEFT (blue) side on the viewer's RIGHT",
      "cell": [
-      0.10341843357853743,
-      0.7468628299437473,
-      0.21419299004759845,
-      0.9684119428818693
+      0.08885542168674698,
+      0.7577948486217804,
+      0.1996987951807229,
+      0.9891549932218707
      ],
      "figure": [
-      0.10341843357853743,
-      0.7710947641713544,
-      0.21419299004759845,
-      0.9684119428818693
+      0.08885542168674698,
+      0.7830998644374153,
+      0.1996987951807229,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -715,19 +716,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "turned 45 degrees toward the viewer's LEFT: the figure faces the camera's left; the face is seen three-quarter; its LEFT (blue) shoulder is nearer the camera, its RIGHT (red) side further away",
      "cell": [
-      0.21419299004759845,
-      0.7468628299437473,
-      0.32496754651665943,
-      0.9684119428818693
+      0.1996987951807229,
+      0.7577948486217804,
+      0.3105421686746988,
+      0.9891549932218707
      ],
      "figure": [
-      0.21419299004759845,
-      0.7710947641713544,
-      0.32496754651665943,
-      0.9684119428818693
+      0.1996987951807229,
+      0.7830998644374153,
+      0.3105421686746988,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -742,19 +743,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "side on, facing the viewer's LEFT: a pure profile; the figure's LEFT (blue) side is toward the camera and its RIGHT (red) limbs are mostly hidden behind; the nose points left",
      "cell": [
-      0.32496754651665943,
-      0.7468628299437473,
-      0.43574210298572047,
-      0.9684119428818693
+      0.3105421686746988,
+      0.7577948486217804,
+      0.4213855421686747,
+      0.9891549932218707
      ],
      "figure": [
-      0.32496754651665943,
-      0.7710947641713544,
-      0.43574210298572047,
-      0.9684119428818693
+      0.3105421686746988,
+      0.7830998644374153,
+      0.4213855421686747,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -769,19 +770,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's LEFT: mostly the BACK is seen, with the LEFT (blue) side of the face just visible; no eyes",
      "cell": [
-      0.43574210298572047,
-      0.7468628299437473,
-      0.5465166594547815,
-      0.9684119428818693
+      0.4213855421686747,
+      0.7577948486217804,
+      0.5322289156626506,
+      0.9891549932218707
      ],
      "figure": [
-      0.43574210298572047,
-      0.7710947641713544,
-      0.5465166594547815,
-      0.9684119428818693
+      0.4213855421686747,
+      0.7830998644374153,
+      0.5322289156626506,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -796,19 +797,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "from directly behind: the figure faces AWAY from the camera; the back of the head and the back are seen; NO FACE AT ALL; its RIGHT (red) side is on the viewer's RIGHT and its LEFT (blue) side on the viewer's LEFT",
      "cell": [
-      0.5465166594547815,
-      0.7468628299437473,
-      0.6572912159238425,
-      0.9684119428818693
+      0.5322289156626506,
+      0.7577948486217804,
+      0.6430722891566265,
+      0.9891549932218707
      ],
      "figure": [
-      0.5465166594547815,
-      0.7710947641713544,
-      0.6572912159238425,
-      0.9684119428818693
+      0.5322289156626506,
+      0.7830998644374153,
+      0.6430722891566265,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -823,19 +824,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "three-quarters from behind, facing AWAY and to the viewer's RIGHT: the exact mirror image of view 4; mostly the back, the RIGHT (red) side of the face just visible",
      "cell": [
-      0.6572912159238425,
-      0.7468628299437473,
-      0.7680657723929035,
-      0.9684119428818693
+      0.6430722891566265,
+      0.7577948486217804,
+      0.7539156626506024,
+      0.9891549932218707
      ],
      "figure": [
-      0.6572912159238425,
-      0.7710947641713544,
-      0.7680657723929035,
-      0.9684119428818693
+      0.6430722891566265,
+      0.7830998644374153,
+      0.7539156626506024,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -850,19 +851,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "side on, facing the viewer's RIGHT: the exact mirror image of view 3; the figure's RIGHT (red) side is toward the camera; the nose points right",
      "cell": [
-      0.7680657723929035,
-      0.7468628299437473,
-      0.8788403288619645,
-      0.9684119428818693
+      0.7539156626506024,
+      0.7577948486217804,
+      0.8647590361445783,
+      0.9891549932218707
      ],
      "figure": [
-      0.7680657723929035,
-      0.7710947641713544,
-      0.8788403288619645,
-      0.9684119428818693
+      0.7539156626506024,
+      0.7830998644374153,
+      0.8647590361445783,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     },
     {
      "anim": "ATTACK",
@@ -877,19 +878,19 @@
      "words": "PAIN: hit \u2014 the whole body flinches back from the waist, the head thrown back, both arms flung out and up, the gun still gripped loosely in the right hand pointing down, the knees giving a little",
      "view_words": "turned 45 degrees toward the viewer's RIGHT: the exact mirror image of view 2; the RIGHT (red) shoulder is nearer the camera",
      "cell": [
-      0.8788403288619645,
-      0.7468628299437473,
-      0.9896148853310255,
-      0.9684119428818693
+      0.8647590361445783,
+      0.7577948486217804,
+      0.9756024096385543,
+      0.9891549932218707
      ],
      "figure": [
-      0.8788403288619645,
-      0.7710947641713544,
-      0.9896148853310255,
-      0.9684119428818693
+      0.8647590361445783,
+      0.7830998644374153,
+      0.9756024096385543,
+      0.9891549932218707
      ],
-     "ground": 0.9526265685850281,
-     "px_per_m": 202.1443298969072
+     "ground": 0.9664889290555807,
+     "px_per_m": 192.7422680412371
     }
    ]
   }
