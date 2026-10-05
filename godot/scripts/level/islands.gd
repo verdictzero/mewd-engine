@@ -52,6 +52,9 @@ const LIST := [
 		"houses": {"model": "res://godot/island/candy/models/MODEL_candyLandHouse.glb",
 			"footprint": {"hw": 3.45, "back": 3.1, "front": 3.7, "top": 5.6},
 			"scale": [0.9, 1.15], "inner": 0.85, "outer": 0.65, "gap": 4.0},
+		# its own music, crossfading one into the other round and round
+		# (Music.start_list, at the user's request)
+		"music": ["res://assets/music/golf_course_muzak.mp3", "res://assets/music/sunny_resort_groove.mp3"],
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"}
 ]
 

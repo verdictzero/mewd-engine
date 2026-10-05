@@ -291,7 +291,13 @@ func start_game() -> void:
 		touch = TouchControls.new()
 		touch_layer.add_child(touch)
 		game.touch = touch
-	music.start(0)
+	# an island with its own music plays that, crossfading round and round
+	# (Islands "music": CANDY LAND); the others the three remixes
+	var own: Array = game.island_spec.get("music", [])
+	if own.is_empty():
+		music.start(0)
+	else:
+		music.start_list(own)
 	apply_prefs(pause.prefs)
 	if OS.get_cmdline_user_args().has("--pause"):
 		toggle_pause.call_deferred()

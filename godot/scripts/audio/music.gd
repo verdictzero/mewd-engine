@@ -57,7 +57,7 @@ func _gain(v: float) -> float:
 func set_volume(v: float) -> void:
 	volume = v
 	for d in decks:
-		if d.playing and plan.is_empty():
+		if d.playing and plan.is_empty() and pl_fade < 0.0:
 			d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
 
 func start(i := 0) -> void:
@@ -82,6 +82,8 @@ func dirge() -> void:
 	dirging = true
 	plan = {}
 	current = -1
+	playlist = []
+	pl_fade = -1.0
 	var tw := create_tween()
 	for d in decks:
 		tw.parallel().tween_property(d, "volume_db", -60.0, 1.0)
@@ -101,6 +103,58 @@ func dirge() -> void:
 		d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
 		d.play())
 
+## AN ISLAND'S OWN MUSIC (Islands "music", at the user's request: CANDY
+## LAND's "Golf Course Muzak" and "Sunny Resort Groove"): its tracks in
+## turn, round and round, each CROSSFADED into the next over XFADE seconds
+## before it ends — no beat-matching, these are not the E1M1 remixes.
+const XFADE := 6.0
+var playlist: Array = []
+var pl_index := -1
+var pl_fade := -1.0     # seconds into a crossfade, -1 none
+func start_list(urls: Array) -> void:
+	stop()
+	playlist = urls.duplicate()
+	if playlist.is_empty():
+		return
+	pl_index = 0
+	_pl_play(decks[0], playlist[0], _gain(volume))
+	pl_fade = -1.0
+
+func _pl_play(d: AudioStreamPlayer, url: String, g: float) -> void:
+	var st = load(url)
+	if st == null:
+		return
+	# (each runs to its end: the list is what loops)
+	if "loop" in st:
+		st.loop = false
+	d.stream = st
+	d.pitch_scale = rate
+	d.volume_db = linear_to_db(maxf(0.0001, g))
+	d.play()
+
+func _pl_tic(dt: float) -> void:
+	var out_deck := decks[0]
+	var in_deck := decks[1]
+	var g := _gain(volume)
+	if pl_fade < 0.0:
+		var st := out_deck.stream
+		if st == null:
+			return
+		var left := st.get_length() - out_deck.get_playback_position()
+		if left <= XFADE or not out_deck.playing:
+			pl_fade = 0.0
+			pl_index = (pl_index + 1) % playlist.size()
+			_pl_play(in_deck, playlist[pl_index], 0.0)
+		return
+	pl_fade += dt * rate
+	var f := clampf(pl_fade / XFADE, 0.0, 1.0)
+	out_deck.volume_db = linear_to_db(maxf(0.0001, g * (1.0 - f)))
+	in_deck.volume_db = linear_to_db(maxf(0.0001, g * f))
+	if f >= 1.0:
+		out_deck.stop()
+		decks.reverse()
+		pl_fade = -1.0
+
 func set_rate(r: float) -> void:
 	r = maxf(0.05, r)
 	for d in decks:
@@ -112,8 +166,14 @@ func stop() -> void:
 		d.stop()
 	current = -1
 	plan = {}
+	playlist = []
+	pl_index = -1
+	pl_fade = -1.0
 
 func _process(dt: float) -> void:
+	if not playlist.is_empty():
+		_pl_tic(dt)
+		return
 	if current < 0:
 		return
 	_clock += dt

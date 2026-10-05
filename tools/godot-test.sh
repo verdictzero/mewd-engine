@@ -43,6 +43,9 @@ run unicorn --script res://godot/tests/unicorn_test.gd -- --map=candyland
 # YOU DIED: the burst, the stone, the death camera, the fountain for ever,
 # and a press for the level again (godot/tests/you_died_test.gd)
 run youdied --script res://godot/tests/you_died_test.gd -- --map=candyland
+# CANDY LAND's music: its two tracks crossfading round and round, and the
+# dirge taking over (godot/tests/music_test.gd)
+run music   --audio-driver Dummy --script res://godot/tests/music_test.gd
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
 exit $fail
