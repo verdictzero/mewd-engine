@@ -98,6 +98,8 @@ var vehicle = null
 ## which player it is and which side they are on
 var puppet := false
 var net_id := 0
+## her place in Game.herd (a unicorn or a foal), or -1
+var herd_i := -1
 var net_team := -1
 ## A CANDY GIRL (CANDY LAND): frightened once, and she never comes to
 ## you again; `hello`, tics she has stood in front of you saying it
@@ -260,8 +262,11 @@ func can_stand_at(nx: float, ny: float) -> bool:
 		var rr: float = radius + o.radius
 		if U.dist2(nx, ny, o.x, o.y) < rr * rr:
 			return false
-	var p = game.player
-	if p != null and not p.dead and not (layered and (p.z >= z + height or z >= p.z + p.height)):
+	# (every player in the world, not only this machine's: a match has
+	# sixteen)
+	for p in game.players:
+		if p == null or p.dead or (layered and (p.z >= z + height or z >= p.z + p.height)):
+			continue
 		var rr: float = radius + p.radius
 		if U.dist2(nx, ny, p.x, p.y) < rr * rr:
 			return false
@@ -423,7 +428,7 @@ func damage(amount: float, source, opts := {}) -> void:
 		die(source, amount, opts)
 		return
 	# A UNICORN HURT BY THE PLAYER TURNS ON THEM, and her herd with her
-	if info.get("fights", false) and source != null and source == game.player:
+	if info.get("fights", false) and source != null and source is Player:
 		rouse(source)
 	# a candy girl hurt and not killed knows now what you are
 	if info.get("greets", false) and source != null and source != self:
@@ -440,7 +445,7 @@ func damage(amount: float, source, opts := {}) -> void:
 func die(source, _overkill := 0.0, opts := {}) -> void:
 	if dead:
 		return
-	_death_rouses()
+	_death_rouses(source)
 	if frozen:
 		shatter(source)
 		return
@@ -514,7 +519,7 @@ func burn_tic() -> void:
 # ------------------------------------------------------------------
 
 func A_Look() -> void:
-	var p = game.player
+	var p = game.nearest_player(x, y)
 	if p == null or p.dead:
 		return
 	if not can_see(p) or not in_sight_cone(p):
@@ -536,7 +541,7 @@ func A_Chase() -> void:
 		else:
 			threshold -= 1
 	if target == null or target.dead:
-		var p = game.player
+		var p = game.nearest_player(x, y)
 		var r := float(info.get("sightRange", 2000))
 		if p != null and not p.dead and can_see(p) and U.dist2(x, y, p.x, p.y) < r * r:
 			target = p
@@ -767,10 +772,8 @@ func _greet_whom():
 	var bd := GREET_RANGE * GREET_RANGE
 	# (nobody walks to meet the drop pod coming down: they wait where they
 	# stand, in their rings round the spot, DropPod.RINGS)
-	if game.get("drop") != null and game.drop.phase == "drop":
-		return null
 	for p in game.players:
-		if p.dead:
+		if p.dead or (p.pod != null and p.pod.active and p.pod.phase == "drop"):
 			continue
 		var d2 := U.dist2(x, y, p.x, p.y)
 		if d2 < bd:
@@ -961,9 +964,15 @@ const ROUSE_R := 1400.0
 ## within this of her turns on the player
 const DEATH_ROUSE_R := 2400.0
 
-func _death_rouses() -> void:
-	var p = game.player
-	if p == null or p.dead or not (info.get("fights", false) or type == "FOAL"):
+func _death_rouses(source = null) -> void:
+	if not (info.get("fights", false) or type == "FOAL"):
+		return
+	# (a network client's herd is the host's to rouse)
+	if game.net != null:
+		return
+	# (on her killer, if it was a player; else whoever is nearest)
+	var p = source if source is Player and not source.dead else game.nearest_player(x, y)
+	if p == null or p.dead:
 		return
 	for o in game.blockmap.near_radius(x, y, DEATH_ROUSE_R):
 		if o == self or o.dead or o.removed or not o.info.get("fights", false):
@@ -997,8 +1006,18 @@ func _fight() -> bool:
 	set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
 	return true
 
+## WHO SHE IS FIGHTING: the player she is after while they live, else the
+## nearest one (a match has sixteen; a game on its own, the one)
+func _foe():
+	if target != null and target is Player and not target.dead and game.players.has(target):
+		return target
+	var p = game.nearest_player(x, y)
+	if p != null:
+		target = p
+	return p
+
 func _can_fire() -> bool:
-	var p = game.player
+	var p = _foe()
 	if p == null or p.dead:
 		return false
 	var r: float = RainbowBeams.UNI.range
@@ -1007,7 +1026,7 @@ func _can_fire() -> bool:
 ## the fury running out (or nobody left to fight): back to grazing
 func _calm() -> bool:
 	fury -= 1
-	var p = game.player
+	var p = _foe()
 	if fury > 0 and p != null and not p.dead:
 		return false
 	fury = 0
@@ -1018,7 +1037,7 @@ func _calm() -> bool:
 	return true
 
 func _face_player() -> void:
-	var p = game.player
+	var p = _foe()
 	if p != null:
 		angle = atan2(p.y - y, p.x - x)
 
@@ -1037,7 +1056,7 @@ func A_UniAim() -> void:
 	if uni_t >= C:
 		uni_t = 0
 		if game.rainbow != null:
-			game.rainbow.fire(self, game.player)
+			game.rainbow.fire(self, _foe())
 		set_state("UNI_BEAM")
 
 func A_UniBeam() -> void:
@@ -1059,7 +1078,9 @@ func A_UniCharge() -> void:
 	if _calm():
 		return
 	_face_player()
-	var p = game.player
+	var p = _foe()
+	if p == null:
+		return
 	var R = RainbowBeams.UNI
 	uni_t += 1
 	var reach: float = radius + p.radius + R.ram_reach
@@ -1107,7 +1128,9 @@ func _ram(p, dir: Vector2) -> void:
 func A_UniHunt() -> void:
 	if _calm():
 		return
-	var p = game.player
+	var p = _foe()
+	if p == null:
+		return
 	speed = float(info.get("runSpeed", speed))
 	uni_t += 1
 	if uni_t % 4 == 0 and _can_fire():

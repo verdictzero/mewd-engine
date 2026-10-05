@@ -1,4 +1,4 @@
-## MEWD — a client's end of the line (js/net/client.js).
+## MEWD — a client's end of the line.
 ##
 ## Says hello, learns who it is and which map to build, sends a command a
 ## tic, keeps the snapshots, and measures the line. What it does NOT do is
@@ -25,6 +25,9 @@ var closed := false
 var bye = null
 var on_welcome := Callable()
 var on_snap := Callable()
+var on_herd := Callable()
+var herds := 0
+var ready_sent := false
 var on_close := Callable()
 var _ping_at := -1000000
 
@@ -62,6 +65,10 @@ func _message(data) -> void:
 			var r: float = float(now_fn.call()) - float(m.get("n", 0))
 			if r >= 0.0 and r < 60000.0:
 				rtt = rtt * 0.7 + r * 0.3 if rtt > 0.0 else r
+		"herd":
+			herds += 1
+			if on_herd.is_valid():
+				on_herd.call(m)
 		"snap":
 			snap = m
 			snaps += 1
@@ -69,6 +76,13 @@ func _message(data) -> void:
 				score = m.score
 			if on_snap.is_valid():
 				on_snap.call(m)
+
+## The island is built: drop me in.
+func send_ready() -> void:
+	if welcome == null or closed or ready_sent:
+		return
+	ready_sent = true
+	transport.send(NetProtocol.encode({"t": "ready"}))
 
 ## This tic's command, to the host — and now and then, a ping.
 func send(cmd: Dictionary) -> void:

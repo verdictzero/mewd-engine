@@ -205,6 +205,15 @@ var _island_built := false
 ## THE DROP (game/drop_pod.gd): with `drop_in`, the game begins in orbit,
 ## in the pod, and the map is yours when its door blows
 var drop: DropPod = null
+## EVERY POD IN THE WORLD (a match drops everybody in, and again after every
+## death): the one this machine's player rides is `drop` as well
+var pods: Array = []
+## how long a pod stands after its door is off before it goes, in a match
+## (sixteen players dying and dropping in again would leave a field of
+## them); a game on its own keeps its one
+const POD_LINGER := 60 * 35
+## every unicorn and foal the map put down, in order (_spawn_things)
+var herd: Array = []
 var drop_in := false
 ## true while Main's loading screen is up: the pod hangs at the top until
 ## it is gone (the ride is ten seconds, and they would pass under it)
@@ -265,9 +274,7 @@ func start_map(which: String) -> void:
 		player.weapon = _start_weapon
 	_spawn_things()
 	if drop_in and island != null:
-		drop = DropPod.new(self)
-		add_child(drop)
-		drop.begin(float(start.x), float(start.y))
+		start_pod(player, float(start.x), float(start.y))
 	escalation = Escalation.new(self)
 	add_child(escalation)
 	standees = Standees.new()
@@ -560,8 +567,8 @@ func _process(dt: float) -> void:
 	trophies.draw()
 	_prof_add("draw.trophies", t0)
 	t0 = Time.get_ticks_usec()
-	if drop != null:
-		drop.draw(_acc / U.SEC)
+	for pod: DropPod in pods:
+		pod.draw(_acc / U.SEC)
 	_prof_add("draw.drop", t0)
 	t0 = Time.get_ticks_usec()
 	if weapon3d != null:
@@ -679,10 +686,11 @@ func tic() -> void:
 			var back: Callable = rewind.call(p, cmd) if rewind.is_valid() else Callable()
 			# IN THE POD (DropPod): the hands fly it, the eye turns, the
 			# body rides along until the door is off
-			if drop != null and drop.active and p == player and drop.holds_player():
+			var pod = p.pod
+			if pod != null and pod.active and pod.holds_player():
 				p.prev = Vector4(p.x, p.y, p.view_z, 0)
 				p.turn(cmd.look)
-				drop.tic(cmd)
+				pod.tic(cmd)
 			else:
 				p.tic(cmd)
 			# dead, and the burst over: a press is for the level again
@@ -691,8 +699,7 @@ func tic() -> void:
 				restart_wanted = true
 			if back.is_valid():
 				back.call()
-	if drop != null and drop.active and not drop.holds_player():
-		drop.tic({})
+	_pods_tic()
 	if reps > 1:
 		for i in players.size():
 			players[i].prev = stood[i]
@@ -706,16 +713,16 @@ func tic() -> void:
 	# target, not held — further than LOD_FAR from the player takes one
 	# tic in four. They wander a shade slower where nobody can tell. Only
 	# the living crowd: a death, a blast in the air, blood, a stone must
-	# run every tic or they hang (the user saw them). Not in a match,
-	# whose worlds must agree.
-	var lod: bool = net == null and player != null
-	var lx: float = player.x if lod else 0.0
-	var ly: float = player.y if lod else 0.0
+	# run every tic or they hang (the user saw them). IN A MATCH, near
+	# from ANY player (the host's world has sixteen; a client's crowd is
+	# its own, and only its own player looks at it).
+	var pts := _lod_points()
+	var lod: bool = player != null
 	var lod_far2 := LOD_FAR * LOD_FAR
 	if not lod:
 		awake = actors
 	elif tics % AWAKE_EVERY == 0 or awake.is_empty():
-		_wake(lx, ly)
+		_wake(pts)
 	# AND THE FRIGHTENED far off take one in two: a blast panics half the
 	# crowd at once, every one of them looking for a way out every tic
 	for a: Actor in awake:
@@ -723,9 +730,7 @@ func tic() -> void:
 			continue
 		if lod and a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.target == null \
 				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and (tics + a.id) % (2 if a.panic > 0 else 4) != 0:
-			var ddx: float = a.x - lx
-			var ddy: float = a.y - ly
-			if ddx * ddx + ddy * ddy > lod_far2:
+			if _near2(pts, a.x, a.y) > lod_far2:
 				continue
 		a.tic()
 	_prof_add("tic.actors", t0)
@@ -939,6 +944,12 @@ func _spawn_things() -> void:
 			a.mother = made.get(int(t.mother))
 		made[i] = a
 		actors.append(a)
+		# THE HERDS, in the order the seed put them down — the same list on
+		# a host and every client, so a unicorn's place in it is her name on
+		# the wire (SimServer.herd_for, NetGame.on_herd)
+		if type == "UNICORN" or type == "FOAL":
+			a.herd_i = herd.size()
+			herd.append(a)
 
 func spawn(type: String, x: float, y: float, a := 0.0, opts := {}) -> Actor:
 	PerfLog.did("spawn")
@@ -1096,6 +1107,55 @@ func break_apart(a: Actor, _opts := {}) -> void:
 	fx.ember(a.x, a.y, a.z + a.height * 0.8, 10, 1.0)
 	fx.puff(a.x, a.y, a.z + a.height * 0.5, 30.0, 60)
 	bleeders.erase(a)
+
+## A POD DROPPED on (x, y), map units, with `p` riding it (or nobody: a
+## network client draws the others' pods off the host's word, NetGame).
+## `quick`: down at once, not held at the top for the loading screen.
+func start_pod(p, x: float, y: float, quick := false) -> DropPod:
+	var pod := DropPod.new(self)
+	pod.rider = p
+	add_child(pod)
+	pods.append(pod)
+	if p != null:
+		p.pod = pod
+	if p == player:
+		drop = pod
+	if quick:
+		pod.held = false
+	pod.begin(x, y)
+	return pod
+
+## the pods nobody rides any more, gone a while after their doors (a match)
+func _pods_tic() -> void:
+	for i in range(pods.size() - 1, -1, -1):
+		var pod: DropPod = pods[i]
+		var rides: bool = pod.rider != null and pod.active and pod.holds_player() and players.has(pod.rider) \
+			and pod.rider.pod == pod
+		if pod.active and not rides:
+			pod.tic({})
+		if (rules != null or net != null) and pod.phase == "out" and pod.phase_tics > POD_LINGER:
+			pod.retire()
+			pods.remove_at(i)
+			if pod.rider != null and pod.rider.pod == pod:
+				pod.rider.pod = null
+			if drop == pod:
+				drop = null
+			pod.queue_free()
+
+## The nearest living player to (x, y), or null: the one, on a game of
+## its own; any of sixteen, in a match (the host's own put-aside player is
+## not among them)
+func nearest_player(x: float, y: float):
+	var best = null
+	var bd := INF
+	for p in players:
+		if p == null or p.dead:
+			continue
+		var d := U.dist2(x, y, p.x, p.y)
+		if d < bd:
+			bd = d
+			best = p
+	return best
 
 ## Everything alive within `radius` of `at` (map space), players included.
 func actors_in_cone_around(at, radius: float) -> Array:
@@ -1265,7 +1325,27 @@ func weapon_system(kind: String):
 ## count, and wakes.
 var awake: Array = []
 var asleep := 0
-func _wake(px: float, py: float) -> void:
+## where the world is looked at from: the player here — or, on a match's
+## host, every player in it
+func _lod_points() -> Array:
+	if rules != null and net == null:
+		var out := []
+		for p in players:
+			if p != null:
+				out.append(Vector2(p.x, p.y))
+		return out
+	return [Vector2(player.x, player.y)] if player != null else []
+
+## the square of the distance to the nearest of `pts` (far, with none)
+static func _near2(pts: Array, x: float, y: float) -> float:
+	var best := 1e30
+	for q: Vector2 in pts:
+		var dx := x - q.x
+		var dy := y - q.y
+		best = minf(best, dx * dx + dy * dy)
+	return best
+
+func _wake(pts: Array) -> void:
 	var out: Array = []
 	var far2 := SLEEP_FAR * SLEEP_FAR
 	for a: Actor in actors:
@@ -1273,9 +1353,7 @@ func _wake(px: float, py: float) -> void:
 			continue
 		if a.monster and not a.dead and a.health > 0 and a.burning == 0 and a.target == null and a.panic == 0 \
 				and not a.frozen and a.bored == 0 and a.ash <= 0.0 and a.frost <= 0.0:
-			var dx: float = a.x - px
-			var dy: float = a.y - py
-			if dx * dx + dy * dy > far2:
+			if _near2(pts, a.x, a.y) > far2:
 				continue
 		out.append(a)
 	asleep = actors.size() - out.size()

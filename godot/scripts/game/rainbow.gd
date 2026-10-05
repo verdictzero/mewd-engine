@@ -112,9 +112,13 @@ func charge(u, k: float) -> void:
 			"c0": rainbow((U.p_random() / 255.0), 1.0), "c1": Color(1, 1, 1, 0.6), "drag": 1.0, "gravity": 0.0})
 
 ## A beam lit from unicorn `u` at the player: her line starts on them.
-func fire(u, p) -> Dictionary:
+## `p` the one she is after (the line swings after them); `ghost`, a beam
+## only drawn — a network client's, from what the host says a unicorn is
+## doing: the host's beam is the one that hurts (NetGame)
+func fire(u, p, ghost := false) -> Dictionary:
 	var m := mouth(u)
-	var b := {"u": u, "dir": (chest(p) - m).normalized(), "t": 0, "from": m, "to": m, "seed": U.p_random()}
+	var b := {"u": u, "p": p, "ghost": ghost, "dir": (chest(p) - m).normalized() if p != null else Vector3(cos(u.angle), sin(u.angle), 0.0),
+		"t": 0, "from": m, "to": m, "seed": U.p_random()}
 	beams.append(b)
 	fired += 1
 	_burst(m, 0.7, false)
@@ -137,9 +141,11 @@ func firing(u) -> bool:
 func tic() -> void:
 	sparks.tic()
 	glows.tic()
-	var p = game.player
 	for i in range(beams.size() - 1, -1, -1):
 		var b: Dictionary = beams[i]
+		var p = b.get("p")
+		if p != null and (p.get("removed") == true):
+			p = null
 		b.t += 1
 		var u = b.u
 		if b.t > UNI.beam_tics or u == null or u.removed or u.dead or u.held():
@@ -162,27 +168,40 @@ func tic() -> void:
 		# round the eye only (a tube that runs into the eye is a white wall),
 		# coming out again behind
 		b.gap = Vector2(-1.0, -1.0)
-		if p != null and not p.dead:
-			var eye := Vector3(p.x, p.y, p.view_z if "view_z" in p else p.z + U.PLAYER_EYE)
+		var me = game.player
+		if me != null and not me.dead:
+			var eye := Vector3(me.x, me.y, me.view_z if "view_z" in me else me.z + U.PLAYER_EYE)
 			var along: float = (eye - m).dot(b.dir)
 			if along > 0.0 and along < m.distance_to(b.to) + 40.0 and (m + b.dir * along).distance_to(eye) < 60.0:
 				b.gap = Vector2(maxf(0.0, along - 70.0), along + 70.0)
-		# WHOEVER STANDS IN IT
-		if p != null and not p.dead and not p.invincible:
-			var c := chest(p)
+		# WHOEVER STANDS IN IT — any player, not only the one she is after
+		# (and nobody, for a beam only drawn: the host's hurts)
+		if not b.ghost:
+			for q in game.players:
+				if q == null or q.dead or q.invincible:
+					continue
+				var c := chest(q)
+				var seg: Vector3 = b.to - m
+				var t := clampf((c - m).dot(seg) / maxf(seg.length_squared(), 1.0), 0.0, 1.0)
+				var near := m + seg * t
+				if near.distance_to(c) < UNI.hit_r + q.radius * 0.5:
+					q.damage(UNI.damage, u, {"impact": true, "rainbow": true})
+					hits += 1
+					# the screen swims (Lofi wobble, game.screen_wobble)
+					if "wobble" in q:
+						q.wobble = UNI.wobble_tics
+					if b.t % 3 == 0:
+						_burst(near, 0.8, true)
+					# and out of their back: sparks thrown on along the line
+					_exit(c, b.dir)
+		elif me != null and not me.dead:
+			# (the look of being in it, on this machine: the host says what
+			# it did)
+			var c := chest(me)
 			var seg: Vector3 = b.to - m
 			var t := clampf((c - m).dot(seg) / maxf(seg.length_squared(), 1.0), 0.0, 1.0)
-			var near := m + seg * t
-			if near.distance_to(c) < UNI.hit_r + p.radius * 0.5:
-				p.damage(UNI.damage, u, {"impact": true, "rainbow": true})
-				hits += 1
-				# the screen swims (Lofi wobble, game.screen_wobble)
-				if "wobble" in p:
-					p.wobble = UNI.wobble_tics
-				if b.t % 3 == 0:
-					_burst(near, 0.8, true)
-				# and out of their back: sparks thrown on along the line
-				_exit(c, b.dir)
+			if (m + seg * t).distance_to(c) < UNI.hit_r + me.radius * 0.5 and "wobble" in me:
+				me.wobble = UNI.wobble_tics
 		_effects(b, hit)
 
 ## where the line from a to b stops: the first house wall or the ground

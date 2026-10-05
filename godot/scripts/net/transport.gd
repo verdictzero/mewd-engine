@@ -1,5 +1,4 @@
-## MEWD — transports: the pipe a message goes down (js/net/transport.js,
-## and the socket half of tools/server.mjs).
+## MEWD — transports: the pipe a message goes down.
 ##
 ## One interface, however the bytes travel:
 ##

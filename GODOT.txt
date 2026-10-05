@@ -2986,6 +2986,63 @@ make it have a dissipating heat effect like the minigun barrel"):
     orange to a dull red, and falling as heat squared, as the minigun's
     barrel does. It churns only while the reentry fire is on.
 
+
+MULTIPLAYER: SIXTEEN, DROPPED IN BY POD, A DEATHMATCH ON THE ISLANDS
+--------------------------------------------------------------------
+At the user's request ("multiplayer, 16 ways, NPC positions don't
+matter, they don't need to update fast; if a unicorn kills someone they
+die; everyone drops in at different points like fortnite or pubg via
+drop pod" — then: deathmatch, no closing zone yet, randomized drop
+points, hosting either way, drop the old web build's wire):
+
+  * HOSTING, EITHER WAY. MULTIPLAYER on the title (it was greyed out):
+    HOST GAME and an island, or JOIN GAME and the host's address (the
+    last one kept: ui/join_box.gd). A game hosted from the title runs
+    the host in this process (NetHost `listen`), its world in a hidden
+    viewport of its own so nothing of it is drawn, and this machine joins
+    it over its own socket like anybody else; the line at the top says
+    HOSTING — JOIN AT and this machine's LAN address. The dedicated
+    server is as it was (--server[=PORT] --map=…, headless), and
+    --host=MAP does what HOST GAME does. Port 7777.
+  * THE WIRE is the Godot game's own now (protocol 3): the old web
+    build's is let go. New in it: READY (a client is dropped in only
+    once its island is built), the pods in the snapshots, and HERD
+    messages.
+  * EVERYBODY DROPS IN (NetMatch.spawn, drop_point): every life begins
+    in a drop pod aimed at a random point on open ground — on land, out
+    of the houses, not steep — the furthest of a dozen tries from
+    everybody alive (120 m will do). Nothing hurts you in the pod, nor
+    for the guard's two seconds after the door. A pod that lands on
+    somebody squashes them: the rider's frag. With the RCS off the pod's
+    fall is the same sum everywhere, so the host says only where it was
+    aimed and the tic it began on and every client flies it itself — its
+    own player's, and everybody else's, seen coming down
+    (Game.start_pod: any number of pods now, each with its RIDER; in a
+    match one goes a minute after its door).
+  * THE HERDS ARE THE HOST'S: it runs the unicorns (their fury, the beam,
+    the charge now on whichever of the players they are after —
+    Actor._foe — and a herd's death rouses it on the killer) and four
+    times a second tells each client where those within 300 m of its
+    player are and what they are doing; a client draws its own herd as
+    puppets of that (NetGame.on_herd), the beams included, hurting
+    nobody there. The host's beam is the one that hurts, and IF A UNICORN
+    KILLS SOMEBODY, THEY DIE (a frag off). A death in the herd is an
+    event, and she goes to pieces on every client too.
+  * THE CANDY GIRLS are every machine's own, from the same seed (the
+    host's whole crowd now, not none); a landing in a match fills only
+    the first two of the landing party's rings (the gore and the fire),
+    and none on the host.
+  * The crowd far off thinks less often — on a host, far from every
+    player (Game._lod_points).
+  * NOT YET: the guns other than the minigun (the network's loadout:
+    the rewind is for hitscan), the girls' deaths shared, a closing zone.
+
+Tested in net_test.gd: a match on CANDY LAND over loopback (ready, the
+pods flown alike on host and client, the unicorn drawn where the host
+has her and her beam with her, a unicorn's kill, a herd death seen, the
+respawn in a pod, a kill through the rewind), and a headless host with
+two headless clients dropping in and fragging each other.
+
 TESTS
 
     tools/godot-test.sh

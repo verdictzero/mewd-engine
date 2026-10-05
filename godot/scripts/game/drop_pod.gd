@@ -241,6 +241,10 @@ var ticks := 0
 var touchdown_speed := 0.0
 ## hanging at the top, not yet begun: see `tic`
 var held := true
+## WHO RIDES IT (Game.start_pod): the player it carries down and sets out
+## of the door, and whose doing what it does to the people round it is —
+## or nobody (a network client's picture of somebody else's pod)
+var rider = null
 
 func _init(g) -> void:
 	game = g
@@ -605,7 +609,7 @@ func _fly(cmd: Dictionary) -> void:
 	var ground := _ground()
 	var over_land := ground > IslandLevel.NO_FLOOR
 	# ---- what is asked: a tilt, from the eye's point of view ----------
-	var a: float = game.player.angle
+	var a: float = rider.angle if rider != null else 0.0
 	var fwd := Vector3(cos(a), 0.0, -sin(a))
 	var right := Vector3(sin(a), 0.0, cos(a))
 	var want_tilt := fwd * float(cmd.get("fwd", 0.0)) + right * float(cmd.get("side", 0.0))
@@ -810,7 +814,9 @@ const BURN := {"squash": 0.6, "touchdown": 14.0}
 ## all"). Radii in metres past the hull's rim; `gore_n` and `fire_n` the
 ## people put in the first two (with whoever is there already), `more`
 ## the third and the fourth each, as a share of the first two together.
-##   1  out to `gore`   blown to gore at the touchdown
+##   1  out to `gore`   blown to gore at the touchdown (and rooted till
+##                      then: nothing frightens them, the jets pass
+##                      them by)
 ##   2  out to `fire`   set alight (the jets, then the touchdown)
 ##   3  out to `flee`   run from it, unhurt
 ##   4  out to `calm`   not frightened at all, for `calm_s` after it
@@ -831,7 +837,7 @@ func _set_alight(a) -> void:
 	var was: int = a.burning
 	a.ignite(int(10 * U.TICRATE))
 	if not a.info.has("burn"):
-		a.damage(10000.0, game.player, {"fire": true})
+		a.damage(10000.0, rider, {"fire": true})
 	if a.burning > 0 and was <= 0 or a.dead:
 		burned += 1
 	if game.fx != null:
@@ -909,7 +915,11 @@ func _wash_tic(ground: float, h: float) -> void:
 	if ticks % 2 == 0:
 		var shadow := HULL_R * 0.8 * um
 		for a in game.blockmap.near_radius(cx, cy, ring + 0.5 * um):
-			if a.dead or a.removed or a.burning > 0 or a.get("vehicle") != null or a == game.player:
+			if a.dead or a.removed or a.burning > 0 or a.get("vehicle") != null or a.puppet:
+				continue
+			# (the first ring is for the gore: rooted, staring up, until it
+			# lands on them)
+			if a.get_meta("pod_ring", 0) == 1:
 				continue
 			if a.z > gz + 4.0 * um or Vector2(a.x - cx, a.y - cy).length() < shadow:
 				continue
@@ -932,6 +942,12 @@ func _wash_shock(gx: float, gy: float) -> void:
 ## many again in the third and again in the fourth. Whoever stands in the
 ## fourth ring already is as calm as the ones put there.
 func _landing_party() -> void:
+	# IN A MATCH: the host's crowd is nobody's to see, so none there; on a
+	# client, the first two rings only — they are blown apart and burnt
+	# away, where the outer two would stay, a crowd more for every drop
+	if game.rules != null and game.net == null:
+		return
+	var match_drop: bool = game.net != null
 	var um := IslandLevel.U_PER_M
 	var types: Array = game.island_spec.get("crowd", []) if game.island_spec != null else []
 	if types.is_empty():
@@ -943,19 +959,21 @@ func _landing_party() -> void:
 	for a in game.actors:
 		if U.dist2(a.x, a.y, start.x, start.y) > r.call("calm") * r.call("calm"):
 			continue
-		if a.removed or a.dead or a == game.player or a.get("vehicle") != null or a.info.get("fights", false):
+		if a.removed or a.dead or a.puppet or a.get("vehicle") != null or a.info.get("fights", false):
 			continue
 		var d := Vector2(a.x - start.x, a.y - start.y).length()
 		var ring := 1 if d < r.call("gore") else (2 if d < r.call("fire") else (3 if d < r.call("flee") else 4))
 		if ring <= 2:
 			have[ring] += 1
-		elif ring == 4:
+		if ring == 4 or ring == 1:
 			a.unfazed_until = game.tics + int(240 * U.TICRATE)
 		a.set_meta("pod_ring", ring)
 		party[ring].append(a)
 	var inner: int = have[1] + have[2]
 	inner += _put_ring(1, maxi(0, int(RINGS.gore_n) - have[1]), (HULL_R + 1.2) * um, r.call("gore"), types)
 	inner += _put_ring(2, maxi(0, int(RINGS.fire_n) - have[2]), r.call("gore"), r.call("fire"), types)
+	if match_drop:
+		return
 	var more := ceili(inner * float(RINGS.more))
 	_put_ring(3, more, r.call("fire") + um, r.call("flee") - um, types)
 	_put_ring(4, more, r.call("flee") + um, r.call("calm") - um, types)
@@ -979,7 +997,7 @@ func _put_ring(ring: int, n: int, r0: float, r1: float, types: Array) -> int:
 			if a == null:
 				break
 			a.set_meta("pod_ring", ring)
-			if ring == 4:
+			if ring == 4 or ring == 1:
 				a.unfazed_until = game.tics + int(240 * U.TICRATE)
 			party[ring].append(a)
 			added[ring] += 1
@@ -1000,7 +1018,9 @@ func _land_on_people(gx: float, gy: float, gz: float) -> void:
 		if not a.removed and not a.dead:
 			a.unfazed_until = maxi(a.unfazed_until if a.burning <= 0 else 0, calm_until)
 	for a in game.blockmap.near_radius(gx, gy, (HULL_R + float(RINGS.calm)) * um):
-		if a.removed or a.get("vehicle") != null or a == game.player:
+		# (a puppet is the host's: another player, or a network client's
+		# unicorn)
+		if a.removed or a.get("vehicle") != null or a.puppet:
 			continue
 		if a.z > gz + 4.0 * um:
 			continue
@@ -1030,12 +1050,45 @@ func _land_on_people(gx: float, gy: float, gz: float) -> void:
 			if a.panic > 0:
 				fled += 1
 
+## ON A MATCH'S HOST, a player under the hull as it lands is squashed —
+## the rider's frag
+func _squash_players(gx: float, gy: float, gz: float) -> void:
+	if game.rules == null or game.net != null:
+		return
+	var um := IslandLevel.U_PER_M
+	var under := (HULL_R + BURN.squash) * um
+	for q in game.players:
+		if q == rider or q == null or q.dead or q.invincible:
+			continue
+		if q.z > gz + 4.0 * um:
+			continue
+		if Vector2(q.x - gx, q.y - gy).length() < under + q.radius:
+			q.damage(100000.0, rider, {"impact": true, "pod": true})
+			squashed += 1
+
+## THE POD GONE (Game._pods_tic, a match): its posts, its deck, its
+## smoke
+func retire() -> void:
+	for b in blockers:
+		if b != null and not b.removed:
+			b.remove()
+	blockers.clear()
+	for b in door_posts:
+		if b != null and not b.removed:
+			b.remove()
+	door_posts.clear()
+	if game.level is IslandLevel:
+		game.level.remove_deck(pos.x * IslandLevel.U_PER_M, -pos.z * IslandLevel.U_PER_M)
+	vents.clear()
+	active = false
+	visible = false
+
 ## blown to gore where they stand, alive or dead
 func _gore(a) -> void:
 	if a.dead:
 		game.gib(a)
 	else:
-		a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
+		a.damage(100000.0, rider, {"impact": true, "gib": true, "pod": true})
 	if game.gore_decals != null:
 		game.gore_decals.pool(a.x, a.y, a.z, 60.0)
 
@@ -1117,6 +1170,7 @@ func _touchdown(ground: float) -> void:
 			i += 1
 	# the people and the creatures round it: alight
 	_land_on_people(gx, gy, gz)
+	_squash_players(gx, gy, gz)
 	# nothing left growing through the hull, and round it the plants blown
 	# flat as a blast would
 	if game.veg_damage != null:
@@ -1208,7 +1262,9 @@ func _blow_door() -> void:
 ## The player put just outside the door, a step past the hull, standing
 ## on whatever is there (the ground, not THE DECK), looking out.
 func _step_out(out: Vector3) -> void:
-	var p = game.player
+	var p = rider
+	if p == null:
+		return
 	var um := IslandLevel.U_PER_M
 	var at := pos + out * (HULL_R + 1.0)
 	var gx := at.x * um
@@ -1259,14 +1315,14 @@ func _door_hits() -> void:
 	var from := at - way.normalized() * 40.0 if way.length() > 0.1 else at
 	var r := DOOR_HIT_R * um
 	for o in game.actors_in_cone_around(at, r + 64.0):
-		if o is Player or o.dead:
+		if o is Player or o.dead or o.puppet:
 			continue
 		var rr: float = r + float(o.radius)
 		if U.dist2(at.x, at.y, o.x, o.y) > rr * rr:
 			continue
 		if at.z + r < o.z or at.z - r > o.z + o.height:
 			continue
-		o.damage(10000.0, game.player, {"gib": true, "door": true})
+		o.damage(10000.0, rider, {"gib": true, "door": true})
 		door_kills += 1
 		door_vel *= 0.85
 	if game.veg_damage != null:
@@ -1279,7 +1335,9 @@ func _door_hits() -> void:
 ## map's units; the eye is placed by place_camera while it is third person,
 ## and by the player's own rules once inside.
 func _sync_player() -> void:
-	var p = game.player
+	var p = rider
+	if p == null:
+		return
 	var um := IslandLevel.U_PER_M
 	var gx := pos.x * um
 	var gy := -pos.z * um
@@ -1401,7 +1459,7 @@ func flame_transform(i: int, lv: float, flicker := 1.0) -> Transform3D:
 ## THE EYE BEHIND THE POD, third person: round it by the player's angle,
 ## up by their pitch, 14 m off, looking at its middle.
 func place_camera(cam: Camera3D, f: float) -> void:
-	var p: Player = game.player
+	var p: Player = rider if rider != null else game.player
 	var centre := prev_pos.lerp(pos, f) + Vector3(0, TALL * 0.5, 0)
 	var e := clampf(0.3 - p.pitch, -0.15, 1.2)
 	var a: float = p.angle

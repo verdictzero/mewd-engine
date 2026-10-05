@@ -25,6 +25,10 @@ var game
 var id := 0
 var name := "PLAYER"
 var team := -1
+## the drop pod this player rides (Game.start_pod), or null
+var pod = null
+## the host's tic the last pod began on (a match: NetMatch.spawn)
+var pod_tic := 0
 var frags := 0
 var deaths := 0
 ## where this player's commands come from: null for the game's own

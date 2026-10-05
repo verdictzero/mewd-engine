@@ -93,6 +93,12 @@ func floor_at(x: float, y: float) -> float:
 func add_deck(x: float, y: float, r: float, z: float) -> void:
 	decks.append({"x": x, "y": y, "r2": r * r, "z": z})
 
+## the deck laid at (x, y) taken up again (a match's pod gone, DropPod.retire)
+func remove_deck(x: float, y: float) -> void:
+	for i in range(decks.size() - 1, -1, -1):
+		if absf(decks[i].x - x) < 1.0 and absf(decks[i].y - y) < 1.0:
+			decks.remove_at(i)
+
 ## Whether a body of this radius can stand here: on the island, with its
 ## whole circle clear of the coast.
 func on_land(x: float, y: float, radius := 0.0) -> bool:

@@ -86,7 +86,14 @@ func _ready() -> void:
 			join = a.substr(7)
 		elif a == "--join":
 			join = "127.0.0.1:%d" % NetProtocol.DEFAULT_PORT
-	if join != "":
+	var host_map := ""
+	for a in args:
+		if a.begins_with("--host="):
+			host_map = a.substr(7)
+	if host_map != "":
+		# HOST GAME from the command line (as the title's MULTIPLAYER page)
+		host_game(Islands.find(host_map).key)
+	elif join != "":
 		join_host(join)
 	elif again != "":
 		# YOU DIED, and asked for the level again (Game.restart_wanted)
@@ -174,7 +181,11 @@ func join_host(where: String) -> void:
 		if _arg("--netbot"):
 			get_tree().quit(2)
 			return
-		show_title()
+		_stop_hosting()
+		if title != null:
+			title.notice("COULD NOT JOIN %s: %s" % [where.to_upper(), why.to_upper()])
+		else:
+			show_title()
 		return
 	print("MEWD: joined %s as %s, player %d: %s seed %d" % [url, nm, c.id, str(c.map.kind), int(c.map.seed)])
 	net_client = c
@@ -197,6 +208,8 @@ func show_title() -> void:
 	title_layer.add_child(title)
 	title.attach_shade(shade)
 	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
+	title.host_game.connect(host_game)
+	title.join_game.connect(open_join_box)
 	title_layer.add_child(_logs_note())
 	title.pad_setup.connect(open_pad_wizard)
 	title.debug_menu.connect(open_debug)
@@ -204,6 +217,52 @@ func show_title() -> void:
 	Pad.watch()
 	# the title's own music, round and round until NEW GAME
 	music.title_theme()
+
+## A MATCH HOSTED HERE (HOST GAME): the host, its world hidden in a
+## viewport of its own, and this machine joining it like anybody else
+## (NetHost `listen`). Gone with the game, back to the title.
+var hosting: NetHost = null
+
+func host_game(map: String) -> void:
+	if hosting != null or game != null:
+		return
+	var h := NetHost.new()
+	h.listen = true
+	h.name = "Host"
+	add_child(h)
+	randomize()
+	var err := h.start(map, randi() & 0x7FFFFFFF, {}, NetProtocol.MAX_PLAYERS, {}, [])
+	if err != OK:
+		h.queue_free()
+		if title != null:
+			title.notice("COULD NOT HOST: PORT %d IS TAKEN" % NetProtocol.DEFAULT_PORT)
+		return
+	hosting = h
+	join_host("127.0.0.1:%d" % h.listener.port)
+
+## JOIN GAME: where the host is (ui/join_box.gd), then join it
+var _join_layer: CanvasLayer = null
+func open_join_box() -> void:
+	if _join_layer != null:
+		return
+	_join_layer = CanvasLayer.new()
+	_join_layer.layer = 12
+	add_child(_join_layer)
+	var box := JoinBox.new()
+	_join_layer.add_child(box)
+	box.back.connect(_close_join_box)
+	box.join.connect(func(where: String): _close_join_box(); join_host(where))
+
+func _close_join_box() -> void:
+	if _join_layer != null:
+		_join_layer.queue_free()
+		_join_layer = null
+
+func _stop_hosting() -> void:
+	if hosting != null:
+		hosting.close()
+		hosting.queue_free()
+		hosting = null
 
 var _loading := false
 ## the level picked on the title (NEW GAME), "" for the default
@@ -264,6 +323,9 @@ func start_game() -> void:
 	# and from here on this game is one player in the host's world
 	if net_client != null:
 		var ng := NetGame.new(game, net_client)
+		if hosting != null:
+			var ips := NetHost.lan_addresses()
+			ng.host_note = "HOSTING — JOIN AT %s" % (", ".join(ips) if not ips.is_empty() else "THIS MACHINE")
 		ng.bot = _arg("--netbot")
 		ng.bot_fire = not OS.get_cmdline_user_args().has("--netbot=look")
 	# THE ISLAND, raised under the loading screen: its terrain off the bake
@@ -498,9 +560,11 @@ func quit_to_title() -> void:
 	_quitting = true
 	BlackBox.mark("quit to title: begin")
 	pause.visible = false
-	# leaving a match says goodbye to the host
+	# leaving a match says goodbye to the host (and a match hosted here
+	# closes, the others told)
 	if game != null and game.net != null:
 		game.net.close()
+	_stop_hosting()
 	BlackBox.mark("quit to title: sound off")
 	for c in sound.get_children():
 		if c is AudioStreamPlayer:

@@ -1,9 +1,19 @@
-## MEWD — a match: the rules that hold between players (js/net/match.js).
+## MEWD — a match: the rules that hold between players.
 ##
 ## A host (server.gd) makes one of these for its Game, and from then on
 ## the game has RULES: who is on whose side, where you come back when you
 ## die, what a death is worth, and when it is over. A game on its own
 ## never makes one, and every check in game.gd that asks is a null test.
+##
+## EVERYBODY DROPS IN (at the user's request: "everyone drops in at
+## different points like fortnite or pubg via drop pod ... deathmatch, no
+## closing zone yet, randomized drop points"): on an island a player comes
+## into the world, and back after every death, in a drop pod
+## (Game.start_pod) aimed at a random point on open ground — not in a
+## house, not on a cliff, and as far as it can find from everybody alive
+## (drop_point). Nothing hurts them in the pod, nor for `guardTics` after
+## the door is off; a pod that lands on somebody squashes them, the rider's
+## frag (DropPod._squash_players).
 ##
 ## TWO MODES, and the map decides which:
 ##
@@ -40,7 +50,10 @@ const RULES := {
 }
 
 ## what survives a respawn: who you are, and the score
-const KEEP := ["id", "name", "team", "frags", "deaths", "session", "ping", "spawns"]
+const KEEP := ["id", "name", "team", "frags", "deaths", "session", "ping", "spawns", "pod_tic"]
+## a drop point at least this far (map units) from everybody alive, if one
+## can be found — 120 m
+const DROP_APART := 120.0 * 32.0
 
 ## a small generator of its own, so the match's choices leave the
 ## world's (U.p_random) exactly where they were
@@ -148,7 +161,8 @@ func _init(g, overrides := {}, seed := 1) -> void:
 		for t in pvp.teams.slice(0, 2):
 			teams.append({"name": str(t.name), "spawns": t.spawns.duplicate(true), "score": 0})
 	mode = "tdm" if teams != null else "dm"
-	spawns = null if teams != null else find_spawns(g.level)
+	# (an island's are drop points, found as they are wanted: drop_point)
+	spawns = null if teams != null or g.level is IslandLevel else find_spawns(g.level)
 	# a map with no room at all still has its start
 	if spawns != null and spawns.is_empty():
 		spawns.append([roundf(g.player.x), roundf(g.player.y)])
@@ -229,10 +243,37 @@ func spawn_point(p) -> Array:
 			best = s
 	return best
 
-## Put `p` back in the world, whole.
+## WHERE A POD IS AIMED: open ground anywhere on the island (IslandLevel.
+## _find_ground: on land, out of the houses, not steep), the furthest from
+## everybody alive of a dozen tries — and any of them past DROP_APART will
+## do, with a little chance in it.
+func drop_point(p) -> Array:
+	var g = game
+	var lv = g.level
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(rnd.next() * 2147483647.0)
+	var reach: float = lv.ground.half * IslandLevel.U_PER_M * 0.85
+	var best := Vector2.ZERO
+	var best_d := -1.0
+	for k in 12:
+		var q: Vector2 = lv._find_ground(rng, Vector2.ZERO, reach, 0.35)
+		var d := 1e12
+		for o in g.players:
+			if o != p and not o.dead:
+				d = minf(d, Vector2(o.x - q.x, o.y - q.y).length())
+		if d > best_d:
+			best_d = d
+			best = q
+		if d >= DROP_APART:
+			break
+	return [roundf(best.x), roundf(best.y)]
+
+## Put `p` back in the world, whole — on an island, in a drop pod.
 func spawn(p):
 	var g = game
-	var at := spawn_point(p)
+	var drop_in: bool = g.level is IslandLevel and teams == null
+	# (a host told where to drop people, --spawns, aims there: the tests)
+	var at := drop_point(p) if drop_in and spawns == null else spawn_point(p)
 	var x := float(at[0])
 	var y := float(at[1])
 	# facing the middle of the map, which is where the other side is
@@ -243,6 +284,9 @@ func spawn(p):
 	p.guard_until = g.tics + int(rules.guardTics)
 	p.invincible = true
 	p.spawns += 1
+	if drop_in:
+		p.pod_tic = g.tics
+		g.start_pod(p, x, y, true)
 	return p
 
 # ---- a death ------------------------------------------------------------------
@@ -292,6 +336,10 @@ func tic() -> void:
 	for p in g.players:
 		if rules.infiniteAmmo:
 			top_up(p)
+		# nothing hurts you in the pod, nor for the guard's time after it
+		if p.pod != null and p.pod.active and p.pod.holds_player():
+			p.invincible = true
+			p.guard_until = g.tics + int(rules.guardTics)
 		if p.guard_until and g.tics >= p.guard_until:
 			p.guard_until = 0
 			p.invincible = false

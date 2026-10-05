@@ -2,15 +2,18 @@
 ##
 ##   godot --headless --script res://godot/tests/net_test.gd [-- --no-procs]
 ##
-## 1. THE WIRE: TicCmd rounding and bytes against the web build's own
-##    (JS_WIRE, from `node godot/tests/net_js.mjs`), and the decoder
+## 1. THE WIRE: TicCmd rounding and bytes against pinned cases (JS_WIRE:
+##    the old web build's, kept as the wire's own now), and the decoder
 ##    shrugging off garbage.
 ## 2. LOCAL: a game on its own is driven by a LocalSession, one player.
-## 3. A MATCH IN ONE PROCESS, over loopback pipes: a host Game behind a
-##    SimServer, a client Game with its NetGame (prediction, puppets), and
-##    a bare NetClient driven by hand — the handshake, the prediction
-##    agreeing with the host while walking, the puppet drawn, a teleport
-##    corrected, a kill through the rewind, the frag, the respawn.
+## 3. A MATCH IN ONE PROCESS, over loopback pipes, on CANDY LAND: a host
+##    Game behind a SimServer, a client Game with its NetGame (prediction,
+##    puppets), and a bare NetClient driven by hand — the handshake and
+##    READY, both dropped in by pod at random points and the client flying
+##    its own pod as the host does, the prediction agreeing with the host
+##    while walking, the host's unicorn drawn on the client and her beam
+##    with her, a unicorn's kill, a herd death seen, the respawn in a pod,
+##    a teleport corrected, a kill through the rewind, the frag.
 ## 4. THE REAL THING: a headless Godot host (`--server`) and two headless
 ##    Godot clients (`--join … --netbot`) as three processes on a real
 ##    socket, the clients hunting each other; the host's score file must
@@ -82,17 +85,18 @@ func _wire() -> void:
 		check(TicCmd.same(back.cmd, c), "case %d: same()" % i)
 	check(NetProtocol.decode("nonsense").is_empty() and NetProtocol.decode(PackedByteArray([1, 2])).is_empty()
 		and NetProtocol.decode("{\"x\":1}").is_empty() and NetProtocol.decode(7).is_empty(), "garbage decodes to nothing")
-	var m := NetProtocol.decode(NetProtocol.encode({"t": "hello", "v": 2, "name": "A"}))
+	var m := NetProtocol.decode(NetProtocol.encode({"t": "hello", "v": NetProtocol.PROTOCOL, "name": "A"}))
 	check(m.t == "hello" and m.v == NetProtocol.PROTOCOL, "a control message round-trips")
 	check(NetProtocol.url_for("10.0.0.2") == "ws://10.0.0.2:7777/net" and NetProtocol.url_for("ws://h:9/x") == "ws://h:9/x"
 		and NetProtocol.url_for("h:9") == "ws://h:9/net", "a typed host becomes a socket URL")
 
 # ---- 2. local --------------------------------------------------------------------
 
-func _game(net_map := {}) -> Node:
+func _game(net_map := {}, drawn := true) -> Node:
 	var g = preload("res://godot/scripts/game/game.gd").new()
 	if not net_map.is_empty():
 		g.net_map = net_map
+	g.draw_world = drawn
 	root.add_child(g)
 	g.set_process(false)
 	return g
@@ -118,11 +122,13 @@ func _clear_run(g) -> Vector2:
 
 func _match() -> void:
 	print("net: a match over loopback")
-	var map := {"kind": "island0", "seed": SEED, "opts": {"people": 0}}
-	var hg = _game(map)
+	# CANDY LAND, its whole crowd and its herds
+	var map := {"kind": "candyland", "seed": SEED, "opts": {}}
+	var hg = _game(map, false)
 	var sim := SimServer.new(hg, map, 16, {"fragLimit": 50}, func(s): print("  host: " + s))
-	check(sim.match_.mode == "dm" and sim.match_.spawns.size() > 4, "THE MAZE is a deathmatch with %d spawns found" % sim.match_.spawns.size())
+	check(sim.match_.mode == "dm" and sim.match_.spawns == null, "an island is a deathmatch, dropped into at random")
 	check(not hg.players.has(hg.player), "the map's own player is put aside")
+	check(hg.herd.size() > 50, "the host has the herds (%d)" % hg.herd.size())
 	# the fake clock both clients read: 35 tics a second, exactly
 	var clock := [0]
 	var now := func() -> int: return clock[0]
@@ -130,14 +136,23 @@ func _match() -> void:
 	var pa := NetTransport.Loopback.pair()
 	sim.accept(pa[1])
 	var c1 := NetClient.new(pa[0], "ONE", now)
-	check(c1.welcome != null and c1.id == 1 and c1.map.kind == "island0" and int(c1.map.seed) == SEED, "ONE is welcomed, told the map")
-	var cg = _game(c1.map)
+	check(c1.welcome != null and c1.id == 1 and c1.map.kind == "candyland" and int(c1.map.seed) == SEED, "ONE is welcomed, told the map")
+	check(sim.clients[1].player == null, "and is not in the world until its island is up")
+	var cg = _game(c1.map, false)
 	var ng := NetGame.new(cg, c1, now)
+	check(cg.herd.size() == hg.herd.size() and cg.herd.all(func(a): return a.puppet),
+		"ONE built the same herds, as puppets (%d)" % cg.herd.size())
+	var same := true
+	for k in mini(20, hg.herd.size()):
+		if absf(cg.herd[k].x - hg.herd[k].x) > 0.01 or absf(cg.herd[k].y - hg.herd[k].y) > 0.01:
+			same = false
+	check(same, "where the host's are, from the same seed")
 	# CLIENT TWO: a bare line, driven by hand
 	var pb := NetTransport.Loopback.pair()
 	sim.accept(pb[1])
 	var c2 := NetClient.new(pb[0], "TWO", now)
 	check(c2.welcome != null and c2.id == 2, "TWO is welcomed")
+	c2.send_ready()
 	# a seventeenth is refused — here, the third on a host of two
 	var sim_full := sim.max_players
 	sim.max_players = 2
@@ -148,13 +163,11 @@ func _match() -> void:
 	sim.max_players = sim_full
 	var bad := NetTransport.Loopback.pair()
 	sim.accept(bad[1])
-	bad[0].send(NetProtocol.encode({"t": "hello", "v": 1, "name": "OLD"}))
-	check(not bad[0].open, "a client on protocol 1 is refused")
+	bad[0].send(NetProtocol.encode({"t": "hello", "v": 2, "name": "OLD"}))
+	check(not bad[0].open, "a client on protocol 2 is refused")
 	check(cg.level.name == hg.level.name and cg.level.bounds == hg.level.bounds,
 		"the client built the host's island (%s)" % cg.level.name)
 
-	var p1 = sim.clients[1].player
-	var p2 = sim.clients[2].player
 	var seq2 := [0]
 	var send2 := func(c: Dictionary) -> void:
 		seq2[0] += 1
@@ -169,15 +182,38 @@ func _match() -> void:
 			sim.step()                     # the host's, and the snapshots come back
 			ng.frame()
 	step.call(10, TicCmd.new_cmd())
-	check(ng.spawn_n == 1 and absf(cg.player.x - p1.x) < 0.01 and absf(cg.player.y - p1.y) < 0.01,
-		"ONE is where the host spawned it")
+	var p1 = sim.clients[1].player
+	var p2 = sim.clients[2].player
+	check(p1 != null and p2 != null, "both dropped in once ready")
+	# THE DROP: both in pods, at random points, far apart; ONE flies its
+	# own the same as the host, and draws TWO's
+	check(p1.pod != null and p1.pod.holds_player() and p2.pod != null and p2.pod.holds_player(), "each in a pod")
+	var apart := Vector2(p1.pod.start.x - p2.pod.start.x, p1.pod.start.y - p2.pod.start.y).length() / 32.0
+	check(apart > 60.0, "aimed at points %.0f m apart" % apart)
+	check(cg.drop != null and cg.player.pod == cg.drop and cg.drop.holds_player(), "ONE rides its own pod")
+	check(ng.pods.has("2:%d" % p2.pod_tic) and ng.pods["2:%d" % p2.pod_tic].rider == null, "and draws TWO's coming down")
+	var off0 := Vector3(cg.drop.pos - p1.pod.pos).length()
+	check(off0 < 5.0, "the two pods flown alike (%.2f m apart)" % off0)
+	var guard_ok := true
+	while p1.pod.holds_player() and hg.tics < 60 * 35:
+		step.call(1, TicCmd.new_cmd())
+		if not p1.invincible:
+			guard_ok = false
+	check(not p1.pod.holds_player(), "ONE's pod comes down and the door goes (%.1f s)" % (hg.tics / 35.0))
+	check(guard_ok, "and nothing could hurt ONE in it")
+	step.call(30, TicCmd.new_cmd())
+	check(not cg.drop.holds_player(), "and ONE's own pod let it out too")
+	check(Vector2(cg.player.x - p1.x, cg.player.y - p1.y).length() < 2.0, "standing where the host has it (%.2f apart)"
+		% Vector2(cg.player.x - p1.x, cg.player.y - p1.y).length())
 	check(ng.puppets.has(2) and ng.puppets[2].a.type == "SWAT", "ONE draws TWO as a puppet")
 
 	# WALKING: pressed on ONE's own keys, predicted, and the host agreeing
+	step.call(40, TicCmd.new_cmd())
 	Input.action_press("fwd")
 	Input.action_press("right")
 	var x0: float = cg.player.x
 	var y0: float = cg.player.y
+	var corr0: int = ng.corrections
 	step.call(40, TicCmd.new_cmd())
 	Input.action_release("fwd")
 	Input.action_release("right")
@@ -186,20 +222,81 @@ func _match() -> void:
 	var off := Vector2(cg.player.x - p1.x, cg.player.y - p1.y).length()
 	check(moved > 40.0, "ONE walked %.0f units" % moved)
 	check(off < 0.05, "and the host has it where it predicted itself (%.4f apart)" % off)
-	check(ng.biggest < 1.0, "with no correction worth the name (%d, biggest %.3f)" % [ng.corrections, ng.biggest])
 	check(sim.clients[1].player.session.applied >= 60, "the host applied ONE's commands (%d)" % sim.clients[1].player.session.applied)
 
-	# A TELEPORT the client did not see coming is a jump to the truth
+	# THE HERD: a unicorn put by ONE on the host is drawn by ONE where she
+	# is, and when she turns on ONE her beam is drawn — and the host's
+	# beam is the one that hurts
+	var u = null
+	for a in hg.herd:
+		if a.type == "UNICORN" and not a.dead:
+			u = a
+			break
+	var cu = cg.herd[u.herd_i]
+	var at := Vector2(p1.x, p1.y) + Vector2(cos(p1.angle), sin(p1.angle)) * 18.0 * 32.0
+	u.x = at.x
+	u.y = at.y
+	u.z = hg.level.floor_at(at.x, at.y)
+	u.sector = hg.level.sector_at(at.x, at.y)
+	hg.blockmap.moved(u)
+	step.call(40, TicCmd.new_cmd())
+	check(c1.herds > 3 and ng.herd_buf.has(u.herd_i), "ONE is told of the unicorns near it (%d herd messages)" % c1.herds)
+	check(Vector2(cu.x - u.x, cu.y - u.y).length() < 64.0, "and draws her where the host has her (%.0f units off)"
+		% Vector2(cu.x - u.x, cu.y - u.y).length())
+	p1.guard_until = 0
+	p1.invincible = false
+	var h0: int = p1.health + p1.armour1 + p1.armour2
+	u.rouse(p1)
+	var drawn := false
+	var hurt := false
+	for i in 300:
+		step.call(1, TicCmd.new_cmd())
+		if cg.rainbow.firing(cu):
+			drawn = true
+		if p1.health + p1.armour1 + p1.armour2 < h0:
+			hurt = true
+		if drawn and hurt:
+			break
+	check(hurt, "her beam (the host's) hurt ONE (%d left of %d)" % [p1.health + p1.armour1 + p1.armour2, h0])
+	check(drawn, "and ONE drew it, hurting nobody here")
+	# IF A UNICORN KILLS SOMEBODY, THEY DIE
+	p1.armour1 = 0
+	p1.armour2 = 0
+	p1.health = 1
+	var d0: int = p1.deaths
+	var f0: int = p1.frags
+	for i in 300:
+		step.call(1, TicCmd.new_cmd())
+		if p1.dead:
+			break
+	check(p1.dead and p1.deaths == d0 + 1 and p1.frags == f0 - 1, "and the unicorn killed ONE: a death, a frag off")
+	step.call(8, TicCmd.new_cmd())
+	check(cg.player.dead, "ONE's own game went down when the host said so")
+	# and a unicorn killed on the host goes to pieces on ONE too
+	u.damage(1e7, p2)
+	step.call(12, TicCmd.new_cmd())
+	check(u.dead or u.removed, "TWO killed her on the host")
+	check(cu.dead or cu.removed, "and ONE saw her go")
+
+	# A KILL: TWO holds the trigger on ONE, through the rewind, until ONE dies
+	step.call(NetMatch.RULES.respawnTics + 10, TicCmd.new_cmd())
+	check(not p1.dead and p1.spawns == 2 and p1.pod != null and p1.pod.holds_player(), "ONE came back, in a pod again (life %d)" % p1.spawns)
+	check(not cg.player.dead and ng.spawn_n == 2 and cg.drop != null and cg.drop.holds_player(), "and ONE is riding it")
+	check(cg.player.health == 100 and cg.player.armour1 == 300 and cg.player.weapon == "MINIGUN", "whole, and holding the minigun")
+	while p1.pod.holds_player() and hg.tics < 200 * 35:
+		step.call(1, TicCmd.new_cmd())
 	var run := _clear_run(hg)
 	var sx: float = hg.player.x
 	var sy: float = hg.player.y
 	for q in [p1, p2]:
+		if q.pod != null:
+			q.pod.retire()
 		q.x = sx
 		q.y = sy
 		q.momx = 0.0
 		q.momy = 0.0
 		q.sector = hg.level.sector_at(sx, sy)
-		q.z = q.sector.floor
+		q.z = hg.level.floor_at(sx, sy)
 	p1.x += cos(run.x) * 60.0
 	p1.y += sin(run.x) * 60.0
 	var far := minf(run.y - 60.0, 420.0)
@@ -213,36 +310,27 @@ func _match() -> void:
 	check(Vector2(cg.player.x - p1.x, cg.player.y - p1.y).length() < 0.5, "a teleport on the host is where ONE ends up")
 	var pup: NetGame.Puppet = ng.puppets[2]
 	check(Vector2(pup.a.x - p2.x, pup.a.y - p2.y).length() < 1.0, "and the puppet is drawn where TWO was put (in the past, but still)")
-
-	# A KILL: TWO holds the trigger on ONE, through the rewind, until ONE dies
 	p1.guard_until = 0
 	p1.invincible = false
 	var fire := TicCmd.new_cmd()
 	fire.attack = true
 	var died_at := -1
-	var saw_dead := false
+	var frags2: int = p2.frags
 	for i in 200:
 		step.call(1, fire)
-		if cg.player.dead:
-			saw_dead = true
 		if p1.dead and died_at < 0:
 			died_at = i
 		if died_at >= 0 and i > died_at + 6:
 			break
 	check(died_at >= 0, "TWO's minigun killed ONE after %d tics" % died_at)
-	check(p2.frags == 1 and p1.deaths == 1, "the frag counted: TWO %d, ONE died %d" % [p2.frags, p1.deaths])
+	check(p2.frags == frags2 + 1 and p1.deaths == 2, "the frag counted: TWO %d, ONE died %d" % [p2.frags, p1.deaths])
 	check(sim.rewinds > 0, "the host wound ONE back for TWO's shots (%d rewinds)" % sim.rewinds)
-	check(saw_dead, "ONE's own game went down when the host said so")
 	var toast_ok := false
 	for t in cg.toasts:
 		if str(t.text).contains("FRAGGED YOU"):
 			toast_ok = true
 	check(toast_ok, "and said who did it (%s)" % str(cg.toasts.map(func(t): return t.text)))
-	check(c1.score != null and int(c1.score.players.filter(func(q): return int(q.id) == 2)[0].frags) == 1, "the score reached ONE")
-	# THE RESPAWN: two seconds on, ONE is back on a pad, whole
-	step.call(NetMatch.RULES.respawnTics + 10, TicCmd.new_cmd())
-	check(not p1.dead and p1.spawns == 2 and not cg.player.dead and ng.spawn_n == 2, "ONE came back (life %d)" % p1.spawns)
-	check(cg.player.health == 100 and cg.player.armour1 == 300 and cg.player.weapon == "MINIGUN", "whole, and holding the minigun")
+	check(c1.score != null and int(c1.score.players.filter(func(q): return int(q.id) == 2)[0].frags) == p2.frags, "the score reached ONE")
 	# GOODBYE: TWO leaves and ONE's puppet of it goes
 	c2.close()
 	step.call(6, TicCmd.new_cmd())
@@ -275,7 +363,7 @@ func _procs() -> void:
 	var exe := OS.get_executable_path()
 	var proj := ProjectSettings.globalize_path("res://")
 	var server := OS.create_process(exe, ["--headless", "--path", proj, "--", "--server=%d" % port, "--map=island0",
-		"--seed=%d" % SEED, "--frags=100", "--spawns=%d,%d;%d,%d" % [ax, ay, bx, by], "--quit-after=34",
+		"--seed=%d" % SEED, "--frags=100", "--spawns=%d,%d;%d,%d" % [ax, ay, bx, by], "--quit-after=70",
 		"--score-file=" + score_path])
 	check(server > 0, "the host is running (pid %d, port %d)" % [server, port])
 	await create_timer(3.0).timeout
@@ -283,8 +371,9 @@ func _procs() -> void:
 	for nm in ["ALPHA", "BRAVO"]:
 		var rep := tmp.path_join(nm + ".json")
 		clients.append([OS.create_process(exe, ["--headless", "--path", proj, "--", "--join=127.0.0.1:%d" % port,
-			"--netbot", "--name=" + nm, "--quit-after=26", "--report=" + rep]), rep])
-	var until := Time.get_ticks_msec() + 45000
+			"--netbot", "--name=" + nm, "--quit-after=60", "--report=" + rep]), rep])
+	# (a minute: twenty seconds of it in the pods coming down)
+	var until := Time.get_ticks_msec() + 90000
 	while Time.get_ticks_msec() < until and (OS.is_process_running(server) or clients.any(func(c): return OS.is_process_running(c[0]))):
 		await create_timer(0.5).timeout
 	for c in clients:

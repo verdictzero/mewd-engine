@@ -1,5 +1,4 @@
-## MEWD — the host: an authoritative simulation behind a message interface
-## (js/net/server.js).
+## MEWD — the host: an authoritative simulation behind a message interface.
 ##
 ## A SimServer owns one Game and the clients talking to it, and does not
 ## care where it runs: the dedicated server (host.gd, `--server`) runs one
@@ -31,12 +30,22 @@ const SNAP_EVERY := 3            # about twelve a second
 const SCORE_EVERY := 35          # the whole table, once a second
 const MAX_REWIND := 12           # a third of a second
 const HISTORY := 48              # tics of where everybody was
+## THE HERDS (at the user's request: "NPC positions don't matter, they don't
+## need to update fast; if a unicorn kills someone they die"): the host's
+## unicorns are the ones that hurt, so every client is told where those
+## near its player are — UNI_EVERY tics apart (four times a second), within
+## UNI_NEAR (300 m) or after them — and draws its own as puppets of that.
+## The candy girls are every machine's own, from the same seed.
+const UNI_EVERY := 9
+const UNI_NEAR := 300.0 * 32.0
 
 class Client extends RefCounted:
 	var id := 0
 	var name := ""
 	var transport
 	var welcomed := false
+	## the client has its world up (its "ready"): only then is it dropped in
+	var ready := false
 	var player = null
 
 var game
@@ -47,7 +56,10 @@ var clients := {}                # id → Client
 var lines: Array = []            # every Client accepted, welcomed or not
 var next_id := 1
 var match_: NetMatch
+var herds := 0
 var history := {}                # player → [{tic, x, y, z, dead}]
+## the herd's deaths already told (Game.herd index → true)
+var herd_told := {}
 var rewinds := 0
 var snaps := 0
 var _acc := 0.0
@@ -110,13 +122,25 @@ func _message(c: Client, data) -> void:
 		nm = nm.substr(0, 16)
 		c.name = nm if nm != "" else "PLAYER %d" % c.id
 		c.welcomed = true
-		c.player = match_.join(c.id, c.name)
-		c.player.session = NetSession.Host.new()
 		clients[c.id] = c
-		_send(c, {"t": "welcome", "v": NetProtocol.PROTOCOL, "id": c.id, "team": c.player.team, "mode": match_.mode,
+		# (the side it will be on, before it is in the world: the welcome
+		# says, and a client builds its world on it)
+		var side_n: int = match_._smaller_team() if match_.teams != null else -1
+		_send(c, {"t": "welcome", "v": NetProtocol.PROTOCOL, "id": c.id, "team": side_n, "mode": match_.mode,
 			"map": map, "tic": game.tics, "rate": TICRATE, "score": match_.table()})
-		var side := (" team " + str(match_.teams[c.player.team].name)) if c.player.team >= 0 else ""
-		_log("%s joined%s (%d/%d)" % [c.name, side, clients.size(), max_players])
+		_log("%s connected (%d/%d), building the island" % [c.name, clients.size(), max_players])
+		return
+	# READY: the client has built the island, and is dropped into it — not
+	# before, or its pod would be down before it could see it
+	if str(m.t) == "ready":
+		if not c.ready:
+			c.ready = true
+			c.player = match_.join(c.id, c.name)
+			c.player.session = NetSession.Host.new()
+			var side := (" team " + str(match_.teams[c.player.team].name)) if c.player.team >= 0 else ""
+			_log("%s joined%s (%d/%d)" % [c.name, side, clients.size(), max_players])
+		return
+	if not c.ready:
 		return
 	match str(m.t):
 		"cmd":
@@ -141,8 +165,9 @@ func _gone(c: Client) -> void:
 	if not c.welcomed or not clients.has(c.id):
 		return
 	clients.erase(c.id)
-	match_.leave(c.player)
-	history.erase(c.player)
+	if c.player != null:
+		match_.leave(c.player)
+		history.erase(c.player)
 	_log("%s left (%d/%d)" % [c.name, clients.size(), max_players])
 
 ## The client driving `p`, or null.
@@ -208,6 +233,8 @@ func step() -> void:
 	_remember()
 	if game.tics % SNAP_EVERY == 0:
 		broadcast_snap()
+	if game.tics % UNI_EVERY == 0:
+		broadcast_herd()
 
 ## Off the frame's clock at TICRATE, at most six a frame (the dedicated
 ## server's loop; SimServer.start in the JS).
@@ -233,15 +260,26 @@ func you_for(p) -> Dictionary:
 		"w": p.weapon, "r": int(p.ammo.get("rounds", 0)), "d": 1 if p.dead else 0, "inv": 1 if p.invincible else 0,
 		"n": p.spawns, "team": p.team, "frags": p.frags,
 		"back": maxi(0, p.respawn_at - game.tics) if p.dead else 0,
+		# IN A POD: where it was aimed and the host tic it began on — the
+		# client flies the same pod itself from those (it is the same sum)
+		"pod": [r3(p.pod.start.x), r3(p.pod.start.y), p.pod_tic] if _riding(p) else null,
 	}
+
+static func _riding(p) -> bool:
+	return p.pod != null and p.pod.active and p.pod.holds_player()
 
 ## Somebody else, as little as drawing them takes:
 ## [id, x, y, z, angle, pitch, flags, team] — flags 1 dead, 2 firing,
-## 4 spawn guard, 8 barrels turning.
+## 4 spawn guard, 8 barrels turning, 16 in a pod (and then the pod's aim
+## and the tic it began on, two more: x, y, tic).
 func other_for(p) -> Array:
 	var firing: bool = p.firing() and p.def().get("volley", false)
-	var f := (1 if p.dead else 0) | (2 if firing else 0) | (4 if p.invincible else 0) | (8 if p.spin > 0.0 else 0)
-	return [p.id, r3(p.x), r3(p.y), r3(p.z), r5(p.angle), r5(p.pitch), f, p.team]
+	var riding := _riding(p)
+	var f := (1 if p.dead else 0) | (2 if firing else 0) | (4 if p.invincible else 0) | (8 if p.spin > 0.0 else 0) | (16 if riding else 0)
+	var o := [p.id, r3(p.x), r3(p.y), r3(p.z), r5(p.angle), r5(p.pitch), f, p.team]
+	if riding:
+		o.append_array([r3(p.pod.start.x), r3(p.pod.start.y), p.pod_tic])
+	return o
 
 func snap_for(c: Client, ev: Array, score) -> Dictionary:
 	var p = c.player
@@ -261,8 +299,42 @@ func broadcast_snap() -> void:
 	match_.events.clear()
 	var score = match_.table() if not ev.is_empty() or game.tics % SCORE_EVERY < SNAP_EVERY else null
 	for c in clients.values():
-		_send(c, snap_for(c, ev, score))
+		if c.ready and c.player != null:
+			_send(c, snap_for(c, ev, score))
 	snaps += 1
+
+# ---- the herds ---------------------------------------------------------------
+
+## A unicorn, as little as drawing her takes: [i, x, y, z, angle, flags,
+## who] — flags 2 her beam on, 4 in a fury, 8 alight; `who` the id of the
+## player she is after (0, nobody).
+func herd_rec(u) -> Array:
+	var rb = game.rainbow
+	var beam: bool = rb != null and rb.firing(u)
+	var f := (2 if beam else 0) | (4 if u.fury > 0 else 0) | (8 if u.burning > 0 else 0)
+	var who: int = u.target.id if u.target is Player else 0
+	return [u.herd_i, roundf(u.x), roundf(u.y), roundf(u.z), r3(u.angle), f, who]
+
+## Each client, the herd near its player (and any after it); every client,
+## a death in the herd, once (an event: "udie").
+func broadcast_herd() -> void:
+	for u in game.herd:
+		if (u.dead or u.removed) and not herd_told.has(u.herd_i):
+			herd_told[u.herd_i] = true
+			match_.events.append({"k": "udie", "i": u.herd_i})
+	var near2 := UNI_NEAR * UNI_NEAR
+	for c in clients.values():
+		if not c.ready or c.player == null:
+			continue
+		var p = c.player
+		var list := []
+		for u in game.herd:
+			if u.dead or u.removed:
+				continue
+			if U.dist2(u.x, u.y, p.x, p.y) < near2 or u.target == p:
+				list.append(herd_rec(u))
+		_send(c, {"t": "herd", "tic": game.tics, "u": list})
+	herds += 1
 
 ## Every line polled (a socket transport needs it; a loopback does not).
 func poll() -> void:

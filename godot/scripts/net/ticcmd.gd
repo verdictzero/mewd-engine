@@ -1,5 +1,4 @@
-## MEWD — the TicCmd: one tic of a player's hands, as data
-## (js/net/ticcmd.js, line for line).
+## MEWD — the TicCmd: one tic of a player's hands, as data.
 ##
 ## Doom called it a ticcmd and so does this: everything a player does to
 ## the world in one tic, and nothing else — which way they turned, which
@@ -24,7 +23,7 @@
 ## and a player fed the SAME rounded command a host is fed runs the same
 ## arithmetic to the last bit — which is what prediction stands on.
 ## The rounding is JavaScript's Math.round (half up), not GDScript's
-## round (half away from zero), so the bytes are the web build's bytes.
+## round (half away from zero), so every machine rounds a command alike.
 class_name TicCmd
 
 const LOOK_SCALE := 8192

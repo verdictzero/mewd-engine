@@ -1,7 +1,6 @@
-## MEWD — the wire: what a client and a host say to each other
-## (js/net/protocol.js). The SAME wire as the web build's, byte for byte,
-## so a Godot client joins the Node host (tools/server.mjs) and a web
-## page joins the Godot host (godot/scripts/net/host.gd).
+## MEWD — the wire: what a client and a host say to each other. (It was
+## the web build's, byte for byte; the web build is gone, and at the
+## user's request the wire is the Godot game's own now, free to change.)
 ##
 ## Two kinds of message, because they are two kinds of traffic:
 ##
@@ -16,20 +15,22 @@
 ##   client → host   { t:'hello', v, name }
 ##   host → client   { t:'welcome', v, id, team, mode, map:{ kind, seed, opts }, tic, rate, score }
 ##                   or { t:'refused', why } and the line is closed
+##   client → host   { t:'ready' } once its island is built: it is dropped in
 ##   client → host   CMD packets, one a tic
 ##   host → client   { t:'snap', tic, ack, you:{…}, others:[…], ev:[…], score? }
+##   host → client   { t:'herd', tic, u:[…] }  the unicorns near it, 4 a second
 ##   client → host   { t:'ping', n, rtt }   and back   { t:'pong', n }
 ##   either          { t:'bye', why }
 ##
-## THE MAP IS A SEED: every map a host offers is a pure function of one
-## (maze.gd, jesse.gd — each the web build's generator, call for call),
-## so the welcome carries two numbers and every client builds the level.
+## THE MAP IS A SEED: every island is baked into every build, and its
+## crowd and herds are a pure function of the seed, so the welcome carries
+## two numbers and every client builds the same world.
 ##
 ## JSON NUMBERS come back from Godot's parser as floats: an id or a tic
 ## read off a message is int()ed wherever it is used as one.
 class_name NetProtocol
 
-const PROTOCOL := 2          # 2: many players, and `seen` in the command
+const PROTOCOL := 3          # 2: many players, and `seen` in the command; 3: islands — ready, pods, the herds
 const MAX_PLAYERS := 16
 const DEFAULT_PORT := 7777
 const NET_PATH := "/net"

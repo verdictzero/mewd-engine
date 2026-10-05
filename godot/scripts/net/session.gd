@@ -1,5 +1,4 @@
-## MEWD — sessions: where a player's command each tic comes from
-## (js/net/session.js).
+## MEWD — sessions: where a player's command each tic comes from.
 ##
 ## Game.tic does not hand the player the keyboard. It asks the player's
 ## SESSION for this tic's command (ticcmd.gd) — or the game's own, for a

@@ -1,4 +1,4 @@
-## MEWD — the game's side of a network client (js/net/remote.js).
+## MEWD — the game's side of a network client.
 ##
 ## A NetGame takes a Game built for the map the host named and a NetClient
 ## already welcomed, and from then on this machine is ONE PLAYER IN
@@ -30,9 +30,21 @@
 ##    as the big card, and the score is a line at the top of the screen
 ##    and a table while TAB is held (Hud draws board_lines()).
 ##
-## WHAT IS NOT SHARED is the rest of the world: a crate, a fuel can, the
-## fire — each machine runs its own. The players and the score are the
-## host's; the scenery is only very probably the same.
+## 4. THE DROP: every life begins in a pod (NetMatch.spawn). The host says
+##    where it was aimed and the tic it began on, and this machine flies
+##    the same pod itself — its own player's, and everybody else's, drawn
+##    coming down — since a pod with nobody's hands on it is the same sum
+##    everywhere (DropPod: the RCS off, straight down).
+##
+## 5. THE HERDS are the host's (they kill): four times a second it says
+##    where the unicorns near this player are, and what they are doing;
+##    here they are puppets, slid between those, their beams drawn and
+##    hurting nobody (the host's beam hurts). A death in the herd is an
+##    event, and she goes to pieces here too.
+##
+## WHAT IS NOT SHARED is the rest of the world: the candy girls (every
+## machine's own, from the same seed), a fire, the gore. The players, the
+## herds and the score are the host's.
 class_name NetGame
 extends RefCounted
 
@@ -41,6 +53,10 @@ const INTERP_TICS := 5        # a snapshot and a half behind: two to draw betwee
 const SNAP_FAR := 96.0        # a correction bigger than this is a jump, not a slide
 const HISTORY := 128          # commands kept for replay
 const TEAM_TROOP := ["SWAT", "ARMY"]
+## the herd drawn this far behind the host: its word comes 9 tics apart
+const HERD_BEHIND := 14
+## a pod begun this long ago (tics) is not flown up to now: it is down
+const POD_CATCHUP := 35 * 40
 
 ## Where the player's command comes from on a network client: this
 ## machine's input, as ever — the look taken since the last tic rounded to
@@ -124,6 +140,15 @@ var score = null
 var mode := "dm"
 var team := -1
 var lost = null
+## the pods begun here off the host's word: "id:tic" → DropPod
+var pods := {}
+## the tic this machine's own last pod began on (the host's)
+var my_pod_tic := -1
+## the herd's samples: Game.herd index → [{tic, x, y, z, a, f, who}]
+var herd_buf := {}
+var herd_msgs := 0
+## the line over the score while this machine hosts (Main.host_game)
+var host_note := ""
 ## a test hook (--netbot): turn toward the nearest of the others and hold
 ## the trigger when they are in sight — through the command, like hands
 var bot := false
@@ -157,6 +182,12 @@ func _init(g, c: NetClient, now := Callable()) -> void:
 	p.armour1 = int(NetMatch.RULES.armour1)
 	p.armour2 = int(NetMatch.RULES.armour2)
 	c.on_snap = on_snap
+	c.on_herd = on_herd
+	# (until the host has dropped this player in: a moment, usually)
+	g.set_big_message("DROPPING IN", 10 * TICRATE)
+	# THE HERD IS THE HOST'S: here, puppets of what it says
+	for a in g.herd:
+		a.puppet = true
 	c.on_close = func(why):
 		lost = why
 		g.set_big_message("DISCONNECTED: %s" % str(why).to_upper(), 1000000000)
@@ -190,6 +221,10 @@ func poll() -> void:
 ## After the machine's tic: what the command just run left the player
 ## looking at, for the replay; and the puppets' own tic.
 func tic() -> void:
+	# the island up: drop me in (the loading screen's last frames, the
+	# shaders warming, are a moment; a headless bot may never draw one)
+	if not client.ready_sent and game.island_ready():
+		client.send_ready()
 	var p = game.player
 	# the same top-up the host gives, so the prediction fires when the host does
 	if NetMatch.RULES.infiniteAmmo:
@@ -201,6 +236,11 @@ func tic() -> void:
 		h.rounds = int(p.ammo.rounds)
 	for pup in puppets.values():
 		_puppet_tic(pup)
+	# (the pods the game has done with: forgotten)
+	if game.tics % 35 == 0:
+		for k in pods.keys():
+			if not is_instance_valid(pods[k]) or not game.pods.has(pods[k]):
+				pods.erase(k)
 
 # ---- a snapshot -------------------------------------------------------------
 
@@ -238,6 +278,11 @@ func reconcile(you, ack: int) -> void:
 		NetMatch.renew(p, float(you.x), float(you.y), float(you.a))
 		p.invincible = true
 		g.big_message = null
+	# IN A POD: the same pod flown here, from where it was aimed and when
+	var pod = you.get("pod")
+	if pod is Array and int(pod[2]) != my_pod_tic:
+		my_pod_tic = int(pod[2])
+		_fly_in(p, float(pod[0]), float(pod[1]), my_pod_tic)
 	# what the host says of you, whatever this machine thinks
 	var was: int = p.health + p.armour1 + p.armour2
 	p.health = int(you.h)
@@ -286,6 +331,9 @@ func reconcile(you, ack: int) -> void:
 		return
 	if p.dead:
 		return      # until the host says where you are again
+	# (riding: the pod has you, here as there — nothing to replay)
+	if pod is Array or (p.pod != null and p.pod.active and p.pod.holds_player()):
+		return
 
 	# THE REPLAY. Keep what is only the camera's — the bob, the eye's height,
 	# the turn — and run the movement again from the host's state through
@@ -334,11 +382,40 @@ func _take_body(you: Dictionary) -> void:
 
 # ---- the others ------------------------------------------------------------
 
+## A pod begun on the host at tic `t`, aimed at (x, y), begun here and
+## flown up to now — `p` riding it (this machine's player) or nobody (the
+## picture of somebody else's).
+func _fly_in(p, x: float, y: float, t: int) -> void:
+	var key := "%d:%d" % [p.id if p != null else -1, t]
+	if pods.has(key):
+		return
+	var ahead := int(round(host_tic())) - t
+	if ahead > POD_CATCHUP:
+		return
+	var pod = game.start_pod(p, x, y, true)
+	pods[key] = pod
+	for k in maxi(0, ahead):
+		if not pod.active:
+			break
+		pod.tic({})
+
 func _others(t: int, list: Array) -> void:
 	var here := {}
 	for o in list:
 		var id := int(o[0])
 		here[id] = true
+		# somebody coming down: their pod, drawn here
+		if (int(o[6]) & 16) != 0 and o.size() >= 11:
+			var key := "%d:%d" % [id, int(o[10])]
+			if not pods.has(key):
+				var ahead := int(round(host_tic())) - int(o[10])
+				if ahead <= POD_CATCHUP:
+					var pod = game.start_pod(null, float(o[8]), float(o[9]), true)
+					pods[key] = pod
+					for k in maxi(0, ahead):
+						if not pod.active:
+							break
+						pod.tic({})
 		var pup: Puppet = puppets.get(id)
 		var tm := int(o[7])
 		if pup == null:
@@ -383,8 +460,95 @@ func _drop(id: int, pup: Puppet) -> void:
 	pup.a.remove()
 	puppets.erase(id)
 
+# ---- the herds ------------------------------------------------------------
+
+func on_herd(m: Dictionary) -> void:
+	herd_msgs += 1
+	var t := int(m.get("tic", 0))
+	var g = game
+	for r in m.get("u", []):
+		var i := int(r[0])
+		if i < 0 or i >= g.herd.size():
+			continue
+		var b: Array = herd_buf.get(i, [])
+		b.append({"tic": t, "x": float(r[1]), "y": float(r[2]), "z": float(r[3]), "a": float(r[4]), "f": int(r[5]), "who": int(r[6])})
+		if b.size() > 6:
+			b.pop_front()
+		herd_buf[i] = b
+
+## who a unicorn is after, here: this machine's player, or a puppet
+func _herd_target(who: int):
+	if who == 0:
+		return null
+	if who == client.id:
+		return game.player
+	var pup: Puppet = puppets.get(who)
+	return pup.a if pup != null else null
+
+## Every frame: each unicorn the host has told of slid to where she was
+## HERD_BEHIND tics ago, drawn as what she is doing; her beam on and off.
+func _herd_frame() -> void:
+	var t := host_tic() - HERD_BEHIND
+	var g = game
+	var rb = g.rainbow
+	for i in herd_buf:
+		var a: Actor = g.herd[i]
+		if a.dead or a.removed:
+			continue
+		var b: Array = herd_buf[i]
+		var s0: Dictionary = b[0]
+		var s1: Dictionary = b[0]
+		for k in b.size():
+			if b[k].tic <= t:
+				s0 = b[k]
+			if b[k].tic >= t:
+				s1 = b[k]
+				break
+			s1 = b[k]
+		var span: float = s1.tic - s0.tic
+		var kk := clampf((t - s0.tic) / span, 0.0, 1.0) if span > 0.0 else 0.0
+		var nx: float = s0.x + (s1.x - s0.x) * kk
+		var ny: float = s0.y + (s1.y - s0.y) * kk
+		var moving := Vector2(s1.x - s0.x, s1.y - s0.y).length() > 4.0
+		a.x = nx
+		a.y = ny
+		a.z = s0.z + (s1.z - s0.z) * kk
+		a.angle = U.angle_norm(s0.a + U.angle_norm(s1.a - s0.a) * kk)
+		var sec = g.level.sector_at(a.x, a.y, a.sector)
+		if sec:
+			a.sector = sec
+		g.blockmap.moved(a)
+		var f: int = (s0 if kk < 0.5 else s1).f
+		var beam := (f & 2) != 0
+		var big: bool = a.type == "UNICORN"
+		var k := "UNI" if big else "FOAL"
+		var nm: String = (k + "_GRAZE") if not moving else (k + ("_RUN1" if (f & 4) != 0 else "_WALK1"))
+		if beam and big:
+			nm = "UNI_BEAM"
+		if a.state.get("name") != nm:
+			a.state = States.state(nm)
+			a.state_tics = -1
+		if rb != null:
+			if beam and not rb.firing(a):
+				rb.fire(a, _herd_target(int(s1.who)), true)
+			elif not beam and rb.firing(a):
+				rb.stop(a)
+
+## A death in the herd, on the host: to pieces here as well
+func _herd_dies(i: int) -> void:
+	var g = game
+	if i < 0 or i >= g.herd.size():
+		return
+	var a: Actor = g.herd[i]
+	herd_buf.erase(i)
+	if a.dead or a.removed:
+		return
+	a.puppet = false
+	g.gib(a)
+
 ## Every frame: slide each of them to where they were at draw_tic.
 func frame() -> void:
+	_herd_frame()
 	var t := draw_tic()
 	var g = game
 	var lv: Level = g.level
@@ -556,6 +720,8 @@ func _event(e: Dictionary) -> void:
 		"round":
 			g.big_message = null
 			g.toast("ROUND %d" % int(e.n))
+		"udie":
+			_herd_dies(int(e.i))
 
 func close() -> void:
 	for id in puppets.keys():
@@ -570,7 +736,7 @@ func board_lines(held: bool) -> Array:
 	var s = score
 	var p = game.player
 	if not (s is Dictionary):
-		return ["CONNECTED"]
+		return ["CONNECTED"] if host_note == "" else [host_note, "CONNECTED"]
 	var dead := "   RESPAWN IN %d" % ceili(p.respawn_in / float(TICRATE)) if p.dead else ""
 	var ping := "   %dMS" % roundi(client.rtt)
 	var out := []
@@ -586,6 +752,8 @@ func board_lines(held: bool) -> Array:
 			if int(q.id) == client.id:
 				frags = int(q.frags)
 		out.append("FRAGS %d   TO %d%s%s" % [frags, int(s.limit), dead, ping])
+	if host_note != "":
+		out.push_front(host_note)
 	var over = s.get("over")
 	if held or over != null:
 		var rows: Array = s.get("players", []).duplicate()

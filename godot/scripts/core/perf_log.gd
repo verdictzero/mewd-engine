@@ -89,6 +89,10 @@ static func where() -> String:
 static func begin(g) -> void:
 	if DisplayServer.get_name() == "headless" and not OS.get_cmdline_user_args().has("--perf-log"):
 		return
+	# (not a host's world, which nobody looks at — a game hosted from the
+	# title has one beside the player's)
+	if not g.draw_world:
+		return
 	if inst != null and is_instance_valid(inst):
 		inst.queue_free()
 	var l := PerfLog.new()

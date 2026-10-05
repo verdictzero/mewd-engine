@@ -26,9 +26,12 @@ signal new_game(map: String)
 signal pad_setup
 ## DEBUG: the logs and the last failure (ui/debug_menu.gd)
 signal debug_menu
+## MULTIPLAYER: host a match on this island (Main.host_game), or join one
+signal host_game(map: String)
+signal join_game
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["DEBUG", "debug", true],
+	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", true], ["DEBUG", "debug", true],
 	["QUIT GAME", "quit", false], ["DOWNLOAD ZIP", "zip", true]]
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
@@ -40,6 +43,16 @@ static func _levels() -> Array:
 	for i in Islands.LIST:
 		out.append([i.title, "map:" + i.key, true])
 	out.append(["BACK", "back", true])
+	return out
+## MULTIPLAYER (at the user's request: sixteen players, dropped in by pod,
+## a deathmatch): host a match here — on which island — or join one
+const MULTI := [["HOST GAME", "hosts", true], ["JOIN GAME", "join", true], ["BACK", "back", true]]
+static var HOSTS: Array = _hosts()
+static func _hosts() -> Array:
+	var out := []
+	for i in Islands.LIST:
+		out.append([i.title, "host:" + i.key, true])
+	out.append(["BACK", "multi", true])
 	return out
 const ZIP_URL := "https://github.com/verdictzero/mewd-engine/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
@@ -113,11 +126,38 @@ func _build_buttons() -> void:
 
 ## The column on show: the main menu, or the levels under NEW GAME.
 func show_page(levels: bool) -> void:
-	items = LEVELS if levels else ITEMS
+	show_items(LEVELS if levels else ITEMS)
+
+## any column: the main menu, the levels, multiplayer's
+func show_items(list: Array) -> void:
+	items = list
 	_shake = {}
 	_build_buttons()
 	mark(0)
 	_layout()
+
+## back a page: the hosts' islands to multiplayer, anything to the menu
+func _back() -> void:
+	if items == HOSTS:
+		show_items(MULTI)
+	elif items != ITEMS:
+		show_page(false)
+
+## A LINE UNDER THE MENU for a few seconds (why a join came to nothing)
+var _note: Label
+func notice(text: String) -> void:
+	if _note == null:
+		_note = Label.new()
+		_note.add_theme_font_override("font", font)
+		_note.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_note.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 40)
+		add_child(_note)
+	_note.text = text
+	_note.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(5.0)
+	tw.tween_property(_note, "modulate:a", 0.0, 1.0)
 
 ## the menu's words set wide, as the page's letter-spacing sets them
 static func _spaced(s: String) -> String:
@@ -239,6 +279,14 @@ func take(i: int) -> void:
 		show_page(true)
 	elif what == "back":
 		show_page(false)
+	elif what == "multi":
+		show_items(MULTI)
+	elif what == "hosts":
+		show_items(HOSTS)
+	elif what.begins_with("host:"):
+		host_game.emit(what.substr(5))
+	elif what == "join":
+		join_game.emit()
 	elif what.begins_with("map:"):
 		new_game.emit(what.substr(4))
 	elif what == "pad":
@@ -266,8 +314,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		"down": mark(at + 1)
 		"ok", "start": take(at)
 		"back":
-			if items == LEVELS:
-				show_page(false)
+			_back()
 		_:
 			if not (event is InputEventKey) or not event.pressed:
 				return
@@ -279,8 +326,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 					take(at)
 				KEY_ESCAPE, KEY_BACKSPACE:
-					if items == LEVELS:
-						show_page(false)
+					_back()
 				_:
 					return
 	get_viewport().set_input_as_handled()

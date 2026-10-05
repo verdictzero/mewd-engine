@@ -1,17 +1,22 @@
-## MEWD — the dedicated server (tools/server.mjs, in Godot).
+## MEWD — the dedicated server.
 ##
 ##   godot --headless --path . -- --server[=PORT] [--map=island0] [--seed=N]
 ##                                [--max=16] [--frags=N]
 ##
 ## A host with no screen: the real simulation (game.gd, not drawn) behind
 ## the message interface (server.gd), listening on the LAN for WebSocket
-## lines at ws://this-machine:PORT/net (any path is taken). THE SAME WIRE
-## as the Node host, so a web page joins it with ?join=this-machine:PORT
-## and a Godot client with --join=this-machine:PORT.
+## lines at ws://this-machine:PORT/net (any path is taken); a Godot client
+## joins with --join=this-machine:PORT, or JOIN on the title.
 ##
-## Team deathmatch on JESSE (the default, as the Node host's), deathmatch
-## on THE MAZE — whose crowd stays home: shoppers are a mind each, run on
-## every machine by its own dice, and a match is about the players.
+## Deathmatch on an island, everybody dropped in by pod at random points
+## (NetMatch.drop_point), the herds the host's (server.gd), the crowd
+## every machine's own.
+##
+## OR HOSTED FROM THE GAME (HOST GAME on the title's MULTIPLAYER page,
+## Main.host_game): `listen` set and start() called by hand — the host's
+## world in a hidden viewport of its own (nothing of it drawn, nothing of
+## it in the player's world), the player joining it over this machine's
+## own socket like anybody else.
 ##
 ## And for the tests:
 ##   --spawns=x,y;x,y;…    a deathmatch's pads, instead of find_spawns
@@ -30,8 +35,13 @@ var score_file := ""
 var _last_score := ""
 var _seen := {}
 var _t0 := 0
+## hosted from the game (see the top): no command line, a world of its own
+var listen := false
+var _view: SubViewport
 
 func _ready() -> void:
+	if listen:
+		return
 	var kind: String = Islands.LIST[0].key
 	var seed := 0
 	var max_p := NetProtocol.MAX_PLAYERS
@@ -59,25 +69,39 @@ func _ready() -> void:
 		elif a.begins_with("--score-file="):
 			score_file = a.substr(13)
 	# AN ISLAND (Islands.LIST): every client has it baked; the seed is the
-	# crowd's — in a match, nobody but the players
+	# crowd's and the herds'
 	kind = Islands.find(kind).key
 	seed = seed & 0x7FFFFFFF
 	if seed == 0:
 		randomize()
 		seed = randi() & 0x7FFFFFFF
-	var opts := {"people": 0}
+	# (the island's whole crowd and its herds: the herds are the host's to
+	# run — they kill — and the crowd every machine's own, from the seed)
+	var opts := {}
 	start(kind, seed, opts, max_p, rules, spawns)
 
-func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Dictionary, spawns: Array) -> void:
+func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Dictionary, spawns: Array) -> int:
 	# a screen nobody looks at does not need a thousand frames a second
-	Engine.max_fps = 120
+	if not listen:
+		Engine.max_fps = 120
 	var t0 := Time.get_ticks_msec()
 	game = preload("res://godot/scripts/game/game.gd").new()
 	game.name = "Game"
 	game.net_map = {"kind": kind, "seed": seed, "opts": opts}
 	# a server draws nothing: the island's ground, none of its terrain
 	game.draw_world = false
-	add_child(game)
+	if listen:
+		# (its sprites, its sparks, its camera in a world of their own that
+		# is never drawn — not in the player's)
+		_view = SubViewport.new()
+		_view.own_world_3d = true
+		_view.size = Vector2i(2, 2)
+		_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_view.disable_3d = false
+		add_child(_view)
+		_view.add_child(game)
+	else:
+		add_child(game)
 	# the host steps the world off its own clock (SimServer.run), not the
 	# frame loop a player's game runs on
 	game.set_process(false)
@@ -90,14 +114,25 @@ func start(kind: String, seed: int, opts: Dictionary, max_p: int, rules: Diction
 	var err := listener.listen(port)
 	if err != OK:
 		_say("could not listen on port %d (error %d)" % [port, err])
+		if listen:
+			return err
 		get_tree().quit(1)
-		return
+		return err
 	_say("MEWD host on port %d, up to %d players" % [listener.port, max_p])
 	_say("%s, to %d" % ["team deathmatch" if sim.match_.mode == "tdm" else "deathmatch", sim.match_.limit()])
 	for ip in IP.get_local_addresses():
 		if ip.count(".") == 3 and not ip.begins_with("127."):
-			_say("  join:  godot --path . -- --join=%s:%d     web: ?join=%s:%d" % [ip, listener.port, ip, listener.port])
+			_say("  join:  godot --path . -- --join=%s:%d" % [ip, listener.port])
 	_t0 = Time.get_ticks_usec()
+	return OK
+
+## this machine's addresses on the LAN, for the others to join on
+static func lan_addresses() -> Array:
+	var out := []
+	for ip in IP.get_local_addresses():
+		if ip.count(".") == 3 and not ip.begins_with("127.") and not ip.begins_with("169.254."):
+			out.append(ip)
+	return out
 
 func _say(s: String) -> void:
 	print(s)
