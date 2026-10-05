@@ -202,6 +202,8 @@ func show_title() -> void:
 	title.debug_menu.connect(open_debug)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
+	# the title's own music, round and round until NEW GAME
+	music.title_theme()
 
 var _loading := false
 ## the level picked on the title (NEW GAME), "" for the default

@@ -70,6 +70,23 @@ func start(i := 0) -> void:
 	_clock = 0.0
 	plan = {}
 
+## THE TITLE'S MUSIC (at the user's request: "Waiting for Something"),
+## looping for as long as the title is up (looped in its import and here);
+## NEW GAME's start / start_list takes the deck over from it
+const TITLE_THEME := "res://assets/music/waiting_for_something.mp3"
+func title_theme() -> void:
+	stop()
+	var st = load(TITLE_THEME)
+	if st == null:
+		return
+	if "loop" in st:
+		st.loop = true
+	var d := decks[0]
+	d.stream = st
+	d.pitch_scale = 1.0
+	d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
+	d.play()
+
 ## THE DIRGE (galvarius's death behaviour, music_manager.gd there): what
 ## is playing out over a second, two seconds of nothing, then the death
 ## music — the user's own "Everyone You Love is Dead" — looping until the

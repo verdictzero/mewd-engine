@@ -49,6 +49,12 @@ func _init() -> void:
 	m.decks[0].seek(L3 - 1.0)
 	m._pl_tic(0.0)
 	check(m.decks[1].stream.resource_path == own[0] and m.decks[1].playing, "and the third back into the first: round and round")
+	# the title's own music, looping, and NEW GAME's list takes over from it
+	m.title_theme()
+	check(m.playlist.is_empty() and m.decks[0].playing and m.decks[0].stream.resource_path == Music.TITLE_THEME and m.decks[0].stream.loop, "the title plays Waiting for Something, looping")
+	check(not m.decks[1].playing, "and only that")
+	m.start_list(own)
+	check(m.decks[0].stream.resource_path == own[0] and m.decks[0].playing, "NEW GAME's list takes over from it")
 	# the death music takes over
 	m.dirge()
 	check(m.playlist.is_empty(), "and YOU DIED stops it for the dirge")
