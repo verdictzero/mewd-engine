@@ -2868,13 +2868,16 @@ CANDY LAND'S OWN MUSIC
   back into the first, and the dirge stops the list).
 
   THE TITLE'S MUSIC. At the user's request: "make this the looping title
-  screen music" — "Waiting for Something" (assets/music/
-  waiting_for_something.mp3, looped in its import and by Music.title_theme).
+  screen music" — first "Waiting for Something", then galvarius's "SG
+  Ocelot" (assets/music/sg_ocelot.mp3, looped in its import and by
+  Music.title_theme), with "Waiting for Something" (waiting_for_something
+  .mp3) moved to NOT PENNSYLVANIA as its own music: Islands "music", a list
+  of the one track, crossfading into itself at its end as CANDY LAND's do.
   The title starts it when it comes up (main.gd show_title) and it loops
   for as long as the title is up; NEW GAME's track or list takes the deck
   over from it, and quitting to the title (the scene reloaded) starts it
   again. Test: music_test.gd (it plays, loops, alone, and the list takes
-  over from it).
+  over from it; NOT PENNSYLVANIA's track comes round under itself).
 
 TESTS
 

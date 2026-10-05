@@ -37,7 +37,10 @@ const LIST := [
 	# still island0. Its half- and quarter-size copies, ISLAND -1 and -2,
 	# are gone, as is CANDY LAND XS, at the user's request)
 	{"key": "island0", "title": "NOT PENNSYLVANIA", "scene": "res://godot/island/scenes/island_0.tscn", "people": 360,
-		"blurb": "golf's island, the first one: hills, firs and a cliff all round into the cloud"},
+		"blurb": "golf's island, the first one: hills, firs and a cliff all round into the cloud",
+		# its own music, at the user's request: "Waiting for Something" (the
+		# title's until Ocelot took over), crossfading into itself
+		"music": ["res://assets/music/waiting_for_something.mp3"]},
 	# CANDY LAND, at the user's request: ISLAND 0's size and hills, the
 	# candy pack's ground and plants, roads between town squares, a blue
 	# sky with a candy sun at the top of it, and the candy girls — who come

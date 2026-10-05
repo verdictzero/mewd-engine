@@ -70,10 +70,11 @@ func start(i := 0) -> void:
 	_clock = 0.0
 	plan = {}
 
-## THE TITLE'S MUSIC (at the user's request: "Waiting for Something"),
+## THE TITLE'S MUSIC (at the user's request: galvarius's "SG Ocelot";
+## "Waiting for Something", the title's before it, is NOT PENNSYLVANIA's now),
 ## looping for as long as the title is up (looped in its import and here);
 ## NEW GAME's start / start_list takes the deck over from it
-const TITLE_THEME := "res://assets/music/waiting_for_something.mp3"
+const TITLE_THEME := "res://assets/music/sg_ocelot.mp3"
 func title_theme() -> void:
 	stop()
 	var st = load(TITLE_THEME)

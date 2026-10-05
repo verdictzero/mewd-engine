@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/waiting_for_something.mp3-949874c849257560e9a
 
 [params]
 
-loop=true
+loop=false
 loop_offset=0
 bpm=0
 beat_count=0
