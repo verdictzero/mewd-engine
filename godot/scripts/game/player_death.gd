@@ -38,6 +38,8 @@ const ORBIT_R := 300.0
 const ORBIT_H := 150.0
 const ORBIT_SPEED := 0.5
 const LOOK_UP := 32.0
+## room kept either side of the death camera (a house beside it pulls it in)
+const CLEAR := 90.0
 const FLOOR_REACH := 420.0
 const FLOOR_SPATTERS := 48
 
@@ -327,6 +329,21 @@ func place_camera(cam: Camera3D, f: float) -> void:
 	var cx := at.x + cos(a) * ORBIT_R
 	var cy := at.y + sin(a) * ORBIT_R
 	var cz := maxf(at.z + ORBIT_H, _floor(cx, cy) + 48.0)
+	# (a house in the way: in front of its wall, not inside it) —
+	# and with room either side of it, so a wall just off the line of sight
+	# does not fill half the picture: the nearest of three rays
+	var from := Vector3(at.x, at.y, at.z + LOOK_UP)
+	var side := Vector2(-sin(a), cos(a)) * CLEAR
+	var t := 1.0
+	for o in [Vector2.ZERO, side, -side]:
+		var w: Dictionary = game.level.ray_hit_wall(from.x, from.y, from.z, cx + o.x, cy + o.y, cz)
+		if not w.is_empty():
+			t = minf(t, float(w.t) - 24.0 / ORBIT_R)
+	if t < 1.0:
+		t = maxf(0.15, t)
+		cx = lerpf(from.x, cx, t)
+		cy = lerpf(from.y, cy, t)
+		cz = maxf(lerpf(from.z, cz, t), _floor(cx, cy) + 40.0)
 	cam.position = U.v3(cx, cy, cz)
 	# (in the game's own space: the game node is scaled, look_at is global)
 	cam.basis = Basis.looking_at(U.v3(at.x, at.y, at.z + LOOK_UP) - cam.position, Vector3.UP)

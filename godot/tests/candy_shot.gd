@@ -21,7 +21,8 @@
 ## --die: the player killed 220 tics before the picture (PlayerDeath: the
 ## death camera, the stone, the fountain). --burn: three candy girls 7 m
 ## ahead set alight 40 tics before it (the burning palette). --gun: the
-## gun in hand drawn too (its matcap).
+## gun in hand drawn too (its matcap). --hud: the readout over it all
+## (with --die: YOU ACHIEVED THE OPPOSITE OF LIFE).
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
 ##
@@ -61,6 +62,14 @@ func _init() -> void:
 		lofi.gun.add_child(w3d)
 		game.weapon3d = w3d
 	lofi.world.add_child(game)
+	if "--hud" in OS.get_cmdline_user_args():
+		var hl := CanvasLayer.new()
+		hl.layer = 1
+		root.add_child(hl)
+		var hud := Hud.new()
+		hud.game = game
+		hl.add_child(hud)
+		game.hud = hud
 	process_frame.connect(_frame)
 
 func _frame() -> void:

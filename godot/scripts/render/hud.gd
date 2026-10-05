@@ -91,8 +91,9 @@ func _draw() -> void:
 			var by := ny + roundf(5.0 * s) + bs + roundf(6.0 * s)
 			draw_string(font, Vector2(bx + 1, by + 1), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(0, 0, 0, 0.6))
 			draw_string(font, Vector2(bx, by), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(1.0, 0.72, 0.78, 0.92))
-	else:
-		# the card: 死, and YOU DIED
+	elif game.get("death") == null or not game.death.active:
+		# the card: 死, and YOU DIED (a match's death; a game alone has its
+		# own words, _draw_death)
 		var band := size.y * 0.22
 		var top := size.y * 0.5 - band * 0.5
 		draw_rect(Rect2(0, top, size.x, band), Color(0, 0, 0, 0.72))
@@ -169,8 +170,16 @@ func _draw_toasts(s: float) -> void:
 
 ## YOU DIED (PlayerDeath), as galvarius has it: the screen washed red,
 ## the words big across the middle in its Mechsuit face, and once a press
-## will do it, how to go again
+## will do it, how to go again. THE WORDS, at the user's request: YOU
+## ACHIEVED THE OPPOSITE OF LIFE, and the same in Japanese under it at
+## half the size (JP_FONT: the glyphs of that one line out of IPA Gothic,
+## assets/fonts/IPA_Font_License.txt) — both lines LEFT-justified in a
+## block that is itself centred on the screen.
+const DEATH_EN := "YOU ACHIEVED THE OPPOSITE OF LIFE"
+const DEATH_JP := "あなたは生命の反対を達成した。"
+const JP_FONT := "res://assets/fonts/mewd_died_jp.ttf"
 var _dead_font: Font
+var _jp_font: Font
 func _draw_death(s: float) -> void:
 	var D = game.get("death")
 	if D == null or not D.active:
@@ -179,20 +188,36 @@ func _draw_death(s: float) -> void:
 		_dead_font = load("res://assets/fonts/Mechsuit.otf")
 		if _dead_font == null:
 			_dead_font = font
+		_jp_font = load(JP_FONT)
+		if _jp_font == null:
+			_jp_font = font
 	var k := clampf(D.t / 35.0, 0.0, 1.0)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.0, 0.0, 0.32 * k + 0.06 * sin(Time.get_ticks_msec() * 0.003)))
-	var t := "YOU DIED"
-	var fs := int(roundf(minf(72.0 * s, size.x / 7.0)))
-	var w := _dead_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	# the big line as big as it may be and still fit nine tenths of the width
+	var fs := int(roundf(56.0 * s))
+	var w := _dead_font.get_string_size(DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	if w > size.x * 0.9:
+		fs = maxi(8, int(fs * size.x * 0.9 / w))
+		w = _dead_font.get_string_size(DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var js := maxi(6, fs / 2)
+	var jw := _jp_font.get_string_size(DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js).x
+	# THE BLOCK: as wide as its widest line, centred; the lines at its left
+	var bw := maxf(w, jw)
+	var x0 := roundf(size.x * 0.5 - bw * 0.5)
 	var y := size.y * 0.42
-	draw_string(_dead_font, Vector2(size.x * 0.5 - w * 0.5 + 3, y + 3), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7 * k))
-	draw_string(_dead_font, Vector2(size.x * 0.5 - w * 0.5, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.92, 0.88, k))
+	var y2 := y + fs * 0.35 + js * 1.2
+	var ink := Color(1.0, 0.92, 0.88, k)
+	var shade := Color(0, 0, 0, 0.7 * k)
+	draw_string(_dead_font, Vector2(x0 + 3, y + 3), DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, shade)
+	draw_string(_dead_font, Vector2(x0, y), DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
+	draw_string(_jp_font, Vector2(x0 + 2, y2 + 2), DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js, shade)
+	draw_string(_jp_font, Vector2(x0, y2), DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js, ink)
 	if D.can_restart():
 		var h := "FIRE TO GO AGAIN"
 		var hs := int(roundf(16.0 * s))
 		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 		var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.005)
-		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y + fs * 0.9), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
+		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y2 + js + hs * 2.0), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
 
 ## the big card across the middle (Game.set_big_message)
 func _draw_big(s: float) -> void:

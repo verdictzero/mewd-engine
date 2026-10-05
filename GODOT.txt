@@ -2788,8 +2788,17 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     going first), the blood jetting up with them in pulses;
     the music out over a second, two of silence, then galvarius's death
     music (assets/music/you_died.mp3, Music.dirge) round and round;
-    YOU DIED across the screen in galvarius's Mechsuit face on a red wash,
-    and after three seconds FIRE TO GO AGAIN: fire, jump or use starts the
+    on a red wash, YOU ACHIEVED THE OPPOSITE OF LIFE in galvarius's
+    Mechsuit face (at the user's request, in place of YOU DIED), as big as
+    fits nine tenths of the width, and under it the same in Japanese at
+    half the size (あなたは生命の反対を達成した。 — in MEWD Died JP,
+    assets/fonts/mewd_died_jp.ttf: that one line's glyphs out of IPA
+    Gothic, renamed as its licence asks; assets/fonts/IPA_Font_License.txt
+    has the licence and how to put the original back), both lines
+    left-justified in a block centred on the screen (the old 死 card is a
+    match's only now); the death camera kept in front of any house wall
+    on its line or either side of it; and after three seconds FIRE TO GO
+    AGAIN: fire, jump or use starts the
     same level again (Game.restart_wanted, main.gd restart — through the
     quit-to-title path, the scene built afresh straight into the game).
 
