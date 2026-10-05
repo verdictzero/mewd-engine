@@ -584,5 +584,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		toggle_pause()
 		get_viewport().set_input_as_handled()
 		return
+	# YOU DIED, and the burst over: ANY key, button or touch is for the
+	# level again (Hud: PRESS ANY KEY TO DIE ALONE)
+	if game != null and not game.paused and game.death != null and game.death.can_restart() and event.is_pressed() \
+			and not event.is_echo() and (event is InputEventKey or event is InputEventMouseButton \
+			or event is InputEventJoypadButton or event is InputEventScreenTouch):
+		game.restart_wanted = true
+		get_viewport().set_input_as_handled()
+		return
 	if game != null and not game.paused:
 		game.handle_input(event)

@@ -180,6 +180,7 @@ const DEATH_EN := "YOU ACHIEVED THE OPPOSITE OF LIFE"
 const DEATH_JP := "あなたは生命の反対を達成した。"
 const JP_FONT := "res://assets/fonts/mewd_died_jp.ttf"
 const JP_SCALE := 0.8
+const DEATH_KEY := "PRESS ANY KEY TO DIE ALONE"
 ## the red multiply over the whole picture, behind the words (_draw_death)
 var _wash: ColorRect
 func _make_wash() -> void:
@@ -249,12 +250,14 @@ func _draw_death(s: float) -> void:
 	var y2 := top + pad + js * 0.86
 	draw_string(_jp_font, Vector2(x0, y2), DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js, ink)
 	y2 = top + band
+	# and once a press will do it: PRESS ANY KEY TO DIE ALONE (at the
+	# user's request), in the same block, RIGHT-justified to its edge
 	if D.can_restart():
-		var h := "FIRE TO GO AGAIN"
+		var h := DEATH_KEY
 		var hs := int(roundf(16.0 * s))
 		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 		var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.005)
-		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y2 + hs * 2.2), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
+		draw_string(font, Vector2(x0 + bw - hw, y2 + hs * 2.2), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
 
 ## the big card across the middle (Game.set_big_message)
 func _draw_big(s: float) -> void:

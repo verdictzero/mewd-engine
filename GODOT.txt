@@ -2800,8 +2800,10 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     has the licence and how to put the original back), both lines
     left-justified in a block centred on the screen (the old 死 card is a
     match's only now); the death camera kept in front of any house wall
-    on its line or either side of it; and after three seconds FIRE TO GO
-    AGAIN: fire, jump or use starts the
+    on its line or either side of it; and after three seconds PRESS ANY
+    KEY TO DIE ALONE (at the user's request), right-justified in the same
+    block — any key, mouse or pad button or touch (main.gd), or fire,
+    jump or use: fire, jump or use starts the
     same level again (Game.restart_wanted, main.gd restart — through the
     quit-to-title path, the scene built afresh straight into the game).
 
