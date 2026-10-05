@@ -71,19 +71,21 @@ static func granted() -> bool:
 
 ## Ask for the storage: on Android 11 and up this opens the "all files
 ## access" page for the app (switch it on, come back); below that, the
-## usual allow/deny box. Already given: just move the log out.
+## usual allow/deny box. Both ways are tried, and every answer is a
+## line in the log (the DEBUG menu shows it). Already given: just move
+## the log out.
 static func ask() -> void:
 	if OS.get_name() != "Android":
 		return
-	line("storage: granted %s" % [OS.get_granted_permissions()])
+	line("storage: granted before the ask %s" % [OS.get_granted_permissions()])
 	if granted():
 		if not external:
 			_open()
 		return
 	var r := OS.request_permission(ALL_FILES)
-	line("storage: asked for all files access (%s)" % r)
-	if not r and not OS.request_permissions():
-		line("storage: asked for the manifest's permissions")
+	line("storage: asked for all files access (answer now: %s)" % r)
+	var m := OS.request_permissions()
+	line("storage: asked for the manifest's permissions (answer now: %s)" % m)
 
 ## Back in front (from the settings page, most likely): if the storage
 ## was given there, the log moves out now. (That page answers nothing.)
@@ -225,10 +227,37 @@ static func keep(name: String, text: String) -> void:
 ## What the title says about it.
 static func where() -> String:
 	if dir == "":
-		return "LOGS: NOWHERE — TAP HERE TO ALLOW STORAGE ACCESS" if not granted() else "LOGS: NOWHERE (no folder could be written)"
+		return "LOGS: NOWHERE — TAP FOR DEBUG"
 	if not granted():
-		return "LOGS: %s — TAP HERE TO ALLOW STORAGE ACCESS" % dir
+		return "LOGS: %s — TAP FOR DEBUG" % dir
 	return "LOGS: " + dir
+
+## The DEBUG menu's lines about it.
+static func status() -> PackedStringArray:
+	var out := PackedStringArray()
+	out.append("LOG: %s" % (dir.path_join(NAME) if dir != "" else "nowhere (no folder could be written)"))
+	out.append("SHARED STORAGE: %s" % ("yes, readable from outside the app" if external else "no, inside the app's own folder"))
+	if OS.get_name() == "Android":
+		out.append("STORAGE PERMISSION: %s — granted: %s" % ["GIVEN" if granted() else "NOT GIVEN", ", ".join(Array(OS.get_granted_permissions()).map(func(s): return str(s).get_slice(".", 2)))])
+	out.append("%s %s — %s — %s" % [OS.get_name(), OS.get_version(), OS.get_model_name(), RenderingServer.get_video_adapter_name()])
+	return out
+
+## The last `most` bytes of a file beside the log (whole lines), or "".
+static func read(name: String, most: int) -> String:
+	if dir == "":
+		return "\n".join(_pending)
+	var f := FileAccess.open(dir.path_join(name), FileAccess.READ)
+	if f == null:
+		return ""
+	var n := f.get_length()
+	var from := maxi(0, n - most)
+	f.seek(from)
+	var s := f.get_buffer(n - from).get_string_from_utf8()
+	f.close()
+	if from > 0:
+		var nl := s.find("\n")
+		s = "(... the first %d KB left out ...)\n" % (from / 1024) + (s.substr(nl + 1) if nl >= 0 else s)
+	return s
 
 ## THE MIRROR: everything the engine prints, as it prints it.
 class Mirror extends Logger:

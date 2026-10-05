@@ -44,6 +44,14 @@ var gun_on_room := false
 var render_rows := RENDER
 var pixel_rows := PIXELS
 var pixel_aspect := PIXEL_ASPECT
+## THE PIXEL GRID (pixel_grid.gdshader, at the user's request): "auto"
+## — on, soft, wherever a chunky pixel is four screen pixels or more
+## (the lower PIXELS settings) —, "off", "soft" or "lcd" (the last two
+## wherever a chunky pixel is three or more)
+var grid_mode := "auto"
+var grid_mat: ShaderMaterial
+## what the grid is drawing now (0 off), for the tests
+var grid_strength := 0.0
 
 func _init() -> void:
 	layer = 0
@@ -111,6 +119,9 @@ func _init() -> void:
 	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	grid_mat = ShaderMaterial.new()
+	grid_mat.shader = preload("res://godot/shaders/pixel_grid.gdshader")
+	rect.material = grid_mat
 	add_child(rect)
 	# the picture a third brighter, at the user's request (js/main.js
 	# DEFAULT_PREFS bright 1.35), before the dither and the snap
@@ -185,6 +196,20 @@ func _resize() -> void:
 	var at := ((phys - shown) * 0.5).floor()
 	rect.position = at / k
 	rect.size = shown / k
+	_grid(Vector2(sx, sy), grid)
+
+## The grid's lines for this many screen pixels a chunky pixel.
+func _grid(cell: Vector2, grid: Vector2i) -> void:
+	var small := minf(cell.x, cell.y)
+	var s := 0.0
+	match grid_mode:
+		"auto": s = 0.28 if small >= 4.0 else 0.0
+		"soft": s = 0.28 if small >= 3.0 else 0.0
+		"lcd": s = 0.55 if small >= 3.0 else 0.0
+	grid_strength = s if pixel_rows > 0 else 0.0
+	grid_mat.set_shader_parameter("cells", Vector2(grid))
+	grid_mat.set_shader_parameter("cell_px", cell)
+	grid_mat.set_shader_parameter("strength", grid_strength)
 
 ## brightness, contrast, gamma — applied before the dither and the snap,
 ## so a brighter picture is still made of the palette's colours

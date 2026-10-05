@@ -65,6 +65,7 @@ func _ready() -> void:
 	pause.resumed.connect(resume)
 	pause.quit_to_title.connect(quit_to_title)
 	pause.pad_setup.connect(open_pad_wizard)
+	pause.debug_menu.connect(open_debug)
 	fps_label = PerfOverlay.new()
 	fps_label.visible = false
 	hud_layer.add_child(fps_label)
@@ -96,30 +97,14 @@ func _ready() -> void:
 
 var terminal: Terminal
 
-## THE LAST RUN DID NOT END CLEANLY (BlackBox): what it was doing, small, at
-## the foot of the title, for a photograph
-func _crash_note(t: String) -> Control:
-	var l := Label.new()
-	l.text = "THE LAST RUN DID NOT END CLEANLY. IT WAS:\n" + t.replace("RUNNING (if you read this at start, the last run did not end cleanly)\n", "")
-	l.add_theme_font_size_override("font_size", 11)
-	l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6))
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 4)
-	l.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	l.position = Vector2(8, -8)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
-
 ## WHERE THE LOGS ARE (Logs), small, at the foot of the title on the
-## right — and whether the phone gave the storage permission
-## (a button: tapped, it asks for the storage again — Logs.ask)
+## right — and whether the phone gave the storage permission. A button:
+## tapped, it opens the DEBUG menu (open_debug). (The title's notice of
+## the last run's failure is gone, at the user's request: the DEBUG
+## menu's LAST FAILURE shows it.)
 class _LogsNote extends Button:
 	func refresh() -> void:
 		text = Logs.where()
-		modulate.a = 0.8 if Logs.granted() else 1.0
-	func _pressed() -> void:
-		Logs.ask()
 
 func _logs_note() -> Control:
 	var l := _LogsNote.new()
@@ -133,14 +118,14 @@ func _logs_note() -> Control:
 	l.flat = true
 	l.focus_mode = Control.FOCUS_NONE
 	l.alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	l.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	l.position = Vector2(-8, -8)
+	# (in the corner by its anchors, 8 pixels in: a bare position here
+	# put it off the top of the glass)
+	l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 8)
 	if not Logs.granted():
-		# (big enough to hit with a thumb, and loud)
-		l.add_theme_font_size_override("font_size", 16)
-		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3, 0.9))
+	l.pressed.connect(open_debug)
 	# (the permission's answer comes after the title is up; a method on
 	# the note, never a lambda of this scene, which the note outlives)
 	Logs.changed = l.refresh
@@ -207,10 +192,9 @@ func show_title() -> void:
 	title_layer.add_child(title)
 	title.attach_shade(shade)
 	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
-	if BlackBox.last != "":
-		title_layer.add_child(_crash_note(BlackBox.last))
 	title_layer.add_child(_logs_note())
 	title.pad_setup.connect(open_pad_wizard)
+	title.debug_menu.connect(open_debug)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
 
@@ -403,6 +387,7 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.render_rows = int(p.detail)
 	lofi.pixel_rows = int(p.pixels)
 	lofi.pixel_aspect = float(p.pixar)
+	lofi.grid_mode = str(p.get("grid", "auto"))
 	lofi._resize()
 	lofi.set_picture(float(p.bright), float(p.contrast), float(p.gamma))
 	# (an island may keep its own colours and set its own exposure and
@@ -523,6 +508,19 @@ func open_pad_wizard() -> void:
 	layer.add_child(pad_wizard)
 	pad_wizard.finished.connect(func(): layer.queue_free(); pad_wizard = null)
 
+## THE DEBUG MENU (ui/debug_menu.gd): the logs, the last failure, the
+## storage ask — over everything but the pad wizard
+var debug_menu: DebugMenu
+func open_debug() -> void:
+	if debug_menu != null and is_instance_valid(debug_menu):
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 39
+	add_child(layer)
+	debug_menu = DebugMenu.new()
+	layer.add_child(debug_menu)
+	debug_menu.closed.connect(func(): layer.queue_free(); debug_menu = null)
+
 ## ANDROID'S BACK (a handheld's Select is often it): never a quit
 ## (application/config/quit_on_go_back is off) — the pause menu, or out
 ## of it
@@ -543,6 +541,9 @@ func _notification(what: int) -> void:
 		Logs.resumed()
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if pad_wizard != null and is_instance_valid(pad_wizard):
+			return
+		if debug_menu != null and is_instance_valid(debug_menu):
+			debug_menu.closed.emit()
 			return
 		if game != null:
 			toggle_pause()

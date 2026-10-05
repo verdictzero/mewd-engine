@@ -24,10 +24,12 @@ extends Control
 ## the island chosen (Islands.LIST's key)
 signal new_game(map: String)
 signal pad_setup
+## DEBUG: the logs and the last failure (ui/debug_menu.gd)
+signal debug_menu
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
-	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["QUIT GAME", "quit", false],
-	["DOWNLOAD ZIP", "zip", true]]
+	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", false], ["DEBUG", "debug", true],
+	["QUIT GAME", "quit", false], ["DOWNLOAD ZIP", "zip", true]]
 ## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
 ## the repository's main branch — the Godot project, the web build, every
 ## asset — so it is always the latest and costs the site nothing to host
@@ -241,6 +243,8 @@ func take(i: int) -> void:
 		new_game.emit(what.substr(4))
 	elif what == "pad":
 		pad_setup.emit()
+	elif what == "debug":
+		debug_menu.emit()
 	elif what == "zip":
 		OS.shell_open(ZIP_URL)
 

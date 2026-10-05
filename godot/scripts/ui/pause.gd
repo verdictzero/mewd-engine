@@ -15,6 +15,8 @@ signal resumed
 signal quit_to_title
 ## SET UP PAD, in the footer: the wizard (ui/pad_wizard.gd)
 signal pad_setup
+## DEBUG, in the footer: the logs and the last failure (ui/debug_menu.gd)
+signal debug_menu
 
 const PREFS := "user://prefs.cfg"
 const PREF_VERSION := 16
@@ -24,9 +26,10 @@ const DIALS := [
 	["sens", "LOOK SPEED", 1, [[0.5, "0.5X"], [0.75, "0.75X"], [1.0, "1.0X"], [1.25, "1.25X"], [1.5, "1.5X"], [2.0, "2.0X"], [3.0, "3.0X"]]],
 	["invert", "INVERT LOOK", 1, [[false, "OFF"], [true, "ON"]]],
 	["music", "MUSIC", 1, [[0.0, "0%"], [0.25, "25%"], [0.5, "50%"], [0.75, "75%"], [1.0, "100%"]]],
-	["detail", "RENDER", 2, [[-1, "PIXEL"], [240, "240P"], [480, "480P"], [720, "720P"], [960, "960P"], [0, "NATIVE"]]],
-	["pixels", "PIXELS", 2, [[120, "120P"], [150, "150P"], [200, "200P"], [240, "240P"], [320, "320P"], [400, "400P"], [480, "480P"], [600, "600P"], [0, "OFF"]]],
+	["detail", "RENDER", 2, [[-1, "PIXEL"], [180, "180P"], [240, "240P"], [360, "360P"], [480, "480P"], [540, "540P"], [720, "720P"], [960, "960P"], [1080, "1080P"], [1440, "1440P"], [0, "NATIVE"]]],
+	["pixels", "PIXELS", 2, [[90, "90P"], [100, "100P"], [120, "120P"], [144, "144P"], [150, "150P"], [160, "160P"], [180, "180P"], [200, "200P"], [240, "240P"], [270, "270P"], [320, "320P"], [360, "360P"], [400, "400P"], [480, "480P"], [540, "540P"], [600, "600P"], [720, "720P"], [0, "OFF"]]],
 	["pixar", "PIXEL ASPECT", 2, [[1.0, "SQUARE"], [0.83333, "TALL 5:6"], [0.66667, "TALL 2:3"], [1.16667, "WIDE 7:6"]]],
+	["grid", "PIXEL GRID", 2, [["auto", "AUTO"], ["off", "OFF"], ["soft", "SOFT"], ["lcd", "LCD"]]],
 	["snap", "PALETTE", 2, [[true, "RAMPS"], [false, "FULL COLOUR"]]],
 	["bright", "BRIGHTNESS", 3, [[0.8, "0.80"], [1.0, "1.00"], [1.15, "1.15"], [1.35, "1.35"], [1.5, "1.50"], [1.75, "1.75"], [2.0, "2.00"]]],
 	["contrast", "CONTRAST", 3, [[0.7, "0.70"], [0.85, "0.85"], [1.0, "1.00"], [1.15, "1.15"], [1.3, "1.30"]]],
@@ -37,7 +40,7 @@ const DIALS := [
 	["godmode", "DEBUG: INVINCIBLE", 5, [[false, "OFF"], [true, "ON"]]],
 	["fps", "FRAME RATE", 5, [[false, "OFF"], [true, "ON"]]],
 ]
-const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 480, "pixar": 1.0,
+const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 480, "pixar": 1.0, "grid": "auto",
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
 	"debug": true, "godmode": true, "fps": true}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]
@@ -114,7 +117,10 @@ func _ready() -> void:
 	var setup := _button("SET UP PAD", 14)
 	setup.pressed.connect(func(): pad_setup.emit())
 	foot.add_child(setup)
-	_foot = [resume, quit, setup]
+	var dbg := _button("DEBUG", 14)
+	dbg.pressed.connect(func(): debug_menu.emit())
+	foot.add_child(dbg)
+	_foot = [resume, quit, setup, dbg]
 	show_page(1)
 	visibility_changed.connect(func(): if visible: _cursor_to(-1))
 
@@ -232,8 +238,10 @@ func pad_nav(what: String) -> bool:
 				resumed.emit()
 			elif cursor == n + 1:
 				quit_to_title.emit()
-			else:
+			elif cursor == n + 2:
 				pad_setup.emit()
+			else:
+				debug_menu.emit()
 			return true
 	return false
 

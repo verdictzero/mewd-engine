@@ -2558,6 +2558,51 @@ before the activity was in front, and the phone showed nothing. Now:
     written so far. That page sends no answer, so this is how it is seen.
   - Every ask and its answer is a line in the log ("storage: ...").
 
+THE DEBUG MENU, AND MORE PIXELS (at the user's request: "nope, still no
+good — try to fix that but also have a debug menu with a view logs
+button; delete title screen last failure notice in favor of that; add a
+pixel grid filter to lower value pixel options, add more pixel and
+rendering resolutions")
+
+THE STORAGE ASK, THIRD LOOK. The LOGS line at the foot of the title, the
+one meant to be tapped, was never on the glass: it was placed by a bare
+position that put it off the top. It is in the corner now, by its
+anchors. Logs.ask now tries both ways in a row (the all-files page, then
+the manifest's permissions) and writes each answer into the log. Why the
+phone shows no page is still not known; the log will now say what the
+answers were.
+
+THE DEBUG MENU (godot/scripts/ui/debug_menu.gd), from DEBUG on the
+title, DEBUG in the pause menu's footer, or the LOGS line:
+  - where the log is, whether it is on shared storage, whether the
+    storage was given and what was, and the device;
+  - VIEW THIS RUN (mewd.log), LAST RUN (mewd-1.log), LAST FAILURE (the
+    black box of a run that did not end cleanly), the last 48 KB of
+    each, scrolled with a finger, the D-pad or the stick (left and right
+    change the view);
+  - COPY puts what is shown on the clipboard, so a log can be pasted
+    anywhere with no storage permission at all;
+  - ASK FOR STORAGE (Android only); CLOSE, B or Back shuts it.
+The title's "THE LAST RUN DID NOT END CLEANLY" notice is gone: LAST
+FAILURE shows the same thing.
+
+THE PIXEL GRID (godot/shaders/pixel_grid.gdshader, PAUSE > 2 PICTURE >
+PIXEL GRID): a dark line down the left and along the top of every chunky
+pixel, whole screen pixels wide, like an LCD's gaps. AUTO, the default,
+draws it soft wherever a chunky pixel is four screen pixels or more,
+which is the lower PIXELS settings (on a 1080-row screen, 270P and
+below). SOFT and LCD draw it wherever a chunky pixel is three or more,
+and OFF never does. It is never drawn on smaller pixels, where a line
+would eat a third of each one.
+
+MORE RESOLUTIONS: PIXELS now runs 90, 100, 120, 144, 150, 160, 180, 200,
+240, 270, 320, 360, 400, 480, 540, 600, 720 and OFF. RENDER runs PIXEL,
+180, 240, 360, 480, 540, 720, 960, 1080, 1440 and NATIVE. Saved settings
+are kept, since the old values are all still on the lists.
+
+godot/tests/debug_shot.gd takes pictures of the menu, the last failure
+and the grid at 120 rows.
+
 TESTS
 
     tools/godot-test.sh
