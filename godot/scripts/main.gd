@@ -387,7 +387,7 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.render_rows = int(p.detail)
 	lofi.pixel_rows = int(p.pixels)
 	lofi.pixel_aspect = float(p.pixar)
-	lofi.grid_mode = str(p.get("grid", "auto"))
+	lofi.grid_mode = str(p.get("grid", "lcd"))
 	lofi._resize()
 	lofi.set_picture(float(p.bright), float(p.contrast), float(p.gamma))
 	# (an island may keep its own colours and set its own exposure and

@@ -2641,6 +2641,16 @@ The black box marks every second of a charge now ("lance: charging
 full charge the window ran out and the coil vented in the frames
 between the numbers and the picture, which showed an empty ring.)
 
+THE PIXEL GRID, THREE WAYS (at the user's request: "give me the ability
+to choose either pixel grid lines, LCD grid lines, or neither")
+
+PAUSE > 2 PICTURE > PIXEL GRID is now LCD (the default: gaps and red,
+green and blue stripes), GRID LINES (the dark gaps alone, a plain grid)
+or OFF. The old AUTO choice is gone. Either grid is drawn wherever a
+chunky pixel is three screen pixels or more, which is the lower PIXELS
+settings. Saved settings carry over: an old AUTO reads as LCD, and an
+old SOFT or GAPS ONLY as GRID LINES.
+
 TESTS
 
     tools/godot-test.sh

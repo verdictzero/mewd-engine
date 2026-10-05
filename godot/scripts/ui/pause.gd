@@ -29,7 +29,7 @@ const DIALS := [
 	["detail", "RENDER", 2, [[-1, "PIXEL"], [180, "180P"], [240, "240P"], [360, "360P"], [480, "480P"], [540, "540P"], [720, "720P"], [960, "960P"], [1080, "1080P"], [1440, "1440P"], [0, "NATIVE"]]],
 	["pixels", "PIXELS", 2, [[90, "90P"], [100, "100P"], [120, "120P"], [144, "144P"], [150, "150P"], [160, "160P"], [180, "180P"], [200, "200P"], [240, "240P"], [270, "270P"], [320, "320P"], [360, "360P"], [400, "400P"], [480, "480P"], [540, "540P"], [600, "600P"], [720, "720P"], [0, "OFF"]]],
 	["pixar", "PIXEL ASPECT", 2, [[1.0, "SQUARE"], [0.83333, "TALL 5:6"], [0.66667, "TALL 2:3"], [1.16667, "WIDE 7:6"]]],
-	["grid", "PIXEL GRID", 2, [["auto", "AUTO (LCD)"], ["off", "OFF"], ["lines", "GAPS ONLY"], ["lcd", "LCD"]]],
+	["grid", "PIXEL GRID", 2, [["lcd", "LCD"], ["lines", "GRID LINES"], ["off", "OFF"]]],
 	["snap", "PALETTE", 2, [[true, "RAMPS"], [false, "FULL COLOUR"]]],
 	["bright", "BRIGHTNESS", 3, [[0.8, "0.80"], [1.0, "1.00"], [1.15, "1.15"], [1.35, "1.35"], [1.5, "1.50"], [1.75, "1.75"], [2.0, "2.00"]]],
 	["contrast", "CONTRAST", 3, [[0.7, "0.70"], [0.85, "0.85"], [1.0, "1.00"], [1.15, "1.15"], [1.3, "1.30"]]],
@@ -40,7 +40,7 @@ const DIALS := [
 	["godmode", "DEBUG: INVINCIBLE", 5, [[false, "OFF"], [true, "ON"]]],
 	["fps", "FRAME RATE", 5, [[false, "OFF"], [true, "ON"]]],
 ]
-const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 480, "pixar": 1.0, "grid": "auto",
+const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 480, "pixar": 1.0, "grid": "lcd",
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
 	"debug": true, "godmode": true, "fps": true}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]

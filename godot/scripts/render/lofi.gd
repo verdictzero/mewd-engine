@@ -44,12 +44,13 @@ var gun_on_room := false
 var render_rows := RENDER
 var pixel_rows := PIXELS
 var pixel_aspect := PIXEL_ASPECT
-## THE PIXEL GRID, AN LCD (pixel_grid.gdshader, at the user's request):
-## "auto" — the panel wherever a chunky pixel is four screen pixels or
-## more (the lower PIXELS settings) —, "off", "lines" (the gaps alone)
-## or "lcd" (the panel; these two wherever a chunky pixel is three or
-## more)
-var grid_mode := "auto"
+## THE PIXEL GRID (pixel_grid.gdshader, at the user's request: "the
+## ability to choose either pixel grid lines, LCD grid lines, or
+## neither"): "lcd" (the panel: gaps and red, green and blue stripes),
+## "lines" (the gaps alone, a plain grid) or "off". Either is drawn only
+## where a chunky pixel is three screen pixels or more (the lower PIXELS
+## settings); a line would eat too much of anything smaller.
+var grid_mode := "lcd"
 var grid_mat: ShaderMaterial
 ## what the grid is drawing now (0 off, 1 gaps, 2 LCD), for the tests
 var grid_strength := 0.0
@@ -207,8 +208,7 @@ func _grid(cell: Vector2, grid: Vector2i) -> void:
 	match grid_mode:
 		"off": m = 0
 		"lines", "soft": m = 1 if small >= 3.0 else 0
-		"lcd": m = 2 if small >= 3.0 else 0
-		_: m = 2 if small >= 4.0 else 0
+		_: m = 2 if small >= 3.0 else 0     # "lcd" (and an old "auto")
 	if pixel_rows <= 0:
 		m = 0
 	grid_strength = float(m)
