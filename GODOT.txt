@@ -2772,14 +2772,18 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
   YOU DIED (godot/scripts/game/player_death.gd, PlayerDeath), galvarius's
   game_over_screen / player_controller / music_manager in the game's own
   units and tics, for a game alone (a match keeps its frag and respawn):
-    the BURST through your own eye as it drops — the warhead's
+    the BURST — the warhead's
     evisceration three times over from three ways, a pool 150 across and
     eight more round it, 48 spatters thrown out to 420 units, a cloud of
-    blood — and THE HEAD (galvarius's chad_head.png) thrown forward and
-    up, bouncing to rest, bleeding where it lands;
+    blood (THE HEAD, galvarius's chad_head.png thrown forward and up, is
+    gone: one giant picture of it, at the user's request — "remove giant
+    single chad head from death"; the small heads among the fountain's
+    pieces stay);
     a GRAVESTONE (galvarius's tombstone.png, two-faced) rising out of the
     ground just behind where you fell;
-    then THE DEATH CAMERA: the eye leaves the body and circles the place,
+    THE DEATH CAMERA at once (at the user's request: "death camera should
+    immediately initiate on death, no fall over first person first"): the
+    eye leaves the body the tic it dies and circles the place,
     300 units out and 150 up, half a radian a second, looking at it;
     and THE FOUNTAIN, for ever: galvarius's gore pieces (packed into
     assets/gore/death_gore.png, fourteen cells) spewed up and out of four
@@ -2808,13 +2812,29 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     same level again (Game.restart_wanted, main.gd restart — through the
     quit-to-title path, the scene built afresh straight into the game).
 
-  THE POD'S LANDING BURNS AND SQUASHES (DropPod._land_on_people) — and
-  only the landing (at the user's request: "the girls need to be set
-  alight / smushed right as it lands, not before"): nothing happens to
-  anybody on the way down; on the touchdown tic whoever is under the hull
-  (within 0.6 m of its rim) is squashed to pieces with a pool under them,
-  and everybody out to 14 m from it is set alight — they burn and burn
-  out — and anybody who cannot burn is killed outright.
+  THE POD'S LANDING BURNS AND SQUASHES (DropPod._land_on_people): at the
+  user's request first "the girls need to be set alight / smushed right
+  as it lands, not before", then "have npcs burst into flame before touch
+  down as jets touch them". So: on the way down, once the retros' jets
+  reach the ground (WASH.reach, 22 m), whoever stands in the ring they
+  hit — HULL_R + 0.45 m for every metre up, so wide when high and closing
+  in — bursts into flame there and then (DropPod.jet_burned); not whoever
+  is right under the hull, as the jets cant out. On the touchdown tic,
+  whoever is under the hull (within 0.6 m of its rim) is squashed to
+  pieces with a pool under them (the burnt ones too), and everybody out
+  to 14 m from it still not burning is set alight — they burn and burn
+  out — and anybody who cannot burn is killed outright. (Anyone under it
+  sooner than the last metres sees the others go up and runs.)
+
+  THE JET WASH (at the user's request: "add jet wash effects as pod
+  lands"; DropPod._wash_tic): from the same 22 m the ground in the jets'
+  ring blows out, billows of dust thrown flat and fast away from the pod
+  (4 to 16 a tic, thicker the lower it is) with grit and embers whipped
+  out among them close in; and at the touchdown one last ring of 140
+  thrown out hard, the shock. In the pod's own pool (900 at most), which
+  with the vents' goes in the game beside the pod, not in the pod: the
+  pod's node is scaled to metres and moves (the vents' smoke was drawn
+  there, off where it was meant to be, until this).
 
   THE SCORCHING, FOUR TIMES OVER: four times the marks (128 against 32),
   twice their size, out twice as far (to about 20 m), and the scorches

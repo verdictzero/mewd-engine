@@ -1,7 +1,7 @@
 ## MEWD — YOU DIED, headless (PlayerDeath, player_death.gd): the player
 ## can be hurt again by default; killed, the body goes off — blood all
-## round, the head away, a gravestone rising where they fell; after the
-## burst the eye circles the place; the body parts come up out of it wave
+## round, no giant head, a gravestone rising where they fell; the eye
+## circles the place from the moment of death; the body parts come up out of it wave
 ## after wave, landing and lying there, and do not stop; and a press asks
 ## for the level again only once the burst has had its say.
 ##   godot --headless --script res://godot/tests/you_died_test.gd -- --map=candyland
@@ -41,22 +41,19 @@ func _init() -> void:
 	check(D.marks >= 9, "a great pool and more round it (%d)" % D.marks)
 	check(game.giblets.eviscerations >= 3, "the body goes off (%d eviscerations)" % game.giblets.eviscerations)
 	check(game.giblets.room.size() >= PlayerDeath.FLOOR_SPATTERS, "the floor about to be painted (%d spatters waiting)" % game.giblets.room.size())
-	check(D.head != null, "the head comes off")
 	check(D.stone != null, "a gravestone")
-	# ---- the burst: the player's own eye, no restart yet ---------------------
-	var head0: Vector3 = D.head_p
+	# ---- the burst: the death camera at once, no restart yet ----------------
+	check(D.get_children().filter(func(n): return n is MeshInstance3D and n.mesh is QuadMesh and n != D.stone).is_empty(), "no giant head")
 	_tics(20)
-	check(D.head_p.distance_to(head0) > 40.0, "the head flies (%.0f units)" % D.head_p.distance_to(head0))
-	check(not D.orbiting(), "the burst through their own eye first")
+	check(D.orbiting(), "the eye leaves the body at once, no fall over first")
 	check(not D.can_restart(), "no going again yet")
 	check(D.waves == 0, "no fountain yet")
 	_tics(PlayerDeath.STONE_RISE)
 	var sp: Vector3 = D.stone.position
 	check(absf(sp.y - D.stone_floor) < 0.5, "the stone up out of the ground (%.1f over its floor)" % (sp.y - D.stone_floor))
 	_tics(PlayerDeath.BURST_TICS)
-	check(D.head_v == Vector3.ZERO, "the head come to rest (%d bounces)" % D.head_bounces)
 	# ---- the death camera ------------------------------------------------------
-	check(D.orbiting(), "then the eye leaves the body")
+	check(D.orbiting(), "still circling")
 	game._process(0.0)
 	var c0: Vector3 = game.camera.position
 	var mid := U.v3(at.x, at.y, at.z)

@@ -492,7 +492,7 @@ func _vents_tic() -> void:
 		vent_smoke = Particles.new({"max": 260, "map": Effects.atlases().smoke, "frames": Effects.SMOKE_PUFFS, "blend": "mix",
 			"fullbright": false, "near_shrink": 90.0, "order": 14})
 		vent_smoke.mat.set_shader_parameter("light", U.col(0.55))
-		add_child(vent_smoke)
+		_beside(vent_smoke)
 	var keep := []
 	for v in vents:
 		var age: int = ticks - int(v[4])
@@ -518,6 +518,8 @@ func _vents_tic() -> void:
 func _process(_dt: float) -> void:
 	if vent_smoke != null:
 		vent_smoke.draw()
+	if wash != null:
+		wash.draw()
 
 func tic(cmd: Dictionary) -> void:
 	# HELD AT THE TOP while the island is raised and the loading screen is
@@ -532,6 +534,8 @@ func tic(cmd: Dictionary) -> void:
 	ticks += 1
 	phase_tics += 1
 	_vents_tic()
+	if wash != null:
+		wash.tic()
 	prev_pos = pos
 	prev_att = att
 	fired.fill(0.0)
@@ -682,13 +686,9 @@ func _fly(cmd: Dictionary) -> void:
 	# ---- what the exhaust does to the plants under and round it ------
 	if game.veg_damage != null and over_land and h < 70.0 and ticks % 3 == 0:
 		_plume_plants()
-	# ---- the dust under a burn near the ground, and the touchdown -----
-	var um := IslandLevel.U_PER_M
-	var burn := retro_level > 0.1
-	if over_land and burn and h < 14.0 and ticks % 3 == 0:
-		var gx := pos.x * um + randf_range(-60.0, 60.0)
-		var gy := -pos.z * um + randf_range(-60.0, 60.0)
-		game.fx.puff(gx, gy, ground * um + 6.0, 26.0, 36)
+	# ---- the jet wash on the ground under a burn, and the touchdown -----
+	if over_land and pos.y > ground:
+		_wash_tic(ground, h)
 	if over_land and pos.y <= ground:
 		_touchdown(ground)
 
@@ -756,38 +756,142 @@ func _trail() -> void:
 
 ## THE LANDING ON THE PEOPLE AND THE CREATURES, at the user's request
 ## ("make the thruster exhaust kill and set people and creatures alight on
-## landing" — and then: "the girls need to be set alight / smushed right
-## as it lands, not before"): nothing happens to anybody on the way down;
-## on the touchdown tic, whoever is under the hull (within `squash`
-## metres of its rim) is SQUASHED — gone to pieces — and everybody out to
-## `touchdown` metres from it is set alight (they burn and burn out:
-## Actor.ignite, a burning state, and ash), anybody who cannot burn
-## killed outright.
+## landing" — then "the girls need to be set alight / smushed right as it
+## lands, not before" — and then "have npcs burst into flame before touch
+## down as jets touch them"): on the way down, once the retros' jets reach
+## the ground, whoever they wash over bursts into flame (_wash_tic); on
+## the touchdown tic, whoever is under the hull (within `squash` metres of
+## its rim) is SQUASHED — gone to pieces — and everybody out to
+## `touchdown` metres from it still standing is set alight (they burn and
+## burn out: Actor.ignite, a burning state, and ash), anybody who cannot
+## burn killed outright.
 const BURN := {"squash": 0.6, "touchdown": 14.0}
 var squashed := 0
+## the people the jets set alight before the touchdown
+var jet_burned := 0
+
+func _set_alight(a) -> void:
+	var was: int = a.burning
+	a.ignite(int(10 * U.TICRATE))
+	if not a.info.has("burn"):
+		a.damage(10000.0, game.player, {"fire": true})
+	if a.burning > 0 and was <= 0 or a.dead:
+		burned += 1
+	if game.fx != null:
+		game.fx.ember(a.x, a.y, a.z + 20.0, 2, 1.4)
+
+## THE JET WASH, at the user's request ("add jet wash effects as pod
+## lands"): once the retros are lit and the pod is within WASH.reach
+## metres of the ground, the eight canted jets hit it in a ring that
+## spreads the higher the pod is — HULL_R + WASH.spread * height — and
+## the ground there blows out: dust and smoke thrown flat and fast away
+## from the ring (its own pool, `wash`, not the shared smoke's), sparks
+## and embers whipped out with it as the pod gets close, and at the
+## touchdown one last ring of it all, the shock. And anybody standing in
+## the ring bursts into flame there and then.
+const WASH := {"reach": 22.0, "spread": 0.45}
+var wash: Particles
+var wash_puffs := 0
+
+## (a pool of the game's own units goes in the game beside the pod, not in
+## the pod: the pod's node is scaled to metres and moves with it — and it
+## goes when the pod does)
+func _beside(n: Node) -> void:
+	game.add_child(n)
+	tree_exiting.connect(n.queue_free)
+
+func _wash_pool() -> Particles:
+	if wash == null:
+		wash = Particles.new({"max": 900, "map": Effects.atlases().smoke, "frames": Effects.SMOKE_PUFFS, "blend": "mix",
+			"fullbright": false})
+		wash.mat.set_shader_parameter("light", U.col(0.95))
+		_beside(wash)
+	return wash
+
+## one billow of the wash at (x, y, z), blown out along `dir` at `sp`
+func _wash_puff(x: float, y: float, z: float, dir: Vector2, sp: float, size: float) -> void:
+	var tone := randf_range(0.75, 1.0)
+	_wash_pool().spawn({
+		"x": x, "y": y, "z": z,
+		"vx": dir.x * sp, "vy": dir.y * sp, "vz": randf_range(0.1, 0.7),
+		"life": randi_range(50, 95),
+		"size0": size, "size1": size * 3.6,
+		"c0": Color(0.92 * tone, 0.86 * tone, 0.76 * tone, 0.9), "c1": Color(0.62, 0.6, 0.58, 0.0),
+		"frame": float(randi() % Effects.SMOKE_PUFFS), "frameRate": 0.14,
+		"drag": 0.93, "gravity": 0.0,
+	})
+	wash_puffs += 1
+
+func _wash_tic(ground: float, h: float) -> void:
+	if retro_level < 0.1 or h > WASH.reach:
+		return
+	var um := IslandLevel.U_PER_M
+	var k := clampf(1.0 - h / WASH.reach, 0.0, 1.0)
+	var cx := pos.x * um
+	var cy := -pos.z * um
+	var gz := ground * um
+	var ring: float = (HULL_R + WASH.spread * h) * um
+	# the ground blowing out from the ring
+	var n := int((4.0 + 12.0 * k) * retro_level)
+	for i in n:
+		var a := randf() * TAU
+		var dir := Vector2(cos(a), sin(a))
+		var r := ring * randf_range(0.7, 1.1)
+		var x := cx + dir.x * r
+		var y := cy + dir.y * r
+		var f: float = game.level.floor_at(x, y)
+		if f <= IslandLevel.NO_FLOOR:
+			continue
+		_wash_puff(x, y, f + 10.0, dir, randf_range(8.0, 14.0 + 12.0 * k), randf_range(40.0, 70.0))
+	# grit and sparks whipped out with it, close in
+	if game.fx != null and k > 0.4 and ticks % 2 == 0:
+		var a := randf() * TAU
+		game.fx.ember(cx + cos(a) * ring, cy + sin(a) * ring, gz + 6.0, 2, 0.6)
+	# whoever the jets wash over: alight, now (the jets cant out, so not
+	# whoever is right under the hull — that is for the squash)
+	if ticks % 2 == 0:
+		var shadow := HULL_R * 0.8 * um
+		for a in game.blockmap.near_radius(cx, cy, ring + 0.5 * um):
+			if a.dead or a.removed or a.burning > 0 or a.get("vehicle") != null or a == game.player:
+				continue
+			if a.z > gz + 4.0 * um or Vector2(a.x - cx, a.y - cy).length() < shadow:
+				continue
+			_set_alight(a)
+			jet_burned += 1
+
+## the touchdown's shock: one ring of wash thrown out hard all round
+func _wash_shock(gx: float, gy: float) -> void:
+	var um := IslandLevel.U_PER_M
+	for i in 140:
+		var a := TAU * i / 140.0 + randf_range(-0.04, 0.04)
+		var dir := Vector2(cos(a), sin(a))
+		var r := HULL_R * um * randf_range(0.9, 1.3)
+		var f: float = game.level.floor_at(gx + dir.x * r, gy + dir.y * r)
+		if f <= IslandLevel.NO_FLOOR:
+			continue
+		_wash_puff(gx + dir.x * r, gy + dir.y * r, f + 12.0, dir, randf_range(22.0, 38.0), randf_range(50.0, 90.0))
 func _land_on_people(gx: float, gy: float, gz: float) -> void:
 	var um := IslandLevel.U_PER_M
 	var under := (HULL_R + BURN.squash) * um
 	for a in game.blockmap.near_radius(gx, gy, (HULL_R + BURN.touchdown) * um):
-		if a.dead or a.removed or a.get("vehicle") != null or a == game.player:
+		if a.removed or a.get("vehicle") != null or a == game.player:
 			continue
 		if a.z > gz + 4.0 * um:
 			continue
 		var d := Vector2(a.x - gx, a.y - gy).length()
 		if d < under + a.radius:
+			# (the jets may have lit them and they burnt to the ground on the
+			# way down: what lies under the hull is squashed all the same)
 			squashed += 1
-			a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
+			if a.dead:
+				game.gib(a)
+			else:
+				a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
 			if game.gore_decals != null:
 				game.gore_decals.pool(a.x, a.y, a.z, 60.0)
 			continue
-		var was: int = a.burning
-		a.ignite(int(10 * U.TICRATE))
-		if not a.info.has("burn"):
-			a.damage(10000.0, game.player, {"fire": true})
-		if a.burning > 0 and was <= 0 or a.dead:
-			burned += 1
-		if game.fx != null:
-			game.fx.ember(a.x, a.y, a.z + 20.0, 2, 1.4)
+		if not a.dead and a.burning <= 0:
+			_set_alight(a)
 
 ## THE EXHAUST INTO THE PLANTS (VegDamage), every third tic low down: the
 ## retros' downwash under the skirt — a column spreading as it goes down,
@@ -825,6 +929,7 @@ func _touchdown(ground: float) -> void:
 	var gy := -pos.z * um
 	var gz := ground * um
 	game.play_sound("explode", null)
+	_wash_shock(gx, gy)
 	for k in 12:
 		game.fx.puff(gx + randf_range(-80.0, 80.0), gy + randf_range(-80.0, 80.0), gz + 8.0, 60.0, 90)
 	# THE SCORCHING is a RING round the hull, not under it: a mark laid at

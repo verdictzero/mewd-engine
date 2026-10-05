@@ -271,6 +271,13 @@ func _frame() -> void:
 			_start = game.tics
 			wait = 12
 			print("candy_shot: the drop is '%s' at tic %d" % [game.drop.phase, game.tics])
+		# --alt=M: the picture the moment the pod is down to M metres
+		if arg.begins_with("--alt=") and game.drop != null and game.drop.phase == "drop" and not has_meta("phased") \
+				and game.drop.altitude() <= float(arg.substr(6)):
+			set_meta("phased", true)
+			_start = game.tics
+			wait = 0
+			print("candy_shot: the pod is down to %.1f m at tic %d" % [game.drop.altitude(), game.tics])
 	# the beam in the eye swims the picture, as main.gd does it
 	lofi.set_wobble(clampf(float(p.wobble) / RainbowBeams.UNI.wobble_tics, 0.0, 1.0))
 	if "--die" in args and not has_meta("died") and game.tics - _start >= wait - 220:
@@ -302,6 +309,9 @@ func _frame() -> void:
 		root.get_texture().get_image().save_png(out)
 		if game.drop != null:
 			print("candy_shot: pod at %s m, %s; eye at %s, %s" % [str(game.drop.pos), game.drop.phase, str(game.camera.position / 32.0), str(game.camera.rotation_degrees)])
+			var wsh = game.drop.wash
+			if wsh != null:
+				print("candy_shot: wash %d alive, %d drawn, parent %s" % [wsh.count, wsh.multimesh.visible_instance_count, wsh.get_parent().name])
 		var near := 0
 		var hello := 0
 		for a in game.actors:

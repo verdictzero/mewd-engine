@@ -95,8 +95,13 @@ func _run() -> void:
 		var who = game.spawn("UNICORN" if k == 3 else "CANDYGIRL", w.x, w.y, 0.0)
 		if who != null:
 			waiting.append(who)
-	var squash_me = game.spawn("CANDYGIRL", d.start.x + 0.5 * um, d.start.y, 0.0)
+	# (the one under it put there in its last metre and a half: anybody
+	# there sooner sees the others burst into flame round her and runs)
+	var squash_me = null
 	var early := 0
+	var lit_high := -1.0
+	var squashed_early := false
+	var wash_seen := 0
 	var t0: int = game.tics
 	var burn_start_tic := 0
 	var fastest := 0.0
@@ -115,10 +120,17 @@ func _run() -> void:
 			burn_tics = game.tics - t0 - burn_start_tic
 		elif burned_at < 0.0:
 			burn_start_tic = game.tics - t0
+		if d.phase == "drop" and squash_me == null and d.retro_level > 0.1 and d.altitude() < 1.5:
+			squash_me = game.spawn("CANDYGIRL", d.pos.x * um + 0.5 * um, -d.pos.z * um, 0.0)
 		if d.phase == "drop":
-			early += waiting.filter(func(o): return o.dead or o.burning > 0).size()
-			if squash_me != null and (squash_me.dead or squash_me.removed):
-				early += 1
+			var now_lit := waiting.filter(func(o): return o.dead or o.burning > 0).size()
+			if now_lit > early:
+				early = now_lit
+				if lit_high < 0.0:
+					lit_high = d.altitude()
+			if squash_me != null and (squash_me.removed or (squash_me.dead and squash_me.burning <= 0)):
+				squashed_early = true
+			wash_seen = maxi(wash_seen, d.wash.count if d.wash != null else 0)
 		if d.phase == "drop" and d.heat <= 0.0 and fire_out_at < 0.0:
 			fire_out_at = d.altitude()
 			fire_out_tic = d.ticks
@@ -140,7 +152,10 @@ func _run() -> void:
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
 	check(d.scorches >= 96, "the ground scorched all round it, four times over (%d marks)" % d.scorches)
 	var lit := waiting.filter(func(o): return o.dead or o.removed or o.burning > 0).size()
-	check(early == 0, "nobody hurt on the way down, only at the landing (%d)" % early)
+	check(early > 0 and d.jet_burned > 0, "the jets set people alight before the touchdown, as they washed over them (%d of %d, first at %.1f m)" % [early, waiting.size(), lit_high])
+	check(lit_high > 0.0 and lit_high <= DropPod.WASH.reach + 0.5, "and only once the jets reached the ground (%.1f m)" % lit_high)
+	check(not squashed_early, "nobody squashed before the touchdown")
+	check(wash_seen > 60, "the jet wash blowing out over the ground (%d billows up at once, %d in all)" % [wash_seen, d.wash_puffs])
 	check(not waiting.is_empty() and lit == waiting.size(), "the landing set everybody round it alight (%d of %d, %d in all)" % [lit, waiting.size(), d.burned])
 	check(squash_me != null and (squash_me.dead or squash_me.removed) and d.squashed >= 1, "and squashed the one under it (%d squashed)" % d.squashed)
 	check(d.vents.size() >= 20, "and the burn sites smoulder (%d vents)" % d.vents.size())

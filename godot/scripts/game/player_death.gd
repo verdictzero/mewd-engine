@@ -7,16 +7,15 @@
 ##
 ## GALVARIUS'S DEATH (game_over_screen.gd, player_controller.gd,
 ## music_manager.gd there), here in the game's own units and tics:
-##   * THE BURST, seen through the player's own eye as it drops to the
-##     ground (Player.death_tic) for BURST_TICS: the body goes off — the
-##     warhead's evisceration three times over, a great pool, the floor
-##     painted out to FLOOR_REACH all round, a spray of blood in the air —
-##     and the HEAD comes off (galvarius's chad_head), thrown forward and
-##     up, bouncing, bleeding where it goes.
+##   * THE BURST, for BURST_TICS: the body goes off — the warhead's
+##     evisceration three times over, a great pool, the floor painted out
+##     to FLOOR_REACH all round, a spray of blood in the air. (The head
+##     that came off, galvarius's chad_head, one giant picture, is gone,
+##     at the user's request.)
 ##   * A GRAVESTONE where they fell (galvarius's tombstone.png), two-faced
 ##     so it reads from either side, rising out of the ground.
-##   * THE DEATH CAMERA: after the burst the eye leaves the body and
-##     circles the place, ORBIT_R out and ORBIT_H up, ORBIT_SPEED radians
+##   * THE DEATH CAMERA: at once (at the user's request: no fall over in
+##     first person first) the eye leaves the body and circles the place, ORBIT_R out and ORBIT_H up, ORBIT_SPEED radians
 ##     a second, looking at a point just above it.
 ##   * THE FOUNTAIN, from then until the game is reset: body parts
 ##     (galvarius's gore pieces, packed into assets/gore/death_gore.png)
@@ -60,9 +59,7 @@ const PART_LIFE := 30 * 35
 const PARTS_MAX := 1600
 const STRIP := "res://assets/gore/death_gore.png"
 const STRIP_CELLS := 14
-## the head, its own picture, and the gravestone
-const HEAD := "res://assets/gore/chad_head.png"
-const HEAD_SIZE := 30.0
+## the gravestone
 const STONE := "res://assets/things/tombstone.png"
 const STONE_H := 64.0
 const STONE_RISE := 35
@@ -79,10 +76,6 @@ var waves := 0
 var landed := 0
 var marks := 0
 var orbit := 0.0
-var head: MeshInstance3D
-var head_p := Vector3.ZERO
-var head_v := Vector3.ZERO
-var head_bounces := 0
 var stone: Node3D
 var stone_floor := 0.0
 var emit := []
@@ -109,7 +102,7 @@ func _floor(x: float, y: float) -> float:
 	var s: Level.Sector = lv.span_at(x, y, at.z + 8.0)
 	return s.floor if s else at.z
 
-## The player `p` is dead. The burst, the head, the stone, the music.
+## The player `p` is dead. The burst, the stone, the music.
 func begin(p) -> void:
 	if active:
 		return
@@ -124,7 +117,6 @@ func begin(p) -> void:
 		var r: float = lerpf(EMIT_R[0], EMIT_R[1], _r())
 		emit.append(Vector2(cos(a) * r, sin(a) * r))
 	_burst()
-	_throw_head()
 	_raise_stone()
 	var m = _music()
 	if m != null and m.has_method("dirge"):
@@ -165,56 +157,6 @@ func _burst() -> void:
 		for k in 8:
 			fx.blood_puff(at.x + (_r() - 0.5) * 40.0, at.y + (_r() - 0.5) * 40.0, at.z + 10.0 + k * 6.0)
 	game.play_sound("gib", game.player)
-
-## THE HEAD, off and away (galvarius's _eject_head): forward and up,
-## bouncing to a stop, bleeding all the way
-func _throw_head() -> void:
-	var tex: Texture2D = load(HEAD)
-	if tex == null:
-		return
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = tex
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	m.alpha_scissor_threshold = 0.5
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var q := QuadMesh.new()
-	q.size = Vector2(HEAD_SIZE * tex.get_width() / float(tex.get_height()), HEAD_SIZE)
-	head = MeshInstance3D.new()
-	head.mesh = q
-	head.material_override = m
-	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(head)
-	head_p = Vector3(at.x, at.y, at.z + 50.0)
-	var a := facing + (_r() - 0.5) * 0.6
-	var sp := 5.0 + _r() * 3.0
-	head_v = Vector3(cos(a) * sp, sin(a) * sp, 9.0 + _r() * 4.0)
-	head.position = U.v3(head_p.x, head_p.y, head_p.z + HEAD_SIZE * 0.5)
-
-func _head_tic() -> void:
-	if head == null:
-		return
-	if head_v.length_squared() < 0.01 and head_bounces > 0:
-		return
-	head_v.z -= 0.5
-	var n := head_p + head_v
-	var f := _floor(n.x, n.y)
-	if n.z <= f:
-		n.z = f
-		head_bounces += 1
-		head_v = Vector3(head_v.x * 0.6, head_v.y * 0.6, -head_v.z * 0.4)
-		if head_v.z < 1.0:
-			head_v.z = 0.0
-		if game.gore_decals != null:
-			game.gore_decals.pool(n.x, n.y, f, 30.0 + _r() * 20.0)
-			marks += 1
-		if absf(head_v.z) < 0.01 and Vector2(head_v.x, head_v.y).length() < 0.4:
-			head_v = Vector3.ZERO
-	head_p = n
-	head.position = U.v3(n.x, n.y, n.z + HEAD_SIZE * 0.5)
-	if game.fx != null and t % 2 == 0 and head_v.length_squared() > 0.5:
-		game.fx.blood_spray(n.x, n.y, n.z + 10.0, -head_v.x, -head_v.y, 0.2, 2, 0.4)
 
 ## THE GRAVESTONE (galvarius's _spawn_tombstone): two faces, back to back,
 ## so it reads from all the way round the orbit; facing the way they did
@@ -258,7 +200,6 @@ func tic() -> void:
 		parts.tic()
 		return
 	t += 1
-	_head_tic()
 	if stone != null and t <= STONE_RISE:
 		var k := float(t) / STONE_RISE
 		var p := stone.position
@@ -319,12 +260,12 @@ func _land(i: int, nx: float, ny: float, nz: float) -> bool:
 func can_restart() -> bool:
 	return active and t >= INPUT_DELAY
 
-## THE DEATH CAMERA, after the burst: round and round the place.
+## THE DEATH CAMERA, from the moment of death: round and round the place.
 func orbiting() -> bool:
-	return active and t >= BURST_TICS
+	return active
 
 func place_camera(cam: Camera3D, f: float) -> void:
-	var secs := (t - BURST_TICS + f) / 35.0
+	var secs := (t + f) / 35.0
 	var a := orbit + secs * ORBIT_SPEED
 	var cx := at.x + cos(a) * ORBIT_R
 	var cy := at.y + sin(a) * ORBIT_R
