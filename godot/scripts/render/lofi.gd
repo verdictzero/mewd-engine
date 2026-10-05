@@ -44,13 +44,14 @@ var gun_on_room := false
 var render_rows := RENDER
 var pixel_rows := PIXELS
 var pixel_aspect := PIXEL_ASPECT
-## THE PIXEL GRID (pixel_grid.gdshader, at the user's request): "auto"
-## — on, soft, wherever a chunky pixel is four screen pixels or more
-## (the lower PIXELS settings) —, "off", "soft" or "lcd" (the last two
-## wherever a chunky pixel is three or more)
+## THE PIXEL GRID, AN LCD (pixel_grid.gdshader, at the user's request):
+## "auto" — the panel wherever a chunky pixel is four screen pixels or
+## more (the lower PIXELS settings) —, "off", "lines" (the gaps alone)
+## or "lcd" (the panel; these two wherever a chunky pixel is three or
+## more)
 var grid_mode := "auto"
 var grid_mat: ShaderMaterial
-## what the grid is drawing now (0 off), for the tests
+## what the grid is drawing now (0 off, 1 gaps, 2 LCD), for the tests
 var grid_strength := 0.0
 
 func _init() -> void:
@@ -198,18 +199,22 @@ func _resize() -> void:
 	rect.size = shown / k
 	_grid(Vector2(sx, sy), grid)
 
-## The grid's lines for this many screen pixels a chunky pixel.
+## The grid for this many screen pixels a chunky pixel: 0 off, 1 the
+## gaps alone, 2 the LCD panel.
 func _grid(cell: Vector2, grid: Vector2i) -> void:
 	var small := minf(cell.x, cell.y)
-	var s := 0.0
+	var m := 0
 	match grid_mode:
-		"auto": s = 0.28 if small >= 4.0 else 0.0
-		"soft": s = 0.28 if small >= 3.0 else 0.0
-		"lcd": s = 0.55 if small >= 3.0 else 0.0
-	grid_strength = s if pixel_rows > 0 else 0.0
+		"off": m = 0
+		"lines", "soft": m = 1 if small >= 3.0 else 0
+		"lcd": m = 2 if small >= 3.0 else 0
+		_: m = 2 if small >= 4.0 else 0
+	if pixel_rows <= 0:
+		m = 0
+	grid_strength = float(m)
 	grid_mat.set_shader_parameter("cells", Vector2(grid))
 	grid_mat.set_shader_parameter("cell_px", cell)
-	grid_mat.set_shader_parameter("strength", grid_strength)
+	grid_mat.set_shader_parameter("mode", m)
 
 ## brightness, contrast, gamma — applied before the dither and the snap,
 ## so a brighter picture is still made of the palette's colours

@@ -2586,14 +2586,16 @@ title, DEBUG in the pause menu's footer, or the LOGS line:
 The title's "THE LAST RUN DID NOT END CLEANLY" notice is gone: LAST
 FAILURE shows the same thing.
 
-THE PIXEL GRID (godot/shaders/pixel_grid.gdshader, PAUSE > 2 PICTURE >
-PIXEL GRID): a dark line down the left and along the top of every chunky
-pixel, whole screen pixels wide, like an LCD's gaps. AUTO, the default,
-draws it soft wherever a chunky pixel is four screen pixels or more,
-which is the lower PIXELS settings (on a 1080-row screen, 270P and
-below). SOFT and LCD draw it wherever a chunky pixel is three or more,
-and OFF never does. It is never drawn on smaller pixels, where a line
-would eat a third of each one.
+THE PIXEL GRID, AN LCD (godot/shaders/pixel_grid.gdshader, PAUSE > 2
+PICTURE > PIXEL GRID; at the user's request, then "pixel grid = looks
+like LCD"). Each chunky pixel is drawn as a handheld's panel shows one:
+a dark gap down its left and along its top, whole screen pixels wide,
+and where it is six screen pixels or more across, three subpixel
+stripes, red, green and blue, each lit by its own channel and the whole
+brightened back to what it was. AUTO (LCD), the default, draws the panel
+wherever a chunky pixel is four screen pixels or more, which is the
+lower PIXELS settings (on a 1080-row screen, 270P and below). LCD and
+GAPS ONLY draw wherever one is three or more, and OFF never does.
 
 MORE RESOLUTIONS: PIXELS now runs 90, 100, 120, 144, 150, 160, 180, 200,
 240, 270, 320, 360, 400, 480, 540, 600, 720 and OFF. RENDER runs PIXEL,
@@ -2601,7 +2603,7 @@ MORE RESOLUTIONS: PIXELS now runs 90, 100, 120, 144, 150, 160, 180, 200,
 are kept, since the old values are all still on the lists.
 
 godot/tests/debug_shot.gd takes pictures of the menu, the last failure
-and the grid at 120 rows.
+and the grid at 80 rows.
 
 TESTS
 

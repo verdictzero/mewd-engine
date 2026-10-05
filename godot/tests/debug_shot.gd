@@ -28,12 +28,12 @@ func _frame() -> void:
 	elif n == 110:
 		root.get_texture().get_image().save_png(out + "-failure.png")
 		main.debug_menu.closed.emit()
-		main.lofi.pixel_rows = 120
+		main.lofi.pixel_rows = 80
 		main.lofi.grid_mode = "auto"
 		main.lofi._resize()
 	elif n == 140:
-		root.get_texture().get_image().save_png(out + "-grid120.png")
-		print("debug_shot: grid at 120 rows: %.2f" % main.lofi.grid_strength)
+		root.get_texture().get_image().save_png(out + "-grid80.png")
+		print("debug_shot: grid at 80 rows: %.2f" % main.lofi.grid_strength)
 		main.lofi.pixel_rows = 480
 		main.lofi._resize()
 		print("debug_shot: grid at 480 rows: %.2f" % main.lofi.grid_strength)
