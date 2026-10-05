@@ -70,10 +70,11 @@ func start(i := 0) -> void:
 	_clock = 0.0
 	plan = {}
 
-## THE DIRGE (galvarius's death music, music_manager.gd there): what is
-## playing out over a second, two seconds of nothing, then the death
-## music, round again until the game is reset
-const DIRGE := "res://assets/music/you_died.mp3"
+## THE DIRGE (galvarius's death behaviour, music_manager.gd there): what
+## is playing out over a second, two seconds of nothing, then the death
+## music — the user's own "Everyone You Love is Dead" — looping until the
+## game is reset (looped in its import and here)
+const DIRGE := "res://assets/music/everyone_you_love_is_dead.mp3"
 var dirging := false
 func dirge() -> void:
 	if dirging:

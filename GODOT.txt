@@ -2786,8 +2786,9 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     emitters round the spot, a wave every three tics, each landing in a
     spatter and lying there for thirty seconds (1600 at most, the oldest
     going first), the blood jetting up with them in pulses;
-    the music out over a second, two of silence, then galvarius's death
-    music (assets/music/you_died.mp3, Music.dirge) round and round;
+    the music out over a second, two of silence, then the death music —
+    the user's "Everyone You Love is Dead" (assets/music/
+    everyone_you_love_is_dead.mp3, Music.dirge), looping;
     the whole picture multiplied by full red (a CanvasItemMaterial MUL
     rect behind the words, coming in over the first second: at the user's
     request), YOU ACHIEVED THE OPPOSITE OF LIFE in galvarius's
@@ -2802,7 +2803,7 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     match's only now); the death camera kept in front of any house wall
     on its line or either side of it; and after three seconds PRESS ANY
     KEY TO DIE ALONE (at the user's request), right-justified in the same
-    block — any key, mouse or pad button or touch (main.gd), or fire,
+    block, in a black stroke with a drop shadow — any key, mouse or pad button or touch (main.gd), or fire,
     jump or use: fire, jump or use starts the
     same level again (Game.restart_wanted, main.gd restart — through the
     quit-to-title path, the scene built afresh straight into the game).

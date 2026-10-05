@@ -256,8 +256,15 @@ func _draw_death(s: float) -> void:
 		var h := DEATH_KEY
 		var hs := int(roundf(16.0 * s))
 		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
-		var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.005)
-		draw_string(font, Vector2(x0 + bw - hw, y2 + hs * 2.2), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
+		var a := 0.8 + 0.2 * sin(Time.get_ticks_msec() * 0.005)
+		var hp := Vector2(x0 + bw - hw, y2 + hs * 2.2)
+		# a drop shadow and a solid black stroke round it (at the user's
+		# request); only the letters themselves pulse
+		var so := maxf(2.0, roundf(3.0 * s))
+		var ow := int(maxf(4.0, roundf(6.0 * s)))
+		draw_string_outline(font, hp + Vector2(so, so), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 0.6))
+		draw_string_outline(font, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 1.0))
+		draw_string(font, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(1.0, 0.95, 0.9, a))
 
 ## the big card across the middle (Game.set_big_message)
 func _draw_big(s: float) -> void:
