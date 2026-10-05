@@ -2970,6 +2970,22 @@ At the user's request:
     Nobody walks over to greet a pod still coming down, so the rings
     hold until it lands.
 
+
+THE POD'S PAINT BACK, AND A HULL THAT COOLS
+-------------------------------------------
+At the user's request ("make pod mat less bright, back to where it was,
+make it have a dissipating heat effect like the minigun barrel"):
+
+  * the painted exterior back to the brightness it had before it was
+    doubled (DropPod.PAINT_BOOST 1);
+  * THE HEAT THE HULL SOAKS UP (DropPod.soak, SOAK): it rises with the
+    reentry fire and the retros' burn and then bleeds away, out in under
+    a minute on the ground. While it holds any, the hull glows over its
+    paint (pod_heat.gdshader): hottest at the foot of the shield, the
+    glow reaching higher the hotter it is, white-orange cooling through
+    orange to a dull red, and falling as heat squared, as the minigun's
+    barrel does. It churns only while the reentry fire is on.
+
 TESTS
 
     tools/godot-test.sh

@@ -228,8 +228,10 @@ func _run() -> void:
 	check(not p.dead and p.health > 0, "and you are alive")
 	# THE BURN SITES, still smoking, for five minutes and then not
 	var puffs0: int = d.vent_puffs
+	var soak0: float = d.soak
 	for k in 35 * 5:
 		game.tic()
+	check(soak0 > 0.2 and d.soak < soak0 - 0.05 and d.soak > 0.0, "the hull still hot from the way down, and cooling (%.2f, then %.2f)" % [soak0, d.soak])
 	check(d.vent_puffs > puffs0 + 20 and d.vent_puffs < puffs0 + 450, "the burn sites smoke and steam (%d puffs in five seconds)" % (d.vent_puffs - puffs0))
 	check(not d.vents.is_empty(), "still at it")
 	for v in d.vents:

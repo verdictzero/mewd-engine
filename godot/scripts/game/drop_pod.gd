@@ -105,9 +105,19 @@ const MODEL := "res://assets/models/drop_pod.glb"
 ## this, the colour lifted by this, its own picture glowing at this
 const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.1, "glow": 0.22}
 ## THE PAINTED EXTERIOR (the hull's first surface, the UV-mapped paint the
-## door shares) twice as bright again as the rest, at the user's request
-## ("re-increase main pod material ... 2x"): its lift and glow times this
-const PAINT_BOOST := 2.0
+## door shares): its lift and glow times this. It was 2 for a while, at
+## the user's request; back to 1 at the user's request ("make pod mat less
+## bright, back to where it was").
+const PAINT_BOOST := 1.0
+## THE HEAT THE HULL SOAKS UP AND GIVES OFF AGAIN, at the user's request
+## ("a dissipating heat effect like the minigun barrel"): `soak` rises
+## with the reentry fire and the retros' burn and then bleeds away — each
+## tic `keep` of it kept and `drop` more taken off — glowing over the hull
+## (pod_heat.gdshader) from white-orange to a dull red as it goes, the
+## glow falling as its square, as the minigun's barrel does. Out in about
+## a minute on the ground.
+const SOAK := {"keep": 0.9988, "drop": 0.00025, "retro": 0.55}
+var soak := 0.0
 ## the model drawn at this share of the size it was made
 const POD_SCALE := 0.5
 ## THE RCS, OFF FOR NOW (at the user's request: "remove the RCS thrusters
@@ -560,6 +570,7 @@ func tic(cmd: Dictionary) -> void:
 	ticks += 1
 	phase_tics += 1
 	_vents_tic()
+	_soak_tic()
 	if wash != null:
 		wash.tic()
 	prev_pos = pos
@@ -1309,12 +1320,23 @@ func draw(f: float) -> void:
 	_draw_fire(b)
 	_draw_flames()
 
+## the hull's heat: up with the fire and the retros, then bleeding away
+func _soak_tic() -> void:
+	var into := maxf(heat, retro_level * SOAK.retro)
+	if into > soak:
+		soak = into
+	else:
+		soak = maxf(0.0, soak * SOAK.keep - SOAK.drop)
+
 ## the reentry fire turned to the way the pod is going (its -y along the
 ## velocity, in the pod's frame), as hot as it is
 func _draw_fire(b: Basis) -> void:
 	var hot := heat > 0.01 and phase == "drop"
 	fire.visible = hot
-	hull.material_overlay = heat_mat if hot else null
+	# (the hull glows as long as it holds any heat, fire or no fire)
+	hull.material_overlay = heat_mat if soak > 0.01 else null
+	heat_mat.set_shader_parameter("heat", soak)
+	heat_mat.set_shader_parameter("boil", heat)
 	if not hot:
 		return
 	var v := vel if vel.length() > 1.0 else Vector3(0, -1, 0)
@@ -1341,7 +1363,6 @@ func _draw_fire(b: Basis) -> void:
 	wake.position = Vector3(randf_range(-0.15, 0.15), wk * 0.5, randf_range(-0.15, 0.15))
 	for m: ShaderMaterial in fire_mats:
 		m.set_shader_parameter("heat", heat)
-	heat_mat.set_shader_parameter("heat", heat)
 	fire_light.light_energy = heat * randf_range(6.0, 12.0)
 	# and the colour of the whole thing shifts as it dies: blue-white
 	# hottest, orange, then red (the shader's `age`)
