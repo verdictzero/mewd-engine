@@ -18,6 +18,10 @@
 ## --drop: the game begins in the pod, dropping; the picture at `tics`, or
 ## with --phase=landed|inside|out, 12 tics into that phase. (--stick: a
 ## hand on the stick all the way down, so the RCS fires)
+## --die: the player killed 220 tics before the picture (PlayerDeath: the
+## death camera, the stone, the fountain). --burn: three candy girls 7 m
+## ahead set alight 40 tics before it (the burning palette). --gun: the
+## gun in hand drawn too (its matcap).
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
 ##
@@ -52,6 +56,10 @@ func _init() -> void:
 	game = preload("res://godot/scripts/game/game.gd").new()
 	# --drop: the game begins in orbit, in the pod (DropPod)
 	game.drop_in = "--drop" in OS.get_cmdline_user_args()
+	if "--gun" in OS.get_cmdline_user_args():
+		var w3d := Weapon3D.new()
+		lofi.gun.add_child(w3d)
+		game.weapon3d = w3d
 	lofi.world.add_child(game)
 	process_frame.connect(_frame)
 
@@ -254,6 +262,19 @@ func _frame() -> void:
 			_start = game.tics
 			wait = 12
 			print("candy_shot: the drop is '%s' at tic %d" % [game.drop.phase, game.tics])
+	# the beam in the eye swims the picture, as main.gd does it
+	lofi.set_wobble(clampf(float(p.wobble) / RainbowBeams.UNI.wobble_tics, 0.0, 1.0))
+	if "--die" in args and not has_meta("died") and game.tics - _start >= wait - 220:
+		set_meta("died", true)
+		p.invincible = false
+		p.damage(1.0e7, null, {"impact": true})
+	if "--burn" in args and not has_meta("burnt") and game.tics - _start >= wait - 40:
+		set_meta("burnt", true)
+		for k in 3:
+			var ang: float = p.angle + 0.35 + k * 0.22
+			var g = game.spawn("CANDYGIRL", p.x + cos(ang) * 5.0 * 32.0, p.y + sin(ang) * 5.0 * 32.0, 0.0)
+			if g != null:
+				g.ignite(600)
 	if game.tics - _start >= wait:
 		p.pitch = look
 		if turn != null:

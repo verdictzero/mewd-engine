@@ -935,7 +935,7 @@ func A_Amble() -> void:
 # rainbow.gd): hurt by the player, a grown unicorn — and every grown one
 # of her herd near her — is in a FURY for info.furyTics, kept up while
 # she is hurt again. In it she stops, faces the player in her firing
-# picture, draws the charge in, throws the beam, takes a breath, and
+# picture, draws the charge in, throws the beam, CHARGES them, and
 # goes again; out of sight or reach she gallops after them. Burning,
 # frozen or bored she is what those make her; when the fury is out she
 # goes back to grazing.
@@ -965,7 +965,7 @@ func _fight() -> bool:
 	if fury <= 0 or held() or burning > 0 or dead:
 		return false
 	var nm: String = state.get("name", "")
-	if nm.begins_with("UNI_AIM") or nm.begins_with("UNI_BEAM") or nm.begins_with("UNI_REST") or nm.begins_with("UNI_HUNT"):
+	if nm.begins_with("UNI_AIM") or nm.begins_with("UNI_BEAM") or nm.begins_with("UNI_CHARGE") or nm.begins_with("UNI_HUNT"):
 		return true
 	uni_t = 0
 	set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
@@ -1021,16 +1021,60 @@ func A_UniBeam() -> void:
 	uni_t += 1
 	if uni_t >= RainbowBeams.UNI.beam_tics or game.rainbow == null or not game.rainbow.firing(self):
 		uni_t = 0
-		set_state("UNI_REST")
+		set_state("UNI_CHARGE")
 
-func A_UniRest() -> void:
+## THE CHARGE, after the beam (at the user's request): straight at the
+## player at a flat gallop, faster than her run from anything, and if she
+## reaches them a RAM — RainbowBeams.UNI.ram_damage, and they are thrown
+## back. Then she stands and fires again; out of sight or reach after
+## the run, she hunts them.
+var rams := 0
+func A_UniCharge() -> void:
 	if _calm():
 		return
 	_face_player()
+	var p = game.player
+	var R = RainbowBeams.UNI
 	uni_t += 1
-	if uni_t >= RainbowBeams.UNI.rest_tics:
+	var reach: float = radius + p.radius + R.ram_reach
+	var d := Vector2(p.x - x, p.y - y)
+	if d.length() < reach and absf(p.z - z) < height:
+		_ram(p, d.normalized())
 		uni_t = 0
+		speed = float(info.get("speed", speed))
 		set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
+		return
+	if uni_t >= R.run_tics:
+		uni_t = 0
+		speed = float(info.get("speed", speed))
+		set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
+		return
+	# straight at them, not quite into them; round whatever is in the way
+	var sp: float = float(info.get("runSpeed", speed)) * R.run_speed
+	var step := minf(sp, maxf(0.0, d.length() - reach + 4.0))
+	var to := Vector2(x, y) + d.normalized() * step
+	if step > 0.0 and can_stand_at(to.x, to.y):
+		x = to.x
+		y = to.y
+		game.blockmap.moved(self)
+		update_sector()
+	else:
+		speed = sp
+		_hunt_step(p)
+	# hooves throwing the ground up behind her
+	if game.fx != null and uni_t % 3 == 0:
+		game.fx.puff(x - cos(angle) * radius, y - sin(angle) * radius, z + 6.0, 16.0, 40)
+
+func _ram(p, dir: Vector2) -> void:
+	var R = RainbowBeams.UNI
+	rams += 1
+	p.damage(R.ram_damage, self, {"impact": true, "ram": true})
+	p.momx += dir.x * R.ram_push
+	p.momy += dir.y * R.ram_push
+	if "momz" in p:
+		p.momz += R.ram_push * 0.4
+	if game.sound != null:
+		game.sound.play("hurt", p, {"rate": 0.7})
 
 ## after the player at a gallop, the eight directions scored toward them,
 ## until she has them in sight and reach again
@@ -1045,6 +1089,10 @@ func A_UniHunt() -> void:
 		speed = float(info.get("speed", speed))
 		set_state("UNI_AIM")
 		return
+	_hunt_step(p)
+
+## a step after the player: the eight directions scored toward them
+func _hunt_step(p) -> void:
 	var best := -1
 	var best_d := INF
 	for d in 8:

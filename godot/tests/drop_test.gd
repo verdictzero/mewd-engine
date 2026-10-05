@@ -86,6 +86,15 @@ func _run() -> void:
 	# ---- the ride down, hands off ---------------------------------------
 	# (in frames, the game ticking itself in its own time: the plants'
 	# tiles load round the eye as it comes down, as they do in play)
+	# and somebody waiting where it will come down: three candy girls and a
+	# unicorn, a few metres off the spot
+	var waiting := []
+	for k in 4:
+		var a := k * TAU / 4.0 + 0.4
+		var w := Vector2(d.start.x, d.start.y) + Vector2(cos(a), sin(a)) * (4.0 + k) * um
+		var who = game.spawn("UNICORN" if k == 3 else "CANDYGIRL", w.x, w.y, 0.0)
+		if who != null:
+			waiting.append(who)
 	var t0: int = game.tics
 	var burn_start_tic := 0
 	var fastest := 0.0
@@ -123,7 +132,10 @@ func _run() -> void:
 	check(d.touchdown_speed <= DropPod.DROP.land_speed + 1.0, "and landed at %.1f m/s" % d.touchdown_speed)
 	check(rad_to_deg(d.tilt()) < 20.0, "near enough level (%.0f degrees)" % rad_to_deg(d.tilt()))
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
-	check(d.scorches >= 24, "the ground scorched all round it (%d marks)" % d.scorches)
+	check(d.scorches >= 96, "the ground scorched all round it, four times over (%d marks)" % d.scorches)
+	var lit := waiting.filter(func(o): return o.dead or o.removed or o.burning > 0).size()
+	check(not waiting.is_empty() and lit == waiting.size(), "the exhaust set everybody under it alight (%d of %d, %d in all)" % [lit, waiting.size(), d.burned])
+	check(d.vents.size() >= 20, "and the burn sites smoulder (%d vents)" % d.vents.size())
 	check(absf(d.fuel - DropPod.DROP.rcs_fuel) < 1e-3, "hands off, the stick's tank is full (%.1f)" % d.fuel)
 	print("  (the exhaust and the landing hurt %d plants on the way down)" % d.plants_hit)
 	var vd = game.veg_damage
@@ -173,6 +185,18 @@ func _run() -> void:
 		game.tic()
 	check(d.door_down, "the door is down on the ground")
 	check(not p.dead and p.health > 0, "and you are alive")
+	# THE BURN SITES, still smoking, for five minutes and then not
+	var puffs0: int = d.vent_puffs
+	for k in 35 * 5:
+		game.tic()
+	check(d.vent_puffs > puffs0 + 20 and d.vent_puffs < puffs0 + 450, "the burn sites smoke and steam (%d puffs in five seconds)" % (d.vent_puffs - puffs0))
+	check(not d.vents.is_empty(), "still at it")
+	for v in d.vents:
+		v[4] = d.ticks - DropPod.SMOULDER_TICS + 2
+	for k in 4:
+		game.tic()
+	check(d.vents.is_empty(), "and done after five minutes")
+	check(not waiting.any(func(o): return not o.dead and not o.removed and o.burning <= 0), "nobody under it walked away unburnt")
 	# AND AWAY: walking on from there — through the game's own tic, the
 	# key held, as the user plays (the pod kept putting the player back
 	# at its middle every tic: stuck in the pod; then they could not get

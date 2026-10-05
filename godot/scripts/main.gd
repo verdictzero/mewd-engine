@@ -88,6 +88,11 @@ func _ready() -> void:
 			join = "127.0.0.1:%d" % NetProtocol.DEFAULT_PORT
 	if join != "":
 		join_host(join)
+	elif again != "":
+		# YOU DIED, and asked for the level again (Game.restart_wanted)
+		_chosen_map = again
+		again = ""
+		start_game()
 	elif straight:
 		start_game()
 	elif args.has("--terminal"):
@@ -367,6 +372,14 @@ func _process(_dt: float) -> void:
 		if touch.pause_pulse:
 			touch.pause_pulse = false
 			toggle_pause()
+	# the beam in the eye: the picture swims (Lofi.set_wobble)
+	var wob := 0.0
+	if game != null and is_instance_valid(game) and game.player != null:
+		wob = clampf(float(game.player.wobble) / RainbowBeams.UNI.wobble_tics, 0.0, 1.0)
+	lofi.set_wobble(wob)
+	if game != null and is_instance_valid(game) and game.restart_wanted:
+		game.restart_wanted = false
+		restart()
 	if fps_label.visible:
 		fps_label.game = game
 		fps_label.lofi = lofi
@@ -459,6 +472,15 @@ func resume() -> void:
 ## game and everything drawn for it let go, a frame for that to happen,
 ## and only then the scene built again
 var _quitting := false
+## the level to start again straight away once the scene is built afresh
+## (a static: it lives through reload_current_scene)
+static var again := ""
+func restart() -> void:
+	if game == null or _quitting:
+		return
+	again = str(game.map_name)
+	quit_to_title()
+
 func quit_to_title() -> void:
 	if _quitting:
 		return

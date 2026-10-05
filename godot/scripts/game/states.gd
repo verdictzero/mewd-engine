@@ -103,7 +103,7 @@ static func build() -> void:
 	# they are out of her sight or reach
 	_s("UNI_AIM", "UNIF", "A", 1, "A_UniAim", "UNI_AIM")
 	_s("UNI_BEAM", "UNIF", "A", 1, "A_UniBeam", "UNI_BEAM")
-	_s("UNI_REST", "UNI", "A", 1, "A_UniRest", "UNI_REST")
+	_s("UNI_CHARGE", "UNI", "A", 1, "A_UniCharge", "UNI_CHARGE")
 	_s("UNI_HUNT1", "UNI", "A", 2, "A_UniHunt", "UNI_HUNT2")
 	_s("UNI_HUNT2", "UNI", "A", 2, "A_UniHunt", "UNI_HUNT1")
 	# and the street lamp that lines CANDY LAND's roads

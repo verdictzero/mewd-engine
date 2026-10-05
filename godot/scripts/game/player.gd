@@ -60,15 +60,17 @@ var health := Weapons.HEALTH
 var armour1 := Weapons.ARMOUR1
 var armour2 := Weapons.ARMOUR2
 var dead := false
-## BOTH DEBUG SWITCHES ON BY DEFAULT, at the user's request (js/main.js
-## DEFAULT_PREFS): infinite ammo and invincibility, until the pause menu
-## says otherwise
+## INFINITE AMMO ON BY DEFAULT, at the user's request (js/main.js
+## DEFAULT_PREFS); and HEALTH BACK, at the user's request: not
+## invincible unless the pause menu says so
 var debug := true
-var invincible := true
+var invincible := false
 var removed := false
 var shootable := true
 var info := {}
 var damage_flash := 0
+## tics left of the screen swimming (a unicorn's beam, RainbowBeams)
+var wobble := 0
 
 ## THE GUNS: what is in hand, what is coming, and where the firing
 ## frames are (-1 not firing)
@@ -141,6 +143,8 @@ func tic(cmd: Dictionary) -> void:
 	prev = Vector4(x, y, view_z, 0)
 	if damage_flash > 0:
 		damage_flash -= 1
+	if wobble > 0:
+		wobble -= 1
 	if dead:
 		death_tic()
 		return

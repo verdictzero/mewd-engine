@@ -84,6 +84,10 @@ var escalation: Escalation
 var arc: ArcSystem
 ## the candy unicorns' death beams (RainbowBeams: they fight back)
 var rainbow: RainbowBeams
+## YOU DIED (PlayerDeath): the death camera, the stone, the fountain —
+## and, once it may, a press asks for the level again (main.gd)
+var death: PlayerDeath
+var restart_wanted := false
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
@@ -286,6 +290,8 @@ func start_map(which: String) -> void:
 	add_child(arc)
 	rainbow = RainbowBeams.new(self)
 	add_child(rainbow)
+	death = PlayerDeath.new(self)
+	add_child(death)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -502,6 +508,8 @@ func _process(dt: float) -> void:
 	var riding: bool = drop != null and drop.active and drop.third_person()
 	if riding:
 		drop.place_camera(camera, _acc / U.SEC)
+	elif death != null and death.orbiting():
+		death.place_camera(camera, _acc / U.SEC)
 	_prof_add("touch+zoom", t0)
 	t0 = Time.get_ticks_usec()
 	scope.render(camera)
@@ -534,6 +542,7 @@ func _process(dt: float) -> void:
 	missiles.draw(camera)
 	arc.draw(camera)
 	rainbow.draw(camera)
+	death.draw()
 	_prof_add("draw.guns", t0)
 	t0 = Time.get_ticks_usec()
 	escalation.draw()
@@ -676,6 +685,10 @@ func tic() -> void:
 				drop.tic(cmd)
 			else:
 				p.tic(cmd)
+			# dead, and the burst over: a press is for the level again
+			if p == player and p.dead and death != null and death.can_restart() \
+					and (cmd.get("attack", false) or cmd.get("jump", false) or cmd.get("use", false)):
+				restart_wanted = true
 			if back.is_valid():
 				back.call()
 	if drop != null and drop.active and not drop.holds_player():
@@ -735,6 +748,7 @@ func tic() -> void:
 	potatoes.tic()
 	arc.tic()
 	rainbow.tic()
+	death.tic()
 	_prof_add("tic.guns", t0)
 	t0 = Time.get_ticks_usec()
 	escalation.tic()
@@ -1276,6 +1290,8 @@ func noise(_who, _r: float) -> void:
 func on_player_died(p, source) -> void:
 	if rules != null:
 		rules.died(p, source)
+	elif p == player and death != null:
+		death.begin(p)
 
 ## The gun's own notices: a line in the corner that fades, four at most.
 ## T: slow motion on or off (see SLOW_MO); the music slows with it

@@ -101,6 +101,24 @@ void fragment() {
 		c.rgb = mix(c.rgb, ice, frost);
 	}
 	float l = mix(world_band(light, depth, sky), 1.0, fullbright);
+	// ON FIRE (+16), at the user's request ("when npcs are on fire, give
+	// them a rotating-burning-palette-recolor"): the drawing's brightness
+	// looked up in a ramp of fire — soot, ember red, orange, yellow, white
+	// — and the ramp ROTATED, as an old game's palette cycling did, up the
+	// body and through the brightnesses together, so the flames crawl up
+	// them. Self-lit, mostly: they are their own light now.
+	if (alight > 0.5) {
+		float lum = dot(c.rgb, vec3(0.30, 0.59, 0.11));
+		float k = fract(lum * 1.6 + UV.y * 2.2 + TIME * 3.1);
+		// (stepped into eight bands: a palette, not a gradient)
+		k = floor(k * 8.0) / 8.0;
+		vec3 fire = k < 0.25 ? mix(vec3(0.10, 0.02, 0.01), vec3(0.75, 0.08, 0.02), k * 4.0)
+			: k < 0.5 ? mix(vec3(0.75, 0.08, 0.02), vec3(1.0, 0.45, 0.05), (k - 0.25) * 4.0)
+			: k < 0.75 ? mix(vec3(1.0, 0.45, 0.05), vec3(1.0, 0.85, 0.25), (k - 0.5) * 4.0)
+			: mix(vec3(1.0, 0.85, 0.25), vec3(1.0, 0.98, 0.85), (k - 0.75) * 4.0);
+		c.rgb = mix(c.rgb, fire, 0.82);
+		l = mix(l, 1.0, 0.75);
+	}
 	// the map's ambient light and fog too, but not on what is its own light
 	ALBEDO = world_fog(world_air(c.rgb * world_lit(l) - c.rgb * ambient_light.rgb * fullbright, depth), depth * (1.0 - fullbright));
 	// THROUGH THE THERMAL SIGHT a person is warm whatever colour their coat

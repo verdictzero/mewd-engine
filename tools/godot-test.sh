@@ -37,6 +37,12 @@ run death   --script res://godot/tests/death_test.gd
 # THE DROP: the pod read off its file, the ride down on the autopilot, the
 # landing, the door, the hands on the stick (godot/tests/drop_test.gd)
 run drop    --script res://godot/tests/drop_test.gd -- --map=candyland
+# THE UNICORNS FIGHT BACK: the fury, the beam through you, the charge and
+# the ram (godot/tests/unicorn_test.gd)
+run unicorn --script res://godot/tests/unicorn_test.gd -- --map=candyland
+# YOU DIED: the burst, the stone, the death camera, the fountain for ever,
+# and a press for the level again (godot/tests/you_died_test.gd)
+run youdied --script res://godot/tests/you_died_test.gd -- --map=candyland
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
 exit $fail

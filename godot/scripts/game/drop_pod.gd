@@ -187,6 +187,7 @@ var max_heat := 0.0
 var plants_hit := 0
 var scorches := 0       ## marks laid at the touchdown, for the tests
 var door_kills := 0
+var burned := 0         ## people and creatures the exhaust set alight
 
 ## the sim, in metres in the renderer's axes (`att`: the pod's attitude,
 ## its frame's axes in the world)
@@ -260,6 +261,16 @@ func _ready() -> void:
 	for b in model.find_children("*", "StaticBody3D", true, false):
 		b.queue_free()
 	door_home = door.transform
+	# THE PAINT AT A QUARTER ITS SIZE, Bayer-dithered to 32 x 32 x 23 levels
+	# (the textures themselves, assets/models/drop_pod_*.png, at the user's
+	# request): drawn nearest, so the dither reads as a dither
+	for mi: MeshInstance3D in [hull, door]:
+		if mi == null or mi.mesh == null:
+			continue
+		for k in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(k)
+			if m is BaseMaterial3D:
+				(m as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	fired.resize(nozzles.size())
 	fired.fill(0.0)
 	_make_flames()
@@ -463,6 +474,51 @@ static func _heat_of(h: float) -> float:
 	return clampf((DROP.fire_share + DROP.fire_fade - down) / DROP.fire_fade, 0.0, 1.0)
 
 ## One tic of the ride, with this machine's hands (Game.local_cmd).
+## THE BURN SITES SMOULDER (at the user's request: "make the scorched pod
+## landing burn sites steaming / smoking after the fact for like 5
+## minutes"): every few marks a vent [x, y, z, size, born] that smokes
+## and steams for SMOULDER_TICS, thick at first and thinning to nothing
+const SMOULDER_TICS := 5 * 60 * 35
+var vents := []
+var vent_puffs := 0
+## their own smoke, so five minutes of it never crowds out a gun's
+var vent_smoke: Particles
+func _vents_tic() -> void:
+	if vent_smoke != null:
+		vent_smoke.tic()
+	if vents.is_empty() or game.fx == null:
+		return
+	if vent_smoke == null:
+		vent_smoke = Particles.new({"max": 260, "map": Effects.atlases().smoke, "frames": Effects.SMOKE_PUFFS, "blend": "mix",
+			"fullbright": false, "near_shrink": 90.0, "order": 14})
+		vent_smoke.mat.set_shader_parameter("light", U.col(0.55))
+		add_child(vent_smoke)
+	var keep := []
+	for v in vents:
+		var age: int = ticks - int(v[4])
+		if age >= SMOULDER_TICS:
+			continue
+		keep.append(v)
+		var k := 1.0 - float(age) / SMOULDER_TICS
+		# (one in so many tics, fewer as it cools)
+		var every := int(lerpf(90.0, 26.0, k * k))
+		if (ticks + int(v[0])) % every != 0:
+			continue
+		var x: float = v[0] + randf_range(-0.3, 0.3) * v[3]
+		var y: float = v[1] + randf_range(-0.3, 0.3) * v[3]
+		vent_puffs += 1
+		if randf() < 0.5:
+			game.fx.puff(x, y, float(v[2]) + 4.0, 14.0 + 20.0 * k, int(90 + 90 * k), vent_smoke)
+		else:
+			game.fx.steam(x, y, float(v[2]) + 3.0, 10.0 + 16.0 * k, int(60 + 60 * k), vent_smoke)
+		if age < 60 * 35 and randf() < 0.15 * k:
+			game.fx.ember(x, y, float(v[2]) + 2.0, 1, 0.8)
+	vents = keep
+
+func _process(_dt: float) -> void:
+	if vent_smoke != null:
+		vent_smoke.draw()
+
 func tic(cmd: Dictionary) -> void:
 	# HELD AT THE TOP while the island is raised and the loading screen is
 	# up (Game.loading): the game ticks under it, and the ride is ten
@@ -475,6 +531,7 @@ func tic(cmd: Dictionary) -> void:
 			return
 	ticks += 1
 	phase_tics += 1
+	_vents_tic()
 	prev_pos = pos
 	prev_att = att
 	fired.fill(0.0)
@@ -625,6 +682,11 @@ func _fly(cmd: Dictionary) -> void:
 	# ---- what the exhaust does to the plants under and round it ------
 	if game.veg_damage != null and over_land and h < 70.0 and ticks % 3 == 0:
 		_plume_plants()
+	# ---- and what it does to the people and the creatures under it -----
+	if over_land and retro_level > 0.15 and h < BURN.reach and ticks % 3 == 1:
+		var um2 := IslandLevel.U_PER_M
+		var skirt := pos + att * Vector3(0.0, 2.1 * POD_SCALE, 0.0)
+		_burn_under(Vector3(skirt.x * um2, -skirt.z * um2, skirt.y * um2), (HULL_R * 1.2 + BURN.spread * h) * um2)
 	# ---- the dust under a burn near the ground, and the touchdown -----
 	var um := IslandLevel.U_PER_M
 	var burn := retro_level > 0.1
@@ -697,6 +759,29 @@ func _trail() -> void:
 		var w := pos + back * TALL * 0.8 + Vector3(cos(a2), 0.0, sin(a2)) * HULL_R * 1.6
 		game.fx.puff(w.x * um, -w.z * um, w.y * um, 18.0, 50)
 
+## THE EXHAUST INTO THE PEOPLE AND THE CREATURES, at the user's request
+## ("make the thruster exhaust kill and set people and creatures alight on
+## landing"): the burn's column, `reach` metres long, spreading `spread`
+## metres a metre down, sets alight everybody under it — they burn and
+## burn out (Actor.ignite: a burning state, and ash) — and anybody who
+## cannot burn is killed outright; at the touchdown the same for
+## everybody in `touchdown` metres of the hull.
+const BURN := {"reach": 60.0, "spread": 0.35, "touchdown": 14.0}
+func _burn_under(at: Vector3, r: float) -> void:
+	for a in game.blockmap.near_radius(at.x, at.y, r):
+		if a.dead or a.removed or a.get("vehicle") != null or a == game.player:
+			continue
+		if a.z > at.z:
+			continue
+		var was: int = a.burning
+		a.ignite(int(10 * U.TICRATE))
+		if not a.info.has("burn"):
+			a.damage(10000.0, game.player, {"fire": true})
+		if a.burning > 0 and was <= 0 or a.dead:
+			burned += 1
+		if game.fx != null:
+			game.fx.ember(a.x, a.y, a.z + 20.0, 2, 1.4)
+
 ## THE EXHAUST INTO THE PLANTS (VegDamage), every third tic low down: the
 ## retros' downwash under the skirt — a column spreading as it goes down,
 ## a ring along the ground once it gets there — and each RCS jet firing.
@@ -741,15 +826,21 @@ func _touchdown(ground: float) -> void:
 	# user's request: "lots more scorch marks around pod when landing") a
 	# scatter of scorches and smaller blast marks out to ten metres, the
 	# retros' last seconds burnt into the ground
+	# ... AND FOUR TIMES OVER (at the user's request: "make the ground
+	# scorching 400% more intense / spread out / visible / bigger"): four
+	# times the marks, twice the size, out twice as far, and the ring
+	# round the hull laid twice, so the black is black. And every one of
+	# them goes on smouldering (vents, _vents_tic).
 	if game.decals != null:
 		var marks := []
-		for k in 6:
-			var a := k * TAU / 6.0 + 0.3
-			marks.append([a, (HULL_R + 1.8) * um, 80.0, false])
-		for k in 26:
+		for k in 24:
+			var a := k * TAU / 12.0 + 0.3 + (0.13 if k >= 12 else 0.0)
+			marks.append([a, (HULL_R + 1.8 + (2.2 if k >= 12 else 0.0)) * um, 160.0, false])
+		for k in 104:
 			var a := randf() * TAU
-			var r := (HULL_R + 1.4 + pow(randf(), 1.4) * 8.5) * um
-			marks.append([a, r, randf_range(30.0, 75.0) * (1.0 - 0.4 * r / (12.0 * um)), k % 3 != 0])
+			var r := (HULL_R + 1.4 + pow(randf(), 1.2) * 17.0) * um
+			marks.append([a, r, randf_range(60.0, 150.0) * (1.0 - 0.4 * r / (24.0 * um)), k % 3 != 0])
+		var i := 0
 		for m in marks:
 			var sx: float = gx + cos(m[0]) * m[1]
 			var sy: float = gy + sin(m[0]) * m[1]
@@ -758,9 +849,16 @@ func _touchdown(ground: float) -> void:
 				continue
 			if m[3]:
 				game.decals.scorch(Vector3(sx, sy, sf), Vector3(0, 0, 1), m[2])
+				# (twice, for the black)
+				game.decals.scorch(Vector3(sx, sy, sf), Vector3(0, 0, 1), m[2] * 0.7)
 			else:
 				game.decals.blast(Vector3(sx, sy, sf), Vector3(0, 0, 1), m[2])
 			scorches += 1
+			if i % 3 == 0:
+				vents.append([sx, sy, sf, m[2], ticks])
+			i += 1
+	# the people and the creatures round it: alight
+	_burn_under(Vector3(gx, gy, gz + 2000.0), (HULL_R + BURN.touchdown) * um)
 	# nothing left growing through the hull, and round it the plants blown
 	# flat as a blast would
 	if game.veg_damage != null:

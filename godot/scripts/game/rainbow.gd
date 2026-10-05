@@ -29,13 +29,23 @@ extends Node3D
 const UNI := {
 	"charge_tics": 24,     # facing the eye, drawing it in, before it fires
 	"beam_tics": 35,       # the beam: a second
-	"rest_tics": 30,       # and a breath after
 	"range": 2600.0,       # units it reaches, and she will fire from
 	"radius": 7.0,         # the sheath, units (the core a third of it)
 	"hit_r": 22.0,         # within this of the line, the player is in it
-	"damage": 2.0,         # a tic, to the player (70 over a whole beam)
+	"damage": 5.0,         # a tic, to the player (175 over a whole beam)
+	"wobble_tics": 18,     # the screen swims this long after a tic in it
 	"turn": 0.035,         # radians a tic the line swings after the player
 	"mark_every": 5,       # a scorch where it lands, every this many tics
+	# AND SHE CHARGES (at the user's request: "have the unicorns in attack
+	# mode charge the player"): after a beam she gallops straight at them
+	# (Actor.A_UniCharge) for `run_tics` at `run_speed` times her gallop,
+	# and if she reaches them she RAMS them: `ram_damage`, thrown back
+	# `ram_push` units a tic
+	"run_tics": 70,
+	"run_speed": 1.3,
+	"ram_reach": 26.0,     # past the two radii, units
+	"ram_damage": 60.0,
+	"ram_push": 14.0,
 }
 const SIDES := 10
 const SEG := 48.0
@@ -146,14 +156,17 @@ func tic() -> void:
 		var end: Vector3 = m + b.dir * UNI.range
 		var hit := _cast(m, end)
 		b.to = hit.at
-		# (drawn only to a little short of the player's eye: a tube that
-		# runs into the eye is a white wall, not a beam)
-		b.draw_to = b.to
+		# IT GOES THROUGH THEM (at the user's request: "make sure the unicorn
+		# beams shoot through the player"): the line is never stopped by the
+		# player, only by a wall or the ground behind them; drawn with a gap
+		# round the eye only (a tube that runs into the eye is a white wall),
+		# coming out again behind
+		b.gap = Vector2(-1.0, -1.0)
 		if p != null and not p.dead:
 			var eye := Vector3(p.x, p.y, p.view_z if "view_z" in p else p.z + U.PLAYER_EYE)
 			var along: float = (eye - m).dot(b.dir)
 			if along > 0.0 and along < m.distance_to(b.to) + 40.0 and (m + b.dir * along).distance_to(eye) < 60.0:
-				b.draw_to = m + b.dir * maxf(0.0, along - 70.0)
+				b.gap = Vector2(maxf(0.0, along - 70.0), along + 70.0)
 		# WHOEVER STANDS IN IT
 		if p != null and not p.dead and not p.invincible:
 			var c := chest(p)
@@ -163,8 +176,13 @@ func tic() -> void:
 			if near.distance_to(c) < UNI.hit_r + p.radius * 0.5:
 				p.damage(UNI.damage, u, {"impact": true, "rainbow": true})
 				hits += 1
+				# the screen swims (Lofi wobble, game.screen_wobble)
+				if "wobble" in p:
+					p.wobble = UNI.wobble_tics
 				if b.t % 3 == 0:
 					_burst(near, 0.8, true)
+				# and out of their back: sparks thrown on along the line
+				_exit(c, b.dir)
 		_effects(b, hit)
 
 ## where the line from a to b stops: the first house wall or the ground
@@ -216,6 +234,17 @@ func _effects(b: Dictionary, hit: Dictionary) -> void:
 		if game.veg_damage != null and b.t % 6 == 0:
 			game.veg_damage.blast(e, 60.0)
 
+## out of the player's back, on the way the beam was going
+func _exit(at: Vector3, d: Vector3) -> void:
+	for k in 4:
+		var a := (U.p_random() / 255.0) * TAU
+		var side := d.cross(Vector3(cos(a), sin(a), 0.4)).normalized()
+		var sp := 6.0 + (U.p_random() / 255.0) * 8.0
+		var o := at + d * (20.0 + (U.p_random() / 255.0) * 40.0)
+		sparks.spawn({"x": o.x, "y": o.y, "z": o.z, "vx": d.x * sp + side.x * 2.0, "vy": d.y * sp + side.y * 2.0,
+			"vz": d.z * sp + side.z * 2.0 + 0.6, "life": 12 + (U.p_random() % 10), "size0": 3.0, "size1": 1.0,
+			"c0": rainbow((U.p_random() / 255.0), 1.0), "c1": rainbow((U.p_random() / 255.0), 0.0), "drag": 0.95, "gravity": -0.2})
+
 func _burst(at: Vector3, size: float, body: bool) -> void:
 	var h := (U.p_random() / 255.0)
 	glows.spawn({"x": at.x, "y": at.y, "z": at.z, "vz": 0.3, "life": 6 + (U.p_random() % 4),
@@ -246,9 +275,16 @@ func draw(cam: Camera3D) -> void:
 		if f <= 0.0:
 			continue
 		var wob := 0.85 + 0.15 * sin(game.tics * 1.7 + b.seed)
-		var to: Vector3 = b.get("draw_to", b.to)
-		_tube(b.from, to, UNI.radius * wob, 0.0, f, eye)
-		_tube(b.from, to, UNI.radius * 0.36 * wob, 1.0, f, eye)
+		var g: Vector2 = b.get("gap", Vector2(-1.0, -1.0))
+		var spans := [[b.from, b.to]]
+		if g.y > 0.0:
+			var L: float = (b.from as Vector3).distance_to(b.to)
+			spans = [[b.from, b.from + b.dir * minf(g.x, L)]]
+			if g.y < L:
+				spans.append([b.from + b.dir * g.y, b.to])
+		for sp in spans:
+			_tube(sp[0], sp[1], UNI.radius * wob, 0.0, f, eye)
+			_tube(sp[0], sp[1], UNI.radius * 0.36 * wob, 1.0, f, eye)
 	im.surface_end()
 
 ## one shell of the tube from a to b (map units), `r` across, `core` 1 the

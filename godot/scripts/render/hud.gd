@@ -65,7 +65,8 @@ func _draw() -> void:
 		_bar(M, y, bw, BAR, t, col, mark)
 		y += BAR + GAP
 	# and you, once something has started on you: the outer plate, the inner, then you
-	if p.armour2 < Weapons.ARMOUR2 or p.armour1 < Weapons.ARMOUR1 or p.health < Weapons.HEALTH or p.dead:
+	# (always, now that you can die: at the user's request, health back)
+	if not p.invincible or p.armour2 < Weapons.ARMOUR2 or p.armour1 < Weapons.ARMOUR1 or p.health < Weapons.HEALTH or p.dead:
 		_bar(M, y, bw, BAR, p.armour2 / float(Weapons.ARMOUR2), UI.armour2)
 		y += BAR + GAP
 		_bar(M, y, bw, BAR, p.armour1 / float(Weapons.ARMOUR1), UI.armour1)
@@ -141,6 +142,7 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.02, minf(0.35, p.damage_flash * 0.025)))
 	_draw_toasts(s)
 	_draw_big(s)
+	_draw_death(s)
 	if game.get("net") != null:
 		_draw_board(s)
 
@@ -164,6 +166,33 @@ func _draw_toasts(s: float) -> void:
 		var t := " ".join(str(list[i].text).split(""))
 		draw_string(font, Vector2(M + 1, y + 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6 * a))
 		draw_string(font, Vector2(M, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col, col.a * a))
+
+## YOU DIED (PlayerDeath), as galvarius has it: the screen washed red,
+## the words big across the middle in its Mechsuit face, and once a press
+## will do it, how to go again
+var _dead_font: Font
+func _draw_death(s: float) -> void:
+	var D = game.get("death")
+	if D == null or not D.active:
+		return
+	if _dead_font == null:
+		_dead_font = load("res://assets/fonts/Mechsuit.otf")
+		if _dead_font == null:
+			_dead_font = font
+	var k := clampf(D.t / 35.0, 0.0, 1.0)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.0, 0.0, 0.32 * k + 0.06 * sin(Time.get_ticks_msec() * 0.003)))
+	var t := "YOU DIED"
+	var fs := int(roundf(minf(72.0 * s, size.x / 7.0)))
+	var w := _dead_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var y := size.y * 0.42
+	draw_string(_dead_font, Vector2(size.x * 0.5 - w * 0.5 + 3, y + 3), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7 * k))
+	draw_string(_dead_font, Vector2(size.x * 0.5 - w * 0.5, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.92, 0.88, k))
+	if D.can_restart():
+		var h := "FIRE TO GO AGAIN"
+		var hs := int(roundf(16.0 * s))
+		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
+		var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.005)
+		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y + fs * 0.9), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
 
 ## the big card across the middle (Game.set_big_message)
 func _draw_big(s: float) -> void:

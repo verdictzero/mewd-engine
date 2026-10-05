@@ -221,10 +221,11 @@ func ember(x: float, y: float, z: float, n := 1, heat := 1.0) -> void:
 			"drag": 0.985, "gravity": -0.055,
 		})
 
-func puff(x: float, y: float, z: float, size := 28.0, life := 150) -> void:
+## (`into`: another pool of the smoke's kind to put it in, or this one)
+func puff(x: float, y: float, z: float, size := 28.0, life := 150, into: Particles = null) -> void:
 	var warm := 0.55 + _r() * 0.3
 	var w := _wind()
-	smoke.spawn({
+	(into if into != null else smoke).spawn({
 		"x": x + (_r() - 0.5) * 24.0, "y": y + (_r() - 0.5) * 24.0, "z": z,
 		"vx": (_r() - 0.5) * 0.5 + w.x * 1.6, "vy": (_r() - 0.5) * 0.5 + w.y * 1.6, "vz": 0.9 + _r() * 0.7,
 		"life": life + (U.p_random() % 60),
@@ -234,6 +235,20 @@ func puff(x: float, y: float, z: float, size := 28.0, life := 150) -> void:
 		# twice over while it rises, rather than three pops
 		"frame": float(U.p_random() % SMOKE_PUFFS), "frameRate": 0.09,
 		"drag": 0.992, "gravity": 0.004,
+	})
+
+## STEAM off hot ground (DropPod's smouldering burn sites): the smoke's
+## own frames, pale, quicker up and quicker gone
+func steam(x: float, y: float, z: float, size := 18.0, life := 80, into: Particles = null) -> void:
+	var w := _wind()
+	(into if into != null else smoke).spawn({
+		"x": x + (_r() - 0.5) * 16.0, "y": y + (_r() - 0.5) * 16.0, "z": z,
+		"vx": (_r() - 0.5) * 0.4 + w.x * 1.2, "vy": (_r() - 0.5) * 0.4 + w.y * 1.2, "vz": 1.6 + _r() * 0.9,
+		"life": life + (U.p_random() % 30),
+		"size0": size, "size1": size * 3.6,
+		"c0": Color(0.82, 0.84, 0.86, 0.42), "c1": Color(0.9, 0.9, 0.92, 0.0),
+		"frame": float(U.p_random() % SMOKE_PUFFS), "frameRate": 0.12,
+		"drag": 0.985, "gravity": 0.01,
 	})
 
 ## Blood in the air, out of the top of a drilled head: the smoke's own

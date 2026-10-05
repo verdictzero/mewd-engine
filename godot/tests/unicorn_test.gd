@@ -2,8 +2,9 @@
 ## Actor.rouse and the UNI_ states): a grown unicorn hurt by the player
 ## turns on them, and the grown ones of her herd with her (a foal still
 ## does not); she faces the player in her firing picture, draws the charge
-## in, throws the beam, and it hurts them, the line swinging after them;
-## where it lands it leaves its marks; she takes a breath and goes again;
+## in, throws the beam, and it hurts them, the line swinging after them,
+## going on THROUGH them, and their screen swims; where it lands it
+## leaves its marks; she CHARGES them, rams them, and goes again;
 ## out of sight she gallops after them; dead, her beam is gone; and when
 ## the fury is out she grazes again.
 ##   godot --headless --script res://godot/tests/unicorn_test.gd -- --map=candyland
@@ -90,6 +91,12 @@ func _init() -> void:
 		check(b.to.distance_to(m) > away * 0.5, "reaching the player's way (%.0f units)" % b.to.distance_to(m))
 	var h1: int = p.health + p.armour1 + p.armour2
 	check(h1 < h0, "and it hurts them (%d to %d, health and armour)" % [h0, h1])
+	if not b.is_empty():
+		check(b.to.distance_to(b.from) > Vector2(p.x - u.x, p.y - u.y).length() + 100.0,
+			"and goes on through them (%.0f units, they are %.0f off)" % [b.to.distance_to(b.from), Vector2(p.x - u.x, p.y - u.y).length()])
+		var g: Vector2 = b.get("gap", Vector2(-1, -1))
+		check(g.y > 0.0 and g.y < b.to.distance_to(b.from), "drawn on past their eye (gap %.0f..%.0f)" % [g.x, g.y])
+	check(p.wobble > 0, "their screen swims (%d tics)" % p.wobble)
 	check(rb.hits > 0, "they were in it %d tics" % rb.hits)
 	check(rb.sparks.count > 0, "sparks off it (%d)" % rb.sparks.count)
 	# ---- the line swings after the player: step out of it --------------
@@ -109,14 +116,23 @@ func _init() -> void:
 	# (the player crouched out of the way, the beam into the ground behind)
 	var marks0 := rb.marks
 	b = rb.beams[0] if rb.beams.size() > 0 else {}
-	# ---- the breath, and again -------------------------------------------
+	# ---- the charge, the ram, and again -----------------------------------
 	t = 0
-	while u.state.name != "UNI_REST" and t < 80:
+	while u.state.name != "UNI_CHARGE" and t < 80:
 		game.tic()
 		t += 1
-	check(u.state.name == "UNI_REST", "a breath after the beam")
+	check(u.state.name == "UNI_CHARGE", "after the beam, she charges them")
+	var d0c := Vector2(u.x - p.x, u.y - p.y).length()
+	var r0: int = u.rams
+	var hr: int = p.health + p.armour1 + p.armour2
 	var f1 := rb.fired
-	_tics(RainbowBeams.UNI.rest_tics + RainbowBeams.UNI.charge_tics + 4)
+	t = 0
+	while u.rams == r0 and t < RainbowBeams.UNI.run_tics + 2:
+		game.tic()
+		t += 1
+	check(u.rams > r0, "and reaches them, and rams them (%.1f s from %.0f units)" % [t / 35.0, d0c])
+	check(p.health + p.armour1 + p.armour2 <= hr - int(RainbowBeams.UNI.ram_damage), "the ram hurts (%d to %d)" % [hr, p.health + p.armour1 + p.armour2])
+	_tics(RainbowBeams.UNI.charge_tics + 4)
 	check(rb.fired > f1, "and she goes again")
 	# a beam aimed into the ground: scorches where it lands
 	u.uni_t = 0
@@ -131,8 +147,8 @@ func _init() -> void:
 		rb.tic()
 	check(rb.marks > mk, "where it lands, scorched (%d marks)" % (rb.marks - mk))
 	# ---- out of sight: after them -----------------------------------------
-	u.set_state("UNI_REST")
-	u.uni_t = RainbowBeams.UNI.rest_tics - 1
+	u.set_state("UNI_CHARGE")
+	u.uni_t = RainbowBeams.UNI.run_tics - 1
 	p.x = u.x + RainbowBeams.UNI.range * 1.5
 	p.y = u.y
 	_tics(2)
@@ -143,7 +159,7 @@ func _init() -> void:
 	# ---- the fury out: back to grazing -------------------------------------
 	u.fury = 1
 	_tics(2)
-	var fighting: bool = ["UNI_AIM", "UNI_BEAM", "UNI_REST", "UNI_HUNT1", "UNI_HUNT2"].has(u.state.name)
+	var fighting: bool = ["UNI_AIM", "UNI_BEAM", "UNI_CHARGE", "UNI_HUNT1", "UNI_HUNT2"].has(u.state.name)
 	check(u.fury == 0 and not fighting, "the fury out, she grazes again (%s)" % u.state.name)
 	# ---- dead, her beam is gone ---------------------------------------------
 	u.damage(1.0, p, {"shot": true})

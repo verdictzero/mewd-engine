@@ -2728,6 +2728,111 @@ NEW DEFAULTS, THE POD STRAIGHT DOWN, THE UNICORNS FIGHT BACK, DECAL RES
   squares across where they were 32. The atlas is 3072 x 960 (11 MB)
   and is still drawn into only when a mark is laid.
 
+YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
+
+  At the user's request: "have the unicorns in attack mode charge the
+  player, re introduce player health, on death, i want a circling camera
+  around the player's death spawn point, massive blood spatter, and an
+  endless stream of body parts spewing forth from where the player died
+  forever until the game is reset; grab the death animation and
+  gravestone from verdictzero/galvarius, and the death behavior from
+  that"; "make sure the unicorn beams shoot through the player, have a
+  screen heat wobble / hue rotate (very fast) when hit"; "make the
+  thruster exhaust kill and set people and creatures alight on landing,
+  make the ground scorching 400% more intense / spread out / visible /
+  bigger; make the capsule textures 1/4 res and 32 32 23 dither them
+  bayer"; "make the scorched pod landing burn sites steaming / smoking
+  after the fact for like 5 minutes"; "add a 'light matcap' to all
+  weapons so they look pseudo lit"; "when npcs are on fire, give them a
+  rotating-burning-palette-recolor".
+
+  HEALTH BACK. The player is no longer invincible by default (Player
+  `invincible` false; the pause menu's DEBUG: INVINCIBLE defaults OFF,
+  PREF_VERSION 18), and the plates and health bars are always on the
+  readout while you can be hurt.
+
+  THE UNICORNS CHARGE (Actor.A_UniCharge, state UNI_CHARGE in place of
+  the old breath after a beam): after each beam she gallops straight at
+  you at RainbowBeams.UNI.run_speed times her gallop for run_tics, round
+  whatever is in the way; reaching you she RAMS — ram_damage, and you are
+  thrown back ram_push — and then stands and fires again (or hunts you,
+  out of sight). Her hooves kick up dust as she comes. The beam is
+  harder now (5 a tic).
+
+  THE BEAM GOES THROUGH YOU: the line was never stopped by the player,
+  but it was drawn only to their eye; now it is drawn with a gap round
+  the eye alone and comes out again behind them to the ground or the
+  wall, sparks thrown out of their back along it (RainbowBeams._exit).
+  And while it is in you the SCREEN SWIMS (Player.wobble, lofi.gdshader
+  `wobble`): the picture displaced in rows and columns of fast sines,
+  like air over a fire, and every colour spun round the hue wheel about
+  twelve times a second, fading over UNI.wobble_tics after the last tic
+  in it.
+
+  YOU DIED (godot/scripts/game/player_death.gd, PlayerDeath), galvarius's
+  game_over_screen / player_controller / music_manager in the game's own
+  units and tics, for a game alone (a match keeps its frag and respawn):
+    the BURST through your own eye as it drops — the warhead's
+    evisceration three times over from three ways, a pool 150 across and
+    eight more round it, 48 spatters thrown out to 420 units, a cloud of
+    blood — and THE HEAD (galvarius's chad_head.png) thrown forward and
+    up, bouncing to rest, bleeding where it lands;
+    a GRAVESTONE (galvarius's tombstone.png, two-faced) rising out of the
+    ground just behind where you fell;
+    then THE DEATH CAMERA: the eye leaves the body and circles the place,
+    300 units out and 150 up, half a radian a second, looking at it;
+    and THE FOUNTAIN, for ever: galvarius's gore pieces (packed into
+    assets/gore/death_gore.png, fourteen cells) spewed up and out of four
+    emitters round the spot, a wave every three tics, each landing in a
+    spatter and lying there for thirty seconds (1600 at most, the oldest
+    going first), the blood jetting up with them in pulses;
+    the music out over a second, two of silence, then galvarius's death
+    music (assets/music/you_died.mp3, Music.dirge) round and round;
+    YOU DIED across the screen in galvarius's Mechsuit face on a red wash,
+    and after three seconds FIRE TO GO AGAIN: fire, jump or use starts the
+    same level again (Game.restart_wanted, main.gd restart — through the
+    quit-to-title path, the scene built afresh straight into the game).
+
+  THE POD'S EXHAUST BURNS (DropPod._burn_under): every third tic of the
+  retro burn in its last 60 metres, everybody under the column (the
+  hull's width, spreading 0.35 m a metre down) is set alight — they burn
+  and burn out — and anybody who cannot burn is killed outright; at the
+  touchdown the same for everybody within 14 m of the hull.
+
+  THE SCORCHING, FOUR TIMES OVER: four times the marks (128 against 32),
+  twice their size, out twice as far (to about 20 m), and the scorches
+  laid twice so the black is black. A third of them become VENTS that
+  SMOULDER for five minutes (DropPod.SMOULDER_TICS): smoke and steam
+  (Effects.steam) off each, thick at first and thinning to nothing,
+  embers in the first minute — in the pod's own smoke pool, so it never
+  crowds out a gun's.
+
+  THE CAPSULE'S TEXTURES at a quarter of their size (assets/models/
+  drop_pod_*.png, 512 to 128 and 256 to 64), the colour ones Bayer-
+  dithered (8x8) to 32 x 32 x 23 levels of red, green and blue, and drawn
+  nearest so the dither reads. (The import's "extract textures" leaves
+  files that are already there alone: a fresh import keeps these.)
+
+  A LIGHT MATCAP ON EVERY GUN (gun.gdshader `matcap`, 0.85): the colour
+  looked up by the surface's facing on the screen, as a sculptor's matcap
+  ball — a warm key up and to the left with a tight highlight, a cool
+  fill from below, a bright rim — worked out in the shader rather than
+  read off a texture, so every gun reads as lit with no light in the
+  world.
+
+  ON FIRE, A ROTATING BURNING PALETTE (standee.gdshader, flag +16): a
+  burning person's or creature's drawing is mapped by its brightness
+  through eight bands of fire — soot, ember red, orange, yellow, white —
+  and the bands rotated up the body and through the brightnesses, as old
+  palette cycling did, so the flames crawl up them; self-lit, mostly.
+
+  Tests: godot/tests/unicorn_test.gd (the beam through the player, the
+  swim, the charge and the ram), godot/tests/you_died_test.gd (new: the
+  burst, the head, the stone, the camera, the fountain still going forty
+  seconds on, a press for the level again), godot/tests/drop_test.gd
+  (four girls and a unicorn waiting at the landing all set alight, 96+
+  marks, the vents smoking and then done after five minutes).
+
 TESTS
 
     tools/godot-test.sh

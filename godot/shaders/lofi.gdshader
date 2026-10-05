@@ -34,6 +34,20 @@ uniform vec3 tint = vec3(1.0);
 // island but the ones that ask: Islands "exposure", "knee").
 uniform float exposure = 1.0;
 uniform float knee = 0.0;
+// THE BEAM IN THE EYE, at the user's request ("have a screen heat wobble /
+// hue rotate (very fast very very fast) when hit"): `wobble` 0..1 — the
+// picture swims like air over a fire, in rows and columns of sines, and
+// every colour spins round the wheel several times a second. `now` in
+// seconds.
+uniform float wobble = 0.0;
+uniform float now = 0.0;
+
+vec3 hue_turn(vec3 c, float a) {
+	// round the grey axis
+	vec3 k = vec3(0.57735);
+	float ca = cos(a);
+	return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca);
+}
 
 vec3 shoulder(vec3 c) {
 	float m = max(c.r, max(c.g, c.b));
@@ -61,6 +75,11 @@ vec3 pal_snap(vec3 c) {
 void fragment() {
 	vec2 cell = floor(UV * grid_size);
 	vec2 uv0 = cell / grid_size;
+	if (wobble > 0.0) {
+		vec2 w = vec2(sin(UV.y * 38.0 + now * 47.0) + 0.6 * sin(UV.y * 91.0 - now * 73.0),
+			cos(UV.x * 31.0 - now * 53.0) + 0.6 * sin(UV.x * 77.0 + now * 61.0));
+		uv0 = clamp(uv0 + w * 0.009 * wobble, vec2(0.0), vec2(1.0) - 1.0 / grid_size);
+	}
 	vec2 span = 1.0 / grid_size;
 	vec3 sum = vec3(0.0);
 	float n = 0.0;
@@ -80,6 +99,8 @@ void fragment() {
 	c = max(c * picture.x * exposure, 0.0);
 	c = pow(c, vec3(1.0 / max(picture.z, 0.05)));
 	c = shoulder(c);
+	if (wobble > 0.0)
+		c = max(mix(c, hue_turn(c, now * 75.0), clamp(wobble * 1.5, 0.0, 1.0)), 0.0);
 	if (dither > 0.0)
 		c += vec3((bayer4(cell) / 15.0 - 0.5) * dither) / dither_levels;
 	c = mix(c, pal_snap(c), snap);

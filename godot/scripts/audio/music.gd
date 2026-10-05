@@ -70,6 +70,36 @@ func start(i := 0) -> void:
 	_clock = 0.0
 	plan = {}
 
+## THE DIRGE (galvarius's death music, music_manager.gd there): what is
+## playing out over a second, two seconds of nothing, then the death
+## music, round again until the game is reset
+const DIRGE := "res://assets/music/you_died.mp3"
+var dirging := false
+func dirge() -> void:
+	if dirging:
+		return
+	dirging = true
+	plan = {}
+	current = -1
+	var tw := create_tween()
+	for d in decks:
+		tw.parallel().tween_property(d, "volume_db", -60.0, 1.0)
+	tw.tween_callback(func():
+		for d in decks:
+			d.stop())
+	tw.tween_interval(2.0)
+	tw.tween_callback(func():
+		var st = load(DIRGE)
+		if st == null:
+			return
+		if "loop" in st:
+			st.loop = true
+		var d := decks[0]
+		d.stream = st
+		d.pitch_scale = 1.0
+		d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
+		d.play())
+
 func set_rate(r: float) -> void:
 	r = maxf(0.05, r)
 	for d in decks:

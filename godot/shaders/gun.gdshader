@@ -9,6 +9,13 @@
 // its own colours: the potato cannon's chrome and gold) shines in a
 // made-up sky — a gradient looked up by the reflected view, and a glint
 // off the fixed key — so it reads as metal with no light in the world.
+//
+// AND A LIGHT MATCAP over all of it, at the user's request ("add a 'light
+// matcap' to all weapons so they look pseudo lit"): the colour looked up
+// by the surface's facing on the screen, as a sculptor's matcap ball is
+// — a soft warm key up and to the left with a tight highlight in it, a
+// cool fill coming round from below, a bright rim — drawn here as sums
+// of falloffs rather than read off a texture. `matcap` how much of it.
 shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_opaque;
 
@@ -21,8 +28,26 @@ uniform vec3 tint = vec3(1.0);
 uniform float heat = 0.0;
 uniform bool heats = false;
 uniform float metal = 0.0;
+uniform float matcap = 0.85;
 
 varying vec3 n_view;
+
+// the matcap ball, by the view-space normal: light (x) and the highlight
+// in it apart, so the highlight can sit on top of the paint
+vec4 cap(vec3 n) {
+	vec2 m = n.xy;
+	vec2 dk = m - vec2(-0.42, 0.52);
+	float key = exp(-dot(dk, dk) * 2.2);
+	vec2 ds = m - vec2(-0.36, 0.48);
+	float spec = exp(-dot(ds, ds) * 38.0);
+	float fill = smoothstep(-1.0, 0.2, -m.y) * smoothstep(-0.6, 1.0, m.x);
+	float rim = smoothstep(0.62, 0.98, length(m));
+	vec3 l = vec3(0.26, 0.26, 0.29)
+		+ vec3(1.00, 0.95, 0.86) * key * 0.95
+		+ vec3(0.36, 0.46, 0.62) * fill * 0.45
+		+ vec3(0.80, 0.86, 1.00) * rim * 0.55;
+	return vec4(l, spec);
+}
 varying float reach;
 
 void vertex() {
@@ -38,6 +63,11 @@ void fragment() {
 	vec3 key = normalize(vec3(-0.45, 0.7, 0.55));
 	float l = 0.38 + 0.62 * max(dot(normalize(n_view), key), 0.0);
 	vec3 col = c.rgb * l * (0.35 + 0.65 * dim);
+	if (matcap > 0.0) {
+		vec4 mc = cap(normalize(n_view));
+		vec3 lit = (c.rgb * mc.rgb * 1.15 + vec3(mc.a * 0.55)) * (0.35 + 0.65 * dim);
+		col = mix(col, lit, matcap);
+	}
 	if (metal > 0.0) {
 		vec3 n = normalize(n_view);
 		vec3 r = reflect(normalize(VERTEX), n);

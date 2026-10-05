@@ -239,6 +239,16 @@ func for_island(spec: Dictionary, snap_pref: bool) -> void:
 	mat.set_shader_parameter("snap", U.col(_snap))
 	mat.set_shader_parameter("dither", U.col(1.0 if snap_pref else 0.0))
 
+## the screen swimming and the colours spinning, 0..1 (lofi.gdshader
+## `wobble`: a unicorn's beam in the eye)
+var _wob := 0.0
+func set_wobble(k: float) -> void:
+	if k <= 0.0 and _wob <= 0.0:
+		return
+	_wob = k
+	mat.set_shader_parameter("wobble", U.col(k))
+	mat.set_shader_parameter("now", U.col(fmod(Time.get_ticks_msec() / 1000.0, 1000.0)))
+
 func set_tint(c: Color) -> void:
 	mat.set_shader_parameter("tint", U.col(Vector3(c.r, c.g, c.b)))
 

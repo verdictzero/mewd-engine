@@ -105,9 +105,13 @@ func _init() -> void:
 	var c1: int = game.chunks.count()
 	var m := 0
 	var at := Vector3(lamp.x - 160.0, lamp.y, lv.floor_at(lamp.x, lamp.y) + 60.0)
-	while not lamp.removed and m < 20:
-		game.hitscan(p, 0.0, 400.0, 30.0, {"shot": true, "from": at})
-		m += 1
+	# (only the rounds that reach it count: somebody wandering into the line
+	# takes the odd one, and that is not the lamp's doing)
+	var tries := 0
+	while not lamp.removed and tries < 20:
+		tries += 1
+		if game.hitscan(p, 0.0, 400.0, 30.0, {"shot": true, "from": at}) == lamp:
+			m += 1
 	check(lamp.removed and m == 8, "a street lamp shot eight times goes to pieces (%d)" % m)
 	check(game.chunks.count() > c1 + 8, "pieces of itself (%d)" % (game.chunks.count() - c1))
 	# --- A BLAST IN THE TREES ---------------------------------------------
