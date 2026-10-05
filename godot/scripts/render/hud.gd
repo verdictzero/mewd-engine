@@ -27,6 +27,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"]))
+	_make_wash()
 
 func _process(_dt: float) -> void:
 	queue_redraw()
@@ -178,11 +179,32 @@ func _draw_toasts(s: float) -> void:
 const DEATH_EN := "YOU ACHIEVED THE OPPOSITE OF LIFE"
 const DEATH_JP := "あなたは生命の反対を達成した。"
 const JP_FONT := "res://assets/fonts/mewd_died_jp.ttf"
+const JP_SCALE := 0.8
+## the red multiply over the whole picture, behind the words (_draw_death)
+var _wash: ColorRect
+func _make_wash() -> void:
+	_wash = ColorRect.new()
+	_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wash.show_behind_parent = true
+	_wash.visible = false
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	_wash.material = m
+	add_child(_wash)
+
+func _red_wash(c: Color) -> void:
+	if _wash == null:
+		return
+	_wash.color = c
+	_wash.visible = true
 var _dead_font: Font
 var _jp_font: Font
 func _draw_death(s: float) -> void:
 	var D = game.get("death")
 	if D == null or not D.active:
+		if _wash != null:
+			_wash.visible = false
 		return
 	if _dead_font == null:
 		_dead_font = load("res://assets/fonts/Mechsuit.otf")
@@ -192,32 +214,47 @@ func _draw_death(s: float) -> void:
 		if _jp_font == null:
 			_jp_font = font
 	var k := clampf(D.t / 35.0, 0.0, 1.0)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.0, 0.0, 0.32 * k + 0.06 * sin(Time.get_ticks_msec() * 0.003)))
+	# THE WHOLE PICTURE MULTIPLIED BY RED (at the user's request: "a 100%
+	# full red color multiply overlay"), coming in over the first second:
+	# a rect behind this control's own drawing, so the words are not
+	_red_wash(Color(1.0, 1.0 - k, 1.0 - k))
 	# the big line as big as it may be and still fit nine tenths of the width
 	var fs := int(roundf(56.0 * s))
 	var w := _dead_font.get_string_size(DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	if w > size.x * 0.9:
 		fs = maxi(8, int(fs * size.x * 0.9 / w))
 		w = _dead_font.get_string_size(DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var js := maxi(6, fs / 2)
+	# the Japanese bigger (at the user's request), as big as the English
+	# block is wide at most
+	var js := maxi(8, int(fs * JP_SCALE))
 	var jw := _jp_font.get_string_size(DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js).x
+	if jw > w:
+		js = maxi(8, int(js * w / jw))
+		jw = _jp_font.get_string_size(DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js).x
 	# THE BLOCK: as wide as its widest line, centred; the lines at its left
 	var bw := maxf(w, jw)
 	var x0 := roundf(size.x * 0.5 - bw * 0.5)
-	var y := size.y * 0.42
-	var y2 := y + fs * 0.35 + js * 1.2
+	var y := size.y * 0.40
 	var ink := Color(1.0, 0.92, 0.88, k)
 	var shade := Color(0, 0, 0, 0.7 * k)
 	draw_string(_dead_font, Vector2(x0 + 3, y + 3), DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, shade)
 	draw_string(_dead_font, Vector2(x0, y), DEATH_EN, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
-	draw_string(_jp_font, Vector2(x0 + 2, y2 + 2), DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js, shade)
+	# THE JAPANESE IN A DARK BANNER across the screen, under the English
+	var pad := roundf(js * 0.45)
+	var top := y + fs * 0.4
+	var band := js + pad * 2.0
+	draw_rect(Rect2(0.0, top, size.x, band), Color(0.04, 0.0, 0.0, 0.82 * k))
+	draw_rect(Rect2(0.0, top, size.x, maxf(1.0, s)), Color(1.0, 0.92, 0.88, 0.25 * k))
+	draw_rect(Rect2(0.0, top + band - maxf(1.0, s), size.x, maxf(1.0, s)), Color(1.0, 0.92, 0.88, 0.25 * k))
+	var y2 := top + pad + js * 0.86
 	draw_string(_jp_font, Vector2(x0, y2), DEATH_JP, HORIZONTAL_ALIGNMENT_LEFT, -1, js, ink)
+	y2 = top + band
 	if D.can_restart():
 		var h := "FIRE TO GO AGAIN"
 		var hs := int(roundf(16.0 * s))
 		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 		var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.005)
-		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y2 + js + hs * 2.0), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
+		draw_string(font, Vector2(size.x * 0.5 - hw * 0.5, y2 + hs * 2.2), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UI.ink, a))
 
 ## the big card across the middle (Game.set_big_message)
 func _draw_big(s: float) -> void:

@@ -682,11 +682,6 @@ func _fly(cmd: Dictionary) -> void:
 	# ---- what the exhaust does to the plants under and round it ------
 	if game.veg_damage != null and over_land and h < 70.0 and ticks % 3 == 0:
 		_plume_plants()
-	# ---- and what it does to the people and the creatures under it -----
-	if over_land and retro_level > 0.15 and h < BURN.reach and ticks % 3 == 1:
-		var um2 := IslandLevel.U_PER_M
-		var skirt := pos + att * Vector3(0.0, 2.1 * POD_SCALE, 0.0)
-		_burn_under(Vector3(skirt.x * um2, -skirt.z * um2, skirt.y * um2), (HULL_R * 1.2 + BURN.spread * h) * um2)
 	# ---- the dust under a burn near the ground, and the touchdown -----
 	var um := IslandLevel.U_PER_M
 	var burn := retro_level > 0.1
@@ -759,19 +754,31 @@ func _trail() -> void:
 		var w := pos + back * TALL * 0.8 + Vector3(cos(a2), 0.0, sin(a2)) * HULL_R * 1.6
 		game.fx.puff(w.x * um, -w.z * um, w.y * um, 18.0, 50)
 
-## THE EXHAUST INTO THE PEOPLE AND THE CREATURES, at the user's request
+## THE LANDING ON THE PEOPLE AND THE CREATURES, at the user's request
 ## ("make the thruster exhaust kill and set people and creatures alight on
-## landing"): the burn's column, `reach` metres long, spreading `spread`
-## metres a metre down, sets alight everybody under it — they burn and
-## burn out (Actor.ignite: a burning state, and ash) — and anybody who
-## cannot burn is killed outright; at the touchdown the same for
-## everybody in `touchdown` metres of the hull.
-const BURN := {"reach": 60.0, "spread": 0.35, "touchdown": 14.0}
-func _burn_under(at: Vector3, r: float) -> void:
-	for a in game.blockmap.near_radius(at.x, at.y, r):
+## landing" — and then: "the girls need to be set alight / smushed right
+## as it lands, not before"): nothing happens to anybody on the way down;
+## on the touchdown tic, whoever is under the hull (within `squash`
+## metres of its rim) is SQUASHED — gone to pieces — and everybody out to
+## `touchdown` metres from it is set alight (they burn and burn out:
+## Actor.ignite, a burning state, and ash), anybody who cannot burn
+## killed outright.
+const BURN := {"squash": 0.6, "touchdown": 14.0}
+var squashed := 0
+func _land_on_people(gx: float, gy: float, gz: float) -> void:
+	var um := IslandLevel.U_PER_M
+	var under := (HULL_R + BURN.squash) * um
+	for a in game.blockmap.near_radius(gx, gy, (HULL_R + BURN.touchdown) * um):
 		if a.dead or a.removed or a.get("vehicle") != null or a == game.player:
 			continue
-		if a.z > at.z:
+		if a.z > gz + 4.0 * um:
+			continue
+		var d := Vector2(a.x - gx, a.y - gy).length()
+		if d < under + a.radius:
+			squashed += 1
+			a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
+			if game.gore_decals != null:
+				game.gore_decals.pool(a.x, a.y, a.z, 60.0)
 			continue
 		var was: int = a.burning
 		a.ignite(int(10 * U.TICRATE))
@@ -858,7 +865,7 @@ func _touchdown(ground: float) -> void:
 				vents.append([sx, sy, sf, m[2], ticks])
 			i += 1
 	# the people and the creatures round it: alight
-	_burn_under(Vector3(gx, gy, gz + 2000.0), (HULL_R + BURN.touchdown) * um)
+	_land_on_people(gx, gy, gz)
 	# nothing left growing through the hull, and round it the plants blown
 	# flat as a blast would
 	if game.veg_damage != null:

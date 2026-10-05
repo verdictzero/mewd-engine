@@ -2788,10 +2788,13 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     going first), the blood jetting up with them in pulses;
     the music out over a second, two of silence, then galvarius's death
     music (assets/music/you_died.mp3, Music.dirge) round and round;
-    on a red wash, YOU ACHIEVED THE OPPOSITE OF LIFE in galvarius's
+    the whole picture multiplied by full red (a CanvasItemMaterial MUL
+    rect behind the words, coming in over the first second: at the user's
+    request), YOU ACHIEVED THE OPPOSITE OF LIFE in galvarius's
     Mechsuit face (at the user's request, in place of YOU DIED), as big as
     fits nine tenths of the width, and under it the same in Japanese at
-    half the size (あなたは生命の反対を達成した。 — in MEWD Died JP,
+    0.8 of its size (bigger, at the user's request) in a dark banner
+    across the screen (あなたは生命の反対を達成した。 — in MEWD Died JP,
     assets/fonts/mewd_died_jp.ttf: that one line's glyphs out of IPA
     Gothic, renamed as its licence asks; assets/fonts/IPA_Font_License.txt
     has the licence and how to put the original back), both lines
@@ -2802,11 +2805,13 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
     same level again (Game.restart_wanted, main.gd restart — through the
     quit-to-title path, the scene built afresh straight into the game).
 
-  THE POD'S EXHAUST BURNS (DropPod._burn_under): every third tic of the
-  retro burn in its last 60 metres, everybody under the column (the
-  hull's width, spreading 0.35 m a metre down) is set alight — they burn
-  and burn out — and anybody who cannot burn is killed outright; at the
-  touchdown the same for everybody within 14 m of the hull.
+  THE POD'S LANDING BURNS AND SQUASHES (DropPod._land_on_people) — and
+  only the landing (at the user's request: "the girls need to be set
+  alight / smushed right as it lands, not before"): nothing happens to
+  anybody on the way down; on the touchdown tic whoever is under the hull
+  (within 0.6 m of its rim) is squashed to pieces with a pool under them,
+  and everybody out to 14 m from it is set alight — they burn and burn
+  out — and anybody who cannot burn is killed outright.
 
   THE SCORCHING, FOUR TIMES OVER: four times the marks (128 against 32),
   twice their size, out twice as far (to about 20 m), and the scorches

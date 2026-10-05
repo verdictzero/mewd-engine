@@ -87,7 +87,7 @@ func _run() -> void:
 	# (in frames, the game ticking itself in its own time: the plants'
 	# tiles load round the eye as it comes down, as they do in play)
 	# and somebody waiting where it will come down: three candy girls and a
-	# unicorn, a few metres off the spot
+	# unicorn a few metres off the spot, and one girl right under it
 	var waiting := []
 	for k in 4:
 		var a := k * TAU / 4.0 + 0.4
@@ -95,6 +95,8 @@ func _run() -> void:
 		var who = game.spawn("UNICORN" if k == 3 else "CANDYGIRL", w.x, w.y, 0.0)
 		if who != null:
 			waiting.append(who)
+	var squash_me = game.spawn("CANDYGIRL", d.start.x + 0.5 * um, d.start.y, 0.0)
+	var early := 0
 	var t0: int = game.tics
 	var burn_start_tic := 0
 	var fastest := 0.0
@@ -113,6 +115,10 @@ func _run() -> void:
 			burn_tics = game.tics - t0 - burn_start_tic
 		elif burned_at < 0.0:
 			burn_start_tic = game.tics - t0
+		if d.phase == "drop":
+			early += waiting.filter(func(o): return o.dead or o.burning > 0).size()
+			if squash_me != null and (squash_me.dead or squash_me.removed):
+				early += 1
 		if d.phase == "drop" and d.heat <= 0.0 and fire_out_at < 0.0:
 			fire_out_at = d.altitude()
 			fire_out_tic = d.ticks
@@ -134,7 +140,9 @@ func _run() -> void:
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
 	check(d.scorches >= 96, "the ground scorched all round it, four times over (%d marks)" % d.scorches)
 	var lit := waiting.filter(func(o): return o.dead or o.removed or o.burning > 0).size()
-	check(not waiting.is_empty() and lit == waiting.size(), "the exhaust set everybody under it alight (%d of %d, %d in all)" % [lit, waiting.size(), d.burned])
+	check(early == 0, "nobody hurt on the way down, only at the landing (%d)" % early)
+	check(not waiting.is_empty() and lit == waiting.size(), "the landing set everybody round it alight (%d of %d, %d in all)" % [lit, waiting.size(), d.burned])
+	check(squash_me != null and (squash_me.dead or squash_me.removed) and d.squashed >= 1, "and squashed the one under it (%d squashed)" % d.squashed)
 	check(d.vents.size() >= 20, "and the burn sites smoulder (%d vents)" % d.vents.size())
 	check(absf(d.fuel - DropPod.DROP.rcs_fuel) < 1e-3, "hands off, the stick's tank is full (%.1f)" % d.fuel)
 	print("  (the exhaust and the landing hurt %d plants on the way down)" % d.plants_hit)
