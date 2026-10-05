@@ -86,6 +86,9 @@ var gauges: Control
 var screen: ShaderMaterial
 var optic: ShaderMaterial
 var _key := ""
+## the charge and hold rings drawn by the screen shader (the lance);
+## a scope whose panel draws no rings (the thermal) turns it off
+var rings := true
 ## what the gauges were last asked to show
 var st := {"charge": 0.0, "hold": 0.0, "stage": 0, "cell": 0.0, "firing": false, "tics": 0}
 
@@ -194,6 +197,9 @@ func screen_material() -> ShaderMaterial:
 		screen.set_shader_parameter("panel", U.col(panel.get_texture()))
 		screen.set_shader_parameter("has_panel", U.col(true))
 		screen.set_shader_parameter("tint", U.col(PHOSPHOR))
+		screen.set_shader_parameter("gauge", Vector4(0.0, 0.0, 1.0 if rings else 0.0, 0.0))
+		screen.set_shader_parameter("track", U.col(TRACK))
+		screen.set_shader_parameter("marks", Vector4(stage_marks[0], stage_marks[1], stage_marks[2], 0.0))
 	return screen
 
 ## The lens.
@@ -214,6 +220,8 @@ func set_panel_box(mn: Vector2, sz: Vector2) -> void:
 ## whoever owns the numbers (Player.stage_marks), so they cannot disagree.
 func set_stages(marks: Array) -> void:
 	stage_marks = marks
+	if screen != null:
+		screen.set_shader_parameter("marks", Vector4(marks[0], marks[1], marks[2], 0.0))
 
 # ------------------------------------------------------------------
 # One feed frame
@@ -262,11 +270,19 @@ func update(p, t: int) -> bool:
 	if p != null:
 		cell = clampf(float(p.ammo.get("cells", 0)) / float(Weapons.TANKS.cells[0]), 0.0, 1.0)
 	var hold: float = p.hold_fraction() if p != null else 0.0
-	# THE DIRTY KEY, and everything in it is something that is DRAWN
-	# (the charge and the hold in steps of a few pixels of their rings, so
-	# the panel is redrawn a few times a second while charging, not every
-	# tic: the handheld's second crash was mid-charge)
-	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%d" % [1 if held else 0, roundi(charge * 40.0), roundi(hold * 36.0), stage,
+	# THE TWO RINGS ARE THE SCREEN SHADER'S NOW (scope_screen.gdshader,
+	# `rings`): the charge and the hold are uniforms, set every tic, and
+	# never redraw the panel — the handheld died a third time in the first
+	# seconds of a charge, when the panel's redraws were the one new thing
+	if screen != null and rings:
+		var stage_ink := HOT if stage >= 3 else (WARN if stage >= 2 else INK)
+		screen.set_shader_parameter("gauge", Vector4(charge, hold, 1.0, 0.0))
+		screen.set_shader_parameter("charge_ink", U.col(stage_ink if stage > 0 else INK))
+		screen.set_shader_parameter("hold_ink", U.col(HOT if hold < 0.25 else (WARN if hold < 0.5 else INK)))
+	# THE DIRTY KEY, and everything in it is something that is DRAWN on
+	# the panel (the stage digit, the cell, the zoom, the firing blink, the
+	# last second's blink) — the charge and the hold are not in it
+	var key := "%d|%d|%d|%d|%d|%d|%d" % [1 if held else 0, stage,
 		roundi(cell * 60.0), zoom_index, 1 if firing else 0, (t >> 1) & 7 if firing else 0,
 		(t >> 2) & 1 if hold > 0.0 and hold < 0.25 else 0]
 	if key == _key:
@@ -295,22 +311,9 @@ func _draw_panel(c: Control) -> void:
 	var t: int = st.tics
 	var stage_ink := HOT if stage >= 3 else (WARN if stage >= 2 else INK)
 	# ---- THE CHARGE, the outer ring, from eight o'clock round to four
-	var R := N * 0.372
-	var W := N * 0.086
-	var FROM := -0.375
-	var SPAN := 0.75
-	_dial(c, cx, cy, R, W, FROM, SPAN, st.charge, stage_ink if stage > 0 else INK, TRACK)
-	# the stage marks, cut THROUGH the ring in the background colour so
-	# they are gaps and not lines
-	for at in stage_marks:
-		if at >= 1.0:
-			continue
-		_tick(c, cx, cy, R, W, FROM + SPAN * at, Color(6 / 255.0, 18 / 255.0, 8 / 255.0, 0.95), 1.25)
-	# ---- THE WINDOW, concentric inside it, draining while you line up
+	# (it and THE WINDOW inside it, draining while you line up, are drawn
+	# by the screen's shader from the live numbers: `rings`, update())
 	var hold: float = st.hold
-	if hold > 0.0:
-		_dial(c, cx, cy, N * 0.268, N * 0.054, FROM, SPAN, hold,
-			HOT if hold < 0.25 else (WARN if hold < 0.5 else INK), Color(TRACK, 0.10))
 	# ---- THE CELL, four pips along the bottom
 	var have := roundi(float(st.cell) * 4.0)
 	for i in 4:

@@ -2605,6 +2605,42 @@ are kept, since the old values are all still on the lists.
 godot/tests/debug_shot.gd takes pictures of the menu, the last failure
 and the grid at 80 rows.
 
+THE LANCE'S CHARGE CRASH, THIRD LOOK — FROM THE HANDHELD'S OWN LOGS (at
+the user's request, with the logs pulled off the RG557: Android 14,
+Mali-G615)
+
+What the logs say:
+  - THE STORAGE WAS ALWAYS GIVEN. Every run reads "storage: granted
+    [MANAGE_EXTERNAL_STORAGE]" before any ask, so the phone had nothing
+    to ask about, and the logs were in Download/mewd all along.
+  - THE CRASH: mewd-1.log's last line is "[lance: charging]", 191 s
+    in, with nothing after it. No script error and no engine error came
+    first; the process was killed outright inside the first three
+    seconds of the charge, before "charge stage 1".
+  - (The "Index p_button = -143" errors at the start are Godot's own
+    Android pad code meeting a key it has no number for. They are
+    harmless and not this game's.)
+
+What starts in those three seconds and nowhere else: the scope's gauge
+panel, a 2D SubViewport, began to be rendered again a few times a
+second, once for every step of the charge ring. Everything else the
+charge touches is a uniform or a sound pitch, and the sound pitch is
+done the same way by guns that do not crash. So the two rings, the
+charge and the window, are drawn by the screen's own shader now
+(scope_screen.gdshader `gauge`, `charge_ink`, `hold_ink`, `track`,
+`marks`), worked out per pixel from the live numbers, and the panel is
+redrawn only when the stage digit, the cell, the zoom or a blink
+changes. That means three times in a whole charge, at the stages, not
+forty. They look as they did: the stage marks are gaps and the glare
+rides the head of the sweep.
+
+The black box marks every second of a charge now ("lance: charging
+1 s", "2 s"), so if it still dies, the log says when.
+
+(lance_shot.gd holds the game still while it waits for its picture: at
+full charge the window ran out and the coil vented in the frames
+between the numbers and the picture, which showed an empty ring.)
+
 TESTS
 
     tools/godot-test.sh

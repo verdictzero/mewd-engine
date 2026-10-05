@@ -128,6 +128,15 @@ func _frame() -> void:
 		print("lance_shot: %s — charge %d stage %d, beam live %s stage %d, killed %d, sears %d slags %d, scope renders %d draws %d, aim %.2f" % [
 			mode, p.charge, p.charge_stage(), game.beam.live, game.beam.stage, game.beam.killed,
 			game.decals.sears, game.decals.slags, game.scope.renders, game.scope.draws, w3d.aim])
+		var sm: ShaderMaterial = game.scope.screen
+		if sm != null:
+			print("lance_shot: screen gauge %s ink %s" % [sm.get_shader_parameter("gauge"), sm.get_shader_parameter("charge_ink")])
+		# (a few frames for what was set this one to be drawn, the game
+		# held still meanwhile: at full charge the window runs out and the
+		# coil vents within a tic or two of here)
+		game.paused = true
+		for i in 3:
+			await process_frame
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(out)
 		quit()

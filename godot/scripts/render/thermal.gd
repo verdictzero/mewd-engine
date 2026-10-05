@@ -81,6 +81,8 @@ func _init(g = null, is_green := false) -> void:
 	super({"size": ROWS, "aspect": ASPECT, "zooms": THERMAL_ZOOMS,
 		"view_zooms": THERMAL_VIEW_ZOOM, "aim_at": THERMAL_AIM_AT})
 	name = "GreenThermalScope" if is_green else "ThermalScope"
+	# (its panel draws its own gauges; the lance's rings are not on it)
+	rings = false
 	green = is_green
 	# the cannon's sight is raised to the eye whole at every step
 	if green:

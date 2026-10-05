@@ -493,6 +493,9 @@ func lance_tic(attack: bool) -> void:
 			BlackBox.mark("lance: charge stage %d" % charge_stage())
 		if charge == 1:
 			BlackBox.mark("lance: charging")
+		elif charge % Weapons.TICRATE == 0 and charge < CHARGE_MAX:
+			# (and each second of it, so a log that stops says when)
+			BlackBox.mark("lance: charging %d s" % (charge / Weapons.TICRATE))
 		# AND AT THE TOP THERE IS A WINDOW, and at the end of it the coil
 		# vents and you start the seven seconds again
 		if charge >= CHARGE_MAX:
