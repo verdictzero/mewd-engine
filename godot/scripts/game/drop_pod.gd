@@ -101,6 +101,9 @@ class_name DropPod
 extends Node3D
 
 const MODEL := "res://assets/models/drop_pod.glb"
+## how the capsule's paint is drawn: metal kept to this, roughness at least
+## this, the colour lifted by this, its own picture glowing at this
+const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.1, "glow": 0.22}
 ## the model drawn at this share of the size it was made
 const POD_SCALE := 0.5
 ## THE RCS, OFF FOR NOW (at the user's request: "remove the RCS thrusters
@@ -264,13 +267,29 @@ func _ready() -> void:
 	# THE PAINT AT A QUARTER ITS SIZE, Bayer-dithered to 32 x 32 x 23 levels
 	# (the textures themselves, assets/models/drop_pod_*.png, at the user's
 	# request): drawn nearest, so the dither reads as a dither
+	var done := {}
 	for mi: MeshInstance3D in [hull, door]:
 		if mi == null or mi.mesh == null:
 			continue
 		for k in mi.mesh.get_surface_count():
 			var m := mi.mesh.surface_get_material(k)
-			if m is BaseMaterial3D:
-				(m as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+			if m is BaseMaterial3D and not done.has(m):
+				done[m] = true
+				var bm := m as BaseMaterial3D
+				bm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+				# BRIGHTER (at the user's request: "brighten up descent pod"):
+				# the paint's metal took nothing from a sky with no
+				# reflections and went black — mostly paint now, rougher,
+				# lifted a little, and its own picture glowing faintly
+				# through so its shadowed side still reads
+				bm.metallic = minf(bm.metallic, POD_LOOK.metallic)
+				bm.roughness = maxf(bm.roughness, POD_LOOK.roughness)
+				bm.albedo_color = bm.albedo_color * POD_LOOK.lift
+				if bm.albedo_texture != null:
+					bm.emission_enabled = true
+					bm.emission = Color.WHITE
+					bm.emission_texture = bm.albedo_texture
+					bm.emission_energy_multiplier = POD_LOOK.glow
 	fired.resize(nozzles.size())
 	fired.fill(0.0)
 	_make_flames()

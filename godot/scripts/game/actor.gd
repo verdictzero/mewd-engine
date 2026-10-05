@@ -435,6 +435,7 @@ func damage(amount: float, source, opts := {}) -> void:
 func die(source, _overkill := 0.0, opts := {}) -> void:
 	if dead:
 		return
+	_death_rouses()
 	if frozen:
 		shatter(source)
 		return
@@ -943,6 +944,20 @@ func A_Amble() -> void:
 
 ## her herd's grown ones within this of her turn with her
 const ROUSE_R := 1400.0
+## A UNICORN'S DEATH ROUSES THE REST (at the user's request: "make unicorn
+## death proximity trigger other unicorns"): a unicorn or a foal killed —
+## by anything, the player's to answer for it — and every grown unicorn
+## within this of her turns on the player
+const DEATH_ROUSE_R := 2400.0
+
+func _death_rouses() -> void:
+	var p = game.player
+	if p == null or p.dead or not (info.get("fights", false) or type == "FOAL"):
+		return
+	for o in game.blockmap.near_radius(x, y, DEATH_ROUSE_R):
+		if o == self or o.dead or o.removed or not o.info.get("fights", false):
+			continue
+		o._furious(p)
 
 func rouse(p) -> void:
 	for o in game.blockmap.near_radius(x, y, ROUSE_R):

@@ -48,7 +48,7 @@ const LIST := [
 	{"key": "candyland", "title": "CANDY LAND", "scene": "res://godot/island/scenes/candy_land.tscn", "people": 600,
 		"crowd": ["CANDYGIRL"], "air": Color(0.62, 0.8, 1.0), "lamps": 40.0,
 		"exposure": 0.8, "knee": 0.65, "road_verge": 3.0, "town_verge": 5.0,
-		"herds": {"count": 20, "adults": [3, 6], "foals": [1, 3], "near": 2, "by_towns": true},
+		"herds": {"count": 36, "adults": [4, 8], "foals": [1, 3], "near": 3, "by_towns": true},
 		# the gingerbread houses round the squares (IslandLevel.place_houses):
 		# the model's footprint in metres (half its width, its back and its
 		# front from its middle, how high a round has to go to clear it)

@@ -173,5 +173,23 @@ func _init() -> void:
 	u.damage(100000.0, p, {})
 	game.tic()
 	check(not rb.firing(u), "killed, her beam is gone")
+	# ---- A DEATH ROUSES THE REST: another herd, calm, one of them killed
+	# outright by nobody in particular — and every grown one near her turns
+	var v = null
+	for a in game.actors:
+		if a.type == "UNICORN" and not a.dead and Vector2(a.x - u.x, a.y - u.y).length() > Actor.DEATH_ROUSE_R * 1.5:
+			v = a
+			break
+	check(v != null, "another herd, calm")
+	if v != null:
+		var near := []
+		for a in game.actors:
+			if a != v and a.type == "UNICORN" and not a.dead and Vector2(a.x - v.x, a.y - v.y).length() < Actor.DEATH_ROUSE_R:
+				a.fury = 0
+				near.append(a)
+		v.fury = 0
+		v.damage(1.0e7, null, {})
+		var turned := near.filter(func(o): return o.fury > 0 and o.target == p).size()
+		check(v.dead and not near.is_empty() and turned == near.size(), "a unicorn killed outright: every grown one near her turns on you (%d of %d)" % [turned, near.size()])
 	print("unicorn: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)

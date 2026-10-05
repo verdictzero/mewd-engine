@@ -2899,6 +2899,29 @@ CANDY LAND'S OWN MUSIC
   again. Test: music_test.gd (it plays, loops, alone, and the list takes
   over from it; NOT PENNSYLVANIA's track comes round under itself).
 
+MORE UNICORNS, A DEATH ROUSES THE REST, A BRIGHTER POD
+
+  At the user's request: "more unicorns, make unicorn death proximity
+  trigger other unicorns, brighten up descent pod".
+
+  MORE UNICORNS: CANDY LAND's herds (Islands "herds") 36 of them, not 20,
+  four to eight grown ones a herd, not three to six, and three in sight of
+  your start, not two — near three hundred grown unicorns in all.
+
+  A DEATH ROUSES THE REST (Actor._death_rouses, from Actor.die): a
+  unicorn or a foal killed — by anything, a gun, a fire, the pod — and
+  every grown unicorn within DEATH_ROUSE_R (2400 units, 75 m) of her is in
+  a fury at the player, as if the player had hurt her (a wounded one
+  already roused her own herd, ROUSE_R; a killed one did not, until now).
+  Test: unicorn_test.gd (a calm herd, one killed outright by nobody, and
+  every grown one near her turns).
+
+  A BRIGHTER POD (DropPod.POD_LOOK): the capsule's paint was metal under a
+  sky with no reflections, and drew near black. Its materials now keep
+  metal to 0.3 and roughness at least 0.6, the colour lifted by 1.1, and
+  its own picture glowing at 0.22 through it, so its panels and door read
+  on the shadowed side.
+
 TESTS
 
     tools/godot-test.sh
