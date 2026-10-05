@@ -441,6 +441,12 @@ class Hole extends RefCounted:
 @export var hub_lattice := 12
 ## Radius in metres. 1250 gives a ~2.5 km landmass.
 @export var hub_radius := 1250.0
+## A SQUARE ISLAND (at the user's request, DEBUG LAND: "a 512 x 512 flat
+## square"): every island's land measured by the larger of its two
+## distances from the centre along x and z, not the straight-line one — so
+## `radius` is its half-side and the coast a square. Its footprint reaches
+## the corners, `SQUARE_K` times the radius out.
+@export var square_land := false
 ## Altitude of the ANCHOR hub. Other hubs are spread around it by
 ## `hub_base_spread` so the world does not read as one flat plane of courses.
 @export var hub_base_y := 0.0
@@ -2341,7 +2347,19 @@ func max_radius() -> float:
 ## The largest land radius anything in the world can have — satellites are capped
 ## by the lattice, but the hub is placed by hand and is not.
 func world_max_radius() -> float:
-	return maxf(max_radius(), hub_radius if hub_enabled else 0.0)
+	return maxf(max_radius(), hub_radius if hub_enabled else 0.0) * _shape_k()
+
+const SQUARE_K := 1.4143
+## how far out a square island's corners are, against a round one's rim
+func _shape_k() -> float:
+	return SQUARE_K if square_land else 1.0
+
+## the distance that measures land: straight-line, or for a square island
+## the larger of the two along the axes
+func _land_dist(c: Vector2, p: Vector2) -> float:
+	if square_land:
+		return maxf(absf(p.x - c.x), absf(p.y - c.y))
+	return c.distance_to(p)
 
 
 ## The lattice cell the ANCHOR hub lives in. Every hub cell is this one offset by
@@ -2469,7 +2487,7 @@ func island_in_cell(cell: Vector2i) -> Island:
 
 ## Half-width of an island's footprint, coastline wobble included.
 func island_extent(isl: Island) -> float:
-	return isl.radius * (1.0 + coast_irregularity + COAST_EPSILON)
+	return isl.radius * (1.0 + coast_irregularity + COAST_EPSILON) * _shape_k()
 
 
 ## Could an XZ rect hold any of this island's land? Conservative — it may say
@@ -2562,7 +2580,7 @@ func mask_at(x: float, z: float, islands: Array, out_owner: Array = []) -> float
 	var p := Vector2(x, z)
 	for isl in islands:
 		var i: Island = isl
-		var v := 1.0 - i.center.distance_to(p) / i.radius
+		var v := 1.0 - _land_dist(i.center, p) / i.radius
 		if v > best:
 			best = v
 			owner = i
@@ -2687,7 +2705,7 @@ func cliff_wobble(x: float, z: float) -> float:
 
 
 func mask_for(isl: Island, x: float, z: float) -> float:
-	return (1.0 - isl.center.distance_to(Vector2(x, z)) / isl.radius
+	return (1.0 - _land_dist(isl.center, Vector2(x, z)) / isl.radius
 			+ _coast_wobble(isl, x, z) * coast_irregularity)
 
 

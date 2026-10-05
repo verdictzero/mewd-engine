@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dmkof7u36kxvh"
-path="res://.godot/imported/drop_pod_blndrcyc_dropPodFromPaint_diffuse.png-f16a0ce9e2effb6e614b025742235457.ctex"
+uid="uid://bwhy325oq1e26"
+path="res://.godot/imported/arcmaw_2.png-bb84e8c6dae2d9e8d070535f5fae7328.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "607e0a20fc4ef7045b40bf15018f884e"
+"md5": "c1ea1e01a30dc0134268872cb777e834"
 }
 
 [deps]
 
-source_file="res://assets/models/drop_pod_blndrcyc_dropPodFromPaint_diffuse.png"
-dest_files=["res://.godot/imported/drop_pod_blndrcyc_dropPodFromPaint_diffuse.png-f16a0ce9e2effb6e614b025742235457.ctex"]
+source_file="res://assets/models/arcmaw_2.png"
+dest_files=["res://.godot/imported/arcmaw_2.png-bb84e8c6dae2d9e8d070535f5fae7328.ctex"]
 
 [params]
 

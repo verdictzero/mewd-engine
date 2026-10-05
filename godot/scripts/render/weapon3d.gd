@@ -57,7 +57,13 @@ const GUNS := {
 	# between the prongs at `nozzle` (the model's own units), growing with
 	# the charge, a halo round it, and motes streaming in from all round —
 	# radius and reach in metres
-	"ARC": {"url": "arcgun.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9],
+	# (the user's own file again, at the user's request: "Unknown Device"
+	# by Vaportrash, CC-BY-4.0 — assets/models/arcmaw_license.txt — as it
+	# came, its 2048 maps and its own shading: `native`, lit by its own
+	# lights in the gun's world; only shifted so the prongs' axis is x = y
+	# = 0, as the game's old copy of it was)
+	"ARC": {"url": "arcmaw.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9],
+		"native": true,
 		"nozzle": [0.0, 0.0, 5.42], "orb": {"radius": 0.11, "reach": 0.26, "motes": 64}},
 }
 
@@ -108,6 +114,8 @@ func _load(name: String) -> Dictionary:
 	var mats := []
 	var spinner: Node3D = null
 	_dress(root, def, mats, scopes.get(name))
+	if def.get("native", false):
+		_light_native(group)
 	if def.has("spin"):
 		spinner = _find_spinner(root)
 	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner, "tip": _tip(group, spinner)}
@@ -128,6 +136,45 @@ func _load(name: String) -> Dictionary:
 			out["aim"] = {"pos": [pabs.x - VIEW.pos[0], pabs.y - VIEW.pos[1], pabs.z - VIEW.pos[2]],
 				"rot": [rabs.x - VIEW.pitch, rabs.y - VIEW.yaw, rabs.z - VIEW.roll], "out": 1.0}
 	return out
+
+## THE LIGHT A `native` GUN IS SEEN BY (no world light reaches the gun's
+## own world): a warm key over the right shoulder, a cool fill from low
+## left, shown and hidden with the gun; and once, for the gun's world, a
+## soft sky for its ambient and its metal to reflect (the other guns are
+## unshaded and do not see it)
+func _light_native(group: Node3D) -> void:
+	var key := DirectionalLight3D.new()
+	key.rotation = Vector3(deg_to_rad(-38.0), deg_to_rad(-30.0), 0.0)
+	key.light_color = Color(1.0, 0.95, 0.86)
+	key.light_energy = 3.2
+	group.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation = Vector3(deg_to_rad(25.0), deg_to_rad(150.0), 0.0)
+	fill.light_color = Color(0.62, 0.74, 1.0)
+	fill.light_energy = 1.2
+	group.add_child(fill)
+	# and a rim from behind, so the dark metal has an edge against the room
+	var rim := DirectionalLight3D.new()
+	rim.rotation = Vector3(deg_to_rad(-10.0), deg_to_rad(200.0), 0.0)
+	rim.light_color = Color(0.85, 0.92, 1.0)
+	rim.light_energy = 1.6
+	group.add_child(rim)
+	var w := get_viewport().world_3d if is_inside_tree() else null
+	if w != null and w.environment == null:
+		var env := Environment.new()
+		env.background_mode = Environment.BG_CLEAR_COLOR
+		var sky := Sky.new()
+		var sm := ProceduralSkyMaterial.new()
+		sm.sky_top_color = Color(0.55, 0.62, 0.72)
+		sm.sky_horizon_color = Color(0.75, 0.72, 0.66)
+		sm.ground_bottom_color = Color(0.18, 0.15, 0.12)
+		sm.ground_horizon_color = Color(0.5, 0.45, 0.4)
+		sky.sky_material = sm
+		env.sky = sky
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+		env.ambient_light_energy = 1.4
+		env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+		w.environment = env
 
 ## THE MUZZLE, in the group's space: the far end of the barrels (the
 ## spinning set, where a gun has one) or of the whole gun, at the middle
@@ -191,7 +238,11 @@ func _display_centre(group: Node3D, mat: String):
 ## flat because in the original they are a screen never switched on and a
 ## lens never lit
 func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
-	if n is MeshInstance3D:
+	if n is MeshInstance3D and def.get("native", false):
+		# A GUN IN ITS OWN SHADING (`native`): the file's materials as they
+		# are — colour, normal map, metal and roughness — lit (_light_native)
+		(n as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	elif n is MeshInstance3D:
 		var mi: MeshInstance3D = n
 		for i in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(i)

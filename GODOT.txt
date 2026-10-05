@@ -3043,6 +3043,42 @@ has her and her beam with her, a unicorn's kill, a herd death seen, the
 respawn in a pod, a kill through the rewind), and a headless host with
 two headless clients dropping in and fragging each other.
 
+
+THE POD AND THE ARC MAW PUT IN AGAIN, AND DEBUG LAND
+----------------------------------------------------
+At the user's request ("reupload the drop pod and arc maw, resetting
+their lighting and shading and texture size to where they are in these
+attached models ... retain all shading on the drop pod, but restore the
+textures to where they were", then "make an island called Debug Land, a
+512 x 512 flat square, in the biome and rendering style of Not
+Pennsylvania"):
+
+  * THE DROP POD is dropPodV2.glb as it came: its textures at their own
+    size again (the paint 2048, the greebles and raceways 1024 — no longer
+    shrunk and Bayer-dithered, so drawn smooth, not nearest), the shading
+    the game gives the pod kept (DropPod.POD_LOOK: the paint's metal kept
+    down so it does not go black under a sky with no reflections, rougher,
+    a little lifted, glowing faintly through), and the hull's heat as it
+    was. tools/pod-textures.py is no longer run on it.
+  * THE ARC MAW is the user's "Unknown Device" (by Vaportrash, from
+    Sketchfab, CC-BY-4.0: assets/models/arcmaw_license.txt) as it came —
+    all 91,552 triangles, its 2048 colour, normal and metal/roughness maps
+    — packed into one GLB (assets/models/arcmaw.glb) and shifted (a node
+    over it) so the prongs' axis is x = y = 0, where the old copy had it,
+    so the charge's ball still hangs in the maw. It wears its OWN shading
+    (Weapon3D `native`), not the game's unlit gun shader: a warm key, a
+    cool fill and a rim light carried with it, and a soft sky in the gun's
+    world for its ambient and its metal (the other guns are unshaded and
+    do not see it). The old game copy (arcgun.glb and its baked 1024 JPEG)
+    is gone.
+  * DEBUG LAND (Islands "debugland"): NOT PENNSYLVANIA's scene — its sky,
+    its cloud sea, its ground, its forest and plants, its cliff — on a
+    field squared and flattened (ISLANDFIELD_debugland.tres): 512 m a
+    side, straight-sided, dead level, 60 people. The island field learned
+    SQUARE LAND for it (IslandField.square_land: land measured by the
+    larger of the two distances along the axes, the radius the
+    half-side, the footprint out to the corners). Its bake is a megabyte.
+
 TESTS
 
     tools/godot-test.sh

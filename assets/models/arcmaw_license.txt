@@ -1,0 +1,11 @@
+Model Information:
+* title:	Unknown Device
+* source:	https://sketchfab.com/3d-models/unknown-device-39e711962d4645389247b5b1db80dcd8
+* author:	Vaportrash (https://sketchfab.com/vaportrash)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Unknown Device" (https://sketchfab.com/3d-models/unknown-device-39e711962d4645389247b5b1db80dcd8) by Vaportrash (https://sketchfab.com/vaportrash) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

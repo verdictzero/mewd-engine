@@ -101,14 +101,12 @@ class_name DropPod
 extends Node3D
 
 const MODEL := "res://assets/models/drop_pod.glb"
-## how the capsule's paint is drawn: metal kept to this, roughness at least
-## this, the colour lifted by this, its own picture glowing at this
+## THE POD'S SHADING, kept (at the user's request: dropPodV2 put in with its
+## textures at their own size, "retain all shading on the drop pod"): the
+## paint's metal kept to this — it took nothing from a sky with no
+## reflections and went black — roughness at least this, the colour lifted
+## by this, its own picture glowing at this
 const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.1, "glow": 0.22}
-## THE PAINTED EXTERIOR (the hull's first surface, the UV-mapped paint the
-## door shares): its lift and glow times this. It was 2 for a while, at
-## the user's request; back to 1 at the user's request ("make pod mat less
-## bright, back to where it was").
-const PAINT_BOOST := 1.0
 ## THE HEAT THE HULL SOAKS UP AND GIVES OFF AGAIN, at the user's request
 ## ("a dissipating heat effect like the minigun barrel"): `soak` rises
 ## with the reentry fire and the retros' burn and then bleeds away — each
@@ -282,11 +280,10 @@ func _ready() -> void:
 	for b in model.find_children("*", "StaticBody3D", true, false):
 		b.queue_free()
 	door_home = door.transform
-	# THE PAINT AT A QUARTER ITS SIZE, Bayer-dithered to 32 x 32 x 23 levels
-	# (the textures themselves, assets/models/drop_pod_*.png, at the user's
-	# request): drawn nearest, so the dither reads as a dither
+	# THE TEXTURES AT THEIR OWN SIZE (dropPodV2's: 2048 for the paint), drawn
+	# smooth — not shrunk and dithered any more — under the pod's shading
+	# (POD_LOOK)
 	var done := {}
-	var paint: Material = hull.mesh.surface_get_material(0) if hull != null and hull.mesh != null else null
 	for mi: MeshInstance3D in [hull, door]:
 		if mi == null or mi.mesh == null:
 			continue
@@ -295,21 +292,14 @@ func _ready() -> void:
 			if m is BaseMaterial3D and not done.has(m):
 				done[m] = true
 				var bm := m as BaseMaterial3D
-				bm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-				# BRIGHTER (at the user's request: "brighten up descent pod"):
-				# the paint's metal took nothing from a sky with no
-				# reflections and went black — mostly paint now, rougher,
-				# lifted a little, and its own picture glowing faintly
-				# through so its shadowed side still reads
 				bm.metallic = minf(bm.metallic, POD_LOOK.metallic)
 				bm.roughness = maxf(bm.roughness, POD_LOOK.roughness)
-				var boost := PAINT_BOOST if m == paint else 1.0
-				bm.albedo_color = bm.albedo_color * POD_LOOK.lift * boost
+				bm.albedo_color = bm.albedo_color * POD_LOOK.lift
 				if bm.albedo_texture != null:
 					bm.emission_enabled = true
 					bm.emission = Color.WHITE
 					bm.emission_texture = bm.albedo_texture
-					bm.emission_energy_multiplier = POD_LOOK.glow * boost
+					bm.emission_energy_multiplier = POD_LOOK.glow
 	fired.resize(nozzles.size())
 	fired.fill(0.0)
 	_make_flames()

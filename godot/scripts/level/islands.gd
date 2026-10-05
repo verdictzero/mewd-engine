@@ -59,7 +59,13 @@ const LIST := [
 		# (Music.start_list, at the user's request)
 		"music": ["res://assets/music/golf_course_muzak.mp3", "res://assets/music/sunny_resort_groove.mp3",
 			"res://assets/music/sunny_fairway.mp3"],
-		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"}
+		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
+	# DEBUG LAND, at the user's request: "a 512 x 512 flat square, in the
+	# biome and rendering style of Not Pennsylvania" — NOT PENNSYLVANIA's
+	# scene and ground, squared and flattened (ISLANDFIELD_debugland.tres)
+	{"key": "debugland", "title": "DEBUG LAND", "scene": "res://godot/island/scenes/debug_land.tscn", "people": 60,
+		"music": ["res://assets/music/waiting_for_something.mp3"],
+		"blurb": "a flat square of NOT PENNSYLVANIA, 512 metres a side, for trying things out"}
 ]
 
 ## The island called `key`, or the first.

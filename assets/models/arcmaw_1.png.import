@@ -2,25 +2,27 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ffy8xdjm3tae"
-path="res://.godot/imported/arcgun_arcgun_1024.jpg-fb2e4b193b028c770e3572b2b65bccd6.ctex"
+uid="uid://du7wj3hayaxvq"
+path="res://.godot/imported/arcmaw_1.png-b2d00bdc634b79aa7de00ef180d920f3.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "4a849b41b4887b56106d884af1f18070"
+"md5": "7955fd5f7a0368edf49b6c1533e44c80"
 }
 
 [deps]
 
-source_file="res://assets/models/arcgun_arcgun_1024.jpg"
-dest_files=["res://.godot/imported/arcgun_arcgun_1024.jpg-fb2e4b193b028c770e3572b2b65bccd6.ctex"]
+source_file="res://assets/models/arcmaw_1.png"
+dest_files=["res://.godot/imported/arcmaw_1.png-b2d00bdc634b79aa7de00ef180d920f3.ctex"]
 
 [params]
 
 compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -28,6 +30,10 @@ mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
 process/fix_alpha_border=true
 process/premult_alpha=false
 process/normal_map_invert_y=false
