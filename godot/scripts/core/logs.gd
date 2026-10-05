@@ -14,8 +14,9 @@
 ##                                       black_box.txt
 ##
 ## readable over USB, with a file manager, or from `adb pull`. THE
-## PERMISSION: on Android the app asks for storage at start
-## (OS.request_permissions: the export preset declares READ and WRITE
+## PERMISSION: on Android the app asks for storage a second after the
+## title is up, and again whenever the LOGS line on the title is tapped
+## (OS.request_permission: the export preset declares READ and WRITE
 ## EXTERNAL STORAGE and, for Android 11 and up where those are nothing,
 ## MANAGE EXTERNAL STORAGE, which is the "all files access" page). Until
 ## it is granted the log goes to the app's own folder, and the moment
@@ -50,10 +51,50 @@ static func setup(tree: SceneTree) -> void:
 	if OS.get_name() == "Android":
 		if tree != null and not tree.on_request_permissions_result.is_connected(_on_permission):
 			tree.on_request_permissions_result.connect(_on_permission)
-		# (true: everything already granted, and no answer will come)
-		_asked = true
-		OS.request_permissions()
 	_open()
+	# THE ASK, once the title is up: asked inside the first frame the
+	# phone showed nothing (the activity was not in front yet). Asked
+	# again whenever the note on the title is tapped (Main).
+	if OS.get_name() == "Android" and tree != null and not _asked:
+		_asked = true
+		tree.create_timer(1.0).timeout.connect(ask)
+
+const ALL_FILES := "android.permission.MANAGE_EXTERNAL_STORAGE"
+const WRITE := "android.permission.WRITE_EXTERNAL_STORAGE"
+
+## The storage is ours (always, off Android).
+static func granted() -> bool:
+	if OS.get_name() != "Android":
+		return true
+	var g := OS.get_granted_permissions()
+	return g.has(ALL_FILES) or g.has(WRITE)
+
+## Ask for the storage: on Android 11 and up this opens the "all files
+## access" page for the app (switch it on, come back); below that, the
+## usual allow/deny box. Already given: just move the log out.
+static func ask() -> void:
+	if OS.get_name() != "Android":
+		return
+	line("storage: granted %s" % [OS.get_granted_permissions()])
+	if granted():
+		if not external:
+			_open()
+		return
+	var r := OS.request_permission(ALL_FILES)
+	line("storage: asked for all files access (%s)" % r)
+	if not r and not OS.request_permissions():
+		line("storage: asked for the manifest's permissions")
+
+## Back in front (from the settings page, most likely): if the storage
+## was given there, the log moves out now. (That page answers nothing.)
+static func resumed() -> void:
+	if OS.get_name() != "Android" or _mirror == null:
+		return
+	if granted() and not external:
+		line("storage: granted on the settings page")
+		_open()
+	if changed.is_valid() and is_instance_valid(changed.get_object()):
+		changed.call()
 
 ## The phone's answer, one permission at a time: once anything storage
 ## is granted, try the shared folder again.
@@ -184,9 +225,9 @@ static func keep(name: String, text: String) -> void:
 ## What the title says about it.
 static func where() -> String:
 	if dir == "":
-		return "LOGS: NOWHERE (no folder could be written)"
-	if OS.get_name() == "Android" and not external:
-		return "LOGS: %s (STORAGE PERMISSION NOT GIVEN: in the app's own folder)" % dir
+		return "LOGS: NOWHERE — TAP HERE TO ALLOW STORAGE ACCESS" if not granted() else "LOGS: NOWHERE (no folder could be written)"
+	if not granted():
+		return "LOGS: %s — TAP HERE TO ALLOW STORAGE ACCESS" % dir
 	return "LOGS: " + dir
 
 ## THE MIRROR: everything the engine prints, as it prints it.

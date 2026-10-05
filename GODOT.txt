@@ -2539,6 +2539,25 @@ REAL LOGS OFF THE HANDHELD: THE STORAGE PERMISSION AND THE MIRROR
   blink is decided before the surface is begun.
 
 
+THE STORAGE ASK, SECOND LOOK (at the user's request: "didnt ask for
+storage permission")
+
+The APK did declare all three storage permissions (checked with aapt2)
+and Godot's Java side does open the "all files access" settings page for
+MANAGE_EXTERNAL_STORAGE. The ask was made inside the very first frame,
+before the activity was in front, and the phone showed nothing. Now:
+
+  - Logs asks a second after the title is up, with
+    OS.request_permission for MANAGE_EXTERNAL_STORAGE (the settings page
+    on Android 11 and up, the allow/deny box below that).
+  - The LOGS line on the title is a button. Until the storage is given
+    it is big, yellow and reads "TAP HERE TO ALLOW STORAGE ACCESS";
+    tapping it asks again.
+  - Coming back from the settings page (APPLICATION_RESUMED) the grant
+    is checked and the log moves out to Download/mewd with everything
+    written so far. That page sends no answer, so this is how it is seen.
+  - Every ask and its answer is a line in the log ("storage: ...").
+
 TESTS
 
     tools/godot-test.sh

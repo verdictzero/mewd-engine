@@ -113,9 +113,13 @@ func _crash_note(t: String) -> Control:
 
 ## WHERE THE LOGS ARE (Logs), small, at the foot of the title on the
 ## right — and whether the phone gave the storage permission
-class _LogsNote extends Label:
+## (a button: tapped, it asks for the storage again — Logs.ask)
+class _LogsNote extends Button:
 	func refresh() -> void:
 		text = Logs.where()
+		modulate.a = 0.8 if Logs.granted() else 1.0
+	func _pressed() -> void:
+		Logs.ask()
 
 func _logs_note() -> Control:
 	var l := _LogsNote.new()
@@ -124,12 +128,19 @@ func _logs_note() -> Control:
 	l.add_theme_color_override("font_color", Color(0.75, 0.8, 0.78, 0.8))
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 3)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.add_theme_color_override("font_hover_color", Color(1, 1, 0.8))
+	l.add_theme_color_override("font_pressed_color", Color(1, 1, 0.6))
+	l.flat = true
+	l.focus_mode = Control.FOCUS_NONE
+	l.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	l.position = Vector2(-8, -8)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not Logs.granted():
+		# (big enough to hit with a thumb, and loud)
+		l.add_theme_font_size_override("font_size", 16)
+		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	# (the permission's answer comes after the title is up; a method on
 	# the note, never a lambda of this scene, which the note outlives)
 	Logs.changed = l.refresh
@@ -528,6 +539,8 @@ func _notification(what: int) -> void:
 		BlackBox.mark("app in background")
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
 		BlackBox.mark("app back")
+		# (back from the storage page, perhaps: Logs)
+		Logs.resumed()
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if pad_wizard != null and is_instance_valid(pad_wizard):
 			return
