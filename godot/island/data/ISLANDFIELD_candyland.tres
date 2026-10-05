@@ -23,6 +23,13 @@
 ;     higher, with a cross of streets through its
 ;     middle that every road leaves from (IslandField.square_pads); the
 ;     houses four to a quadrant (IslandLevel.place_houses)
+;   * square_bank 160 m, path_bank 40 m   THE LAND EASED DOWN TO THE TOWNS
+;     AND THE ROADS (at the user's request: "smooth out terrain around
+;     towns and roads EVEN MORE like a lot more, no jaggedness"): the hills
+;     come down to a town over 160 m and to a road over 40 m either side
+;     (Zone.bank), the verges, plants and splat keeping their aprons; where
+;     banks overlap their shelves blend (IslandField.zone_at), and a town's
+;     bank rounds its corners
 ;   * green_undulation 0, green_micro 0   the golf green's swell and grain
 ;     left off every groomed shelf: the towns and the roads dead level
 ;   * path_enabled = true   golf's graded tracks joining the squares (a
@@ -90,6 +97,7 @@ build_pad_radius_max = 36.0
 build_pad_radius_ratio = 0.45
 square_pads = true
 square_apron = 60.0
+square_bank = 160.0
 build_area_fraction = 0.1
 zone_irregularity = 0.0
 zone_noise_scale = 70.0
@@ -115,6 +123,7 @@ zone_place_attempts = 40
 path_enabled = true
 path_width = 4.5
 path_apron = 8.0
+path_bank = 40.0
 path_waypoint_tries = 4
 path_waypoint_spread = 0.32
 path_grade_samples = 5

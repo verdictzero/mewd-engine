@@ -157,7 +157,7 @@ func _run() -> void:
 	check(not squashed_early, "nobody squashed before the touchdown")
 	check(wash_seen > 60, "the jet wash blowing out over the ground (%d billows up at once, %d in all)" % [wash_seen, d.wash_puffs])
 	check(not waiting.is_empty() and lit == waiting.size(), "the landing set everybody round it alight (%d of %d, %d in all)" % [lit, waiting.size(), d.burned])
-	check(squash_me != null and (squash_me.dead or squash_me.removed) and d.squashed >= 1, "and squashed the one under it (%d squashed)" % d.squashed)
+	check(squash_me != null and (squash_me.dead or squash_me.removed) and d.squashed + d.gored >= 1, "and squashed the one under it, or blew her apart with the first ring (%d squashed, %d gored)" % [d.squashed, d.gored])
 	check(d.vents.size() >= 20, "and the burn sites smoulder (%d vents)" % d.vents.size())
 	check(absf(d.fuel - DropPod.DROP.rcs_fuel) < 1e-3, "hands off, the stick's tank is full (%.1f)" % d.fuel)
 	print("  (the exhaust and the landing hurt %d plants on the way down)" % d.plants_hit)
@@ -165,6 +165,24 @@ func _run() -> void:
 	if vd != null and vd.veg != null:
 		var under: Array = vd.near(d.pos.x, d.pos.z, DropPod.HULL_R)
 		check(under.is_empty(), "nothing left growing through the hull (%d)" % under.size())
+	# THE LANDING PARTY'S FOUR RINGS (DropPod.RINGS): the nearest blown
+	# to gore, the next alight, half as many again running, and half as
+	# many again past them not frightened at all
+	var P: Dictionary = d.party
+	var inner: int = P[1].size() + P[2].size()
+	check(P[1].size() >= 4 and P[2].size() >= 6, "a landing party waiting round the spot (%d close, %d further)" % [P[1].size(), P[2].size()])
+	check(d.added[3] >= ceili(inner * 0.5) and d.added[4] == d.added[3],
+		"and half as many again put in a third ring (%d, %d there in all) and a fourth (%d, %d)" % [d.added[3], P[3].size(), d.added[4], P[4].size()])
+	var gone: int = P[1].filter(func(o): return o.removed or o.dead).size()
+	check(gone == P[1].size() and d.gored > 0, "the first ring blown to gore (%d of %d, %d gored)" % [gone, P[1].size(), d.gored])
+	var afire: int = P[2].filter(func(o): return o.dead or o.removed or o.burning > 0).size()
+	check(afire == P[2].size(), "the second set alight (%d of %d)" % [afire, P[2].size()])
+	for k in 20:
+		game.tic()
+	var running: int = P[3].filter(func(o): return not o.removed and not o.dead and o.panic > 0 and o.burning <= 0).size()
+	check(running >= P[3].size() * 0.85, "the third running from it, unhurt (%d of %d, %d sent)" % [running, P[3].size(), d.fled])
+	var calm: int = P[4].filter(func(o): return not o.removed and not o.dead and o.panic <= 0 and o.burning <= 0).size()
+	check(calm == P[4].size(), "the fourth not frightened at all (%d of %d calm)" % [calm, P[4].size()])
 	# THE DECK: the inside floor a floor, the ground outside the door lower
 	var gx: float = d.pos.x * um
 	var gy: float = -d.pos.z * um
@@ -225,6 +243,11 @@ func _run() -> void:
 	# at its middle every tic: stuck in the pod; then they could not get
 	# out of the door: now they are set down outside it)
 	p.angle = d.door_angle()
+	# (the calm fourth ring comes over to say hello once you are out, and
+	# stands in the way: out of it for this)
+	for o in game.actors:
+		if not o.removed and o != p and Vector2(o.x - p.x, o.y - p.y).length() < 12.0 * um:
+			o.remove()
 	Input.action_press("fwd")
 	for k in 50:
 		game.tic()

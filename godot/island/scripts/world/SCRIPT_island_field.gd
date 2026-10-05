@@ -301,6 +301,13 @@ class Zone extends RefCounted:
 	## with `chunk_skirt_depth`, which is the vertical curtain the mesher hangs off
 	## a chunk's edges to hide LOD seams.
 	var skirt := 0.0
+	## THE BANK, at the user's request ("smooth out terrain around towns and
+	## roads ... no jaggedness"): how far out, in metres past the boundary
+	## (and the skirt), the LAND eases back to the hills — the flatten ramp's
+	## own width, wider than the grooming `apron`, so the hills come down to
+	## a road or a town over a long gentle slope while the verge, the plants
+	## and the splat keep the apron they had. 0 = the apron.
+	var bank := 0.0
 	## The ELBOW of a dogleg, and `bent` is whether there is one. A bent zone's
 	## axis is the two-segment polyline a -> m -> b instead of the single segment
 	## a -> b; everything else about it is unchanged, because everything else is
@@ -334,7 +341,13 @@ class Zone extends RefCounted:
 			# (the larger of the two distances along its sides, so `width` out
 			# from the middle is its square edge, not a circle)
 			var q := (p - a).rotated(-rot)
-			return maxf(absf(q.x), absf(q.y))
+			var e := maxf(absf(q.x), absf(q.y))
+			if e <= width:
+				return e
+			# OUTSIDE, the distance to the square itself: its bank rounds
+			# the corners instead of folding along the diagonals (at the
+			# user's request, no jaggedness)
+			return width + Vector2(maxf(absf(q.x) - width, 0.0), maxf(absf(q.y) - width, 0.0)).length()
 		if bent:
 			return minf(_seg_distance(p, a, m), _seg_distance(p, m, b))
 		return _seg_distance(p, a, b)
@@ -654,6 +667,9 @@ class Hole extends RefCounted:
 ## pads stay discs.
 @export var square_pads := false
 @export var square_apron := 1.5
+## How far out the land round a square town eases back to the hills
+## (`Zone.bank`); 0 = `square_apron`.
+@export var square_bank := 0.0
 
 @export_group("Zone shape")
 ## Boundary wobble as a fraction of a zone's width, which is what turns a
@@ -895,6 +911,9 @@ class Hole extends RefCounted:
 ## because a path is a cutting, not a terrace: it is supposed to be visibly
 ## incised into the hillside it crosses.
 @export var path_apron := 9.0
+## How far out the land either side of a road eases back to the hills
+## (`Zone.bank`); 0 = `path_apron`.
+@export var path_bank := 0.0
 ## Dog-leg waypoints scored per link. A path is TWO capsules, joined at a
 ## waypoint whose own shelf altitude is the terrain height there, so the track
 ## climbs with the ground instead of ploughing a straight cutting through it.
@@ -2935,6 +2954,7 @@ func _place_zones(isl: Island) -> Array:
 			pad.square = true
 			pad.street = path_width
 			pad.apron = maxf(square_apron, 0.1)
+			pad.bank = square_bank
 			# (the sides run along the line to the nearest zone already placed,
 			# or anywhere: corrected below once all the pads are down)
 			pad.rot = rng.randf() * TAU
@@ -3085,6 +3105,7 @@ func _make_path(a: Vector2, b: Vector2, lift_a: float, lift_b: float,
 	zn.lift = lift_a
 	zn.lift_b = lift_b
 	zn.apron = path_apron
+	zn.bank = path_bank
 	zn.index = index
 	return zn
 
@@ -3381,7 +3402,7 @@ func zones_in_rect(isl: Island, min_x: float, min_z: float,
 	var out: Array = []
 	for entry in all:
 		var zn: Zone = entry
-		var reach := zn.width * (1.0 + zone_irregularity) + zn.apron + zn.skirt
+		var reach := zn.width * (1.0 + zone_irregularity) + maxf(zn.apron, zn.bank) + zn.skirt
 		# The ELBOW is part of the bound, not just the two ends. A dogleg's corner
 		# sits outside the box its endpoints span, so testing only a and b would
 		# drop the zone for exactly the chunks the corner lands in — and a dropped
@@ -3460,6 +3481,16 @@ func zone_at(x: float, z: float, zones: Array, out: Array = []) -> float:
 	var end_dist := 1e9
 	var best := 0.0
 	var best_flat := 0.0
+	# THE SHELVES BLENDED, not the strongest one's taken (at the user's
+	# request, no jaggedness): where two banks overlap — a road running into
+	# a town, the two halves of a road at their bend, two roads crossing —
+	# taking the winner's shelf snapped the ground from one to the other in a
+	# crease the moment the winner changed. Each shelf now counts by its
+	# flatten weight, steeply (w^8, and without limit as it reaches 1), so a
+	# core stays dead level at its own shelf and the banks between meet in
+	# one smooth surface.
+	var lift_sum := 0.0
+	var lift_wsum := 0.0
 	var want_end := out.size() >= 4
 	if not zones.is_empty():
 		var p := Vector2(x, z)
@@ -3474,21 +3505,26 @@ func zone_at(x: float, z: float, zones: Array, out: Array = []) -> float:
 			# The apron is the ZONE's, not a global: a 4 m path banks out over 11 m
 			# and a 40 m fairway over 75, and one shared number cannot serve both.
 			var apron := maxf(zn.apron, 0.001)
-			if sd >= apron + zn.skirt:
+			var bank := maxf(zn.bank, apron)
+			if sd >= bank + zn.skirt:
 				continue
 			var w := 1.0 - smoothstep(0.0, apron, sd)
 			# The skirt is that same ramp with its origin moved out, NOT a wider
 			# apron: the bank keeps the slope it was tuned to, it just starts
 			# further from the hole. `smoothstep` clamps, so the collar comes out
 			# at a flat 1.0 without a second branch.
-			var wf := w if zn.skirt <= 0.0 \
-					else 1.0 - smoothstep(0.0, apron, sd - zn.skirt)
+			var wf := w if zn.skirt <= 0.0 and bank <= apron \
+					else 1.0 - smoothstep(0.0, bank, sd - zn.skirt)
+			if wf > 0.0:
+				var k := wf * wf
+				k *= k
+				k *= k
+				k /= maxf(1.0 - wf, 1e-5)
+				# (level for everything but a path, where it ramps along the axis)
+				lift_sum += k * zn.lift_at(p)
+				lift_wsum += k
 			if wf > best_flat:
 				best_flat = wf
-				# Level for everything but a path, where it ramps along the axis --
-				# evaluated only for the zone that actually wins, so the graded
-				# case costs nothing to the twenty flat ones it is competing with.
-				lift = zn.lift_at(p)
 			if w > best:
 				best = w
 				kind = zn.kind
@@ -3498,6 +3534,8 @@ func zone_at(x: float, z: float, zones: Array, out: Array = []) -> float:
 					kind = ZONE_PATH
 				if want_end:
 					end_dist = minf(p.distance_to(zn.a), p.distance_to(zn.b))
+	if lift_wsum > 0.0:
+		lift = lift_sum / lift_wsum
 	if out.size() >= 2:
 		out[0] = kind
 		out[1] = lift

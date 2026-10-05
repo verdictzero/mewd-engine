@@ -1,7 +1,9 @@
 ## MEWD — THE PERFORMANCE OVERLAY, at the user's request: how fast, where
 ## the time goes, and on what — so a handheld (an Anbernic RG557) or any
 ## other machine can say at a glance what it is doing and what it is.
-## FRAME RATE on the pause menu's DEBUG page (on by default) shows it.
+## FRAME RATE on the pause menu's DEBUG page (on by default) shows it;
+## F3, L3 + R3 together, or the PERF button on the glass turn it on and
+## off (Main.toggle_perf).
 ##
 ##   the frame     frames a second, the frame's time, and the worst and
 ##                 best of the last second
@@ -45,7 +47,7 @@ func _ready() -> void:
 	label.add_theme_color_override("font_color", Color(0.86, 0.95, 0.86))
 	label.add_theme_constant_override("line_spacing", 0)
 	add_child(label)
-	position = Vector2(8, 34)
+	position = Vector2(8, 44)
 	_spec = spec_text()
 
 ## what the machine is, read once

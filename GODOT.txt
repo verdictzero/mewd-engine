@@ -2922,6 +2922,54 @@ MORE UNICORNS, A DEATH ROUSES THE REST, A BRIGHTER POD
   its own picture glowing at 0.22 through it, so its panels and door read
   on the shadowed side.
 
+
+PERF ON AND OFF, SMOOTHER GROUND, A BRIGHTER PAINT, A LANDING PARTY IN RINGS
+---------------------------------------------------------------------------
+At the user's request:
+
+  * THE PERFORMANCE OVERLAY ON AND OFF ANYWHERE (Main.toggle_perf): F3
+    on a keyboard, both sticks pressed in together (L3 + R3) on a pad,
+    and on a phone a PERF button of its own in the top left corner of
+    the glass (TouchControls, whichever hand). Each flips the pause
+    menu's FRAME RATE and keeps it; the overlay moved down a little to
+    sit under the button.
+
+  * THE GROUND EASED DOWN TO THE TOWNS AND ROADS, a lot more, no
+    jaggedness (IslandField). Three things:
+      - a zone's BANK (Zone.bank, square_bank / path_bank) is the
+        flatten ramp's own width, wider than the grooming apron: on
+        CANDY LAND the hills come down to a town over 160 m (it was 60)
+        and to a road over 40 m either side (it was 8), while the
+        verges, the plants and the splat keep the aprons they had;
+      - where banks overlap the SHELVES BLEND (zone_at): each counts by
+        its flatten weight, steeply, so a core is still dead level but
+        a road running into a town, the two halves of a road at its
+        bend, or two roads crossing no longer snap from one level to
+        the other in a crease;
+      - a square town's bank is measured from the square itself, so its
+        corners round off instead of folding along the diagonals.
+    Candy Land rebakes (CI bakes before it builds).
+
+  * THE POD'S PAINTED EXTERIOR (the hull's UV-mapped paint, the door's
+    outer skin with it) twice as bright again: its lift and glow times
+    DropPod.PAINT_BOOST, 2. The rest of the pod is as it was.
+
+  * THE LANDING PARTY, IN FOUR RINGS (DropPod.RINGS): as the drop
+    begins, people are put round the spot (the island's own crowd, the
+    candy girls on CANDY LAND), with whoever is there already:
+      1  out to 5 m past the hull, six at least: BLOWN TO GORE at the
+         touchdown, wherever the fire has run them since;
+      2  out to 14 m, ten at least: SET ALIGHT, by the jets on the way
+         down and the touchdown;
+      3  out to 26 m, half as many again as the first two: they RUN
+         from it, unhurt;
+      4  out to 40 m, another half as many again: NOT AFFECTED AT ALL —
+         nothing frightens them (Actor.unfazed_until) until 30 s after
+         the touchdown, not the fire, the gore or the others running,
+         unless they are hurt or alight themselves.
+    Nobody walks over to greet a pod still coming down, so the rings
+    hold until it lands.
+
 TESTS
 
     tools/godot-test.sh

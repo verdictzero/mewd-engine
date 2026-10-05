@@ -6,6 +6,7 @@
 ## button (hold to fire, and it still aims while held: drag it) with
 ## JUMP, USE and SWAP in an arc round it, AIM and ZOOM further out for
 ## the guns with something to put your eye to, and PAUSE in the corner.
+## PERF, top left, turns the performance overlay on and off.
 ## LEFT-HANDED mirrors the lot. They dim after a while untouched.
 ##
 ## PORTRAIT is not played: a phone held upright gets a full-screen red
@@ -30,6 +31,8 @@ var aim_pulse := false
 var zoom_pulse := false
 var slow_pulse := false
 var pause_pulse := false
+## the PERF button: the performance overlay on and off (Main.toggle_perf)
+var perf_pulse := false
 var lefty := false
 var sens := 1.0
 var scope_on := false
@@ -77,6 +80,8 @@ func _buttons() -> Dictionary:
 		"swap": [fc + Vector2(0, -arc), small * 0.5, "SWAP"],
 		"pause": [Vector2(size.x - 30.0 if not lefty else 30.0, 76.0), 22.0, "II"],
 		"slow": [Vector2(size.x - 30.0 if not lefty else 30.0, 130.0), 22.0, "SLO"],
+		# its own, in the top left corner, whichever hand (at the user's request)
+		"perf": [Vector2(24.0, 22.0), 18.0, "PERF"],
 	}
 	if scope_on:
 		out["aim"] = [fc + Vector2(sx * outer * 0.9239, -outer * 0.3827), small * 0.5, "AIM"]
@@ -119,6 +124,7 @@ func _down(id: int, p: Vector2) -> void:
 			"aim": aim_pulse = true
 			"zoom": zoom_pulse = true
 			"slow": slow_pulse = true
+			"perf": perf_pulse = true
 		return
 	var move_side := p.x > size.x * (1.0 - MOVE_SHARE) if lefty else p.x < size.x * MOVE_SHARE
 	var has_move := pointers.values().any(func(q): return q.kind == "move")
@@ -191,7 +197,7 @@ func _draw() -> void:
 		edge.a *= dim
 		draw_circle(c, r * (0.94 if held else 1.0), fill)
 		draw_arc(c, r * (0.94 if held else 1.0), 0, TAU, 48, edge, 1.5)
-		var fs := 13 if fire else 11
+		var fs := 13 if fire else (9 if k == "perf" else 11)
 		var t: String = bs[k][2]
 		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(font, c + Vector2(-w / 2.0, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,

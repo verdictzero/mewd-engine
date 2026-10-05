@@ -104,6 +104,10 @@ const MODEL := "res://assets/models/drop_pod.glb"
 ## how the capsule's paint is drawn: metal kept to this, roughness at least
 ## this, the colour lifted by this, its own picture glowing at this
 const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.1, "glow": 0.22}
+## THE PAINTED EXTERIOR (the hull's first surface, the UV-mapped paint the
+## door shares) twice as bright again as the rest, at the user's request
+## ("re-increase main pod material ... 2x"): its lift and glow times this
+const PAINT_BOOST := 2.0
 ## the model drawn at this share of the size it was made
 const POD_SCALE := 0.5
 ## THE RCS, OFF FOR NOW (at the user's request: "remove the RCS thrusters
@@ -268,6 +272,7 @@ func _ready() -> void:
 	# (the textures themselves, assets/models/drop_pod_*.png, at the user's
 	# request): drawn nearest, so the dither reads as a dither
 	var done := {}
+	var paint: Material = hull.mesh.surface_get_material(0) if hull != null and hull.mesh != null else null
 	for mi: MeshInstance3D in [hull, door]:
 		if mi == null or mi.mesh == null:
 			continue
@@ -284,12 +289,13 @@ func _ready() -> void:
 				# through so its shadowed side still reads
 				bm.metallic = minf(bm.metallic, POD_LOOK.metallic)
 				bm.roughness = maxf(bm.roughness, POD_LOOK.roughness)
-				bm.albedo_color = bm.albedo_color * POD_LOOK.lift
+				var boost := PAINT_BOOST if m == paint else 1.0
+				bm.albedo_color = bm.albedo_color * POD_LOOK.lift * boost
 				if bm.albedo_texture != null:
 					bm.emission_enabled = true
 					bm.emission = Color.WHITE
 					bm.emission_texture = bm.albedo_texture
-					bm.emission_energy_multiplier = POD_LOOK.glow
+					bm.emission_energy_multiplier = POD_LOOK.glow * boost
 	fired.resize(nozzles.size())
 	fired.fill(0.0)
 	_make_flames()
@@ -462,6 +468,7 @@ func begin(sx: float, sy: float) -> void:
 		ang = Vector3.ZERO
 	heat = _heat_of(altitude())
 	_sync_player()
+	_landing_party()
 	BlackBox.mark("drop begins")
 
 func third_person() -> bool:
@@ -785,6 +792,26 @@ func _trail() -> void:
 ## burn out: Actor.ignite, a burning state, and ash), anybody who cannot
 ## burn killed outright.
 const BURN := {"squash": 0.6, "touchdown": 14.0}
+## THE LANDING PARTY, in four rings round the spot (at the user's request:
+## "make the ring of girls closest to the pod landing explode into gore,
+## the rest on fire, and a third layer, adding 50% more girls that run
+## away, and a fourth layer, another 50% more, that aren't affected at
+## all"). Radii in metres past the hull's rim; `gore_n` and `fire_n` the
+## people put in the first two (with whoever is there already), `more`
+## the third and the fourth each, as a share of the first two together.
+##   1  out to `gore`   blown to gore at the touchdown
+##   2  out to `fire`   set alight (the jets, then the touchdown)
+##   3  out to `flee`   run from it, unhurt
+##   4  out to `calm`   not frightened at all, for `calm_s` after it
+const RINGS := {"gore": 5.0, "fire": 14.0, "flee": 26.0, "calm": 40.0,
+	"gore_n": 6, "fire_n": 10, "more": 0.5, "calm_s": 30.0}
+## the landing party, by ring (1..4), as put down
+var party := {1: [], 2: [], 3: [], 4: []}
+## how many were put down in each ring (the rest were there already)
+var added := {1: 0, 2: 0, 3: 0, 4: 0}
+## the people blown to gore at the touchdown, and the ones sent running
+var gored := 0
+var fled := 0
 var squashed := 0
 ## the people the jets set alight before the touchdown
 var jet_burned := 0
@@ -889,28 +916,117 @@ func _wash_shock(gx: float, gy: float) -> void:
 		if f <= IslandLevel.NO_FLOOR:
 			continue
 		_wash_puff(gx + dir.x * r, gy + dir.y * r, f + 12.0, dir, randf_range(22.0, 38.0), randf_range(50.0, 90.0))
+## THE LANDING PARTY PUT DOWN (RINGS) round the start, as the drop
+## begins: the first two rings filled up to their numbers, then half as
+## many again in the third and again in the fourth. Whoever stands in the
+## fourth ring already is as calm as the ones put there.
+func _landing_party() -> void:
+	var um := IslandLevel.U_PER_M
+	var types: Array = game.island_spec.get("crowd", []) if game.island_spec != null else []
+	if types.is_empty():
+		types = ["SHOPPER", "SHOPPER", "TOWNIE"]
+	var r := func(k: String) -> float: return (HULL_R + float(RINGS[k])) * um
+	var have := {1: 0, 2: 0}
+	# (every actor, not the blockmap: the drop begins as the level is put
+	# down, before the first count)
+	for a in game.actors:
+		if U.dist2(a.x, a.y, start.x, start.y) > r.call("calm") * r.call("calm"):
+			continue
+		if a.removed or a.dead or a == game.player or a.get("vehicle") != null or a.info.get("fights", false):
+			continue
+		var d := Vector2(a.x - start.x, a.y - start.y).length()
+		var ring := 1 if d < r.call("gore") else (2 if d < r.call("fire") else (3 if d < r.call("flee") else 4))
+		if ring <= 2:
+			have[ring] += 1
+		elif ring == 4:
+			a.unfazed_until = game.tics + int(240 * U.TICRATE)
+		a.set_meta("pod_ring", ring)
+		party[ring].append(a)
+	var inner: int = have[1] + have[2]
+	inner += _put_ring(1, maxi(0, int(RINGS.gore_n) - have[1]), (HULL_R + 1.2) * um, r.call("gore"), types)
+	inner += _put_ring(2, maxi(0, int(RINGS.fire_n) - have[2]), r.call("gore"), r.call("fire"), types)
+	var more := ceili(inner * float(RINGS.more))
+	_put_ring(3, more, r.call("fire") + um, r.call("flee") - um, types)
+	_put_ring(4, more, r.call("flee") + um, r.call("calm") - um, types)
+
+## `n` people round the start between r0 and r1 (map units), evenly
+## round with a little scatter, each on land; how many were put down
+func _put_ring(ring: int, n: int, r0: float, r1: float, types: Array) -> int:
+	var put := 0
+	var off := randf() * TAU
+	for k in n:
+		for tries in 6:
+			var ang := off + (k + randf_range(-0.35, 0.35)) * TAU / maxf(1.0, n)
+			var rr := randf_range(r0, r1)
+			var x := start.x + cos(ang) * rr
+			var y := start.y + sin(ang) * rr
+			if game.level.floor_at(x, y) <= IslandLevel.NO_FLOOR or not game.level.on_land(x, y, 16.0):
+				continue
+			var type: String = types[randi() % types.size()]
+			var nv := int(States.actor(type).get("variants", 1))
+			var a = game.spawn(type, x, y, randf() * TAU, {"variant": randi() % maxi(1, nv)})
+			if a == null:
+				break
+			a.set_meta("pod_ring", ring)
+			if ring == 4:
+				a.unfazed_until = game.tics + int(240 * U.TICRATE)
+			party[ring].append(a)
+			added[ring] += 1
+			put += 1
+			break
+	return put
+
 func _land_on_people(gx: float, gy: float, gz: float) -> void:
 	var um := IslandLevel.U_PER_M
 	var under := (HULL_R + BURN.squash) * um
-	for a in game.blockmap.near_radius(gx, gy, (HULL_R + BURN.touchdown) * um):
+	var r_gore := (HULL_R + float(RINGS.gore)) * um
+	var r_fire := (HULL_R + float(RINGS.fire)) * um
+	var r_flee := (HULL_R + float(RINGS.flee)) * um
+	var calm_until: int = game.tics + int(float(RINGS.calm_s) * U.TICRATE)
+	# (the fourth ring kept calm a while yet, before anything below
+	# frightens anybody)
+	for a in party[4]:
+		if not a.removed and not a.dead:
+			a.unfazed_until = maxi(a.unfazed_until if a.burning <= 0 else 0, calm_until)
+	for a in game.blockmap.near_radius(gx, gy, (HULL_R + float(RINGS.calm)) * um):
 		if a.removed or a.get("vehicle") != null or a == game.player:
 			continue
 		if a.z > gz + 4.0 * um:
 			continue
 		var d := Vector2(a.x - gx, a.y - gy).length()
+		var ring: int = a.get_meta("pod_ring", 0)
 		if d < under + a.radius:
 			# (the jets may have lit them and they burnt to the ground on the
 			# way down: what lies under the hull is squashed all the same)
 			squashed += 1
-			if a.dead:
-				game.gib(a)
-			else:
-				a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
-			if game.gore_decals != null:
-				game.gore_decals.pool(a.x, a.y, a.z, 60.0)
+			_gore(a)
 			continue
-		if not a.dead and a.burning <= 0:
-			_set_alight(a)
+		# THE FIRST RING, blown apart: whoever is in it, and the ones put
+		# there wherever the fire has run them since
+		if d < r_gore + a.radius or (ring == 1 and d < r_fire):
+			gored += 1
+			_gore(a)
+			continue
+		if d < r_fire or ring == 2:
+			if not a.dead and a.burning <= 0:
+				_set_alight(a)
+			continue
+		if a.dead or ring == 4 or a.unfazed_until > game.tics:
+			continue
+		# THE THIRD RING runs
+		if d < r_flee or ring == 3:
+			a.A_Scare(gx, gy)
+			if a.panic > 0:
+				fled += 1
+
+## blown to gore where they stand, alive or dead
+func _gore(a) -> void:
+	if a.dead:
+		game.gib(a)
+	else:
+		a.damage(100000.0, game.player, {"impact": true, "gib": true, "pod": true})
+	if game.gore_decals != null:
+		game.gore_decals.pool(a.x, a.y, a.z, 60.0)
 
 ## THE EXHAUST INTO THE PLANTS (VegDamage), every third tic low down: the
 ## retros' downwash under the skirt — a column spreading as it goes down,

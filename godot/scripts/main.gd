@@ -380,6 +380,9 @@ func _process(_dt: float) -> void:
 		if touch.pause_pulse:
 			touch.pause_pulse = false
 			toggle_pause()
+		if touch.perf_pulse:
+			touch.perf_pulse = false
+			toggle_perf()
 	# the beam in the eye: the picture swims (Lofi.set_wobble)
 	var wob := 0.0
 	if game != null and is_instance_valid(game) and game.player != null:
@@ -578,6 +581,29 @@ func _notification(what: int) -> void:
 		if game != null:
 			toggle_pause()
 
+## THE PERFORMANCE OVERLAY ON AND OFF, at the user's request, anywhere:
+## F3 on a keyboard, both sticks pressed in together (L3 + R3) on a pad,
+## the PERF button in the top left corner of the glass (TouchControls).
+## It flips the pause menu's FRAME RATE and keeps it.
+static func perf_combo(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return event.pressed and not event.echo and event.physical_keycode == KEY_F3
+	if event is InputEventJoypadButton and event.pressed:
+		var other := -1
+		if event.button_index == JOY_BUTTON_LEFT_STICK:
+			other = JOY_BUTTON_RIGHT_STICK
+		elif event.button_index == JOY_BUTTON_RIGHT_STICK:
+			other = JOY_BUTTON_LEFT_STICK
+		return other >= 0 and Input.is_joy_button_pressed(event.device, other)
+	return false
+
+func toggle_perf() -> void:
+	pause.prefs["fps"] = not bool(pause.prefs.get("fps", true))
+	pause.save_prefs()
+	if not pause.tiles.is_empty():
+		pause._refresh()
+	fps_label.visible = bool(pause.prefs.fps)
+
 ## WHO IS IN CHARGE, decided before anything else sees the event: a
 ## pad's press or push takes the controls, a finger on the glass takes
 ## them back (js/input.js setPadHeld)
@@ -588,6 +614,10 @@ func _input(event: InputEvent) -> void:
 		Pad.held = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if perf_combo(event):
+		toggle_perf()
+		get_viewport().set_input_as_handled()
+		return
 	if game != null and event.is_action_pressed("pause"):
 		toggle_pause()
 		get_viewport().set_input_as_handled()

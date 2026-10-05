@@ -56,6 +56,10 @@ var just_attacked := false
 var dead := false
 var removed := false
 var panic := 0
+## THE OUTER RING round the pod's landing (DropPod.RINGS, at the user's
+## request): until this tic nothing frightens her — not the fire, not the
+## gore, not the others running — unless she is hurt or alight herself
+var unfazed_until := 0
 var flee_x := 0.0
 var flee_y := 0.0
 var exit_x = null
@@ -423,6 +427,7 @@ func damage(amount: float, source, opts := {}) -> void:
 		rouse(source)
 	# a candy girl hurt and not killed knows now what you are
 	if info.get("greets", false) and source != null and source != self:
+		unfazed_until = 0
 		A_Scare(float(source.x), float(source.y))
 	if source != null and source != self and not friendly and (target == null or threshold <= 0):
 		target = source
@@ -638,6 +643,8 @@ func A_Watch() -> void:
 func A_Scare(fx: float, fy: float, tics := -1) -> void:
 	if held():
 		return
+	if burning <= 0 and game.tics < unfazed_until:
+		return
 	# (a unicorn in a fury does not run: she fights)
 	if _fight():
 		return
@@ -758,6 +765,10 @@ const HELLO_GAP := 40.0
 func _greet_whom():
 	var best = null
 	var bd := GREET_RANGE * GREET_RANGE
+	# (nobody walks to meet the drop pod coming down: they wait where they
+	# stand, in their rings round the spot, DropPod.RINGS)
+	if game.get("drop") != null and game.drop.phase == "drop":
+		return null
 	for p in game.players:
 		if p.dead:
 			continue
