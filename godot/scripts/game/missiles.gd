@@ -575,6 +575,9 @@ func draw(cam: Camera3D) -> void:
 				marks.append({"t": l.t, "n": 1})
 		if acquiring != null and not marks.any(func(m): return m.t == acquiring):
 			marks.append({"t": acquiring, "n": 0})
+	# (the one being acquired blinks: off this frame, it is not drawn — and
+	# decided here, so a surface is never begun with nothing to put in it)
+	marks = marks.filter(func(m): return not (m.n == 0 and (game.tics >> 1) & 1))
 	if not marks.is_empty():
 		im_top.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		for m in marks:
@@ -582,8 +585,6 @@ func draw(cam: Camera3D) -> void:
 			var at := U.v3(pt.x, pt.y, pt.z)
 			var d := at.distance_to(cam.position)
 			var col := Color(1.0, 0.25, 0.1) if m.n > 0 else Color(1.0, 0.8, 0.2)
-			if m.n == 0 and (game.tics >> 1) & 1:
-				continue
 			var sz: float = d * 0.03 * ((2.2 - 1.2 * acquire_fraction()) if m.n == 0 else (1.0 + 0.22 * (m.n - 1)))
 			# four corner brackets
 			for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:

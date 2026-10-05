@@ -36,6 +36,7 @@ static func previous() -> String:
 static func mark(what: String) -> void:
 	_event = what
 	PerfLog.event(what)
+	Logs.line("[" + what + "]")
 	_lines.append("%d %s" % [Time.get_ticks_msec(), what])
 	if _lines.size() > 8:
 		_lines = _lines.slice(_lines.size() - 8)
@@ -64,3 +65,5 @@ static func _write(t: String) -> void:
 	if f != null:
 		f.store_string(t)
 		f.close()
+	# and a copy beside the real log, where it can be read (Logs)
+	Logs.keep("black_box.txt", t)

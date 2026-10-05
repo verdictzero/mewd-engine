@@ -44,6 +44,9 @@ func _ready() -> void:
 		return
 	# (what the last run was doing, if it did not end cleanly: BlackBox)
 	BlackBox.previous()
+	# AND THE WHOLE RUN'S LOG, mirrored to the phone's shared storage
+	# (Logs: it asks for the storage permission on Android)
+	Logs.setup(get_tree())
 	lofi = Lofi.new()
 	add_child(lofi)
 	sound = Sound.new()
@@ -106,6 +109,30 @@ func _crash_note(t: String) -> Control:
 	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	l.position = Vector2(8, -8)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+## WHERE THE LOGS ARE (Logs), small, at the foot of the title on the
+## right — and whether the phone gave the storage permission
+class _LogsNote extends Label:
+	func refresh() -> void:
+		text = Logs.where()
+
+func _logs_note() -> Control:
+	var l := _LogsNote.new()
+	l.text = Logs.where()
+	l.add_theme_font_size_override("font_size", 10)
+	l.add_theme_color_override("font_color", Color(0.75, 0.8, 0.78, 0.8))
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 3)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	l.position = Vector2(-8, -8)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# (the permission's answer comes after the title is up; a method on
+	# the note, never a lambda of this scene, which the note outlives)
+	Logs.changed = l.refresh
 	return l
 
 func show_terminal() -> void:
@@ -171,6 +198,7 @@ func show_title() -> void:
 	title.new_game.connect(func(m: String): _chosen_map = m; start_game())
 	if BlackBox.last != "":
 		title_layer.add_child(_crash_note(BlackBox.last))
+	title_layer.add_child(_logs_note())
 	title.pad_setup.connect(open_pad_wizard)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Pad.watch()
@@ -487,6 +515,10 @@ func open_pad_wizard() -> void:
 ## ANDROID'S BACK (a handheld's Select is often it): never a quit
 ## (application/config/quit_on_go_back is off) — the pause menu, or out
 ## of it
+func _exit_tree() -> void:
+	# (the log's mirror out before the engine goes: Logs)
+	Logs.shutdown()
+
 func _notification(what: int) -> void:
 	# (a run that ends because it was closed, or is put away, is not a crash)
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_CRASH:

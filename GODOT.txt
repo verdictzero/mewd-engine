@@ -2504,6 +2504,41 @@ THE LANCE'S CHARGE CRASH, SECOND LOOK: NO FONT ON THE PANEL
   NOT END CLEANLY, and what it was doing) is the thing to photograph.
 
 
+REAL LOGS OFF THE HANDHELD: THE STORAGE PERMISSION AND THE MIRROR
+
+  At the user's request ("have the android app ask for file permission
+  so we can generate real logs"). core/logs.gd:
+    - THE MIRROR: a Logger (OS.add_logger) that takes every line the
+      engine prints — prints, warnings, errors with their script
+      backtraces, the black box's marks — and writes it, flushed line
+      by line, to mewd.log in a folder that can be read from outside
+      the app. On Android that is /storage/emulated/0/Download/mewd
+      (the two runs before kept as mewd-1.log and mewd-2.log, and the
+      black box beside them as black_box.txt); on a desktop the user
+      data folder's logs/. The file begins with the date, the OS, the
+      device and the GPU.
+    - THE PERMISSION: the Android export declares READ and WRITE
+      EXTERNAL STORAGE and, for Android 11 and up where those two are
+      nothing, MANAGE EXTERNAL STORAGE; Main asks for them at start
+      (OS.request_permissions — on 11 and up that is the "all files
+      access" page, and the switch on it has to be turned on). Until
+      it is granted the log is in the app's own folder; the moment it
+      is, the file is moved out to Download/mewd with everything so
+      far. THE TITLE SAYS WHERE, at the foot on the right: LOGS: and the
+      folder, and STORAGE PERMISSION NOT GIVEN when it was not.
+    - MEWD_NOLOGS in the environment turns all of it off.
+  Found on the way: a static Callable holding a LAMBDA of the main
+  scene (for the title's line to refresh when the permission came)
+  corrupted the heap at exit ("corrupted size vs. prev_size", an abort
+  after quit: OK) — the scene was freed and the lambda outlived it in
+  a static. It is a method on the note now, cleared at shutdown; the
+  mirror is taken down in Main._exit_tree for the same reason (a
+  logger left in while the scripts are torn down). And the launcher's
+  lock brackets began an ImmediateMesh surface with nothing in it on
+  the frames the acquiring mark blinked off (an error a frame): the
+  blink is decided before the surface is begun.
+
+
 TESTS
 
     tools/godot-test.sh
