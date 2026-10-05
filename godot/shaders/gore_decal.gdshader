@@ -55,6 +55,8 @@ float rag(float ang, float seed, float amt) {
 
 void fragment() {
 	DECAL_FRAGMENT
+	// (blood, every kind here: in squares at half the picture's res)
+	if (bake_part < 0.0) duv = half_res(duv);
 	vec2 p = duv * 2.0 - 1.0;
 	p.y = -p.y;
 	float r = length(p);

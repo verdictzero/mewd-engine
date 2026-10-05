@@ -109,6 +109,10 @@ var shake := 0
 var mother = null
 var amble := Vector2.ZERO
 var amble_tics := 0
+## A UNICORN'S FURY (RainbowBeams): tics left of fighting back, and the
+## count through the part of it she is in (charge, beam, breath)
+var fury := 0
+var uni_t := 0
 
 func _init(g, type_name: String, ax: float, ay: float, a := 0.0, opts := {}) -> void:
 	info = States.actor(type_name)
@@ -414,6 +418,9 @@ func damage(amount: float, source, opts := {}) -> void:
 	if health <= 0:
 		die(source, amount, opts)
 		return
+	# A UNICORN HURT BY THE PLAYER TURNS ON THEM, and her herd with her
+	if info.get("fights", false) and source != null and source == game.player:
+		rouse(source)
 	# a candy girl hurt and not killed knows now what you are
 	if info.get("greets", false) and source != null and source != self:
 		A_Scare(float(source.x), float(source.y))
@@ -630,6 +637,9 @@ func A_Watch() -> void:
 func A_Scare(fx: float, fy: float, tics := -1) -> void:
 	if held():
 		return
+	# (a unicorn in a fury does not run: she fights)
+	if _fight():
+		return
 	# (a candy girl, once frightened, is done with greeting anybody)
 	wary = true
 	hello = 0
@@ -676,6 +686,8 @@ func A_PickExit() -> void:
 const FLEE_TRIES := 3
 
 func A_Flee() -> void:
+	if _fight():
+		return
 	# A STAMPEDE TRAMPLES (CANDY LAND's unicorns, at the user's request):
 	# a frightened herd beast runs straight through people, and they come
 	# apart where it meets them
@@ -860,6 +872,8 @@ func _trample() -> void:
 			o.damage(10000.0, self, {"trample": true})
 
 func A_Graze() -> void:
+	if _fight():
+		return
 	A_Watch()
 	if panic > 0 or held():
 		return
@@ -888,6 +902,8 @@ func _amble_to(p: Vector2) -> void:
 ## Ambling: a step at a time, the eight directions scored toward where she
 ## is going, until she is there (or has been at it long enough).
 func A_Amble() -> void:
+	if _fight():
+		return
 	A_Watch()
 	if panic > 0 or held():
 		return
@@ -913,6 +929,138 @@ func A_Amble() -> void:
 	else:
 		amble_tics = -1
 		set_state(info.spawn)
+
+# ------------------------------------------------------------------
+# THE UNICORNS FIGHT BACK, at the user's request (RainbowBeams,
+# rainbow.gd): hurt by the player, a grown unicorn — and every grown one
+# of her herd near her — is in a FURY for info.furyTics, kept up while
+# she is hurt again. In it she stops, faces the player in her firing
+# picture, draws the charge in, throws the beam, takes a breath, and
+# goes again; out of sight or reach she gallops after them. Burning,
+# frozen or bored she is what those make her; when the fury is out she
+# goes back to grazing.
+# ------------------------------------------------------------------
+
+## her herd's grown ones within this of her turn with her
+const ROUSE_R := 1400.0
+
+func rouse(p) -> void:
+	for o in game.blockmap.near_radius(x, y, ROUSE_R):
+		if o.dead or o.removed or not o.info.get("fights", false):
+			continue
+		o._furious(p)
+	_furious(p)
+
+func _furious(p) -> void:
+	var was := fury > 0
+	fury = int(info.get("furyTics", 875))
+	target = p
+	panic = 0
+	speed = float(info.get("speed", speed))
+	if not was:
+		_fight()
+
+## in a fury and free to: into the fight (true), unless she already is
+func _fight() -> bool:
+	if fury <= 0 or held() or burning > 0 or dead:
+		return false
+	var nm: String = state.get("name", "")
+	if nm.begins_with("UNI_AIM") or nm.begins_with("UNI_BEAM") or nm.begins_with("UNI_REST") or nm.begins_with("UNI_HUNT"):
+		return true
+	uni_t = 0
+	set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
+	return true
+
+func _can_fire() -> bool:
+	var p = game.player
+	if p == null or p.dead:
+		return false
+	var r: float = RainbowBeams.UNI.range
+	return U.dist2(x, y, p.x, p.y) < r * r and can_see(p)
+
+## the fury running out (or nobody left to fight): back to grazing
+func _calm() -> bool:
+	fury -= 1
+	var p = game.player
+	if fury > 0 and p != null and not p.dead:
+		return false
+	fury = 0
+	uni_t = 0
+	if game.rainbow != null:
+		game.rainbow.stop(self)
+	set_state(info.spawn)
+	return true
+
+func _face_player() -> void:
+	var p = game.player
+	if p != null:
+		angle = atan2(p.y - y, p.x - x)
+
+func A_UniAim() -> void:
+	if _calm():
+		return
+	_face_player()
+	if not _can_fire():
+		uni_t = 0
+		set_state("UNI_HUNT1")
+		return
+	uni_t += 1
+	var C: int = RainbowBeams.UNI.charge_tics
+	if game.rainbow != null:
+		game.rainbow.charge(self, float(uni_t) / C)
+	if uni_t >= C:
+		uni_t = 0
+		if game.rainbow != null:
+			game.rainbow.fire(self, game.player)
+		set_state("UNI_BEAM")
+
+func A_UniBeam() -> void:
+	if _calm():
+		return
+	_face_player()
+	uni_t += 1
+	if uni_t >= RainbowBeams.UNI.beam_tics or game.rainbow == null or not game.rainbow.firing(self):
+		uni_t = 0
+		set_state("UNI_REST")
+
+func A_UniRest() -> void:
+	if _calm():
+		return
+	_face_player()
+	uni_t += 1
+	if uni_t >= RainbowBeams.UNI.rest_tics:
+		uni_t = 0
+		set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
+
+## after the player at a gallop, the eight directions scored toward them,
+## until she has them in sight and reach again
+func A_UniHunt() -> void:
+	if _calm():
+		return
+	var p = game.player
+	speed = float(info.get("runSpeed", speed))
+	uni_t += 1
+	if uni_t % 4 == 0 and _can_fire():
+		uni_t = 0
+		speed = float(info.get("speed", speed))
+		set_state("UNI_AIM")
+		return
+	var best := -1
+	var best_d := INF
+	for d in 8:
+		var ang: float = DIR_ANGLE[d]
+		var dd := Vector2(x + cos(ang) * speed, y + sin(ang) * speed).distance_to(Vector2(p.x, p.y))
+		if d == movedir:
+			dd -= 0.5
+		if dd < best_d:
+			best_d = dd
+			best = d
+	if best >= 0 and try_walk(best):
+		movedir = best
+		angle = DIR_ANGLE[best]
+	else:
+		movedir = (movedir + 1 + (U.p_random() & 3)) % 8
+		try_walk(movedir)
 
 func A_Pain() -> void:
 	game.play_sound(info.get("painSound"), self)

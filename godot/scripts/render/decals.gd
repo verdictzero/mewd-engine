@@ -65,10 +65,14 @@ const PRIORITY := -4
 ## decals in view, the lower the FPS"): a mark's picture is drawn once,
 ## when it is laid, into its slot's tile of a 2D viewport that is never
 ## cleared (blast_bake.gdshader), and blast_decal.gdshader samples the
-## tile from then on. A tile is two 32 x 32 layers side by side; the atlas
-## is the blast pool laid out ATLAS_ACROSS tiles a row.
+## tile from then on. A tile is two BLAST_TEXELS-square layers side by
+## side; the atlas is the blast pool laid out ATLAS_ACROSS tiles a row.
+## THREE TIMES THE RES (at the user's request: "make big hit decal 3x
+## current res"): 96 squares across a mark where it was 32 — the atlas
+## 3072 x 960, 11 MB, and still drawn into only when a mark is laid.
 const ATLAS_ACROSS := 16
-const TILE := Vector2(64, 32)
+const BLAST_TEXELS := 96
+const TILE := Vector2(2 * BLAST_TEXELS, BLAST_TEXELS)
 
 class Pool:
 	var mm: MultiMesh
@@ -214,6 +218,7 @@ func _bake(slot: int, kind: float, seed: float) -> void:
 		r = ColorRect.new()
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://godot/shaders/blast_bake.gdshader")
+		m.set_shader_parameter("texels", U.col(float(BLAST_TEXELS)))
 		r.material = m
 		r.size = TILE
 		bake_vp.add_child(r)

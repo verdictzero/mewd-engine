@@ -63,6 +63,8 @@ void fragment() {
 	DECAL_FRAGMENT
 	// (a scorch and a hot spot: kinds 3 and 4; a hole and blood untouched)
 	if (texels > 0.0 && cd.x > 2.5) duv = (floor(duv * texels) + 0.5) / texels;
+	// (blood, kind 2: in squares at half the picture's res)
+	if (bake_part < 0.0 && cd.x > 1.5 && cd.x < 2.5) duv = half_res(duv);
 	vec2 p = duv * 2.0 - 1.0;
 	float r = length(p);
 	float kind = cd.x;

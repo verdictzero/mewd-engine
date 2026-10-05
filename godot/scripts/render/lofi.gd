@@ -1,8 +1,8 @@
 ## MEWD — the lo-fi picture (js/lofi.js, LofiPipeline, and its settings
 ## in js/main.js).
 ##
-## The world drawn into a buffer of its own (960 rows by default); the
-## finished frame put onto a chunky grid of PIXELS, 480 rows of square
+## The world drawn into a buffer of its own (360 rows by default); the
+## finished frame put onto a chunky grid of PIXELS, 360 rows of square
 ## pixels by default, whole screen pixels each (_resize); the Bayer DITHER, one
 ## step; and every pixel SNAPPED to the earth palette (lofi.gdshader).
 ## The buffer is `world`, a SubViewport the game is added under.
@@ -19,10 +19,11 @@ extends CanvasLayer
 
 ## the world's buffer as wide as the chunky grid (the default)
 const RENDER_GRID := -1
-## the defaults, at the user's request: square pixels, 480 rows, the
-## world drawn at 960 (pause.gd DEFAULTS, at the user's request)
-const RENDER := 960
-const PIXELS := 480
+## the defaults, at the user's request: square pixels, 360 rows, the
+## world drawn at 360, under the LCD grid (pause.gd DEFAULTS, at the
+## user's request)
+const RENDER := 360
+const PIXELS := 360
 const PIXEL_ASPECT := 1.0
 
 var world: SubViewport
@@ -145,13 +146,13 @@ func _ready() -> void:
 ## own pixels across and down, so no column or row comes out wider than
 ## its neighbours. The scale is picked in physical pixels (the window is
 ## stretched as canvas items, so the canvas's units are not the screen's):
-## the whole number that brings the grid's rows nearest PIXELS — 480 rows
-## asked for is 540 on a 1080 screen (x2), 360 on a 720 one (x2), 480 on
-## a 1440 one (x3). The columns are as many whole pixels as fit at that
+## the whole number that brings the grid's rows nearest PIXELS — 360 rows
+## asked for is 360 on a 1080 screen (x3), 360 on a 720 one (x2), 360 on
+## a 1440 one (x4). The columns are as many whole pixels as fit at that
 ## scale; what is left over (less than one chunky pixel each way) is a
 ## black border, centred. A non-square PIXEL ASPECT is a whole number of
 ## screen pixels across too, the nearest to the asked ratio. The world is
-## then drawn RENDER rows (960 by default, never more than the screen's
+## then drawn RENDER rows (360 by default, never more than the screen's
 ## own) at exactly the grid's aspect, and the filter boxes it down.
 func _resize() -> void:
 	var vp := get_viewport()

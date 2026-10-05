@@ -82,6 +82,8 @@ var missiles: MissileSystem
 ## the police and the army, and every vehicle (js/responders.js, vehicles.js)
 var escalation: Escalation
 var arc: ArcSystem
+## the candy unicorns' death beams (RainbowBeams: they fight back)
+var rainbow: RainbowBeams
 var tracers: Tracers
 var decals: Decals
 var gore_decals: GoreDecals
@@ -282,6 +284,8 @@ func start_map(which: String) -> void:
 	add_child(potatoes)
 	arc = ArcSystem.new(self)
 	add_child(arc)
+	rainbow = RainbowBeams.new(self)
+	add_child(rainbow)
 	decals = Decals.new()
 	add_child(decals)
 	gore_decals = GoreDecals.new(self)
@@ -529,6 +533,7 @@ func _process(dt: float) -> void:
 	bore.draw(camera, tics + _acc / U.SEC)
 	missiles.draw(camera)
 	arc.draw(camera)
+	rainbow.draw(camera)
 	_prof_add("draw.guns", t0)
 	t0 = Time.get_ticks_usec()
 	escalation.draw()
@@ -729,6 +734,7 @@ func tic() -> void:
 	missiles.tic()
 	potatoes.tic()
 	arc.tic()
+	rainbow.tic()
 	_prof_add("tic.guns", t0)
 	t0 = Time.get_ticks_usec()
 	escalation.tic()

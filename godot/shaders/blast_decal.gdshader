@@ -27,8 +27,8 @@
 // the shrapnel — all of it was drawn again every frame for every pixel
 // of every crater's box, with no depth test to skip any of it. Now
 // blast_bake.gdshader draws a mark's picture ONCE into a tile of
-// Decals' atlas when it is laid (two 32 x 32 layers, A and B, side by
-// side), and this shader samples the tile: two fetches a pixel, and what
+// Decals' atlas when it is laid (two layers, A and B, side by side,
+// Decals.BLAST_TEXELS square), and this shader samples the tile: two fetches a pixel, and what
 // is left to do here is what moves — the heat dying, the shockwave, the
 // embers' flicker, the rainbow turning, the glints, the crackle.
 shader_type spatial;
@@ -39,8 +39,8 @@ render_mode unshaded, cull_front, depth_test_disabled, depth_draw_never, blend_p
 
 uniform float now = 0.0;
 // the bake atlas (Decals.bake_vp): ATLAS_ACROSS tiles a row, each a tile
-// of two 32 x 32 layers side by side — fetched nearest, which is the LOW
-// RES the marks have always had (32 squares across, each one colour)
+// of two layers side by side — fetched nearest, Decals.BLAST_TEXELS
+// squares across (96, three times the 32 it was), each one colour
 uniform sampler2D atlas : filter_nearest, repeat_disable;
 uniform float atlas_across = 16.0;
 uniform float atlas_down = 10.0;

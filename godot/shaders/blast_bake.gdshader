@@ -8,7 +8,7 @@
 // Now the picture is drawn ONCE, here, into a tile of Decals' bake atlas
 // when the mark is laid (a 2D viewport that is never cleared; Decals
 // `_bake`), and blast_decal.gdshader samples the tile from then on. A
-// tile is two 32 x 32 layers side by side — layer A on the left, B on the
+// tile is two `texels`-square layers side by side — layer A on the left, B on the
 // right — because a mark needs more than four numbers a pixel:
 //   BLAST   A: the paint's colour and alpha
 //           B: the glowing parts' masks — the crater (with the rays
@@ -22,8 +22,8 @@
 //           B: the tree, the hot share of it, the fused spot, the halo
 // What moves with time — the heat dying, the shockwave, the embers'
 // flicker, the rainbow turning, the glints, the crackle — is cheap and
-// stays in blast_decal.gdshader. 32 texels a side is the LOW RES the
-// marks already had (its `texels`), so nothing is lost.
+// stays in blast_decal.gdshader. 32 texels a side was the LOW RES the
+// marks already had; 96 now (`texels`, at the user's request).
 //
 // The noise and the shapes are blast_decal.gdshader's as they were (the
 // hashes with no sine in them, for the same reason).
@@ -31,6 +31,9 @@ shader_type canvas_item;
 render_mode blend_disabled, unshaded;
 
 uniform float kind = 10.0;
+// the squares across a layer (Decals.BLAST_TEXELS: 96, three times the 32
+// it was, at the user's request)
+uniform float texels = 96.0;
 uniform float seed = 0.0;
 
 float dh1(vec2 p) {
@@ -87,12 +90,11 @@ float branches(vec2 p, float n, float r0, float len, float w, float sd) {
 }
 
 void fragment() {
-	// the tile is two layers side by side: A left, B right, each 32 x 32
-	// texels of the mark's own picture (the texel's middle, as `texels`
-	// quantised it)
+	// the tile is two layers side by side: A left, B right, each `texels`
+	// square of the mark's own picture (the texel's middle)
 	float layer = step(0.5, UV.x);
 	vec2 duv = vec2(fract(UV.x * 2.0), UV.y);
-	duv = (floor(duv * 32.0) + 0.5) / 32.0;
+	duv = (floor(duv * texels) + 0.5) / texels;
 	vec2 p = vec2(duv.x * 2.0 - 1.0, 1.0 - duv.y * 2.0);
 	float r = length(p);
 	float ang = atan(p.y, p.x);

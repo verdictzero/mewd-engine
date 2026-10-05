@@ -19,7 +19,7 @@ signal pad_setup
 signal debug_menu
 
 const PREFS := "user://prefs.cfg"
-const PREF_VERSION := 16
+const PREF_VERSION := 17
 
 ## [key, name, page, ladder of [value, label]]
 const DIALS := [
@@ -40,7 +40,7 @@ const DIALS := [
 	["godmode", "DEBUG: INVINCIBLE", 5, [[false, "OFF"], [true, "ON"]]],
 	["fps", "FRAME RATE", 5, [[false, "OFF"], [true, "ON"]]],
 ]
-const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 960, "pixels": 480, "pixar": 1.0, "grid": "lcd",
+const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 360, "pixels": 360, "pixar": 1.0, "grid": "lcd",
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
 	"debug": true, "godmode": true, "fps": true}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]

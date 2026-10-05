@@ -57,6 +57,11 @@ var _last_tic := -1
 ## how many rows were written last tic (for the frame-rate readout)
 var written := 0
 
+## A CANDY UNICORN FIRING (RainbowBeams): the picture, and how far up it
+## (of her height) her mouth is, where the beam comes out
+const UNIF_PATH := "res://assets/people/candy_unicorn_fire.png"
+const UNIF_MOUTH := 0.68
+
 func _ready() -> void:
 	# THE CROWD AT 128 PIXELS ACROSS, at the user's request
 	# (tools/prep-people-hd.py: galvarius's drawings, one scale): the
@@ -77,6 +82,10 @@ func _ready() -> void:
 	# (2.5 m to the horn's tip, and 1.4 m)
 	_strip("UNI", "res://assets/people/candy_unicorn.png", Vector2(70.4, 80), Vector2(338, 384))
 	_strip("FOAL", "res://assets/people/candy_foal.png", Vector2(33.3, 44), Vector2(189, 250))
+	# AND HER FIRING PICTURE (RainbowBeams): head on, eyes alight, mouth
+	# open — one cell, as tall as she is, as wide as the picture says
+	var fire: Texture2D = load(UNIF_PATH)
+	_strip("UNIF", UNIF_PATH, Vector2(80.0 * fire.get_width() / fire.get_height(), 80), Vector2(fire.get_width(), fire.get_height()))
 
 ## `texel`: the cell in the strip's own pixels, where that is not the
 ## cell in the world (one unit to the pixel) — a strip drawn finer than
@@ -170,6 +179,8 @@ static func _state_draw(st: Dictionary) -> Array:
 		return ["CANDY", -5, 0, 0]
 	if sprite == "LAMP":
 		return ["LAMP", 0, 0, 0]
+	if sprite == "UNIF":
+		return ["UNIF", 0, 0, 0]
 	if sprite == "UNI" or sprite == "FOAL":
 		return [sprite, -6, 0, 0]
 	if sprite == "BLST":

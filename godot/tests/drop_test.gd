@@ -6,9 +6,10 @@
 ## left growing through the hull, the deck a floor; the hold, the eye
 ## inside, the door blown (and the candy girl in its way blown apart), the
 ## posts round the hull, the player standing on the deck and walking out
-## of the door down onto the ground; and with a hand on the stick the pod
-## tilts, its RCS firing blue jets of shock diamonds out along the
-## exhaust, FIRE lighting the retros, blue too. And the exhaust's and the door's own work
+## of the door down onto the ground; and (the RCS off for now, at the
+## user's request) straight down over the start, 2.5 times as fast, in the
+## fire three quarters of the way, a hand on the stick doing nothing; the
+## retros' jets blue shock diamonds. And the exhaust's and the door's own work
 ## on plants (VegDamage downwash, jet, sweep, clear), plant by plant.
 ##
 ##   godot --headless --script res://godot/tests/drop_test.gd -- --map=candyland
@@ -108,13 +109,17 @@ func _run() -> void:
 			fire_out_tic = d.ticks
 	var t: int = game.tics - t0
 	check(d.phase != "drop", "it comes down")
-	check(t > 28 * 35 and t < 70 * 35, "in %.1f s: the slow fall, half a minute and more" % (t / 35.0))
-	check(fastest > 120.0 and fastest < 160.0, "falling at up to %.0f m/s at the top, then at terminal" % fastest)
+	# STRAIGHT DOWN, 2.5 TIMES AS FAST, THE FIRE THREE QUARTERS OF THE WAY
+	check(t > 12 * 35 and t < 30 * 35, "in %.1f s: straight down, fast (it was 40 and more)" % (t / 35.0))
+	check(fastest > 340.0, "falling at up to %.0f m/s at the top, then at terminal" % fastest)
 	check(d.max_heat > 0.9 and fire_out_at > 0.0 and last_heat <= 0.0,
 		"the reentry fire burned, and was out by %.0f m, before the ground" % fire_out_at)
-	check(fire_out_tic > 0 and fire_out_tic <= int(3.2 * 35), "and it lasted %.1f s" % (fire_out_tic / 35.0))
-	check(burned_at > 15.0 and burned_at < 110.0, "the autopilot lit the retros at %.0f m, low, for the slow fall" % burned_at)
+	var share := 1.0 - fire_out_at / DropPod.DROP.height
+	check(share > 0.75 and share < 0.85, "and it lasted %.0f%% of the way down (%.1f s)" % [share * 100.0, fire_out_tic / 35.0])
+	check(burned_at > 100.0 and burned_at < fire_out_at, "the autopilot lit the retros at %.0f m, after the fire" % burned_at)
 	check(burn_tics < 9 * 35, "and the burn was over in %.1f s" % (burn_tics / 35.0))
+	var off := Vector2(d.pos.x * um - d.start.x, -d.pos.z * um - d.start.y).length() / um
+	check(off < 3.0, "down on the start, no drift (%.1f m off)" % off)
 	check(d.touchdown_speed <= DropPod.DROP.land_speed + 1.0, "and landed at %.1f m/s" % d.touchdown_speed)
 	check(rad_to_deg(d.tilt()) < 20.0, "near enough level (%.0f degrees)" % rad_to_deg(d.tilt()))
 	check(d._ground() > IslandLevel.NO_FLOOR, "on land")
@@ -224,82 +229,25 @@ func _run() -> void:
 			var n3: int = vd.clear(VegDamage.to_game(q3.pos), DropPod.HULL_R * um)
 			_drain(vd)
 			check(n3 >= 1 and _gone(vd, q3), "where a pod comes down, nothing left standing")
-	# ---- hands on: the pod tilts, the RCS fires ------------------------
+	# ---- hands on: NOTHING (the RCS off, at the user's request: "remove
+	# the RCS thrusters from the pod for now ... uncontrolled") ---------
 	game.queue_free()
 	await process_frame
 	game = await _start()
 	d = game.drop
+	check(not DropPod.RCS_ON, "the RCS is off")
+	check(d.tilt() < 0.01, "the pod comes in upright (%.1f degrees)" % rad_to_deg(d.tilt()))
 	var f0: int = d.fires
-	var tilt0: float = d.tilt()
 	for k in 50:
-		d.tic({"fwd": 1.0, "side": 0.0, "look": Vector2(), "attack": false})
-	check(d.fires > f0, "a hand on the stick fires the RCS (%d firings)" % (d.fires - f0))
-	check(rad_to_deg(d.tilt()) > rad_to_deg(tilt0) + 5.0, "and the pod tilts (%.0f degrees)" % rad_to_deg(d.tilt()))
-	var rcs_only := true
+		d.tic({"fwd": 1.0, "side": 1.0, "look": Vector2(), "attack": true})
+	var rcs_fired := false
 	for i in d.nozzles.size():
-		if d.fired[i] > 0.0 and d.nozzles[i].kind != "rcs":
-			rcs_only = false
-	check(rcs_only, "with the RCS nozzles, not the retros")
-	# THE TANK: the stick spends it; dry, the stick is dead
-	check(d.fuel < DropPod.DROP.rcs_fuel - 1.0 and d.fuel > 0.0, "and the stick has spent some of its tank (%.1f of %.0f)" % [d.fuel, DropPod.DROP.rcs_fuel])
-	check(absf(d.readout().fuel - d.fuel / DropPod.DROP.rcs_fuel) < 1e-6, "which the readout shows")
-	# THE PITCH COUPLE: the bulge-top nozzles (over the retro bulges) fire
-	# up, on the side the pod tips toward; a top-ring nozzle fires on the
-	# far side — the two ends of the same turn
-	var bulge_up := 0
-	var tops_fired := []
-	var bulges_fired := []
-	for i in d.nozzles.size():
-		var n: Dictionary = d.nozzles[i]
-		if n.kind != "rcs":
-			continue
-		if n.pos.y < 2.9:
-			if n.dir.y > 0.9:
-				bulge_up += 1
-			if d.fired[i] > 0.01:
-				bulges_fired.append(n)
-		elif d.fired[i] > 0.01:
-			tops_fired.append(n)
-	check(bulge_up == 8, "the eight nozzles on the retro bulges' tops fire straight up (%d)" % bulge_up)
-	var opposite := not tops_fired.is_empty() and not bulges_fired.is_empty()
-	for tn in tops_fired:
-		for bn in bulges_fired:
-			if Vector2(tn.pos.x, tn.pos.z).dot(Vector2(bn.pos.x, bn.pos.z)) > 0.0:
-				opposite = false
-	check(opposite, "a tilt fires bulge-top nozzles on one side and a top nozzle on the other (%d + %d)" % [bulges_fired.size(), tops_fired.size()])
-	# the RCS flames: blue, wide at the nozzle, pointed out along the jet
-	# (the transform and colour the MultiMesh is given: a headless run has
-	# no renderer to read them back from)
-	var out_ok := true
-	var blue := true
-	var lit := 0
-	for i in d.nozzles.size():
-		if d.fired[i] <= 0.01 or d.nozzles[i].kind != "rcs":
-			continue
-		lit += 1
-		var tf: Transform3D = d.flame_transform(i, d.fired[i])
-		if tf.basis.y.normalized().dot(d.nozzles[i].dir) < 0.95:
-			out_ok = false
-		if (tf.origin - d.nozzles[i].pos).length() > 1e-3:
-			out_ok = false
-		var c: Color = DropPod._flame_color(d.nozzles[i].kind)
-		if not (c.b > c.r and c.a < 0.5):
-			blue = false
-	check(lit > 0 and out_ok, "the RCS jets out along the exhaust from the nozzles (%d lit)" % lit)
-	check(lit > 0 and blue, "and bright blue")
-	var fuel_was: float = d.fuel
-	d.fuel = 0.0
-	for k in 30:
-		d.tic({"fwd": 0.0, "side": 0.0, "look": Vector2(), "attack": false})
-	var tilt_dry: float = d.tilt()
-	for k in 30:
-		d.tic({"fwd": 0.0, "side": 1.0, "look": Vector2(), "attack": false})
-	check(d.tilt() <= tilt_dry + 0.02 and d.fuel == 0.0, "dry, the stick does nothing (%.0f to %.0f degrees)" % [rad_to_deg(tilt_dry), rad_to_deg(d.tilt())])
-	d.fuel = fuel_was
-	var v0: float = d.vel.y
-	for k in 20:
-		d.tic({"fwd": 0.0, "side": 0.0, "look": Vector2(), "attack": true})
-	check(d.retro_level > 0.9 and d.vel.y > v0, "FIRE lights the retros and the fall slows")
+		if d.fired[i] > 0.0 and d.nozzles[i].kind == "rcs":
+			rcs_fired = true
+	check(not rcs_fired and d.fires == f0, "a hand on the stick fires nothing (%d firings)" % (d.fires - f0))
+	check(rad_to_deg(d.tilt()) < 1.0, "and the pod does not tilt (%.1f degrees)" % rad_to_deg(d.tilt()))
+	check(d.retro_level == 0.0, "and FIRE does not light the retros")
+	check(not d.readout().has("fuel"), "the readout has no RCS line")
 	var back_ok := true
 	for i in d.nozzles.size():
 		if d.nozzles[i].kind != "retro":

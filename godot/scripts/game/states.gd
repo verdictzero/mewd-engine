@@ -96,6 +96,16 @@ static func build() -> void:
 		_s(k + "_ASH1", k, "A", 4, "A_BurnAway", k + "_ASH2", {"fullbright": true})
 		_s(k + "_ASH2", k, "A", 4, "A_BurnAway", k + "_ASH1", {"fullbright": true})
 		_s(k + "_BORE", k, "A", -1, null, k + "_BORE")
+	# AND SHE FIGHTS BACK (the grown unicorn, at the user's request: "make
+	# the unicorns fight back"): her firing picture (Standees "UNIF") faced
+	# at the eye while she draws the charge in and throws the beam
+	# (RainbowBeams), a breath after, and a gallop after the player when
+	# they are out of her sight or reach
+	_s("UNI_AIM", "UNIF", "A", 1, "A_UniAim", "UNI_AIM")
+	_s("UNI_BEAM", "UNIF", "A", 1, "A_UniBeam", "UNI_BEAM")
+	_s("UNI_REST", "UNI", "A", 1, "A_UniRest", "UNI_REST")
+	_s("UNI_HUNT1", "UNI", "A", 2, "A_UniHunt", "UNI_HUNT2")
+	_s("UNI_HUNT2", "UNI", "A", 2, "A_UniHunt", "UNI_HUNT1")
 	# and the street lamp that lines CANDY LAND's roads
 	_s("LAMP_STAND", "LAMP", "A", -1, null, null)
 	# the drop pod's wall: solid, drawn by nothing (DropPod)
@@ -158,6 +168,9 @@ static func build() -> void:
 			"health": 60 if big else 20, "radius": 26 if big else 14, "height": 80 if big else 44,
 			"mass": 400 if big else 120, "speed": 3 if big else 2, "runSpeed": 22 if big else 18,
 			"scareRange": 520, "panicTics": 7 * TICRATE, "herd": true, "wounds": 14 if big else 8}, true)
+		# (the grown ones fight back, Actor.rouse; a foal still runs)
+		if big:
+			u.merge({"fights": true, "furyTics": 25 * TICRATE})
 		ACTORS[k] = u
 	# (sunk 12 units — the clear margin under the post in its picture, and a
 	# little for the kerb's slope under its foot — so it always stands IN

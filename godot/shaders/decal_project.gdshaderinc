@@ -69,6 +69,17 @@ varying flat vec3 dp_n;
 // dfade (how much of it shows), depth (the surface's distance from the
 // eye) and wp (the surface's point in the world); discards a pixel whose
 // surface is not inside the box.
+// HALF RES BLOOD, at the user's request ("make blood decal half current
+// res"): blood is drawn from its shapes, a pixel of the picture each, so
+// its resolution was the picture's own; now it is laid in squares two of
+// the picture's pixels across — the nearest power of two, so it steps
+// (as a mip would) instead of crawling as the distance changes
+vec2 half_res(vec2 uv) {
+	vec2 fw = max(fwidth(uv), vec2(1e-5));
+	float sq = clamp(exp2(floor(log2(0.5 / max(fw.x, fw.y)))), 4.0, 256.0);
+	return (floor(uv * sq) + 0.5) / sq;
+}
+
 #define DECAL_FRAGMENT \
 	vec2 duv = UV; \
 	float dfade = 1.0; \

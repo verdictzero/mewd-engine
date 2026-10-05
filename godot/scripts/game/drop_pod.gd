@@ -44,20 +44,24 @@
 ## shock diamonds out from the nozzle to a point (pod_flame).
 ##
 ## THE RIDE: the pod comes in DROP.height metres over the start already
-## falling at DROP.entry (out of orbit), drifting, IN THE REENTRY FIRE: a
+## falling at DROP.entry (out of orbit), IN THE REENTRY FIRE: a
 ## white-hot cap round the heat shield and a tail of flame streaming back
 ## past the hull (reentry.gdshader), the shield itself glowing (pod_heat),
 ## an orange light on it, and fire, sparks and smoke left along the way it
-## came. The fire is the speed's: fiercest over DROP.heat_hi, out under
-## DROP.heat_lo, so it dies as the retros slow it. Gravity, air drag
-## and a capsule's own stability (base first). THE FALL IS SLOW (at the
-## user's request: "make descent 400% slower please so the player has
-## time to maneuver", then "pod needs to fall twice as fast"): the air
-## is thin at the top (DROP.drag, terminal about 70 m/s, the fire's
-## three seconds) and thickens over the next DROP.brake_secs to
-## DROP.drag_slow — terminal 32 m/s, half of what the fall was at
-## first — so the ride from the top is half a minute and more, the
-## stick live all the way down until the last DROP.level_below metres.
+## came. Gravity, air drag and a capsule's own stability (base first).
+## STRAIGHT DOWN, FAST, UNCONTROLLED (at the user's request: "remove the
+## RCS thrusters from the pod for now, have it drop straight down faster
+## uncontrolled, have reentry burn last 75% of the descent, increase drop
+## speed 250%"): the pod comes in right over the start, upright, with no
+## drift, at DROP.entry (350 m/s), the air bringing it to a terminal of
+## 80 m/s (DROP.drag) — 2.5 times the 140 and 32 the slow fall had. THE
+## FIRE is the way down's, not the speed's: full over the first
+## DROP.fire_share (75%) of the height, out over the next DROP.fire_fade.
+## RCS_ON is false: no RCS nozzle fires, the stick and FIRE do nothing,
+## and the autopilot's suicide burn on the retros is the only hand on it.
+## What follows about the stick, the tank and the RCS is the ride with
+## RCS_ON true (and the slow fall before this, "400% slower" and "twice
+## as fast", is history: GODOT.txt).
 ## AND THE STICK HAS A TANK (at the user's request: "limited maneuvering
 ## fuel"): DROP.rcs_fuel nozzle-seconds of RCS, spent by every nozzle
 ## the STICK fires (`fuel`, on the readout); dry, the stick does
@@ -99,25 +103,27 @@ extends Node3D
 const MODEL := "res://assets/models/drop_pod.glb"
 ## the model drawn at this share of the size it was made
 const POD_SCALE := 0.5
+## THE RCS, OFF FOR NOW (at the user's request: "remove the RCS thrusters
+## from the pod for now, have it drop straight down faster uncontrolled"):
+## the nozzles are still read off the model, but none of them fires, the
+## stick and FIRE do nothing, and the readout has no RCS line. True puts
+## the steered ride back as it was.
+const RCS_ON := false
 const DROP := {
 	"height": 1400.0,       # m over the start it comes in
-	"entry": 140.0,         # m/s down it comes in at: twice terminal, and the air
-	                        # takes it down to terminal in the first few seconds
-	"offset": 150.0,        # m to the side of the start
-	"drift": 12.0,          # m/s sideways to begin with
+	"entry": 350.0,         # m/s down it comes in at (2.5 times the 140 it was, at the
+	                        # user's request: "increase drop speed 250%")
+	"offset": 0.0,          # m to the side of the start: none, straight down on it
+	"drift": 0.0,           # m/s sideways to begin with: none ("drop straight down")
 	"g": 9.8,
-	"drag": 0.0020,         # a = -drag * v|v| at the top: terminal about 70 m/s, the
-	                        # speed the reentry fire needs (its three seconds)
-	"drag_slow": 0.00957,   # the drag once the air has thickened (the fall after the
-	                        # fire): terminal 32 m/s (at the user's request: "400%
-	                        # slower", then "twice as fast": half of the first 70)
-	"brake_secs": 3.0,      # s after the fire for the air to thicken from one to the other
+	"drag": 0.00153,        # a = -drag * v|v|: terminal 80 m/s, 2.5 times the 32 the
+	                        # slow fall had; the entry's 350 is down to it in seconds
 	"retro": 6.0,           # m/s^2 a skirt nozzle gives: canted 37 degrees out, all
 	                        # eight lift 8 * 6 * 0.61 = 29 m/s^2, two g net of gravity
 	"retro_lift": 0.61,     # the share of a skirt nozzle's push that is upward
-	"plan": 0.55,           # the share of the retros' braking the autopilot plans on:
-	                        # the burn lit near 230 m from terminal (sooner than the
-	                        # first cut's 170), and all over in six seconds
+	"plan": 0.8,            # the share of the retros' braking the autopilot plans on:
+	                        # the burn lit near 210 m from the 80 m/s terminal, and
+	                        # all over in about five seconds
 	"rcs": 1.2,             # m/s^2 a shoulder or top nozzle gives
 	"rcs_fuel": 30.0,       # nozzle-seconds of RCS the stick has (a tilt is four
 	                        # nozzles: seven or eight seconds of hard stick)
@@ -131,10 +137,9 @@ const DROP := {
 	"level_secs": 2.0,      # the autopilot has the attitude this long out at the fall's speed...
 	"level_below": 50.0,    # ...or under this (m), whichever is higher: three seconds
 	                        # of the slow fall, the stick live until then
-	"fire_secs": 3.0,       # s the reentry fire lasts from the top, at most
-	"fire_fade": 0.8,       # s it takes to go out, at the end of that
-	"heat_lo": 78.0,        # m/s: the reentry fire is out under this (just over terminal)
-	"heat_hi": 110.0,       # m/s: and at its fiercest over this
+	"fire_share": 0.75,     # of the way down the reentry fire lasts (at the user's
+	                        # request: "reentry burn last 75% of the descent")
+	"fire_fade": 0.05,      # of the way down it takes to go out, at the end of that
 	"settle_tics": 25,
 	"hold_tics": 40,        # third person after touchdown
 	"door_tics": 28,        # first person, door shut, before it blows
@@ -422,7 +427,10 @@ func begin(sx: float, sy: float) -> void:
 	phase_tics = 0
 	active = true
 	visible = true
-	heat = _heat_of(vel.length(), 0.0)
+	if not RCS_ON:
+		att = Basis()
+		ang = Vector3.ZERO
+	heat = _heat_of(altitude())
 	_sync_player()
 	BlackBox.mark("drop begins")
 
@@ -446,13 +454,13 @@ func altitude() -> float:
 func tilt() -> float:
 	return acos(clampf(att.y.y, -1.0, 1.0))
 
-## how hot the reentry fire is: the speed's (m/s), over the first
-## DROP.fire_secs of the ride (`secs` in), and never after — at the user's
-## request, three seconds of it, until the slowdown
-static func _heat_of(speed: float, secs: float) -> float:
-	var by_speed := clampf((speed - DROP.heat_lo) / (DROP.heat_hi - DROP.heat_lo), 0.0, 1.0)
-	var by_time := clampf((DROP.fire_secs - secs) / DROP.fire_fade, 0.0, 1.0)
-	return by_speed * by_time
+## how hot the reentry fire is at altitude `h` (m): full over the first
+## DROP.fire_share of the way down, going out over the next DROP.fire_fade
+## of it, and never after (at the user's request: "reentry burn last 75%
+## of the descent")
+static func _heat_of(h: float) -> float:
+	var down := 1.0 - h / DROP.height
+	return clampf((DROP.fire_share + DROP.fire_fade - down) / DROP.fire_fade, 0.0, 1.0)
 
 ## One tic of the ride, with this machine's hands (Game.local_cmd).
 func tic(cmd: Dictionary) -> void:
@@ -504,6 +512,10 @@ func _fly(cmd: Dictionary) -> void:
 	var right := Vector3(sin(a), 0.0, cos(a))
 	var want_tilt := fwd * float(cmd.get("fwd", 0.0)) + right * float(cmd.get("side", 0.0))
 	retro_on = bool(cmd.get("attack", false)) or bool(cmd.get("jump", false))
+	# (uncontrolled, the RCS off: nothing the hands do reaches it)
+	if not RCS_ON:
+		want_tilt = Vector3.ZERO
+		retro_on = false
 	# ---- the autopilot: the suicide burn -------------------------------
 	# the braking it would take from here to be down to the aim speed a
 	# metre over the ground; lit when that comes to the planned share of
@@ -518,7 +530,10 @@ func _fly(cmd: Dictionary) -> void:
 	if vz < -aim:
 		need = (vz * vz - aim * aim) / (2.0 * maxf(h - 1.0, 0.3))
 	var plan: float = (lift - DROP.g) * DROP.plan
-	if auto_mode == "" and vz < 0.0 and need >= plan:
+	# (never in the reentry fire: at the entry's speed the sum says brake
+	# from the top, and the air does that braking — the burn waits for the
+	# fire to be out and the fall at terminal)
+	if auto_mode == "" and vz < 0.0 and need >= plan and heat <= 0.0:
 		auto_mode = "burn"
 	if auto_mode == "burn" and vz > -aim * 1.1:
 		auto_mode = "final" if h < 15.0 else ""
@@ -566,7 +581,8 @@ func _fly(cmd: Dictionary) -> void:
 		want_ang = up.cross(want_up) * (1.2 if piloted else 0.4)
 	_acc_tmp = Vector3.ZERO
 	_alpha_tmp = Vector3.ZERO
-	_rcs(want_ang - ang, stick)
+	if RCS_ON:
+		_rcs(want_ang - ang, stick)
 	var acc := _acc_tmp
 	var alpha := _alpha_tmp
 	# ---- the retros: full on the trigger (but the last metres are the
@@ -602,7 +618,7 @@ func _fly(cmd: Dictionary) -> void:
 		att = Basis(ang / w, w * dt) * att
 		att = att.orthonormalized()
 	# ---- the reentry fire: the speed's, and left along the way ---------
-	heat = _heat_of(vel.length(), ticks / float(U.TICRATE))
+	heat = _heat_of(altitude())
 	max_heat = maxf(max_heat, heat)
 	if heat > 0.0:
 		_trail()
@@ -622,13 +638,10 @@ func _fly(cmd: Dictionary) -> void:
 var _acc_tmp := Vector3.ZERO
 var _alpha_tmp := Vector3.ZERO
 
-## THE AIR'S DRAG NOW: thin at the top (DROP.drag, the fire's terminal),
-## thickening over DROP.brake_secs after the fire to DROP.drag_slow, the
-## slow fall's (see the header: "400% slower").
+## THE AIR'S DRAG: one all the way down now (the thin air at the top and
+## the thickening after the fire went with the 250% faster fall)
 func _drag() -> float:
-	var secs := ticks / float(U.TICRATE)
-	var k := clampf((secs - DROP.fire_secs) / DROP.brake_secs, 0.0, 1.0)
-	return lerpf(DROP.drag, DROP.drag_slow, k)
+	return DROP.drag
 ## THE RCS: for a wanted change of spin (world, rad/s), fire the nozzles
 ## whose turning is that way, as hard as the want is. Their push and turn
 ## are added to _acc_tmp and _alpha_tmp. `from_tank`: the stick's turn,
@@ -1040,6 +1053,8 @@ func place_camera(cam: Camera3D, f: float) -> void:
 ## the readout's numbers: altitude (m), the fall (m/s), the tilt, the
 ## retros, the autopilot, the reentry fire
 func readout() -> Dictionary:
-	return {"alt": altitude(), "fall": -vel.y, "tilt": rad_to_deg(tilt()), "retro": retro_level,
-		"auto": auto_burn, "phase": phase, "speed": vel.length(), "heat": heat,
-		"fuel": fuel / DROP.rcs_fuel}
+	var r := {"alt": altitude(), "fall": -vel.y, "tilt": rad_to_deg(tilt()), "retro": retro_level,
+		"auto": auto_burn, "phase": phase, "speed": vel.length(), "heat": heat}
+	if RCS_ON:
+		r.fuel = fuel / DROP.rcs_fuel
+	return r

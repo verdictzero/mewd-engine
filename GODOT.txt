@@ -2651,6 +2651,83 @@ chunky pixel is three screen pixels or more, which is the lower PIXELS
 settings. Saved settings carry over: an old AUTO reads as LCD, and an
 old SOFT or GAPS ONLY as GRID LINES.
 
+
+NEW DEFAULTS, THE POD STRAIGHT DOWN, THE UNICORNS FIGHT BACK, DECAL RES
+
+  At the user's request: "make new defaults 360p render by 360p pixels
+  by LCD grid on"; "remove the RCS thrusters from the pod for now, have
+  it drop straight down faster uncontrolled, have reentry burn last 75%
+  of the descent, increase drop speed 250%"; "make the unicorns fight
+  back, use this animation facing the player when they fire at the
+  player, have them shoot a linear mesh based rainbow death beam with
+  spark particles and other appropriate particle effects / hit effects";
+  "make blood decal half current res, make big hit decal 3x current
+  res".
+
+  THE DEFAULTS (pause.gd DEFAULTS, lofi.gd RENDER and PIXELS): RENDER
+  360P, PIXELS 360P, PIXEL GRID LCD. PREF_VERSION is 17, so a saved
+  setup from before is put back to these once. On a 1080 screen 360
+  rows is three screen pixels a cell, enough for the LCD look; on a 720
+  one it is two, and the grid stays off there (it needs three).
+
+  THE POD (drop_pod.gd). DropPod.RCS_ON is false: the RCS nozzles are
+  still read off the model but none fires, the stick and FIRE do
+  nothing, and the readout has no RCS line. True puts the steered ride
+  back. It comes in right over the start (DROP.offset 0), upright, with
+  no drift and no spin, at 350 m/s (DROP.entry, 2.5 times the 140), and
+  the air takes it to a terminal of 80 m/s (DROP.drag, one value all
+  the way down now; 2.5 times the slow fall's 32). THE FIRE is the way
+  down's, not the speed's: full for the first 75% of the height
+  (DROP.fire_share), out over the next 5% (DROP.fire_fade). The
+  autopilot's suicide burn waits until the fire is out (at 350 m/s the
+  sum says brake from the top, and the air does that braking), then
+  lights near 280 m and has it down in about six seconds. The ride is
+  about 13 s where it was 40 and more. drop_test checks it all: the
+  time, the share of the way in the fire, the burn after it, no drift,
+  and a hand on the stick doing nothing.
+
+  THE UNICORNS FIGHT BACK (godot/scripts/game/rainbow.gd, RainbowBeams;
+  Actor.rouse and the UNI_ states). A grown unicorn hurt by the player,
+  and every grown one within 1400 units of her (ROUSE_R), is in a FURY
+  (Actor.fury, info.furyTics: 25 s, kept up while she is hurt again).
+  A foal still runs. In the fury she does not run from a fright. She
+  faces the player in her FIRING PICTURE (Standees "UNIF",
+  assets/people/candy_unicorn_fire.png: eyes alight, mouth open) and
+  draws the charge in for 24 tics, rainbow sparks pulled into a glow at
+  her mouth. Then she throws the beam for a second, takes a breath, and
+  goes again. Out of sight or reach (2600 units) she gallops after the
+  player (UNI_HUNT). When the fury is out she grazes again.
+  THE BEAM: from her mouth along a line that SWINGS after the player at
+  0.035 rad a tic, so a sidestep takes them out of it for a moment. It
+  stops at the first house wall or the ground. In it, the player takes
+  2 a tic (70 over a whole beam), with a rainbow burst on them. It is
+  drawn as a TUBE of real geometry rebuilt each frame (ImmediateMesh,
+  10 sides, a ring every 48 units) in two shells: a white-hot core and
+  a rainbow sheath (rainbow_beam.gdshader: the whole colour wheel along
+  it, streaming away from her, bright bands running down it, the radius
+  breathing). It is drawn only to a little short of the player's eye,
+  because a tube run into the eye is a white wall. Rainbow sparks are
+  thrown off all along it. Where it lands: a burst of rainbow sparks, a
+  glow, embers, smoke, a scorch every five tics, and the plants there
+  blown. The sound is the lance's shot pitched up.
+  The firing picture now is A STAND-IN: her front drawing with her eyes
+  and mouth painted alight. The user's own drawing goes in its place at
+  the same path, with Standees.UNIF_MOUTH set to how far up her mouth
+  is. Its cell is sized from the picture, 80 units tall.
+  Tested by godot/tests/unicorn_test.gd. A picture: candy_shot.gd
+  --herd --rouse [--dodge].
+
+  THE DECALS. BLOOD AT HALF RES: blood (decal.gdshader kind 2, and every
+  gore_decal kind) is drawn from its shapes, a pixel of the picture
+  each, so its resolution was the picture's own. Now it is laid in
+  squares two of the picture's pixels across (half_res() in
+  decal_project.gdshaderinc), the nearest power of two, so it steps the
+  way a mip would instead of crawling as the distance changes. THE BIG
+  HIT MARKS AT THREE TIMES: the rocket's crater and soot, the potato's
+  glass and the arc's burns are baked at Decals.BLAST_TEXELS, 96
+  squares across where they were 32. The atlas is 3072 x 960 (11 MB)
+  and is still drawn into only when a mark is laid.
+
 TESTS
 
     tools/godot-test.sh

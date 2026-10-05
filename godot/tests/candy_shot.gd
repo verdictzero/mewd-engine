@@ -5,6 +5,8 @@
 ## --scare: a body comes apart beside you first, so they run — to see their
 ## backs. --road: you stand on the middle of a road, looking down it.
 ## --herd: you stand 14 m off the nearest herd of unicorns, looking at it.
+## --rouse (with --herd): and the nearest has been hurt by you and fires
+## her rainbow beam at you (RainbowBeams).
 ## --house: you stand 16 m out from the nearest house's door, looking at it.
 ## --edge: you stand at the coast, looking out and down over the lip.
 ## --blast: a rocket goes off in the nearest wood, 15 to 40 m ahead of you,
@@ -156,7 +158,7 @@ func _frame() -> void:
 				p.angle = (b - a).angle()
 				p.sector = game.level.sector_at(p.x, p.y)
 				p.z = game.level.floor_at(p.x, p.y)
-	if "--herd" in args and game.tics - _start >= wait - 2 and not has_meta("herd"):
+	if "--herd" in args and game.tics - _start >= wait - (36 if "--rouse" in args else 2) and not has_meta("herd"):
 		set_meta("herd", true)
 		var best = null
 		for a in game.actors:
@@ -174,9 +176,27 @@ func _frame() -> void:
 			p.sector = game.level.sector_at(p.x, p.y)
 			p.z = game.level.floor_at(p.x, p.y)
 			p.angle = (h - Vector2(p.x, p.y)).angle()
+			# --rouse: she is hurt by the player and fights back (RainbowBeams),
+			# looked at
+			if "--rouse" in args:
+				p.angle = atan2(best.y - p.y, best.x - p.x)
+				best.damage(1.0, p, {"shot": true})
+				set_meta("uni", best)
 			for a in game.actors:
 				if a.type == "CANDYGIRL":
 					a.remove()
+	# --dodge (with --rouse): just before the picture the player steps round
+	# her, so the beam, swinging after them, is seen from the side
+	if "--dodge" in args and has_meta("uni") and not has_meta("dodged") and game.tics - _start >= wait - 8:
+		set_meta("dodged", true)
+		var u = get_meta("uni")
+		var r := Vector2(p.x - u.x, p.y - u.y)
+		var q: Vector2 = Vector2(u.x, u.y) + r.rotated(0.55)
+		p.x = q.x
+		p.y = q.y
+		p.z = game.level.floor_at(p.x, p.y)
+		p.sector = game.level.sector_at(p.x, p.y)
+		p.angle = atan2(u.y - p.y, u.x - p.x) - 0.35
 	# (on or after a tic, never on it exactly: a frame can run several)
 	if has_meta("blast_at") and not has_meta("blasted") and game.tics - _start >= 2:
 		set_meta("blasted", true)
