@@ -54,7 +54,8 @@ const LIST := [
 			"scale": [0.9, 1.15], "inner": 0.85, "outer": 0.65, "gap": 4.0},
 		# its own music, crossfading one into the other round and round
 		# (Music.start_list, at the user's request)
-		"music": ["res://assets/music/golf_course_muzak.mp3", "res://assets/music/sunny_resort_groove.mp3"],
+		"music": ["res://assets/music/golf_course_muzak.mp3", "res://assets/music/sunny_resort_groove.mp3",
+			"res://assets/music/sunny_fairway.mp3"],
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"}
 ]
 

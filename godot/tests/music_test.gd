@@ -1,6 +1,6 @@
-## MEWD — CANDY LAND's music, headless (Music.start_list): its two tracks
-## in turn, the first crossfaded into the second over XFADE seconds before
-## it ends, the second back into the first, round and round; and the
+## MEWD — CANDY LAND's music, headless (Music.start_list): its three
+## tracks in turn, each crossfaded into the next over XFADE seconds before
+## it ends, the last back into the first, round and round; and the
 ## death music takes over from it.
 ##   godot --headless --audio-driver Dummy --script res://godot/tests/music_test.gd
 extends SceneTree
@@ -14,7 +14,7 @@ func check(ok: bool, what: String) -> void:
 
 func _init() -> void:
 	var own: Array = Islands.find("candyland").get("music", [])
-	check(own.size() == 2, "CANDY LAND has its own two tracks (%d)" % own.size())
+	check(own.size() == 3, "CANDY LAND has its own three tracks (%d)" % own.size())
 	check(not Islands.find("island0").has("music"), "the other island keeps the remixes")
 	for u in own:
 		var st = load(u)
@@ -43,7 +43,12 @@ func _init() -> void:
 	var L2: float = m.decks[0].stream.get_length()
 	m.decks[0].seek(L2 - 1.0)
 	m._pl_tic(0.0)
-	check(m.decks[1].stream.resource_path == own[0] and m.decks[1].playing, "the second fades back into the first: round and round")
+	check(m.decks[1].stream.resource_path == own[2] and m.decks[1].playing, "the second fades into the third")
+	m._pl_tic(Music.XFADE * 1.1)
+	var L3: float = m.decks[0].stream.get_length()
+	m.decks[0].seek(L3 - 1.0)
+	m._pl_tic(0.0)
+	check(m.decks[1].stream.resource_path == own[0] and m.decks[1].playing, "and the third back into the first: round and round")
 	# the death music takes over
 	m.dirge()
 	check(m.playlist.is_empty(), "and YOU DIED stops it for the dirge")

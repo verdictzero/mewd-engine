@@ -2853,8 +2853,9 @@ YOU DIED, THE UNICORNS CHARGE, THE POD BURNS, MATCAP GUNS, BURNING PALETTE
 CANDY LAND'S OWN MUSIC
 
   At the user's request: "add these as looping auto crossfading tracks to
-  candy land" — "Golf Course Muzak" and "Sunny Resort Groove"
-  (assets/music/golf_course_muzak.mp3, sunny_resort_groove.mp3). An
+  candy land" — "Golf Course Muzak", "Sunny Resort Groove" and then
+  "Sunny Fairway" (assets/music/golf_course_muzak.mp3,
+  sunny_resort_groove.mp3, sunny_fairway.mp3). An
   island may name its own music (Islands "music", a list of tracks);
   CANDY LAND does, and a game there plays them in turn instead of the
   E1M1 remixes (main.gd start_game, Music.start_list): each runs to
@@ -2862,9 +2863,9 @@ CANDY LAND'S OWN MUSIC
   and the two cross over those seconds, the first then stopped, and so
   round and round. No beat-matching, as the remixes have: these are not
   measured. The death music (Music.dirge) takes over from it as from the
-  remixes. Test: godot/tests/music_test.gd (the two tracks load, the
-  first crossfades into the second at its end, half and half half way,
-  the second back into the first, and the dirge stops the list).
+  remixes. Test: godot/tests/music_test.gd (the three tracks load, each
+  crossfades into the next at its end, half and half half way, the last
+  back into the first, and the dirge stops the list).
 
 TESTS
 
