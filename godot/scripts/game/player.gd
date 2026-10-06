@@ -44,7 +44,7 @@ var guard_until := 0
 var respawn_in := 0
 ## the guns this player may pick up — every one alone; the match's
 ## loadout on a network (js/player.js `owned`)
-var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": false}   # the potato cannon: off for now, at the user's request
+var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": false, "PLASMA": true}   # the potato cannon: off for now, at the user's request
 var x := 0.0
 var y := 0.0
 var z := 0.0
@@ -85,6 +85,9 @@ var fire_tics := 0
 var ammo := {}
 var ammo_tick := {}
 var dry := {}
+## A SEMI-AUTOMATIC's trigger (Weapons `semi`): down since the last shot,
+## so it will not fire again until it has been let go
+var trigger_held := false
 var spin := 0.0
 var heat := 0.0
 var shots_fired := 0
@@ -323,6 +326,8 @@ func weapon_tic(cmd: Dictionary) -> void:
 
 func _weapon_tic(attack: bool) -> void:
 	var d := def()
+	if not attack:
+		trigger_held = false
 	# A CHARGED WEAPON DOES NOT RUN ON fire_index: its question is "how
 	# long has the trigger been down", which is not an animation
 	if d.get("charge", false):
@@ -359,7 +364,7 @@ func _weapon_tic(attack: bool) -> void:
 		weapon = pending_weapon
 		pending_weapon = ""
 		return
-	if attack and armed(weapon):
+	if attack and armed(weapon) and not (d.get("semi", false) and trigger_held):
 		start_fire()
 
 func start_fire() -> void:
@@ -372,6 +377,10 @@ func start_fire() -> void:
 	game.play_sound(d.get("sound"), self)
 	if d.get("lock", false) and game.bore != null:
 		game.bore.fire(self)
+	if d.get("semi", false):
+		trigger_held = true
+	if d.get("plasma", false) and game.get("plasma") != null:
+		game.plasma.fire(self)
 	game.noise(self, 900.0 if d.get("autofire", false) else 700.0)
 
 ## The barrels winding up and down, and how hot they are.

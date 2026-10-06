@@ -31,6 +31,8 @@ const SAMPLE_FOR := {
 	"spinup": "minigun_start", "minigunloop": "minigun_fire", "spindown": "minigun_stop",
 	"lancestart": "lance_charge_start", "lancecharge": "lance_charge_loop", "lancecharge3": "lance_charge_full",
 	"lanceprefire": "lance_prefire", "lancefire": "lance_fire_a", "lancefire2": "lance_fire_b",
+	# the plasma rifle's crack: the lance's second shot, pitched up (Plasma)
+	"plasma": "lance_fire_b",
 }
 const SAMPLE_GAIN := {
 	"minigun_fire": 0.32, "minigun_start": 0.42, "minigun_stop": 0.42,

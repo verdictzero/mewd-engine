@@ -106,7 +106,10 @@ const MODEL := "res://assets/models/drop_pod.glb"
 ## paint's metal kept to this — it took nothing from a sky with no
 ## reflections and went black — roughness at least this, the colour lifted
 ## by this, its own picture glowing at this
-const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.1, "glow": 0.22}
+## — and, at the user's request ("make the capsule much less bright, leave
+## it at whatever the default brightness for other stuff is"), no lift and
+## no glow any more: the paint as it is, under the island's light
+const POD_LOOK := {"metallic": 0.3, "roughness": 0.6, "lift": 1.0, "glow": 0.0}
 ## THE HEAT THE HULL SOAKS UP AND GIVES OFF AGAIN, at the user's request
 ## ("a dissipating heat effect like the minigun barrel"): `soak` rises
 ## with the reentry fire and the retros' burn and then bleeds away — each
@@ -295,7 +298,7 @@ func _ready() -> void:
 				bm.metallic = minf(bm.metallic, POD_LOOK.metallic)
 				bm.roughness = maxf(bm.roughness, POD_LOOK.roughness)
 				bm.albedo_color = bm.albedo_color * POD_LOOK.lift
-				if bm.albedo_texture != null:
+				if bm.albedo_texture != null and POD_LOOK.glow > 0.0:
 					bm.emission_enabled = true
 					bm.emission = Color.WHITE
 					bm.emission_texture = bm.albedo_texture

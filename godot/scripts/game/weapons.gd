@@ -36,6 +36,10 @@ const POTATOES := 6
 const POTATO_REGEN_EVERY := 2 * TICRATE
 const ROCKET_REGEN_EVERY := 2 * TICRATE
 const VOLTS := 6
+## THE PLASMA RIFLE (the Sarakawa Mk II, game/plasma.gd): ten cells, one
+## back every second and a bit
+const PLASMA_CELLS := 10
+const PLASMA_REGEN_EVERY := 42
 const VOLT_REGEN_EVERY := 3 * TICRATE
 
 const HEALTH := 100
@@ -43,7 +47,7 @@ const ARMOUR1 := 5 * HEALTH
 const ARMOUR2 := 10 * HEALTH
 
 ## the order the slots and the cycle go in
-const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC", "POTATO"]
+const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC", "POTATO", "PLASMA"]
 
 const WEAPONS := {
 	"FLAMER": {"slot": 1, "name": "FLAMER", "fireTics": [2, 2], "ammo": "fuel", "ammoPerShot": 0,
@@ -59,6 +63,11 @@ const WEAPONS := {
 	"ARC": {"slot": 7, "name": "ARC MAW", "fireTics": [3, 5], "ammo": "volts", "ammoPerShot": 1, "arc": true},
 	# (game/potatoes.gd)
 	"POTATO": {"slot": 8, "name": "IRISH POTATO CANNON", "fireTics": [20], "ammo": "potatoes", "ammoPerShot": 1, "potato": true},
+	# THE SARAKAWA MK II, at the user's request ("single shot plasma rifle,
+	# semi-auto fire rate, precise, thick long pellet beam"): one bolt a
+	# pull of the trigger (`semi`: let go to fire again), no spread, at
+	# most about three a second (game/plasma.gd)
+	"PLASMA": {"slot": 9, "name": "SARAKAWA MK II", "fireTics": [6, 6], "ammo": "plasma", "ammoPerShot": 1, "semi": true, "plasma": true},
 }
 
 ## the tanks: [cap, refill every n tics, the mark a dry one unlatches at]
@@ -71,11 +80,16 @@ const TANKS := {
 	"rockets": [ROCKETS, ROCKET_REGEN_EVERY, 0.0],
 	"volts": [VOLTS, VOLT_REGEN_EVERY, 0.0],
 	"potatoes": [POTATOES, POTATO_REGEN_EVERY, 0.0],
+	"plasma": [PLASMA_CELLS, PLASMA_REGEN_EVERY, 0.0],
 }
 
 ## the minigun's damage: 24 to 48 a round
 static func minigun_damage() -> int:
 	return 24 + (U.p_random() % 25)
+
+## the plasma rifle's: 110 to 150 a bolt
+static func plasma_damage() -> int:
+	return 110 + (U.p_random() % 41)
 
 ## the flamer's: 8 to 16 a particle
 static func flamer_damage() -> int:

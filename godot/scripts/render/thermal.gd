@@ -44,6 +44,9 @@ const ASPECT := 0.98
 ## nothing else in the game may be 172 x 176
 const ROWS := 176
 const PANEL_ROWS := 256
+## the rifle's: further again
+const BLUE_ZOOMS := [1.0, 3.0, 6.0]
+const BLUE_VIEW_ZOOM := [1.0, 0.86, 0.76]
 ## more magnification than the lance: a circle six degrees across over a
 ## van at the far end of the street
 const THERMAL_ZOOMS := [1.0, 2.5, 4.0]
@@ -68,6 +71,11 @@ var game = null
 ## run up a night-vision green instead of ironbow, and a plain reticle
 ## with a range readout instead of the seeker's circle, brackets and tubes
 var green := false
+## BLUE, at the user's request ("blue shade mapped thermal scope with
+## zoom"): the plasma rifle's sight (the Sarakawa Mk II) — the same heat
+## run up a cold blue, black through navy and cyan to a blue-white, and a
+## fine marksman's reticle with a range readout and the cell count
+var blue := false
 ## the one sight whose heat the world is drawing (two may exist; one is
 ## held at a time), and what the world was last told
 static var _holder: ThermalScope = null
@@ -77,16 +85,22 @@ var _warmth := {}
 ## what the glass was last asked to show
 var tst := {"marks": [], "loaded": 0, "locks": 0, "take": 0.0, "salvo": 0}
 
-func _init(g = null, is_green := false) -> void:
+func _init(g = null, is_green := false, is_blue := false) -> void:
 	super({"size": ROWS, "aspect": ASPECT, "zooms": THERMAL_ZOOMS,
 		"view_zooms": THERMAL_VIEW_ZOOM, "aim_at": THERMAL_AIM_AT})
-	name = "GreenThermalScope" if is_green else "ThermalScope"
+	name = "GreenThermalScope" if is_green else ("BlueThermalScope" if is_blue else "ThermalScope")
 	# (its panel draws its own gauges; the lance's rings are not on it)
 	rings = false
 	green = is_green
-	# the cannon's sight is raised to the eye whole at every step
-	if green:
+	blue = is_blue
+	# the cannon's and the rifle's sights are raised to the eye whole at
+	# every step
+	if green or blue:
 		aim_at = [0.0, 1.0, 1.0]
+	# and the rifle's reaches further: a marksman's glass
+	if blue:
+		zooms = BLUE_ZOOMS
+		view_zooms = BLUE_VIEW_ZOOM
 	game = g
 	feed.name = "ThermalFeed"
 	# the brackets the world draws over the locks are not seen by the sensor
@@ -125,6 +139,7 @@ func screen_material() -> ShaderMaterial:
 		screen.set_shader_parameter("panel", U.col(panel.get_texture()))
 		screen.set_shader_parameter("raw", U.col(raw_targets()))
 		screen.set_shader_parameter("green", U.col(green))
+		screen.set_shader_parameter("blue", U.col(blue))
 	return screen
 
 # ------------------------------------------------------------------
@@ -179,16 +194,21 @@ func update(p, t: int) -> bool:
 		screen.set_shader_parameter("tics", U.col(float(t)))
 		screen.set_shader_parameter("on", U.col(1.0 if held else 0.0))
 		# THE MOTOR BLINDS IT while a missile leaves the tube
-		var launching: bool = p != null and p.weapon == ("POTATO" if green else "LAUNCHER") and p.firing()
-		screen.set_shader_parameter("noise", U.col(0.8 if launching else 0.0))
-	var M = game.get("missiles") if game != null and not green else null
+		# (the rifle's own shot only flashes it, briefly)
+		var launching: bool = p != null and p.weapon == gun_name() and p.firing()
+		var flash := 0.8
+		if blue:
+			flash = 0.35 if launching and p.fire_index == 0 and p.fire_tics > Weapons.WEAPONS.PLASMA.fireTics[0] - 3 else 0.0
+		screen.set_shader_parameter("noise", U.col(flash if launching else 0.0))
+	var M = game.get("missiles") if game != null and not green and not blue else null
 	var marks := _marks(M)
 	var loaded := 0
 	if p != null:
-		loaded = clampi(int(p.ammo.get("potatoes" if green else "rockets", 0)), 0, 6 if green else 4)
-	# the green sight's range: to whatever is down the middle of it
+		var cap := 6 if green else (Weapons.PLASMA_CELLS if blue else 4)
+		loaded = clampi(int(p.ammo.get("potatoes" if green else ("plasma" if blue else "rockets"), 0)), 0, cap)
+	# the green and blue sights' range: to whatever is down the middle of it
 	var rng := 0
-	if green and p != null and held and game != null:
+	if (green or blue) and p != null and held and game != null:
 		var tr: Dictionary = game.trace(p, p.angle, p.pitch, 8000.0)
 		rng = roundi(Vector2(tr.x - p.x, tr.y - p.y).length() / 32.0)
 	var locks: int = M.locks.size() if M != null else 0
@@ -253,6 +273,9 @@ func _draw_panel(c: Control) -> void:
 		return
 	if green:
 		_draw_green(c)
+		return
+	if blue:
+		_draw_blue(c)
 		return
 	var W := c.size.x
 	var H := c.size.y
@@ -348,3 +371,41 @@ func _draw_green(c: Control) -> void:
 			c.draw_arc(Vector2(x, y), s, 0.0, TAU, 12, G_DIM, 1.6)
 	_label(c, "%sx" % str(magnification()), W * 0.86, H * 0.88, H * 0.075, G_INK if zoom_index > 0 else G_DIM)
 
+
+## which gun this sight is on
+func gun_name() -> String:
+	return "POTATO" if green else ("PLASMA" if blue else "LAUNCHER")
+
+## THE PLASMA RIFLE'S GLASS: a fine cross that stops short of the middle,
+## a small open square round the point of aim, mil dots down the arms,
+## the range in metres over it, the cells as bars under it, and the zoom
+const B_INK := Color(0.66, 0.90, 1.0, 0.95)
+const B_DIM := Color(0.66, 0.90, 1.0, 0.40)
+
+func _draw_blue(c: Control) -> void:
+	var W := c.size.x
+	var H := c.size.y
+	var cx := W / 2.0
+	var cy := H / 2.0
+	var gap := H * 0.05
+	var arm := H * 0.40
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		# thin near the middle, thick out at the edge
+		c.draw_line(Vector2(cx, cy) + d * gap, Vector2(cx, cy) + d * arm * 0.6, B_INK, 1.4)
+		c.draw_line(Vector2(cx, cy) + d * arm * 0.6, Vector2(cx, cy) + d * arm, B_INK, 3.0)
+		for k in range(1, 4):
+			var at: Vector2 = Vector2(cx, cy) + d * (gap + k * (arm * 0.6 - gap) / 4.0)
+			c.draw_circle(at, H * 0.006, B_INK)
+	var q := H * 0.018
+	c.draw_rect(Rect2(cx - q, cy - q, q * 2.0, q * 2.0), B_INK, false, 1.2)
+	_label(c, "%dm" % int(tst.get("range", 0)), cx, H * 0.10, H * 0.08, B_INK)
+	var loaded: int = tst.loaded
+	var n := Weapons.PLASMA_CELLS
+	for i in n:
+		var x := cx + (i - (n - 1) / 2.0) * H * 0.05
+		var r := Rect2(x - H * 0.015, H * 0.86, H * 0.03, H * 0.06)
+		if i < loaded:
+			c.draw_rect(r, B_INK)
+		else:
+			c.draw_rect(r, B_DIM, false, 1.4)
+	_label(c, "%sx" % str(magnification()), W * 0.86, H * 0.88, H * 0.075, B_INK if zoom_index > 0 else B_DIM)

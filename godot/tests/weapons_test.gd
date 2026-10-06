@@ -38,6 +38,7 @@ func _init() -> void:
 	_arc(p, run)
 	_lance(p, run)
 	_potato(p, run)
+	_plasma(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
 
@@ -380,3 +381,47 @@ func _potato(p, run: Vector2) -> void:
 		game.tic()
 	p.health = hp0
 
+
+# ---- the plasma rifle, the Sarakawa Mk II (game/plasma.gd) -------------------
+
+func _plasma(p, run: Vector2) -> void:
+	print("weapons: plasma rifle")
+	var dbg: bool = p.debug
+	p.debug = false
+	check(Weapons.WEAPONS.PLASMA.slot == 9 and p.owned.get("PLASMA", false), "the plasma rifle is slot 9, and carried")
+	p.ammo.plasma = Weapons.PLASMA_CELLS
+	var pb: PlasmaBolts = game.plasma
+	# SEMI-AUTOMATIC: the trigger held down a second is one bolt
+	var f0: int = pb.fired
+	_hold("PLASMA", 35)
+	_settle(10)
+	check(pb.fired - f0 == 1, "the trigger held for a second fires once (%d)" % (pb.fired - f0))
+	# and let go and pulled again, another
+	_hold("PLASMA", 2)
+	_settle(14)
+	_hold("PLASMA", 2)
+	_settle(14)
+	check(pb.fired - f0 == 3, "and pulled twice more, twice more (%d)" % (pb.fired - f0))
+	# (a cell a bolt, and one back every PLASMA_REGEN_EVERY over the ~60 tics)
+	check(p.ammo.plasma >= Weapons.PLASMA_CELLS - 3 and p.ammo.plasma <= Weapons.PLASMA_CELLS - 2, "a cell a bolt, and they fill again (%d left)" % p.ammo.plasma)
+	# PRECISE: a shopper far down the run, straight down the eye, is hit
+	var v := _victim(p, run, 900.0)
+	v.speed = 0.0
+	p.pitch = atan2(v.z + 28.0 - p.eye_z(), Vector2(v.x - p.x, v.y - p.y).length())
+	var hp: float = v.health
+	_hold("PLASMA", 2)
+	check(v.dead or v.removed, "PRECISE: a shopper %d m off, dead ahead, is killed by one bolt (%.0f -> %.0f)" % [int(Vector2(v.x - p.x, v.y - p.y).length() / 32.0), hp, v.health])
+	check(not pb.list.is_empty() or not pb.flashes.is_empty(), "and the bolt is in the air, or its flash where it landed")
+	_settle(40)
+	check(pb.list.is_empty() and pb.flashes.is_empty(), "and both are gone a second later")
+	p.pitch = 0.0
+	# THE BLUE THERMAL SIGHT: the rifle in hand holds it, and zooms
+	var bt: ThermalScope = game.blue_thermal
+	p.weapon = "PLASMA"
+	game._process(0.0)
+	check(bt != null and bt.blue and bt.held and not game.green_thermal.held and not game.thermal.held, "the rifle holds its own thermal sight, in blue")
+	bt.set_zoom(2)
+	game._process(0.0)
+	check(bt.zoom_index == 2 and bt.magnification() == 6.0 and ThermalScope._told == bt.feed_size(), "and zooms to %sx, the world drawing heat for it" % str(bt.magnification()))
+	bt.set_zoom(0)
+	p.debug = dbg

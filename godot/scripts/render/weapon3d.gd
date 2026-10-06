@@ -62,9 +62,25 @@ const GUNS := {
 	# came, its 2048 maps and its own shading: `native`, lit by its own
 	# lights in the gun's world; only shifted so the prongs' axis is x = y
 	# = 0, as the game's old copy of it was)
+	# — and now under a MATCAP, at the user's request ("use this mat cap for
+	# the arc maw": nidorx/matcaps D0CCCB_524D50_928891_727581, a pearl),
+	# its own colour and normal map under it (gun_matcap.gdshader)
 	"ARC": {"url": "arcmaw.glb", "fit": GUN_LENGTH * 1.05, "out": 1.7, "pos": [0.02, 0.12, 0], "rot": [0, 0.06, 0], "tint": [0.7, 0.95, 1.9],
-		"native": true,
+		"matcap": "res://assets/matcaps/pearl.png",
 		"nozzle": [0.0, 0.0, 5.42], "orb": {"radius": 0.11, "reach": 0.26, "motes": 64}},
+	# THE SARAKAWA MK II, the plasma rifle (game/plasma.gd), at the user's
+	# request: the user's own file, its parts named for what they are — a
+	# SCREEN on the side of the sight (`display`, the blue thermal sight,
+	# raised to the eye on the zoom as the potato cannon's is), the sight's
+	# front LENS (`optics`), the coil in the chamber that GLOWS (`emit`,
+	# brighter when it fires) and the GLASS round it (`glass`, the
+	# refracting glass the hopper has, tinted blue: `glass_body`). In its
+	# own colours (`pbr`) through the gun shader, as every gun.
+	"PLASMA": {"url": "sarakawa.glb", "fit": GUN_LENGTH * 1.1, "out": 2.7, "pos": [0.16, -0.10, 0], "rot": [0.03, -0.12, -0.03], "tint": [0.55, 0.85, 1.6],
+		"display": {"material": "dynamicDisplaySurface"}, "optics": {"material": "Material.001", "base": [0.10, 0.45, 0.95]},
+		"emit": {"material": "Material.002", "color": [0.15, 0.55, 1.6]},
+		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true,
+		"aim": {"solve": {"dist": 0.10, "yaw": PI, "pitch": 0.0}}},
 }
 
 var camera: Camera3D
@@ -238,7 +254,27 @@ func _display_centre(group: Node3D, mat: String):
 ## flat because in the original they are a screen never switched on and a
 ## lens never lit
 func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
-	if n is MeshInstance3D and def.get("native", false):
+	if n is MeshInstance3D and def.has("matcap"):
+		# A GUN UNDER A MATCAP (`matcap`): every surface's own colour and
+		# normal map, lit by the picture of a lit ball (gun_matcap.gdshader)
+		var mi: MeshInstance3D = n
+		for i in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(i)
+			var m := ShaderMaterial.new()
+			m.shader = preload("res://godot/shaders/gun_matcap.gdshader")
+			m.set_shader_parameter("matcap_tex", load(def.matcap))
+			m.set_shader_parameter("tint", U.col(Vector3(def.tint[0], def.tint[1], def.tint[2])))
+			if src is BaseMaterial3D:
+				var bm: BaseMaterial3D = src
+				if bm.albedo_texture != null:
+					m.set_shader_parameter("map", bm.albedo_texture)
+				if bm.normal_enabled and bm.normal_texture != null:
+					m.set_shader_parameter("normal_map", bm.normal_texture)
+					m.set_shader_parameter("has_normal", true)
+			mi.set_surface_override_material(i, m)
+			mats.append(m)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	elif n is MeshInstance3D and def.get("native", false):
 		# A GUN IN ITS OWN SHADING (`native`): the file's materials as they
 		# are — colour, normal map, metal and roughness — lit (_light_native)
 		(n as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -269,6 +305,9 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				var gm := ShaderMaterial.new()
 				gm.shader = preload("res://godot/shaders/gun_glass.gdshader")
 				gm.render_priority = 1
+				if def.has("glass_body"):
+					var gb: Array = def.glass_body
+					gm.set_shader_parameter("body", Vector3(gb[0], gb[1], gb[2]))
 				mi.set_surface_override_material(i, gm)
 				continue
 			if def.has("rainbow") and nm == def.rainbow:
@@ -301,6 +340,11 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				# not a light
 				if def.get("pbr", false):
 					m.set_shader_parameter("metal", U.col(bm.metallic))
+				# A PART THAT GLOWS (`emit`): its own light, whatever the
+				# room's, and more of it while the gun goes off
+				if def.has("emit") and bm.resource_name == def.emit.material:
+					var ec: Array = def.emit.color
+					m.set_shader_parameter("emit", U.col(Vector3(ec[0], ec[1], ec[2])))
 			mi.set_surface_override_material(i, m)
 			mats.append(m)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

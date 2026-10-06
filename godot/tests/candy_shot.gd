@@ -85,6 +85,14 @@ func _frame() -> void:
 	if _start < 0:
 		_start = game.tics
 		p.health = 100000
+		# --weapon=NAME: that gun in hand (with --gun to see it); --zoom=N:
+		# its scope at that step; --fire=K: one plasma bolt K tics before
+		# the picture (--hold=UNITS: held that far along its flight)
+		for arg in args:
+			if arg.begins_with("--weapon="):
+				p.weapon = arg.substr(9)
+			if arg.begins_with("--zoom="):
+				game._start_zoom = int(arg.substr(7))
 		# the island's own colours, as main.gd's prefs give them
 		lofi.for_island(game.island_spec, not "--clean" in args)
 		if "--house" in args and not game.level.houses.is_empty():
@@ -160,7 +168,7 @@ func _frame() -> void:
 				set_meta("blast_at", best)
 			else:
 				print("candy_shot: no tree to blow up near the start (%d trees seen)" % trees.size())
-		if "--blast" in args or "--wound" in args:
+		if "--blast" in args or "--wound" in args or "--nogirls" in args:
 			for a in game.actors:
 				if a.type == "CANDYGIRL":
 					a.remove()
@@ -278,6 +286,21 @@ func _frame() -> void:
 			_start = game.tics
 			wait = 0
 			print("candy_shot: the pod is down to %.1f m at tic %d" % [game.drop.altitude(), game.tics])
+	for arg in args:
+		if arg.begins_with("--fire=") and not has_meta("fired") and game.tics - _start >= wait - int(arg.substr(7)):
+			set_meta("fired", true)
+			p.pitch = look
+			if turn != null and turn != "sun":
+				p.angle = float(turn)
+			game.plasma.fire(p)
+			set_meta("bolt", game.plasma.list.back() if not game.plasma.list.is_empty() else null)
+	# (and held there in flight, 9 m out, for the picture: --hold=UNITS)
+	if has_meta("bolt") and get_meta("bolt") != null and not has_meta("held"):
+		set_meta("held", true)
+		var b = get_meta("bolt")
+		for arg in args:
+			if arg.begins_with("--hold="):
+				b["hold"] = minf(float(arg.substr(7)), b.len)
 	# the beam in the eye swims the picture, as main.gd does it
 	lofi.set_wobble(clampf(float(p.wobble) / RainbowBeams.UNI.wobble_tics, 0.0, 1.0))
 	if "--die" in args and not has_meta("died") and game.tics - _start >= wait - 220:
@@ -307,6 +330,8 @@ func _frame() -> void:
 				var pl = game.chunks.pools[t]
 				print("candy_shot: %d pieces of %s (%dx%d)" % [pl.pos.size(), t.resource_path.get_file(), t.get_width(), t.get_height()])
 		root.get_texture().get_image().save_png(out)
+		if "--worldpng" in OS.get_cmdline_user_args():
+			lofi.world.get_texture().get_image().save_png(out.replace(".png", "_world.png"))
 		if game.drop != null:
 			print("candy_shot: pod at %s m, %s; eye at %s, %s" % [str(game.drop.pos), game.drop.phase, str(game.camera.position / 32.0), str(game.camera.rotation_degrees)])
 			var wsh = game.drop.wash

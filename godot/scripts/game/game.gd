@@ -109,6 +109,10 @@ var scope: Scope
 var thermal: ThermalScope
 ## the potato cannon's thermal sight, in night-vision green
 var green_thermal: ThermalScope
+## the plasma rifle's, in blue (render/thermal.gd `blue`)
+var blue_thermal: ThermalScope
+## the plasma rifle's bolts (game/plasma.gd)
+var plasma: PlasmaBolts
 var _zoom := false
 var hud: Hud
 var weapon3d: Weapon3D
@@ -281,6 +285,8 @@ func start_map(which: String) -> void:
 	add_child(standees)
 	tracers = Tracers.new()
 	add_child(tracers)
+	plasma = PlasmaBolts.new(self)
+	add_child(plasma)
 	flame = FlameStream.new(self)
 	add_child(flame.particles)
 	frost = FrostStream.new(self)
@@ -336,6 +342,11 @@ func start_map(which: String) -> void:
 	add_child(green_thermal)
 	if weapon3d != null:
 		weapon3d.scopes["POTATO"] = green_thermal
+	# and the plasma rifle's, in blue (render/thermal.gd `blue`)
+	blue_thermal = ThermalScope.new(self, false, true)
+	add_child(blue_thermal)
+	if weapon3d != null:
+		weapon3d.scopes["PLASMA"] = blue_thermal
 		# every gun now, not on its first swap (Weapon3D.preload_all)
 		weapon3d.preload_all()
 	camera = Camera3D.new()
@@ -421,7 +432,7 @@ func handle_input(event: InputEvent) -> void:
 		_cycle = 1
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.physical_keycode
-		if k >= KEY_1 and k <= KEY_8:
+		if k >= KEY_1 and k <= KEY_9:
 			_slot = k - KEY_0
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -454,7 +465,8 @@ func _process(dt: float) -> void:
 	var lance: bool = player.weapon == "LANCE" and not player.dead
 	var launcher: bool = player.weapon == "LAUNCHER" and not player.dead
 	var potato: bool = player.weapon == "POTATO" and not player.dead
-	var sighted: Scope = scope if lance else (thermal if launcher else (green_thermal if potato else null))
+	var rifle: bool = player.weapon == "PLASMA" and not player.dead
+	var sighted: Scope = scope if lance else (thermal if launcher else (green_thermal if potato else (blue_thermal if rifle else null)))
 	var slow: float = sighted.view_scale() if sighted != null else 1.0
 	if net != null:
 		if not paused:
@@ -487,6 +499,7 @@ func _process(dt: float) -> void:
 	scope.held = lance
 	thermal.held = launcher
 	green_thermal.held = potato
+	blue_thermal.held = rifle
 	if touch != null:
 		touch.scope_on = sighted != null
 		touch.scope_up = sighted != null and sighted.zoom_index > 0
@@ -501,7 +514,7 @@ func _process(dt: float) -> void:
 			touch.zoom_pulse = false
 			if sighted != null:
 				sighted.step_aimed()
-	for sc in [scope, thermal, green_thermal]:
+	for sc in [scope, thermal, green_thermal, blue_thermal]:
 		if sc != sighted and sc.zoom_index > 0:
 			sc.set_zoom(0)
 	if sighted != null and _zoom:
@@ -522,9 +535,11 @@ func _process(dt: float) -> void:
 	scope.render(camera)
 	thermal.render(camera)
 	green_thermal.render(camera)
+	blue_thermal.render(camera)
 	scope.update(player, tics)
 	thermal.update(player, tics)
 	green_thermal.update(player, tics)
+	blue_thermal.update(player, tics)
 	_prof_add("scopes", t0)
 	t0 = Time.get_ticks_usec()
 	weather.apply(dt)
@@ -538,6 +553,7 @@ func _process(dt: float) -> void:
 	_prof_add("standees", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.draw_for(camera, _acc / U.SEC)
+	plasma.draw_for(camera, _acc / U.SEC)
 	_prof_add("draw.tracers", t0)
 	t0 = Time.get_ticks_usec()
 	flame.particles.draw()
@@ -736,6 +752,7 @@ func tic() -> void:
 	_prof_add("tic.actors", t0)
 	t0 = Time.get_ticks_usec()
 	tracers.tic()
+	plasma.tic()
 	_prof_add("tic.tracers", t0)
 	t0 = Time.get_ticks_usec()
 	if decals != null:

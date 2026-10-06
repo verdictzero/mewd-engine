@@ -413,8 +413,10 @@ func damage(amount: float, source, opts := {}) -> void:
 	# of blood (Game.wound); the last comes apart as it always did
 	if opts.get("shot", false) and info.has("wounds"):
 		# (counted, not divided: 12 health is not ten whole bites) — every
-		# bite but the last leaves them standing, the last takes the rest
-		bites += 1
+		# bite but the last leaves them standing, the last takes the rest.
+		# A round that counts for more (`bites`: the plasma rifle's bolt, a
+		# whole body's worth) takes that many at once
+		bites += maxi(1, int(opts.get("bites", 1)))
 		game.wound(self, opts)
 		if bites >= int(info.wounds):
 			amount = float(maxi(health, 1))

@@ -35,6 +35,9 @@ uniform float heat = 0.0;
 uniform bool heats = false;
 uniform float metal = 0.0;
 uniform float matcap = 0.85;
+// a part that glows of itself (weapon3d `emit`, the plasma rifle's coil):
+// added over everything, half again more with the kick
+uniform vec3 emit = vec3(0.0);
 
 varying vec3 n_view;
 
@@ -90,6 +93,7 @@ void fragment() {
 	}
 	col += c.rgb * vec3(1.0, 0.55, 0.2) * tint * glow * 0.45 * reach * reach;
 	if (heats) col += vec3(1.0, 0.35, 0.05) * heat * heat * 0.8;
+	col += emit * (1.0 + 1.5 * glow);
 	if (any(isnan(col)) || any(isinf(col))) col = c.rgb * 0.5;
 	ALBEDO = clamp(col, vec3(0.0), vec3(8.0));
 }

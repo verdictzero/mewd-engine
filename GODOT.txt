@@ -3094,6 +3094,46 @@ So:
     desktop does.
 On the desktop it looks the same as before.
 
+THE SARAKAWA MK II (PLASMA RIFLE), THE ARC MAW UNDER A MATCAP, THE POD DIMMED
+At the user's request ("add this gun, single shot plasma rifle, semi-auto
+fire rate, precise, thick long pellet beam, make sure the glass bit has a
+glass shader, give it a scope like other weapons with a scope, blue shade
+mapped thermal scope with zoom"):
+  - assets/models/sarakawa.glb: the user's SarakawaMkII.glb, its two 3192
+    maps cut to 2048, and the scope screen's rotation baked into its mesh
+    so the screen lies flat in x and y as the scopes expect. Slot 9 (key
+    9), "SARAKAWA MK II", ten cells, one back every 1.2 s.
+  - Semi-automatic (Weapons `semi`, Player.trigger_held): one bolt for each
+    pull of the trigger, at most about three a second. Precise: a hitscan
+    straight down the eye with no spread, 110 to 150 damage, and a whole
+    body's worth of bites (Actor.damage `bites`), so one bolt kills a body
+    that takes rounds bite by bite.
+  - The bolt (game/plasma.gd, plasma_bolt.gdshader) is a long, thick
+    pellet: 20 m long and about half a metre across, rounded at both
+    ends, with a white-hot core and a blue body. A string of beads down its
+    length, facing the eye, keeps it readable when seen end on from the
+    gun that fired it. Where it lands there is a blue flash, a hot scorch
+    and light. Its data travels in UV2, not COLOR, because a colour can be
+    decoded from sRGB on its way in.
+  - The model's named parts: its glass ("Glass") wears the hopper's
+    refracting gun_glass shader, tinted blue (`glass_body`); the coil
+    inside glows (`emit`, brighter on the kick); the sight's lens is the
+    scope's lens (`optics`); and its screen carries the BLUE THERMAL SIGHT
+    (ThermalScope `blue`: the heat run up black, navy, blue, cyan and
+    white, a marksman's reticle with mil dots, the range, the cells as
+    bars, and zoom of 1x, 3x and 6x). On the zoom the gun is raised to the
+    eye with the screen straight ahead, as the potato cannon's is.
+  - Not networked yet: a match's loadout is still the minigun alone.
+At the user's request ("use this mat cap for the arc maw" — nidorx/matcaps
+D0CCCB_524D50_928891_727581): the arc maw is no longer lit in its own
+world (`native`) but shaded by that matcap (assets/matcaps/pearl.png,
+gun_matcap.gdshader). The normal map bends the ball's light, and the
+model's own colour sits under it at about a third.
+At the user's request ("make the capsule much less bright, leave it at
+whatever the default brightness for other stuff is"): the pod's paint is
+no longer lifted and no longer glows (POD_LOOK lift 1, glow 0).
+Pictures: candy_shot --weapon=NAME --zoom=N --fire=K --hold=UNITS --nogirls.
+
 TESTS
 
     tools/godot-test.sh
