@@ -3079,6 +3079,21 @@ Pennsylvania"):
     larger of the two distances along the axes, the radius the
     half-side, the footprint out to the corners). Its bake is a megabyte.
 
+NO BLACK SQUARES ON THE GUN (ADRENO)
+At the user's request ("weird weapon artifacting on Qualcomm GPU": black
+blocks over the flamer on an Adreno 740). The likely cause is a NaN
+from the gun's world. A zero or broken normal out of the vertex stage
+(compressed vertex data decoded on the phone) gave NaN in the matcap,
+and the palette snap turned each NaN pixel into a black chunky block.
+So:
+  - gun.gdshader normalizes its normals safely (a dead normal faces the
+    eye), scrubs NaN and infinity from what it writes, and clamps it;
+  - lofi.gdshader drops any NaN or infinite tap it reads from the gun;
+  - every gun model is imported without vertex compression
+    (force_disable_compression), so the phone reads the same normals the
+    desktop does.
+On the desktop it looks the same as before.
+
 TESTS
 
     tools/godot-test.sh

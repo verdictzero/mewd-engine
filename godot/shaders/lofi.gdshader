@@ -89,6 +89,10 @@ void fragment() {
 			if (t.x < taps.x && t.y < taps.y) {
 				vec2 at = uv0 + (t + 0.5) / taps * span;
 				vec4 g = texture(gun_tex, at);
+				// (a NaN or an infinity from the gun's world would come out
+				// of the snap as a black block: on an Adreno it did)
+				if (any(isnan(g)) || any(isinf(g))) g = vec4(0.0);
+				g = clamp(g, vec4(0.0), vec4(16.0));
 				sum += gun_on_room ? g.rgb : mix(texture(world_tex, at).rgb, g.rgb, g.a);
 				n += 1.0;
 			}
