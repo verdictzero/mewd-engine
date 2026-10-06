@@ -24,7 +24,8 @@
 ## gun in hand drawn too (its matcap). --hud: the readout over it all
 ## (with --die: YOU ACHIEVED THE OPPOSITE OF LIFE).
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
-## 30 m, to see the square, its quadrants and its cliffs.
+## 30 m, to see the square, its quadrants and its cliffs. (--high=M: M m
+## over it instead, to see the roads wind away from it)
 ## --pickups: one of each of the twelve pickups (Pickups.KINDS) laid in a
 ## fan 3 to 8 m ahead of you, and the readout's numbers as a hurt player's
 ## (72 health, 40 light armour, 230 rounds; the minigun in hand).
@@ -296,7 +297,11 @@ func _frame() -> void:
 		var at: Vector2 = get_meta("above")
 		p.x = at.x
 		p.y = at.y
-		p.z = game.level.floor_at(p.x, p.y) + 40.0 * 32.0
+		var high := 40.0
+		for arg in args:
+			if arg.begins_with("--high="):
+				high = float(arg.substr(7))
+		p.z = game.level.floor_at(p.x, p.y) + high * 32.0
 		p.momz = 0.0
 	# --phase=inside|out|landed: the picture 12 tics into that phase of the drop
 	for arg in args:

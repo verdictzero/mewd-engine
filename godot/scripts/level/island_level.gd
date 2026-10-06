@@ -391,13 +391,18 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 			var a: Vector2 = r[0]
 			var b: Vector2 = r[1]
 			var len := a.distance_to(b)
-			if len < step * 0.5:
+			if len < 1.0:
 				continue
 			var dir := (b - a) / len
 			var side := Vector2(-dir.y, dir.x) * (float(r[2]) + 40.0)
-			for k in range(1, int(len / step) + 1):
+			# spaced down the whole road, not piece by piece (a meandering
+			# road is a chain of short ones; r[3], how far down it `a` is)
+			var run: float = r[3] if r.size() > 3 else 0.0
+			for k in range(int(run / step) + 1, int((run + len) / step) + 2):
 				for s in [1.0, -1.0]:
-					var along: float = k * step - (step * 0.5 if s < 0.0 else 0.0)
+					var along: float = k * step - (step * 0.5 if s < 0.0 else 0.0) - run
+					if along <= 0.0 or along > len:
+						continue
 					var q: Vector2 = a + dir * along + side * s
 					if not on_land(q.x, q.y, 32.0) or in_house(q.x, q.y, 32.0):
 						continue

@@ -933,6 +933,19 @@ class Hole extends RefCounted:
 ## Samples per half-link used to score a candidate. Purely a cost/quality dial on
 ## the routing; it changes the layout, so it is part of the seed's meaning.
 @export var path_grade_samples := 5
+## THE ROADS MEANDER (at the user's request, CANDY LAND: "whimsical and
+## meandering"): how far a road swings either side of its line, as a
+## fraction of the link's length. 0 = the two straight halves above; more
+## and each link is a winding chain of short capsules (`_meander`), a lazy
+## curve round the waypoint with a wander laid over it, a few S-bends that
+## ease out of the towns.
+@export_range(0.0, 0.5) var path_meander := 0.0
+## Metres of road per piece of a meandering chain: shorter is smoother, and
+## more pieces (the ground's shader draws at most 160, streets and all).
+@export var path_meander_step := 32.0
+## Wanders scored per link (`_meander`), the one moving the least earth and
+## keeping off the other towns and roads chosen.
+@export var path_meander_tries := 8
 ## How completely a path grooms to bare earth. Same channel as a build pad — see
 ## `splat_weights` — and told apart from one in the shader by UV2.
 @export_range(0.0, 1.0) var path_grooming := 0.85
@@ -3107,10 +3120,102 @@ func _place_paths(isl: Island, zones: Array, rng: RandomNumberGenerator,
 				best_lift = lw
 
 		index += 1
+		if path_meander > 0.0:
+			out.append_array(_meander(isl, pa, best_w, pb, za.lift, zb.lift,
+					rng, track_r, zones, za, zb, out, index))
+			continue
 		out.append(_make_path(pa, best_w, za.lift, best_lift, index))
 		out.append(_make_path(best_w, pb, best_lift, zb.lift, index))
 
 	return out
+
+
+# A MEANDERING ROAD (`path_meander`): a chain of short capsules from `pa`
+# to `pb`. Its line is the lazy curve through the chosen waypoint `w` (a
+# quadratic through it at the middle) with a wander laid across it — one or
+# two sine swings of a random count, phase and height, faded out near both
+# ends so the road leaves each town straight. Every swing is kept round
+# enough to drive (a bend of at least MEANDER_RADIUS); the tries are scored
+# by the earth they move, and any that run into another town or come
+# alongside a road already laid pay heavily for it. Each joint's shelf is
+# halfway between the ground there and the straight grade (less so near
+# the ends, all grade at them), so the road rolls with the hills without
+# cutting them and comes into a sunken town on an easy slope.
+const MEANDER_RADIUS := 30.0
+
+func _meander(isl: Island, pa: Vector2, w: Vector2, pb: Vector2, la: float,
+		lb: float, rng: RandomNumberGenerator, track_r: float, zones: Array,
+		za: Zone, zb: Zone, laid: Array, index: int) -> Array:
+	var span := pa.distance_to(pb)
+	var c := w * 2.0 - (pa + pb) * 0.5
+	var pieces := clampi(int(ceil(span / maxf(path_meander_step, 4.0))), 2, 24)
+	var best_pts: Array[Vector2] = []
+	var best_lifts: Array[float] = []
+	var best_score := INF
+	for attempt in range(maxi(path_meander_tries, 1)):
+		var k1 := rng.randf_range(1.5, 3.5)
+		var k2 := rng.randf_range(4.0, 6.0)
+		var ph1 := rng.randf() * TAU
+		var ph2 := rng.randf() * TAU
+		var amp := rng.randf_range(0.6, 1.0) * path_meander * span
+		# no bend tighter than MEANDER_RADIUS: a swing of height A over
+		# `span` with k half-waves bends A (pi k / span)^2 at its crests
+		amp = minf(amp, span * span / (MEANDER_RADIUS * PI * PI * k1 * k1))
+		var amp2 := minf(amp * 0.3, span * span / (MEANDER_RADIUS * PI * PI * k2 * k2))
+		var pts: Array[Vector2] = []
+		var lifts: Array[float] = []
+		var score := 0.0
+		for i in range(pieces + 1):
+			var t := float(i) / float(pieces)
+			var q := pa * (1.0 - t) * (1.0 - t) + c * (2.0 * t * (1.0 - t)) + pb * t * t
+			if i > 0 and i < pieces:
+				var tan := (c - pa) * (2.0 * (1.0 - t)) + (pb - c) * (2.0 * t)
+				var nrm := Vector2(-tan.y, tan.x).normalized()
+				var env := smoothstep(0.0, 0.22, t) * smoothstep(1.0, 0.78, t)
+				q += nrm * env * (amp * sin(PI * k1 * t + ph1) + amp2 * sin(PI * k2 * t + ph2))
+				q = _clamp_to_disc(isl.center, q, track_r)
+			pts.append(q)
+			var grade := lerpf(la, lb, t)
+			if i == 0:
+				lifts.append(la)
+			elif i == pieces:
+				lifts.append(lb)
+			else:
+				# (the ground's pull fading out towards both ends: a road
+				# comes down into a sunken town on an easy grade, not a drop
+				# over its last piece)
+				var g := _ground_lift(isl, q)
+				var pull := 0.5 * smoothstep(0.0, 0.35, t) * smoothstep(1.0, 0.65, t)
+				lifts.append(lerpf(grade, g, pull))
+				score += absf(g - lifts[i])
+				# keep out of the other towns, and off the roads already laid
+				for entry in zones:
+					var zn: Zone = entry
+					if zn == za or zn == zb:
+						continue
+					var r := zn.width * (1.42 if zn.square else 1.0) + path_width * 3.0
+					if _seg_dist(q, zn.a, zn.b) < r:
+						score += 1000.0
+				for entry in laid:
+					var pz: Zone = entry
+					if _seg_dist(q, pz.a, pz.b) < path_width * 6.0:
+						score += 200.0
+		if score < best_score:
+			best_score = score
+			best_pts = pts
+			best_lifts = lifts
+	var out: Array = []
+	for i in range(pieces):
+		out.append(_make_path(best_pts[i], best_pts[i + 1], best_lifts[i], best_lifts[i + 1], index))
+	return out
+
+
+static func _seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var d2 := ab.length_squared()
+	if d2 < 1e-9:
+		return p.distance_to(a)
+	return p.distance_to(a + ab * clampf((p - a).dot(ab) / d2, 0.0, 1.0))
 
 
 func _make_path(a: Vector2, b: Vector2, lift_a: float, lift_b: float,

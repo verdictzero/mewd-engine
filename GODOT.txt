@@ -3335,6 +3335,42 @@ of the barrel not in mid air"):
     a third of its own) swelling to its full width by START, so the near
     glow is still no wall of light (Plasma._taper).
 Pictures: candy_shot --gun --weapon=PLASMA [--fire=0 --hold=2].
+CANDY LAND'S ROADS MEANDER
+
+At the user's request ("can we make candyland roads whimsical and
+meandering?"):
+  - EACH ROAD BETWEEN TWO TOWNS is now a winding chain of 20 m capsules
+    instead of two straight halves (IslandField._meander, on when
+    `path_meander` > 0: CANDY LAND's field has 0.18, every other island
+    0, as before). The road still bends round the waypoint the old
+    routing chose (the one moving the least earth); its line is a lazy
+    curve through that waypoint with a wander laid across it, one slow
+    swing of 1.5 to 3.5 half-waves and a smaller quick one, faded out
+    near both ends so it leaves each town straight down its street. No
+    bend is tighter than 30 m (MEANDER_RADIUS). Eight wanders are tried
+    per road (`path_meander_tries`), and the one moving the least earth
+    wins; one that runs into another town, or alongside a road already
+    laid, pays heavily. Each joint's shelf is halfway between the ground
+    there and the straight grade, so the road rolls with the hills
+    without cutting them. Near the ends the ground's pull fades to
+    nothing, so the road comes into a sunken town on an easy slope. (At
+    full pull, the last 18 m into one town fell 8 m and the road leaned
+    sideways; candy_test's "every road is level across" caught it.)
+  - THE COBBLES follow the bends: the shader now lays them by how far
+    down the whole road you are (`road_info.z`, Game._road_runs) and how
+    far across it, not by each piece's own line, so the pieces meet with
+    no step. The shader takes up to 160 pieces in up to 48 runs
+    (`road_chain`: one per road or street, with the circle it lies in).
+    A fragment skips any run it is outside, so the extra pieces cost
+    almost nothing away from the roads. CANDY LAND has 119 road pieces
+    and 20 street pieces.
+  - THE LAMPS AND THE PICKUPS along the roads are spaced down the whole
+    road too (Game._roads_of gives each piece's distance down it, r[3]),
+    so the short pieces do not leave them out.
+  - The island field script changed, so every island bakes again (the
+    builds do that themselves). candy_shot's --above takes --high=M to
+    look at the roads from M m up.
+
 TESTS
 
     tools/godot-test.sh

@@ -34,6 +34,10 @@
 ;     left off every groomed shelf: the towns and the roads dead level
 ;   * path_enabled = true   golf's graded tracks joining the squares (a
 ;     minimum spanning tree over them), 9 m wide: the roads
+;   * path_meander 0.18, path_meander_step 20 m   THE ROADS MEANDER (at
+;     the user's request: "whimsical and meandering"): each a chain of
+;     20 m pieces swinging up to 18% of its length either side of a lazy
+;     curve, easing out of the towns straight (IslandField._meander)
 ; Plants stay off both (the scatters skip groomed ground), so the forest,
 ; the bushes and the grass are spread as on ISLAND 0 everywhere else.
 
@@ -127,6 +131,9 @@ path_bank = 40.0
 path_waypoint_tries = 4
 path_waypoint_spread = 0.32
 path_grade_samples = 5
+path_meander = 0.18
+path_meander_step = 20.0
+path_meander_tries = 8
 path_grooming = 1.0
 forest_enabled = true
 forest_scale = 520.0

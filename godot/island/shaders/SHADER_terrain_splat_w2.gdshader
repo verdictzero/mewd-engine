@@ -191,9 +191,16 @@ group_uniforms roads;
 // `road_count` and `town_count` are 0 (every other island).
 uniform int road_count = 0;
 // (ax, az, bx, bz), island metres
-uniform vec4 road_seg[64];
-// (half-width, grass padding either side), metres
-uniform vec2 road_info[64];
+uniform vec4 road_seg[160];
+// (half-width, grass padding either side, metres of road before `a` along
+// its winding chain, -), metres
+uniform vec4 road_info[160];
+// THE ROADS IN RUNS, for speed: each road (a meandering one is many short
+// pieces) or street a run of `road_seg`, (centre x, centre z, radius past
+// which nothing of it shows, the index after its last piece) — a run whose
+// circle the fragment is out of is passed over whole
+uniform int chain_count = 0;
+uniform vec4 road_chain[48];
 uniform int town_count = 0;
 // (centre x, centre z, half-side, angle of its sides in x/z)
 uniform vec4 town[16];
@@ -672,8 +679,17 @@ void fragment() {
 		float best = 1e9;
 		float pad = 0.0;
 		vec2 along = vec2(1.0, 0.0);
-		for (int i = 0; i < 64; i++) {
-			if (i >= road_count) break;
+		vec2 run = p;
+		int i0 = 0;
+		for (int c = 0; c < 48; c++) {
+			if (c >= chain_count) break;
+			vec4 ch = road_chain[c];
+			int i1 = int(ch.w);
+			if (length(p - ch.xy) > ch.z) {
+				i0 = i1;
+				continue;
+			}
+			for (int i = i0; i < i1; i++) {
 			vec4 sg = road_seg[i];
 			vec2 ab = sg.zw - sg.xy;
 			float l2 = max(dot(ab, ab), 1e-4);
@@ -683,14 +699,19 @@ void fragment() {
 				best = e;
 				pad = road_info[i].y;
 				along = ab * inversesqrt(l2);
+				// how far down the chain, and across it
+				run = vec2(road_info[i].z + dot(p - sg.xy, along),
+						dot(p - sg.xy, vec2(-along.y, along.x)));
 			}
+			}
+			i0 = i1;
 		}
 		float road = 1.0 - smoothstep(-road_edge, road_edge, best);
-		// its texture along it: x down the road, y across — measured from the
-		// world's origin, not the segment's start, so the pieces of one
-		// straight road agree where they meet (at the user's request: the
-		// seam lines down the roads)
-		path_p = vec2(dot(p, along), dot(p, vec2(-along.y, along.x)));
+		// its texture along it: x down the road, y across — measured down
+		// the whole winding chain, not from each piece's start, so the pieces
+		// of one road agree where they meet (at the user's request: the seam
+		// lines down the roads; and the roads meander)
+		path_p = run;
 		path_ax = along;
 		// the grass beside it, and wherever the field graded ground the
 		// crisp lines leave out

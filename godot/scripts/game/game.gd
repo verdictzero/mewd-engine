@@ -864,6 +864,25 @@ func _place_camera(f: float) -> void:
 ## half-width]], "squares": [[centre, radius]]} — empty on an island
 ## without them. A copy of the field is asked, so the one the world
 ## streams from is left alone.
+## HOW FAR DOWN ITS ROAD each piece of road starts, in metres (a meandering
+## road is a chain of short pieces, IslandField._meander, each one's `a`
+## the last one's `b`): {zone: metres}, the lamps, the pickups and the
+## road's texture spaced down the whole road rather than piece by piece.
+static func _road_runs(f: Resource, isl) -> Dictionary:
+	var out := {}
+	var last = null
+	var run := 0.0
+	for z in f.zones_for(isl):
+		if z.kind != f.ZONE_PATH:
+			continue
+		if last != null and last.index == z.index and last.b.distance_to(z.a) < 0.01:
+			run += last.a.distance_to(last.b)
+		else:
+			run = 0.0
+		out[z] = run
+		last = z
+	return out
+
 func _roads_of(field: Resource) -> Dictionary:
 	var out := {"paths": [], "squares": []}
 	if field == null or not bool(field.get("zone_enabled")):
@@ -871,11 +890,13 @@ func _roads_of(field: Resource) -> Dictionary:
 	var f: Resource = field.clone()
 	var isl = f.island_in_cell(f.hub_cell())
 	var k := IslandLevel.U_PER_M
+	var runs := _road_runs(f, isl)
 	for z in f.zones_for(isl):
 		var a := Vector2(z.a.x, -z.a.y) * k
 		var b := Vector2(z.b.x, -z.b.y) * k
 		if z.kind == f.ZONE_PATH:
-			out.paths.append([a, b, float(z.width) * k])
+			# [a, b, half-width, how far down its road a is]
+			out.paths.append([a, b, float(z.width) * k, float(runs[z]) * k])
 		elif z.kind == f.ZONE_BUILD:
 			# [centre, half-side or radius, the way its sides run (the game's
 			# angle), its streets' half-width (0: a round pad, no streets)]
@@ -887,7 +908,7 @@ func _roads_of(field: Resource) -> Dictionary:
 			if street > 0.0:
 				var half := float(z.width) * k
 				for d in [Vector2.RIGHT.rotated(rot), Vector2.UP.rotated(rot)]:
-					out.paths.append([a - d * half, a + d * half, street])
+					out.paths.append([a - d * half, a + d * half, street, 0.0])
 	return out
 
 ## THE ROADS AND TOWNS INTO THE GROUND'S SHADER (at the user's request,
@@ -903,32 +924,51 @@ func _road_uniforms(iw: Node, field: Resource, spec: Dictionary) -> void:
 		return
 	if not spec.has("road_verge") or field == null or not bool(field.get("zone_enabled")):
 		mat.set_shader_parameter("road_count", 0)
+		mat.set_shader_parameter("chain_count", 0)
 		mat.set_shader_parameter("town_count", 0)
 		return
 	var f: Resource = field.clone()
 	var isl = f.island_in_cell(f.hub_cell())
 	var segs := PackedVector4Array()
-	var info := PackedVector2Array()
+	var info := PackedVector4Array()
 	var towns := PackedVector4Array()
+	var runs := _road_runs(f, isl)
+	# the roads in runs (`road_chain`): where each starts, and the box round it
+	var chains: Array = []
+	var reach := float(spec.road_verge) + 8.0
 	for z in f.zones_for(isl):
-		if z.kind == f.ZONE_PATH and segs.size() < 64:
+		if z.kind == f.ZONE_PATH and segs.size() < 160:
+			if float(runs.get(z, 0.0)) == 0.0 or chains.is_empty():
+				chains.append([segs.size(), Rect2(z.a, Vector2.ZERO), float(z.width) + reach])
 			segs.append(Vector4(z.a.x, z.a.y, z.b.x, z.b.y))
-			info.append(Vector2(float(z.width), float(spec.road_verge)))
+			info.append(Vector4(float(z.width), float(spec.road_verge), float(runs.get(z, 0.0)), 0.0))
+			chains[-1][1] = (chains[-1][1] as Rect2).expand(z.a).expand(z.b)
 		elif z.kind == f.ZONE_BUILD and bool(z.get("square")) and towns.size() < 16:
 			towns.append(Vector4(z.a.x, z.a.y, float(z.width), float(z.get("rot"))))
 			var street := float(z.get("street"))
 			if street > 0.0:
 				var half := float(z.width)
 				for d in [Vector2.RIGHT.rotated(float(z.get("rot"))), Vector2.DOWN.rotated(float(z.get("rot")))]:
-					if segs.size() < 64:
+					if segs.size() < 160:
 						var a: Vector2 = z.a - d * half
 						var b: Vector2 = z.a + d * half
+						chains.append([segs.size(), Rect2(a, Vector2.ZERO).expand(b), street + 8.0])
 						segs.append(Vector4(a.x, a.y, b.x, b.y))
-						info.append(Vector2(street, 0.0))
+						info.append(Vector4(street, 0.0, 0.0, 0.0))
 	var nr := segs.size()
 	var nt := towns.size()
-	segs.resize(64)
-	info.resize(64)
+	var runs_v := PackedVector4Array()
+	for k in mini(chains.size(), 48):
+		var box: Rect2 = chains[k][1]
+		var end: int = chains[k + 1][0] if k + 1 < chains.size() else nr
+		runs_v.append(Vector4(box.get_center().x, box.get_center().y,
+			box.size.length() * 0.5 + float(chains[k][2]), float(end)))
+	var nc := runs_v.size()
+	runs_v.resize(48)
+	mat.set_shader_parameter("road_chain", runs_v)
+	mat.set_shader_parameter("chain_count", nc)
+	segs.resize(160)
+	info.resize(160)
 	towns.resize(16)
 	mat.set_shader_parameter("road_seg", segs)
 	mat.set_shader_parameter("road_info", info)

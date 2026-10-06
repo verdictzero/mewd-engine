@@ -242,13 +242,18 @@ func _place_alone(rng: RandomNumberGenerator, start: Vector2, facing: float, roa
 		var a: Vector2 = r[0]
 		var b: Vector2 = r[1]
 		var len := a.distance_to(b)
-		if len < ROAD_EVERY * 0.5:
+		if len < 1.0:
 			continue
 		var dir := (b - a) / len
 		var side := Vector2(-dir.y, dir.x) * float(r[2]) * 0.5
-		var n := int(len / ROAD_EVERY)
-		for k in range(1, n + 1):
-			var q: Vector2 = a + dir * (k * len / (n + 1)) + side * (1.0 if k % 2 == 0 else -1.0)
+		# every ROAD_EVERY down the whole road (r[3], how far down it `a`
+		# is: a meandering road is a chain of short pieces), half-way in
+		var run: float = r[3] if r.size() > 3 else 0.0
+		for k in range(floori(run / ROAD_EVERY - 0.5), floori((run + len) / ROAD_EVERY - 0.5) + 1):
+			var along: float = (k + 0.5) * ROAD_EVERY - run
+			if along <= 0.0 or along > len:
+				continue
+			var q: Vector2 = a + dir * along + side * (1.0 if k % 2 == 0 else -1.0)
 			if squares.any(func(sq): return (sq[0] as Vector2).distance_to(q) < float(sq[1]) * 1.1):
 				continue
 			lay.call("road", q, 64.0)
