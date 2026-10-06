@@ -3149,6 +3149,15 @@ lowered. The raised hold is solved again for the turned model
 is turned with it so it still reads, and the muzzle is found again. At the
 hip it is held as before.
 
+THE RIFLE RAISED POINTING FORWARD, NOTHING FLIPPED
+At the user's request ("you might have the normal of the display surface
+inverted ... nothing should flip"): the two flips above (`screen_flip`,
+`zoom_mirror`) are gone. The screen's normal was right (it faces -Z, back
+at the eye, as the potato cannon's does). The fault was the raised hold:
+it was solved with a half turn (yaw PI), so the gun was turned round
+backwards while raised. It is solved now as the potato cannon's is, a
+whole turn (yaw TAU), pointing forward with its screen straight ahead.
+
 TESTS
 
     tools/godot-test.sh
