@@ -3134,6 +3134,12 @@ whatever the default brightness for other stuff is"): the pod's paint is
 no longer lifted and no longer glows (POD_LOOK lift 1, glow 0).
 Pictures: candy_shot --weapon=NAME --zoom=N --fire=K --hold=UNITS --nogirls.
 
+THE RIFLE'S SIGHT THE RIGHT WAY ROUND
+At the user's request ("looks like you have the sight backwards"): the
+Sarakawa's file lays its scope screen the other way about, so the thermal
+picture and its readouts came out mirrored. Weapon3D `screen_flip` turns a
+screen back (as `mirror` does for a mirrored gun); the PLASMA entry has it.
+
 TESTS
 
     tools/godot-test.sh

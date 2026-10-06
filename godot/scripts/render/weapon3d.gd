@@ -79,7 +79,7 @@ const GUNS := {
 	"PLASMA": {"url": "sarakawa.glb", "fit": GUN_LENGTH * 1.1, "out": 2.7, "pos": [0.16, -0.10, 0], "rot": [0.03, -0.12, -0.03], "tint": [0.55, 0.85, 1.6],
 		"display": {"material": "dynamicDisplaySurface"}, "optics": {"material": "Material.001", "base": [0.10, 0.45, 0.95]},
 		"emit": {"material": "Material.002", "color": [0.15, 0.55, 1.6]},
-		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true,
+		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true, "screen_flip": true,
 		"aim": {"solve": {"dist": 0.10, "yaw": PI, "pitch": 0.0}}},
 }
 
@@ -285,7 +285,9 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 			var nm: String = src.resource_name if src != null else ""
 			if scope != null and def.has("display") and nm == def.display.material:
 				mi.set_surface_override_material(i, scope.screen_material())
-				if def.get("mirror", false):
+				# (a screen whose file lays it the other way about reads
+				# mirrored: `screen_flip` turns it back)
+				if def.get("mirror", false) != def.get("screen_flip", false):
 					scope.screen_material().set_shader_parameter("flip_x", U.col(true))
 				# THE PICTURE IS LAID ACROSS THE PANEL'S OWN BOX, measured off
 				# the geometry the file shipped: the mesh is planar, so x and
