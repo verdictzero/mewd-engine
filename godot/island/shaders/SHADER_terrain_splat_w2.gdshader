@@ -652,6 +652,9 @@ void fragment() {
 	vec2 p = world_pos.xz;
 	// ---- the roads and towns off their own lines (see `road_count`) --------
 	vec2 path_p = p;
+	vec2 path_ax = vec2(1.0, 0.0);
+	vec2 dpx = dFdx(p);
+	vec2 dpy = dFdy(p);
 	if (road_count > 0 || town_count > 0) {
 		float field_road = max(path, build);
 		// THE TOWNS: paved to `town_pad` inside the edge, grass round that
@@ -669,7 +672,6 @@ void fragment() {
 		float best = 1e9;
 		float pad = 0.0;
 		vec2 along = vec2(1.0, 0.0);
-		vec2 a0 = vec2(0.0);
 		for (int i = 0; i < 64; i++) {
 			if (i >= road_count) break;
 			vec4 sg = road_seg[i];
@@ -681,13 +683,15 @@ void fragment() {
 				best = e;
 				pad = road_info[i].y;
 				along = ab * inversesqrt(l2);
-				a0 = sg.xy;
 			}
 		}
 		float road = 1.0 - smoothstep(-road_edge, road_edge, best);
-		// its texture along it: x down the road, y across
-		vec2 rel = p - a0;
-		path_p = vec2(dot(rel, along), dot(rel, vec2(-along.y, along.x)));
+		// its texture along it: x down the road, y across — measured from the
+		// world's origin, not the segment's start, so the pieces of one
+		// straight road agree where they meet (at the user's request: the
+		// seam lines down the roads)
+		path_p = vec2(dot(p, along), dot(p, vec2(-along.y, along.x)));
+		path_ax = along;
 		// the grass beside it, and wherever the field graded ground the
 		// crisp lines leave out
 		float verge = best > 0.0 ? 1.0 - smoothstep(pad, pad + verge_fade, best) : 0.0;
@@ -718,7 +722,17 @@ void fragment() {
 		grass_a = mix(grass_a, golf_a, golf);
 	}
 	if (path > 0.0) {
-		vec3 path_a = texture(path_albedo, path_p / max(path_scale, 1e-4)).rgb * path_tint;
+		// THE MIP FROM THE GROUND, NOT FROM path_p: where the nearest road
+		// changes (a crossroads, a bend) path_p jumps, and its own screen
+		// derivatives there are huge — the smallest mip, its one average
+		// colour, a pale line a pixel wide all down the seam. The same
+		// rotation applied to the ground's own derivatives is smooth.
+		// (dpx, dpy taken above, out of this branch)
+		float ps = max(path_scale, 1e-4);
+		vec2 pn = vec2(-path_ax.y, path_ax.x);
+		vec3 path_a = textureGrad(path_albedo, path_p / ps,
+				vec2(dot(dpx, path_ax), dot(dpx, pn)) / ps,
+				vec2(dot(dpy, path_ax), dot(dpy, pn)) / ps).rgb * path_tint;
 		soil_a = mix(soil_a, path_a, path);
 	}
 	if (build_paving > 0.0 && build > 0.0) {

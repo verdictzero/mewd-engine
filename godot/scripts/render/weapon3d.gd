@@ -78,11 +78,23 @@ const GUNS := {
 	# own colours (`pbr`) through the gun shader, as every gun.
 	"PLASMA": {"url": "sarakawa.glb", "fit": GUN_LENGTH * 1.1, "out": 2.7, "pos": [0.16, -0.10, 0], "rot": [0.03, -0.12, -0.03], "tint": [0.55, 0.85, 1.6],
 		"display": {"material": "dynamicDisplaySurface"}, "optics": {"material": "Material.001", "base": [0.10, 0.45, 0.95]},
-		"emit": {"material": "Material.002", "color": [0.15, 0.55, 1.6]},
+		# (the coil VERY BRIGHT, at the user's request: "make the plasma
+		# rifle emission material very bright on the mesh" — far past white:
+		# the gun's picture keeps it, so even the slivers of the coil seen
+		# between the fins burn the chunky pixels they fall in blue-white)
+		"emit": {"material": "Material.002", "color": [6.0, 8.0, 12.0]},
 		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true,
-		# (raised as the potato cannon is: pointed as at the hip, a whole turn,
-		# its screen facing back at the eye as its normal says)
-		"aim": {"solve": {"dist": 0.10, "yaw": TAU, "pitch": 0.0}}},
+		# (and the glass round the coil lets it shine out through it)
+		"glass_clear": 0.75, "glass_bloom": 1.4, "glass_inner": [1.5, 1.9, 2.6],
+		# the end of the barrel, in the model (at the user's request: "make
+		# the plasma beam start at the end of the barrel not in mid air")
+		"muzzle": [0.0, 0.46, 17.28],
+		# (raised as the potato cannon is: pointed as at the hip, its screen
+		# facing back at the eye as its normal says — at yaw 0, not a whole
+		# turn: the same pose, but a whole turn was lerped to, and the rifle
+		# spun round once on the way up; at the user's request, "stop the 360
+		# flip on the plasma rifle when zooming in")
+		"aim": {"solve": {"dist": 0.10, "yaw": 0.0, "pitch": 0.0}}},
 }
 
 var camera: Camera3D
@@ -137,6 +149,13 @@ func _load(name: String) -> Dictionary:
 	if def.has("spin"):
 		spinner = _find_spinner(root)
 	var out := {"group": group, "mats": mats, "def": def, "spinner": spinner, "tip": _tip(group, spinner)}
+	# THE MUZZLE WHERE THE MODEL SAYS (`muzzle`, the model's own units): the
+	# box's front-middle is the barrel only on a gun that is all barrel; on
+	# the plasma rifle the sight on top and the screen on the side pull it up
+	# and over, and its bolt came out of the air beside the barrel
+	if def.has("muzzle"):
+		var mz: Array = def.muzzle
+		out["tip"] = inner.transform * (root.transform * Vector3(mz[0], mz[1], mz[2]))
 	if def.has("orb"):
 		var nz: Array = def.get("nozzle", [0, 0, 0])
 		out["orb"] = _make_orb(inner, root.transform * Vector3(nz[0], nz[1], nz[2]), def.orb)
@@ -310,6 +329,11 @@ func _dress(n: Node, def: Dictionary, mats: Array, scope = null) -> void:
 				if def.has("glass_body"):
 					var gb: Array = def.glass_body
 					gm.set_shader_parameter("body", Vector3(gb[0], gb[1], gb[2]))
+				# (a light behind it shining through: gun_glass.gdshader `clear`, `bloom`)
+				gm.set_shader_parameter("clear", float(def.get("glass_clear", 0.0)))
+				gm.set_shader_parameter("bloom", float(def.get("glass_bloom", 0.0)))
+				var gi: Array = def.get("glass_inner", [0.0, 0.0, 0.0])
+				gm.set_shader_parameter("inner", Vector3(gi[0], gi[1], gi[2]))
 				mi.set_surface_override_material(i, gm)
 				continue
 			if def.has("rainbow") and nm == def.rainbow:

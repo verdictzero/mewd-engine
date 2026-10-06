@@ -27,6 +27,8 @@ const HALO := 2.4
 const NEAR_EYE := 30.0
 ## how far out of the muzzle it is first drawn
 const START := 64.0
+## the bolt's width at the barrel, against its full width (_taper)
+const MUZZLE_WIDTH := 0.35
 ## the beads down its length (see draw_for)
 const BEADS := 16
 ## the flash where it lands: tics, and how big it gets
@@ -61,7 +63,7 @@ func fire(p) -> void:
 	var to: Vector3 = game.last_hit
 	spawn(seen, to)
 	if game.sound != null:
-		game.sound.play("plasma", p, {"rate": 1.75})
+		game.sound.play("plasma", p)
 	if game.fx != null:
 		game.fx.glow_at(from.x, from.y, 0.6)
 	game.noise(p, 800.0)
@@ -100,9 +102,15 @@ func draw_for(cam: Camera3D, f: float) -> void:
 			continue
 		var trav: float = t.trav + SPEED * f
 		var head := minf(trav, t.len)
-		# (not the first two metres out of the muzzle: so near the eye the
-		# glow would be a wall of light across the picture)
-		var tail := maxf(START, trav - LENGTH)
+		# FROM THE MUZZLE ITSELF (at the user's request: "make the plasma
+		# beam start at the end of the barrel not in mid air"): it used to
+		# start two metres out, where the glow near the eye would be a wall of
+		# light across the picture — but two metres down a line to the
+		# crosshair is already halfway to the middle of the picture, and the
+		# bolt hung in the air off the barrel. Now it is drawn all the way
+		# back to the barrel, as thin as a pencil there and swelling to its
+		# full width by START (_taper)
+		var tail := maxf(0.0, trav - LENGTH)
 		if head <= tail:
 			continue
 		var dir: Vector3 = (t.b - t.a) / t.len
@@ -110,19 +118,21 @@ func draw_for(cam: Camera3D, f: float) -> void:
 		var r := WIDTH * HALO * 0.5
 		var h: Vector3 = t.a + dir * (head + r * 0.3)
 		var tl: Vector3 = t.a + dir * maxf(0.0, tail - r * 0.3)
-		var side := dir.cross(eye - (h + tl) * 0.5).normalized() * r
+		var side_n := dir.cross(eye - (h + tl) * 0.5).normalized()
+		var side_h := side_n * r * _taper(head)
+		var side_t := side_n * r * _taper(tail)
 		# UV: x along, 0 tail to 1 head; y across, -1 to 1. UV2: what it is
 		# (0 a bolt) and how long the quad is against how wide, for the
 		# rounding (data rides in UV2, not COLOR: a colour can be decoded
 		# from sRGB on its way in, and these are numbers)
 		var aspect := clampf(h.distance_to(tl) / (r * 2.0), 1.0, 200.0)
 		var c := Vector2(0.0, aspect)
-		_v(tl - side, Vector2(0, -1), c)
-		_v(h - side, Vector2(1, -1), c)
-		_v(h + side, Vector2(1, 1), c)
-		_v(tl - side, Vector2(0, -1), c)
-		_v(h + side, Vector2(1, 1), c)
-		_v(tl + side, Vector2(0, 1), c)
+		_v(tl - side_t, Vector2(0, -1), c)
+		_v(h - side_h, Vector2(1, -1), c)
+		_v(h + side_h, Vector2(1, 1), c)
+		_v(tl - side_t, Vector2(0, -1), c)
+		_v(h + side_h, Vector2(1, 1), c)
+		_v(tl + side_t, Vector2(0, 1), c)
 		n += 1
 		# AND A STRING OF BEADS facing the eye down its length: seen from
 		# behind — down the line it flies, as it always is from the gun that
@@ -131,8 +141,9 @@ func draw_for(cam: Camera3D, f: float) -> void:
 		var span := head - tail
 		for k in BEADS:
 			var q := float(k) / float(BEADS - 1)
-			var at: Vector3 = t.a + dir * (tail + span * q)
-			_disc(at, eye, WIDTH * (0.75 + 0.35 * q), Vector2(1.0, q))
+			var along := tail + span * q
+			var at: Vector3 = t.a + dir * along
+			_disc(at, eye, WIDTH * (0.75 + 0.35 * q) * _taper(along), Vector2(1.0, q))
 			n += 1
 	for fl in flashes:
 		# a disc facing the eye, swelling and fading (UV2.x 2: a flash; UV2.y
@@ -146,6 +157,11 @@ func draw_for(cam: Camera3D, f: float) -> void:
 		for i in 3:
 			_v(Vector3(), Vector2(), Vector2(3.0, 0.0))
 	im.surface_end()
+
+## how wide the bolt is `d` along from the muzzle, against its full width:
+## a pencil's at the barrel, all of it by START (see draw_for)
+func _taper(d: float) -> float:
+	return lerpf(MUZZLE_WIDTH, 1.0, smoothstep(0.0, START, d))
 
 ## a square facing the eye, `s` from the middle to an edge
 func _disc(p: Vector3, eye: Vector3, s: float, c: Vector2) -> void:

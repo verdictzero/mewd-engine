@@ -3277,6 +3277,64 @@ sudden death, what hurts whom); net_test.gd (the list and the takes on a
 client, a life's tanks and armour from the host, the bolt drawn).
 Pictures: candy_shot --pickups --hud [--god].
 
+
+THE ROAD SEAM, THE HERDS' SEED, AND THE PLASMA RIFLE'S SOUND, POSE, COIL AND BOLT
+
+At the user's request ("fix 1 and 3 if possible": the herds that seemed to
+lie differently run to run, and the pale lines down the ground in the
+pictures), then ("give the plasma rifle this sound effect, stop the 360
+flip on the plasma rifle when zooming in, make the plasma rifle emission
+material very bright on the mesh, make the plasma beam start at the end
+of the barrel not in mid air"):
+  - THE HERDS were never nondeterministic: the same seed lays every
+    unicorn and foal in the same place every run (checked three times
+    over on CANDY LAND, seed 7). The spread in the counts (283 to 297)
+    was candy_test running without --seed, a new island each run, as it
+    is meant to. net_test now holds the client's herd to the host's for
+    every one of them, not the first twenty.
+  - THE PALE LINE DOWN THE ROADS (SHADER_terrain_splat_w2.gdshader): a
+    road's cobbles run along the road, so the fragment works out the
+    nearest road segment and lays the texture in its frame; where the
+    nearest segment changed (a crossroads, a bend, a road cut into pieces)
+    that frame jumped, the texture coordinate's screen derivatives there
+    were enormous, and the GPU took the smallest mip — one pale average
+    colour, a pixel wide, all down the join. Now the texture is sampled
+    with the ground's own derivatives turned into the road's frame
+    (textureGrad: smooth everywhere), and measured from the world's
+    origin rather than the segment's start, so the pieces of one straight
+    road meet without a step. Two roads at an angle still meet where
+    their cobbles change direction, as on a real crossroads. (The skirts
+    under the chunk edges were not it: they were tried and left as they
+    were, so no island needs baking again.)
+  - THE PLASMA RIFLE'S SHOT is the user's own (assets/sfx/beam_rifle.mp3,
+    Sound "plasma_fire", gain 0.45, at its own pitch), not the lance's
+    second shot pitched up.
+  - NO SPIN ON THE ZOOM: the raised pose's yaw was a whole turn (TAU),
+    the same pose as none, but the raise lerps toward it, and the rifle
+    spun round once on the way up to the eye. It is 0 now (the potato
+    cannon's, which the user did not ask about, is as it was).
+  - THE COIL VERY BRIGHT: its emission (weapon3d `emit`) far past white,
+    blue-white (6, 8, 12): the gun's picture keeps colours over 1, so even
+    the slivers of the coil seen between the fins burn the chunky pixels
+    they fall in. The glass round it (gun_glass.gdshader) lets a light
+    behind it through and glows with it: `clear` (how much of the pane
+    over the gun is let through), `bloom` (anything bright behind it lit
+    out through the pane) and `inner` (the chamber lit from inside),
+    weapon3d "glass_clear", "glass_bloom", "glass_inner"; all 0 for the
+    potato cannon's hopper, as it was. White-hot rather than a saturated
+    blue: the earth palette every picture is snapped to has no bright
+    blue, and a bright cyan came out a pale teal.
+  - THE BOLT FROM THE BARREL: the muzzle on the picture was the middle of
+    the gun's box at its front face — the barrel on a gun that is all
+    barrel, but on the rifle the sight on top and the screen on the side
+    pulled it up and over (weapon3d "muzzle": the end of the barrel in
+    the model's own units, [0, 0.46, 17.28]). And the bolt was not drawn
+    for its first two metres (START), which down a line to the crosshair
+    is already halfway to the middle of the picture: it hung in the air.
+    Now it is drawn from the muzzle, a pencil's width there (MUZZLE_WIDTH,
+    a third of its own) swelling to its full width by START, so the near
+    glow is still no wall of light (Plasma._taper).
+Pictures: candy_shot --gun --weapon=PLASMA [--fire=0 --hold=2].
 TESTS
 
     tools/godot-test.sh

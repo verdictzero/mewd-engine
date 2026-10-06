@@ -12,6 +12,16 @@ uniform sampler2D behind : hint_screen_texture, filter_nearest;
 uniform float strength = 0.012;
 uniform float rough = 0.004;
 uniform vec3 body = vec3(0.78, 0.9, 0.86);
+// A LIGHT BEHIND THE GLASS (the plasma rifle's coil, at the user's request:
+// "make the plasma rifle emission material very bright on the mesh"):
+// `clear` lets more of what is behind through (0, the hopper's near-opaque
+// bent picture; 1, nearly none of the pane over it), and `bloom` makes
+// anything bright behind it glow out through the pane as light of its own
+uniform float clear = 0.0;
+uniform float bloom = 0.0;
+// and the light of it in the pane itself, the chamber lit from inside
+// (black: none, the hopper)
+uniform vec3 inner = vec3(0.0);
 
 float hash(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -42,9 +52,11 @@ void fragment() {
 	vec3 key = normalize(vec3(-0.45, 0.7, 0.55));
 	float spec = pow(max(dot(reflect(-normalize(VIEW), n), key), 0.0), 40.0);
 	vec3 col = mix(body * 0.62, acc.rgb * body * 0.92, acc.a) + vec3(0.9, 1.0, 0.95) * (fres * 0.45 + spec * 0.6);
+	float hot = smoothstep(0.45, 0.95, max(acc.r, max(acc.g, acc.b))) * acc.a;
+	col += acc.rgb * hot * bloom + inner;
 	// over the gun: the bent picture, near opaque; over the room: a tint
 	ALBEDO = col;
 	// (and the pane itself always reads: frosted a little, a rim, a glint)
 	float frost = 0.22 + 0.10 * noise(q * 0.6);
-	ALPHA = clamp(mix(frost, 0.94, acc.a) + fres * 0.45 + spec * 0.5, 0.0, 1.0);
+	ALPHA = clamp(mix(frost, mix(0.94, 0.3, clear), acc.a) + fres * 0.45 + spec * 0.5 + hot * bloom * 0.6 + max(inner.r, max(inner.g, inner.b)) * 0.4, 0.0, 1.0);
 }

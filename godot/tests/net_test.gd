@@ -142,11 +142,20 @@ func _match() -> void:
 	var ng := NetGame.new(cg, c1, now)
 	check(cg.herd.size() == hg.herd.size() and cg.herd.all(func(a): return a.puppet),
 		"ONE built the same herds, as puppets (%d)" % cg.herd.size())
-	var same := true
-	for k in mini(20, hg.herd.size()):
-		if absf(cg.herd[k].x - hg.herd[k].x) > 0.01 or absf(cg.herd[k].y - hg.herd[k].y) > 0.01:
+	# (every one of them, by the seed's list: a herd that lay differently
+	# on a client would have its unicorns' names on the wire pointing at the
+	# wrong bodies; the bodies themselves may stand a step apart, pushed off
+	# whatever else was put down beside them, which the host's snapshots
+	# set right)
+	var same: bool = hg.level.things.size() == cg.level.things.size()
+	for k in mini(hg.level.things.size(), cg.level.things.size()):
+		if str(hg.level.things[k]) != str(cg.level.things[k]):
 			same = false
-	check(same, "where the host's are, from the same seed")
+	for k in mini(cg.herd.size(), hg.herd.size()):
+		if absf(cg.herd[k].x - hg.herd[k].x) > 16.0 or absf(cg.herd[k].y - hg.herd[k].y) > 16.0 \
+				or cg.herd[k].type != hg.herd[k].type or cg.herd[k].home != hg.herd[k].home:
+			same = false
+	check(same, "where the host's are, every one, from the same seed")
 	# CLIENT TWO: a bare line, driven by hand
 	var pb := NetTransport.Loopback.pair()
 	sim.accept(pb[1])

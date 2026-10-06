@@ -30,13 +30,16 @@ const SAMPLES := {
 	"pickup": "res://assets/sfx/pickup.wav",
 	"powerup": "res://assets/sfx/powerup.wav",
 	"noammo": "res://assets/sfx/noammo.wav",
+	# the plasma rifle's own shot (at the user's request: "give the plasma
+	# rifle this sound effect", beam_rifle.mp3)
+	"plasma_fire": "res://assets/sfx/beam_rifle.mp3",
 }
 const SAMPLE_FOR := {
 	"spinup": "minigun_start", "minigunloop": "minigun_fire", "spindown": "minigun_stop",
 	"lancestart": "lance_charge_start", "lancecharge": "lance_charge_loop", "lancecharge3": "lance_charge_full",
 	"lanceprefire": "lance_prefire", "lancefire": "lance_fire_a", "lancefire2": "lance_fire_b",
-	# the plasma rifle's crack: the lance's second shot, pitched up (Plasma)
-	"plasma": "lance_fire_b",
+	# the plasma rifle's shot (Plasma)
+	"plasma": "plasma_fire",
 	# a pickup taken, a big one (and IDDQD), and a trigger on nothing (Pickups, Player)
 	"pickup": "pickup", "powerup": "powerup", "noammo": "noammo",
 }
@@ -45,6 +48,7 @@ const SAMPLE_GAIN := {
 	"lance_charge_start": 0.46, "lance_charge_loop": 0.34, "lance_charge_full": 0.46,
 	"lance_prefire": 0.52, "lance_fire_a": 0.50, "lance_fire_b": 0.44,
 	"pickup": 0.40, "powerup": 0.42, "noammo": 0.50,
+	"plasma_fire": 0.45,
 }
 
 ## the ears: anything with an x and a y
