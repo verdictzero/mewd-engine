@@ -3140,6 +3140,15 @@ Sarakawa's file lays its scope screen the other way about, so the thermal
 picture and its readouts came out mirrored. Weapon3D `screen_flip` turns a
 screen back (as `mirror` does for a mirrored gun); the PLASMA entry has it.
 
+THE RIFLE TURNED LEFT FOR RIGHT ON THE ZOOM
+At the user's request ("flip new gun mirror-horizontally when zoomed, its
+on the wrong side"): Weapon3D `zoom_mirror`. As soon as the plasma rifle
+is raised, its model is turned left for right, and back once it is all but
+lowered. The raised hold is solved again for the turned model
+(`aim_mirror`), so its screen is still straight ahead. The screen's picture
+is turned with it so it still reads, and the muzzle is found again. At the
+hip it is held as before.
+
 TESTS
 
     tools/godot-test.sh

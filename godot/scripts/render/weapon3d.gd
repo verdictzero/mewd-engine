@@ -79,7 +79,7 @@ const GUNS := {
 	"PLASMA": {"url": "sarakawa.glb", "fit": GUN_LENGTH * 1.1, "out": 2.7, "pos": [0.16, -0.10, 0], "rot": [0.03, -0.12, -0.03], "tint": [0.55, 0.85, 1.6],
 		"display": {"material": "dynamicDisplaySurface"}, "optics": {"material": "Material.001", "base": [0.10, 0.45, 0.95]},
 		"emit": {"material": "Material.002", "color": [0.15, 0.55, 1.6]},
-		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true, "screen_flip": true,
+		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true, "screen_flip": true, "zoom_mirror": true,
 		"aim": {"solve": {"dist": 0.10, "yaw": PI, "pitch": 0.0}}},
 }
 
@@ -141,17 +141,54 @@ func _load(name: String) -> Dictionary:
 	# A SOLVED AIM: the screen straight ahead of the eye, `dist` off, the
 	# gun turned `yaw` (and `pitch`) — worked out from where the screen
 	# really is in the model, not nudged by hand
-	var h: Dictionary = def.get("aim", {})
-	if h.has("solve") and def.has("display"):
-		var c = _display_centre(group, def.display.material)
-		if c != null:
-			var sv: Dictionary = h.solve
-			var rabs := Vector3(float(sv.get("pitch", 0.0)), float(sv.get("yaw", PI)), 0.0)
-			var b := Basis.from_euler(rabs)
-			var pabs: Vector3 = Vector3(0, 0, -float(sv.dist)) - b * (c as Vector3)
-			out["aim"] = {"pos": [pabs.x - VIEW.pos[0], pabs.y - VIEW.pos[1], pabs.z - VIEW.pos[2]],
-				"rot": [rabs.x - VIEW.pitch, rabs.y - VIEW.yaw, rabs.z - VIEW.roll], "out": 1.0}
+	var solved = _solve_aim(group, def)
+	if solved != null:
+		out["aim"] = solved
+	# A GUN MIRRORED ON THE ZOOM (`zoom_mirror`): the same solve with the
+	# model turned left for right, held ready for when it is raised
+	out["root"] = root
+	if def.get("zoom_mirror", false):
+		_flip(root)
+		var ms = _solve_aim(group, def)
+		_flip(root)
+		if ms != null:
+			out["aim_mirror"] = ms
 	return out
+
+func _solve_aim(group: Node3D, def: Dictionary):
+	var h: Dictionary = def.get("aim", {})
+	if not (h.has("solve") and def.has("display")):
+		return null
+	var c = _display_centre(group, def.display.material)
+	if c == null:
+		return null
+	var sv: Dictionary = h.solve
+	var rabs := Vector3(float(sv.get("pitch", 0.0)), float(sv.get("yaw", PI)), 0.0)
+	var b := Basis.from_euler(rabs)
+	var pabs: Vector3 = Vector3(0, 0, -float(sv.dist)) - b * (c as Vector3)
+	return {"pos": [pabs.x - VIEW.pos[0], pabs.y - VIEW.pos[1], pabs.z - VIEW.pos[2]],
+		"rot": [rabs.x - VIEW.pitch, rabs.y - VIEW.yaw, rabs.z - VIEW.roll], "out": 1.0}
+
+## a model turned left for right (or back)
+func _flip(root: Node3D) -> void:
+	root.scale.x = -root.scale.x
+	root.position.x = -root.position.x
+
+## THE ZOOM'S MIRROR (`zoom_mirror`, at the user's request: the plasma
+## rifle's sight "is on the wrong side" raised): the model turned left for
+## right while it is raised, its screen's picture turned with it so it still
+## reads, and its muzzle found again
+func _set_mirror(G: Dictionary, on: bool) -> void:
+	if bool(G.get("mirrored", false)) == on:
+		return
+	G["mirrored"] = on
+	_flip(G.root)
+	G["tip"] = _tip(G.group, G.spinner)
+	var sc = scopes.get(current)
+	var def: Dictionary = G.def
+	if sc != null and def.has("display"):
+		var base: bool = def.get("mirror", false) != def.get("screen_flip", false)
+		sc.screen_material().set_shader_parameter("flip_x", U.col(base != on))
 
 ## THE LIGHT A `native` GUN IS SEEN BY (no world light reaches the gun's
 ## own world): a warm key over the right shoulder, a cool fill from low
@@ -425,7 +462,11 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 	var want: float = sc.aim() if def.has("aim") and sc != null else 0.0
 	aim += (want - aim) * (1.0 - pow(0.0015, dt))
 	var a := aim if def.has("aim") else 0.0
-	var hold: Dictionary = G.get("aim", def.get("aim", {}))
+	# (turned left for right as soon as it is raised, and back once it is
+	# all but lowered)
+	if def.get("zoom_mirror", false):
+		_set_mirror(G, want > 0.0 or aim > 0.05)
+	var hold: Dictionary = G.get("aim_mirror" if G.get("mirrored", false) else "aim", def.get("aim", {}))
 	var off: Array = def.get("pos", [0, 0, 0])
 	var aoff: Array = hold.get("pos", off)
 	var rot: Array = def.get("rot", [0, 0, 0])
