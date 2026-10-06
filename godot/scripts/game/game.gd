@@ -103,6 +103,10 @@ var bleeders := {}
 const BLEED_TICS := 70
 const BLEEDERS_MOST := 48
 var trophies: Trophies
+## health, armour and ammunition lying about (game/pickups.gd), and the
+## island's roads they were laid along
+var pickups: Pickups
+var roads := {}
 var beam: BeamSystem
 var scope: Scope
 ## and the quad launcher's thermal sight (render/thermal.gd), the same kind of thing
@@ -237,7 +241,7 @@ func start_map(which: String) -> void:
 	iw.pregen_finished.connect(func(): _island_built = true)
 	var field: Resource = iw.field
 	var chunk: float = iw.chunk_size
-	var roads := _roads_of(field)
+	roads = _roads_of(field)
 	_road_uniforms(iw, field, spec)
 	# A WORLD NOBODY LOOKS AT (a dedicated server, a bot) walks on the
 	# ground and draws none of it
@@ -325,6 +329,11 @@ func start_map(which: String) -> void:
 			veg_damage = VegDamage.new(self, scatter, grass)
 	trophies = Trophies.new(self)
 	add_child(trophies)
+	# THE PICKUPS, laid off the map's seed (a match's: only what its guns
+	# use; and the host's list is the one its clients draw)
+	pickups = Pickups.new(self)
+	add_child(pickups)
+	pickups.place(seed, roads, not net_map.is_empty())
 	beam = BeamSystem.new(self)
 	add_child(beam)
 	# under the Game, so the scope's feed draws this world
@@ -424,7 +433,9 @@ func handle_input(event: InputEvent) -> void:
 		_jump = true
 	if event.is_action_pressed("zoom"):
 		_zoom = true
-	if event.is_action_pressed("slow"):
+	# (R3 inside a squeeze of the shoulders is the cheat's, not slow motion's)
+	if event.is_action_pressed("slow") and not (event is InputEventJoypadButton and event.button_index == JOY_BUTTON_RIGHT_STICK
+			and cheats.chording(event.device)):
 		toggle_slow_mo()
 	if event.is_action_pressed("prev_weapon"):
 		_cycle = -1
@@ -582,6 +593,9 @@ func _process(dt: float) -> void:
 	t0 = Time.get_ticks_usec()
 	trophies.draw()
 	_prof_add("draw.trophies", t0)
+	t0 = Time.get_ticks_usec()
+	pickups.draw()
+	_prof_add("draw.pickups", t0)
 	t0 = Time.get_ticks_usec()
 	for pod: DropPod in pods:
 		pod.draw(_acc / U.SEC)
@@ -795,6 +809,9 @@ func tic() -> void:
 	t0 = Time.get_ticks_usec()
 	trophies.tic()
 	_prof_add("tic.trophies", t0)
+	t0 = Time.get_ticks_usec()
+	pickups.tic()
+	_prof_add("tic.pickups", t0)
 	t0 = Time.get_ticks_usec()
 	if big_message_tics > 0:
 		big_message_tics -= 1
@@ -1390,6 +1407,26 @@ func on_player_died(p, source) -> void:
 
 ## The gun's own notices: a line in the corner that fades, four at most.
 ## T: slow motion on or off (see SLOW_MO); the music slows with it
+## IDDQD (game/cheats.gd), at the user's request: every key and button
+## event, from Main before anything else has it
+var cheats := Cheats.new()
+
+func cheat_input(event: InputEvent) -> void:
+	if player != null and cheats.feed(event):
+		toggle_god()
+
+## INVINCIBLE AND INFINITE AMMO (Player.cheat), on and off — in single
+## player only: a match's health and ammunition are its host's
+func toggle_god() -> void:
+	if net != null or rules != null:
+		toast("NO CHEATS IN A MATCH")
+		return
+	player.cheat = not player.cheat
+	if player.cheat:
+		player.health = maxi(player.health, Weapons.HEALTH)
+	toast("DEGREELESSNESS MODE ON" if player.cheat else "DEGREELESSNESS MODE OFF")
+	play_sound("powerup", null)
+
 func toggle_slow_mo() -> void:
 	if net != null:
 		toast("NO SLOW MOTION IN A MATCH")

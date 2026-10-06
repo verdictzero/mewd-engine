@@ -40,7 +40,10 @@ const LIST := [
 		"blurb": "golf's island, the first one: hills, firs and a cliff all round into the cloud",
 		# its own music, at the user's request: "Waiting for Something" (the
 		# title's until Ocelot took over), crossfading into itself
-		"music": ["res://assets/music/waiting_for_something.mp3"]},
+		"music": ["res://assets/music/waiting_for_something.mp3"],
+		# THE PICKUPS (game/pickups.gd): ten round each of the crowd's
+		# gathering places — the island has no roads and no towns
+		"pickups": {"country": 10}},
 	# CANDY LAND, at the user's request: ISLAND 0's size and hills, the
 	# candy pack's ground and plants, roads between town squares, a blue
 	# sky with a candy sun at the top of it, and the candy girls — who come
@@ -59,12 +62,16 @@ const LIST := [
 		# (Music.start_list, at the user's request)
 		"music": ["res://assets/music/golf_course_muzak.mp3", "res://assets/music/sunny_resort_groove.mp3",
 			"res://assets/music/sunny_fairway.mp3"],
+		"pickups": {"country": 6},
 		"blurb": "a happy island of candy, roads and sweet girls who want to meet you"},
 	# DEBUG LAND, at the user's request: "a 512 x 512 flat square, in the
 	# biome and rendering style of Not Pennsylvania" — NOT PENNSYLVANIA's
 	# scene and ground, squared and flattened (ISLANDFIELD_debugland.tres)
 	{"key": "debugland", "title": "DEBUG LAND", "scene": "res://godot/island/scenes/debug_land.tscn", "people": 60,
 		"music": ["res://assets/music/waiting_for_something.mp3"],
+		# a SHOWROOM of the twelve pickups ahead of where you land, and
+		# everything back half a minute after it is taken
+		"pickups": {"country": 4, "respawn": 1050, "showroom": true},
 		"blurb": "a flat square of NOT PENNSYLVANIA, 512 metres a side, for trying things out"}
 ]
 

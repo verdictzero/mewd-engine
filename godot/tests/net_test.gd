@@ -224,12 +224,39 @@ func _match() -> void:
 	check(off < 0.05, "and the host has it where it predicted itself (%.4f apart)" % off)
 	check(sim.clients[1].player.session.applied >= 60, "the host applied ONE's commands (%d)" % sim.clients[1].player.session.applied)
 
+	# THE PICKUPS ARE THE HOST'S (game/pickups.gd): ONE has its list, in
+	# its order, and sees what TWO takes; a life's tanks and armour are
+	# the host's word
+	var hpk: Pickups = hg.pickups
+	var cpk: Pickups = cg.pickups
+	check(hpk.items.size() > 40 and cpk.wire_list() == hpk.wire_list(), "ONE has the host's pickups, in its order (%d)" % hpk.items.size())
+	check(hpk.items.all(func(it): return Pickups.KINDS[it.k].mp), "only what a match's guns can use")
+	check(cg.player.ammo.rounds == p1.ammo.rounds and cg.player.armour == p1.armour, "ONE's belt and armour are the host's (%d rounds)" % cg.player.ammo.rounds)
+	while p2.pod != null and p2.pod.holds_player() and hg.tics < 90 * 35:
+		step.call(1, TicCmd.new_cmd())
+	var ti := -1
+	for i in hpk.items.size():
+		if hpk.items[i].up and Pickups.KINDS[hpk.items[i].k].key == "small_ammo":
+			ti = i
+			break
+	if ti >= 0:
+		p2.ammo.rounds = 0
+		p2.x = hpk.items[ti].x
+		p2.y = hpk.items[ti].y
+		p2.z = hg.level.floor_at(p2.x, p2.y)
+		p2.sector = hg.level.sector_at(p2.x, p2.y)
+		step.call(4, TicCmd.new_cmd())
+		check(not hpk.items[ti].up and p2.ammo.rounds > 0, "TWO walks over a box of rounds on the host: taken (%d rounds)" % p2.ammo.rounds)
+		check(not cpk.items[ti].up, "and ONE sees it gone")
+	else:
+		check(false, "a box of rounds lying about in a match")
+
 	# THE HERD: a unicorn put by ONE on the host is drawn by ONE where she
 	# is, and when she turns on ONE her beam is drawn — and the host's
 	# beam is the one that hurts
 	var u = null
 	for a in hg.herd:
-		if a.type == "UNICORN" and not a.dead:
+		if a.type == "UNICORN" and not a.dead and a.fury <= 0:
 			u = a
 			break
 	var cu = cg.herd[u.herd_i]
@@ -245,7 +272,7 @@ func _match() -> void:
 		% Vector2(cu.x - u.x, cu.y - u.y).length())
 	p1.guard_until = 0
 	p1.invincible = false
-	var h0: int = p1.health + p1.armour1 + p1.armour2
+	var h0: int = p1.health + p1.armour
 	u.rouse(p1)
 	var drawn := false
 	var hurt := false
@@ -253,15 +280,14 @@ func _match() -> void:
 		step.call(1, TicCmd.new_cmd())
 		if cg.rainbow.firing(cu):
 			drawn = true
-		if p1.health + p1.armour1 + p1.armour2 < h0:
+		if p1.health + p1.armour < h0:
 			hurt = true
 		if drawn and hurt:
 			break
-	check(hurt, "her beam (the host's) hurt ONE (%d left of %d)" % [p1.health + p1.armour1 + p1.armour2, h0])
+	check(hurt, "her beam (the host's) hurt ONE (%d left of %d)" % [p1.health + p1.armour, h0])
 	check(drawn, "and ONE drew it, hurting nobody here")
 	# IF A UNICORN KILLS SOMEBODY, THEY DIE
-	p1.armour1 = 0
-	p1.armour2 = 0
+	p1.armour = 0
 	p1.health = 1
 	var d0: int = p1.deaths
 	var f0: int = p1.frags
@@ -282,7 +308,8 @@ func _match() -> void:
 	step.call(NetMatch.RULES.respawnTics + 10, TicCmd.new_cmd())
 	check(not p1.dead and p1.spawns == 2 and p1.pod != null and p1.pod.holds_player(), "ONE came back, in a pod again (life %d)" % p1.spawns)
 	check(not cg.player.dead and ng.spawn_n == 2 and cg.drop != null and cg.drop.holds_player(), "and ONE is riding it")
-	check(cg.player.health == 100 and cg.player.armour1 == 300 and cg.player.weapon == "MINIGUN", "whole, and holding the minigun")
+	check(cg.player.health == int(NetMatch.RULES.health) and cg.player.armour == int(NetMatch.RULES.armour) and cg.player.weapon == "MINIGUN"
+		and cg.player.ammo.rounds == int(NetMatch.RULES.spawnAmmo.rounds), "whole, holding the minigun, %d rounds in it" % cg.player.ammo.rounds)
 	while p1.pod.holds_player() and hg.tics < 200 * 35:
 		step.call(1, TicCmd.new_cmd())
 	var run := _clear_run(hg)
@@ -312,6 +339,12 @@ func _match() -> void:
 	check(Vector2(pup.a.x - p2.x, pup.a.y - p2.y).length() < 1.0, "and the puppet is drawn where TWO was put (in the past, but still)")
 	p1.guard_until = 0
 	p1.invincible = false
+	# (her herd, roused by her death, stood down, and TWO's belt full: this
+	# is the minigun's own check)
+	for a in hg.herd:
+		if not a.dead and a.fury > 0:
+			a.fury = 1
+	p2.ammo.rounds = Weapons.BELT
 	var fire := TicCmd.new_cmd()
 	fire.attack = true
 	var died_at := -1
@@ -325,6 +358,19 @@ func _match() -> void:
 	check(died_at >= 0, "TWO's minigun killed ONE after %d tics" % died_at)
 	check(p2.frags == frags2 + 1 and p1.deaths == 2, "the frag counted: TWO %d, ONE died %d" % [p2.frags, p1.deaths])
 	check(sim.rewinds > 0, "the host wound ONE back for TWO's shots (%d rewinds)" % sim.rewinds)
+	# TWO'S PLASMA BOLT, drawn on ONE's machine (flag 32): the host's hit,
+	# the bolt for the look of it
+	var bolts0: int = cg.plasma.list.size() + cg.plasma.flashes.size()
+	p2.weapon = "PLASMA"
+	p2.pending_weapon = ""
+	p2.fire_index = -1
+	p2.ammo.plasma = 10
+	var fired0: int = hg.plasma.fired
+	step.call(2, fire)
+	step.call(4, TicCmd.new_cmd())
+	check(hg.plasma.fired > fired0 and cg.plasma.list.size() + cg.plasma.flashes.size() > bolts0,
+		"TWO's plasma bolt on the host is drawn on ONE's machine (%d fired)" % (hg.plasma.fired - fired0))
+	p2.weapon = "MINIGUN"
 	var toast_ok := false
 	for t in cg.toasts:
 		if str(t.text).contains("FRAGGED YOU"):
@@ -363,7 +409,7 @@ func _procs() -> void:
 	var exe := OS.get_executable_path()
 	var proj := ProjectSettings.globalize_path("res://")
 	var server := OS.create_process(exe, ["--headless", "--path", proj, "--", "--server=%d" % port, "--map=island0",
-		"--seed=%d" % SEED, "--frags=100", "--spawns=%d,%d;%d,%d" % [ax, ay, bx, by], "--quit-after=70",
+		"--seed=%d" % SEED, "--frags=100", "--infinite-ammo", "--spawns=%d,%d;%d,%d" % [ax, ay, bx, by], "--quit-after=70",
 		"--score-file=" + score_path])
 	check(server > 0, "the host is running (pid %d, port %d)" % [server, port])
 	await create_timer(3.0).timeout

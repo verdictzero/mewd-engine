@@ -44,6 +44,8 @@ func _frame() -> void:
 	var p = game.player
 	if frames == 5:
 		p.weapon = "LAUNCHER" if mode == "rocket" else "BORE"
+		# (tanks kept full: they run dry now, at the user's request)
+		p.debug = true
 		p.x = 200.0
 		p.y = 520.0
 		p.angle = 0.0

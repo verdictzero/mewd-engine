@@ -47,6 +47,9 @@ class Client extends RefCounted:
 	## the client has its world up (its "ready"): only then is it dropped in
 	var ready := false
 	var player = null
+	## the pickups' serial it last had the taken list for (Pickups): -1,
+	## so its first snapshot carries all of it
+	var pk_serial := -1
 
 var game
 var map: Dictionary
@@ -83,6 +86,14 @@ func _init(g, map_: Dictionary, max_p := NetProtocol.MAX_PLAYERS, rules := {}, l
 	g.player.shootable = false
 	match_ = NetMatch.new(g, rules, int(map_.get("seed", 1)))
 	g.rewind = rewind
+
+## the rules a client needs to start a life as the host does (NetMatch.renew)
+func _client_rules() -> Dictionary:
+	var out := {}
+	for k in ["health", "armour", "armourClass", "loadout", "spawnAmmo", "infiniteAmmo", "timeLimit"]:
+		if match_.rules.has(k):
+			out[k] = match_.rules[k]
+	return out
 
 func _log(s: String) -> void:
 	if log_fn.is_valid():
@@ -127,7 +138,11 @@ func _message(c: Client, data) -> void:
 		# says, and a client builds its world on it)
 		var side_n: int = match_._smaller_team() if match_.teams != null else -1
 		_send(c, {"t": "welcome", "v": NetProtocol.PROTOCOL, "id": c.id, "team": side_n, "mode": match_.mode,
-			"map": map, "tic": game.tics, "rate": TICRATE, "score": match_.table()})
+			"map": map, "tic": game.tics, "rate": TICRATE, "score": match_.table(),
+			# what a life starts with here, and THE PICKUPS, in order: an
+			# item's name on the wire is its place in this list
+			"rules": _client_rules(),
+			"pk": game.pickups.wire_list() if game.get("pickups") != null else []})
 		_log("%s connected (%d/%d), building the island" % [c.name, clients.size(), max_players])
 		return
 	# READY: the client has built the island, and is dropped into it — not
@@ -256,8 +271,10 @@ func you_for(p) -> Dictionary:
 	return {
 		"x": r3(p.x), "y": r3(p.y), "z": r3(p.z), "mx": r5(p.momx), "my": r5(p.momy), "mz": r5(p.momz),
 		"g": 1 if p.on_ground else 0, "a": r5(p.angle), "p": r5(p.pitch),
-		"h": maxi(0, ceili(p.health)), "a1": ceili(p.armour1), "a2": ceili(p.armour2),
-		"w": p.weapon, "r": int(p.ammo.get("rounds", 0)), "d": 1 if p.dead else 0, "inv": 1 if p.invincible else 0,
+		"h": maxi(0, ceili(p.health)), "ar": int(p.armour), "ac": int(p.armour_class),
+		# every tank, and what was walked over since the last snapshot
+		"am": p.ammo.duplicate(), "got": p.got.duplicate(),
+		"w": p.weapon, "d": 1 if p.dead else 0, "inv": 1 if p.invincible else 0,
 		"n": p.spawns, "team": p.team, "frags": p.frags,
 		"back": maxi(0, p.respawn_at - game.tics) if p.dead else 0,
 		# IN A POD: where it was aimed and the host tic it began on — the
@@ -271,11 +288,14 @@ static func _riding(p) -> bool:
 ## Somebody else, as little as drawing them takes:
 ## [id, x, y, z, angle, pitch, flags, team] — flags 1 dead, 2 firing,
 ## 4 spawn guard, 8 barrels turning, 16 in a pod (and then the pod's aim
-## and the tic it began on, two more: x, y, tic).
+## and the tic it began on, two more: x, y, tic), 32 a plasma bolt fired
+## since the last snapshot (drawn by the client, remote.gd).
 func other_for(p) -> Array:
 	var firing: bool = p.firing() and p.def().get("volley", false)
 	var riding := _riding(p)
-	var f := (1 if p.dead else 0) | (2 if firing else 0) | (4 if p.invincible else 0) | (8 if p.spin > 0.0 else 0) | (16 if riding else 0)
+	var bolt: bool = game.tics - int(p.plasma_tic) < SNAP_EVERY
+	var f := (1 if p.dead else 0) | (2 if firing else 0) | (4 if p.invincible else 0) | (8 if p.spin > 0.0 else 0) | (16 if riding else 0) \
+		| (32 if bolt else 0)
 	var o := [p.id, r3(p.x), r3(p.y), r3(p.z), r5(p.angle), r5(p.pitch), f, p.team]
 	if riding:
 		o.append_array([r3(p.pod.start.x), r3(p.pod.start.y), p.pod_tic])
@@ -288,6 +308,13 @@ func snap_for(c: Client, ev: Array, score) -> Dictionary:
 		if o != p:
 			others.append(other_for(o))
 	var s := {"t": "snap", "tic": game.tics, "ack": p.session.ack, "you": you_for(p), "others": others}
+	p.got.clear()
+	# WHICH PICKUPS ARE TAKEN, whenever that has changed since this client
+	# last heard (and all of it in its first snapshot)
+	var pk = game.get("pickups")
+	if pk != null and c.pk_serial != pk.serial:
+		s["pk"] = pk.down_list()
+		c.pk_serial = pk.serial
 	if not ev.is_empty():
 		s["ev"] = ev
 	if score != null:

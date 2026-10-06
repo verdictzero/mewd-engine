@@ -25,6 +25,10 @@
 ## (with --die: YOU ACHIEVED THE OPPOSITE OF LIFE).
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs.
+## --pickups: one of each of the twelve pickups (Pickups.KINDS) laid in a
+## fan 3 to 8 m ahead of you, and the readout's numbers as a hurt player's
+## (72 health, 40 light armour, 230 rounds; the minigun in hand).
+## --god: and IDDQD on, over the top (130 health, 150 heavy armour).
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 \
 ##   --script res://godot/tests/candy_shot.gd -- --map=candyland out.png [pitch] [tics] [turn] [--scare] [--road]
@@ -85,6 +89,7 @@ func _frame() -> void:
 	if _start < 0:
 		_start = game.tics
 		p.health = 100000
+		p.debug = true
 		# --weapon=NAME: that gun in hand (with --gun to see it); --zoom=N:
 		# its scope at that step; --fire=K: one plasma bolt K tics before
 		# the picture (--hold=UNITS: held that far along its flight)
@@ -95,6 +100,27 @@ func _frame() -> void:
 				game._start_zoom = int(arg.substr(7))
 		# the island's own colours, as main.gd's prefs give them
 		lofi.for_island(game.island_spec, not "--clean" in args)
+		if "--pickups" in args:
+			var pk: Pickups = game.pickups
+			var n := Pickups.KINDS.size()
+			for k in n:
+				var row := k % 2
+				var a: float = p.angle + lerpf(-0.55, 0.55, float(k) / float(n - 1))
+				var d := (3.2 + 2.6 * row + 0.25 * float(k % 3)) * 32.0
+				var q := Vector2(p.x, p.y) + Vector2(cos(a), sin(a)) * d
+				pk.items.append({"k": k, "x": q.x, "y": q.y, "z": game.level.floor_at(q.x, q.y), "up": true, "back": -1, "ph": k * 1.7})
+			pk._dirty = true
+			p.health = 72
+			p.armour = 40
+			p.armour_class = 1
+			p.weapon = "MINIGUN"
+			p.ammo.rounds = 230
+			p.debug = false
+			if "--god" in args:
+				p.cheat = true
+				p.health = 130
+				p.armour = 150
+				p.armour_class = 2
 		if "--house" in args and not game.level.houses.is_empty():
 			var best = null
 			for h in game.level.houses:

@@ -60,15 +60,38 @@ var view_z := 0.0
 var bob := 0.0
 var bob_phase := 0.0
 var sector: Level.Sector = null
-var health := Weapons.HEALTH
-var armour1 := Weapons.ARMOUR1
-var armour2 := Weapons.ARMOUR2
+var health := Weapons.START_HEALTH
+## ARMOUR ON TOP OF HEALTH, at the user's request: how much, and its
+## class (0 none, 1 light, 2 heavy: Weapons.ARMOUR_SOAK)
+var armour := Weapons.START_ARMOUR
+var armour_class := Weapons.START_ARMOUR_CLASS
+## the part of a point the armour's share came to, carried to the next
+## blow (a beam's two a tic is two-thirds of a point to light armour:
+## dropped every time, light armour would never take any of it)
+var soak_carry := 0.0
+## and the part of a point of a blow itself (a match's rounds are a point
+## and a half or so each: rounded, they would come to two)
+var hurt_carry := 0.0
 var dead := false
-## INFINITE AMMO ON BY DEFAULT, at the user's request (js/main.js
-## DEFAULT_PREFS); and HEALTH BACK, at the user's request: not
-## invincible unless the pause menu says so
-var debug := true
+## INFINITE AMMO from the pause menu (DEBUG: INFINITE AMMO), off by
+## default now the tanks are finite (at the user's request); and HEALTH
+## BACK, at the user's request: not invincible unless the pause menu
+## says so
+var debug := false
 var invincible := false
+## IDDQD, at the user's request (game/cheats.gd): invincible AND
+## infinite ammo, in single player only. Its own flag: the pause menu
+## writes `debug` and `invincible` whenever it is touched, and a match
+## writes them at every life.
+var cheat := false
+## what was walked over since the host last said so (Pickups; a match's
+## snapshot carries it to the client, for the toast and the flash)
+var got := []
+## the gold wash of a pickup, as damage_flash is the red of a blow
+var bonus_flash := 0
+## the tic of the last plasma bolt (a match's other machines draw it:
+## server.gd other_for)
+var plasma_tic := -1000
 var removed := false
 var shootable := true
 var info := {}
@@ -138,7 +161,7 @@ func _init(g, sx: float, sy: float, a: float, sz = null) -> void:
 	view_z = z + U.PLAYER_EYE
 	prev = Vector4(x, y, view_z, 0)
 	for k in Weapons.TANKS:
-		ammo[k] = Weapons.TANKS[k][0]
+		ammo[k] = int(Weapons.START.get(k, 0))
 		ammo_tick[k] = 0
 		dry[k] = false
 
@@ -150,6 +173,8 @@ func tic(cmd: Dictionary) -> void:
 	prev = Vector4(x, y, view_z, 0)
 	if damage_flash > 0:
 		damage_flash -= 1
+	if bonus_flash > 0:
+		bonus_flash -= 1
 	if wobble > 0:
 		wobble -= 1
 	if dead:
@@ -270,9 +295,11 @@ func def() -> Dictionary:
 func firing() -> bool:
 	return fire_index >= 0
 
+## (enough for one shot: a minigun's volley is four rounds at once,
+## so three left is empty)
 func has_ammo(w: String) -> bool:
 	var d: Dictionary = Weapons.WEAPONS[w]
-	return not d.has("ammo") or ammo[d.ammo] >= maxi(1, int(d.get("ammoPerShot", 1)))
+	return not d.has("ammo") or ammo[d.ammo] >= Weapons.need(w)
 
 func latched(w: String) -> bool:
 	var d: Dictionary = Weapons.WEAPONS[w]
@@ -302,15 +329,51 @@ func select_slot(n: int) -> void:
 				pending_weapon = k
 			return
 
+## (past the guns with nothing in them, as Doom's next-weapon goes —
+## unless every one is empty)
 func cycle_weapon(dir: int) -> void:
 	var list := []
 	for k in Weapons.ORDER:
-		if owned.get(k, false):
+		if owned.get(k, false) and (k == weapon or can_shoot(k) or debug or cheat):
 			list.append(k)
+	if list.size() < 2:
+		# (the one in hand the only one with something in it: stay)
+		if can_shoot(weapon) or debug or cheat:
+			return
+		list.clear()
+		for k in Weapons.ORDER:
+			if owned.get(k, false):
+				list.append(k)
 	if list.is_empty():
 		return
 	var i := list.find(weapon)
 	pending_weapon = list[((i + dir) % list.size() + list.size()) % list.size()]
+
+## THE GUN TO FALL BACK ON when the one in hand is empty (Doom's
+## P_SwitchWeapon), best first — never the ones that want a long
+## charge, a lock, or that would put a nuke at your own feet
+const FALLBACK := ["MINIGUN", "PLASMA", "FLAMER"]
+
+func best_weapon() -> String:
+	for k in FALLBACK:
+		if owned.get(k, false) and can_shoot(k):
+			return k
+	return ""
+
+## something in it, and (a gun that latches dry) not latched
+func can_shoot(w: String) -> bool:
+	return has_ammo(w) and not (Weapons.WEAPONS[w].has("refire") and latched(w))
+
+## AMMUNITION FOR AN EMPTY HAND: the hands go to the first gun this tank
+## feeds (give_ammo; and a match's client, when the host says a tank
+## has filled, so the two hold the same gun: NetGame.reconcile)
+func switch_for_tank(kind: String) -> void:
+	if can_shoot(weapon) or pending_weapon != "":
+		return
+	for w in Weapons.ORDER:
+		if owned.get(w, false) and Weapons.WEAPONS[w].get("ammo", "") == kind and w != weapon and can_shoot(w) and w in FALLBACK:
+			pending_weapon = w
+			return
 
 func weapon_tic(cmd: Dictionary) -> void:
 	if cmd.get("slot", 0) > 0:
@@ -318,11 +381,37 @@ func weapon_tic(cmd: Dictionary) -> void:
 	if cmd.get("cycle", 0) != 0:
 		cycle_weapon(1 if cmd.cycle > 0 else -1)
 	var attack: bool = cmd.get("attack", false)
+	_empty_tic(attack)
 	spin_tic(attack)
 	_weapon_tic(attack)
 	# the lance's held sound, judged from the state AFTER the tic
 	lance_voice()
 	gun_voice()
+
+## AN EMPTY GUN, at the user's request (finite ammo): the trigger pulled
+## on nothing says so, once a press, and the hands go to the best gun
+## that has something in it (best_weapon). A gun busy with its own
+## business — a coil winding, a salvo leaving — is left to finish it.
+var _empty_press := false
+
+func _empty_tic(attack: bool) -> void:
+	if not attack:
+		_empty_press = false
+		return
+	if _empty_press or pending_weapon != "" or can_shoot(weapon) or debug or cheat:
+		return
+	if firing() or charge > 0 or beam_tics > 0 or seeking or arc_charging:
+		return
+	_empty_press = true
+	# (the launcher, the arc maw and the potato cannon click for themselves)
+	var d := def()
+	if not (d.get("seeker", false) or d.get("arc", false) or d.get("potato", false)):
+		game.play_sound("noammo", self)
+	var w := best_weapon()
+	if w != "" and w != weapon:
+		pending_weapon = w
+	if self == game.player:
+		game.toast("NO %s" % Pickups.tank_say(String(d.get("ammo", ""))) + ("  —  %s" % Weapons.WEAPONS[w].name if w != "" and w != weapon else ""))
 
 func _weapon_tic(attack: bool) -> void:
 	var d := def()
@@ -380,6 +469,7 @@ func start_fire() -> void:
 	if d.get("semi", false):
 		trigger_held = true
 	if d.get("plasma", false) and game.get("plasma") != null:
+		plasma_tic = game.tics
 		game.plasma.fire(self)
 	game.noise(self, 900.0 if d.get("autofire", false) else 700.0)
 
@@ -416,25 +506,30 @@ func volley_tic(d: Dictionary) -> void:
 			game.tracers.spawn(seen, game.last_hit)
 
 func fuel_tic() -> void:
-	if debug:
+	if debug or cheat:
 		for k in Weapons.TANKS:
 			ammo[k] = Weapons.TANKS[k][0]
 			dry[k] = false
 			ammo_tick[k] = 0
 		return
+	# ONLY THE TANKS WITH NOTHING TO PICK UP FOR THEM fill themselves, and
+	# only so far (Weapons.TANKS: the period, and the floor); the rest
+	# wait for a pickup (give_ammo), which also lets a dry one go
 	for k in Weapons.TANKS:
 		var t: Array = Weapons.TANKS[k]
-		var cap: int = t[0]
-		if ammo[k] >= cap:
+		var every: int = t[1]
+		var top: int = mini(int(t[0]), int(t[3]))
+		if every <= 0 or ammo[k] >= top:
 			ammo_tick[k] = 0
-			dry[k] = false
+			if dry[k] and every > 0 and ammo[k] >= top:
+				dry[k] = false
 			continue
 		ammo_tick[k] += 1
-		if ammo_tick[k] < t[1]:
+		if ammo_tick[k] < every:
 			continue
 		ammo_tick[k] = 0
-		ammo[k] = mini(cap, ammo[k] + 1)
-		if dry[k] and ammo[k] >= cap * t[2]:
+		ammo[k] = mini(top, ammo[k] + 1)
+		if dry[k] and ammo[k] >= minf(t[0] * t[2], top):
 			dry[k] = false
 
 # ------------------------------------------------------------------
@@ -657,21 +752,29 @@ func stage_marks() -> Array:
 # HURT (js/player.js damage, die, deathTic)
 # ------------------------------------------------------------------
 
-## The plates go first — the outer, then the inner — and then you. The
+## ARMOUR ON TOP OF HEALTH (at the user's request): of each blow the
+## armour's class takes its share (Weapons.ARMOUR_SOAK: a third light, a
+## half heavy) while there is armour to take it, and you the rest. The
 ## player is FIREPROOF: only a round or a blow gets through.
 func damage(amount: float, source, opts := {}) -> void:
-	if dead or invincible:
+	if dead or invincible or cheat:
 		return
 	if not opts.get("shot", false) and not opts.get("impact", false):
 		return
-	var left := amount
-	var take := minf(armour2, left)
-	armour2 -= int(take)
-	left -= take
-	take = minf(armour1, left)
-	armour1 -= int(take)
-	left -= take
-	health -= int(left)
+	var raw := amount + hurt_carry
+	var hit := int(raw)
+	hurt_carry = raw - float(hit)
+	if hit <= 0:
+		return
+	var share := hit * float(Weapons.ARMOUR_SOAK[armour_class]) + soak_carry + 1e-4
+	var saved := mini(armour, int(share))
+	soak_carry = share - 1e-4 - float(int(share)) if saved < armour else 0.0
+	armour -= saved
+	if armour <= 0:
+		armour = 0
+		armour_class = 0
+		soak_carry = 0.0
+	health -= hit - saved
 	damage_flash = mini(16, int(5 + amount * 0.6))
 	game.play_sound("hurt", self)
 	if source != null:
@@ -685,8 +788,10 @@ func damage(amount: float, source, opts := {}) -> void:
 func die(source = null) -> void:
 	dead = true
 	health = 0
-	armour1 = 0
-	armour2 = 0
+	armour = 0
+	armour_class = 0
+	soak_carry = 0.0
+	hurt_carry = 0.0
 	if charge_loop != null:
 		charge_loop.stop()
 		charge_loop = null
@@ -701,6 +806,57 @@ func die(source = null) -> void:
 		game.beam.stop()
 	game.play_sound("playerDie", self)
 	game.on_player_died(self, source)
+
+# ------------------------------------------------------------------
+# PICKUPS (game/pickups.gd), at the user's request. Each says whether it
+# did anything, and one that would change nothing is left lying where it
+# is (Doom's rule: a full player walks over a medkit and leaves it).
+# ------------------------------------------------------------------
+
+## health, as far as `top`
+func give_health(n: int, top: int) -> bool:
+	if health >= top:
+		return false
+	health = mini(top, health + n)
+	return true
+
+## armour of a class (1 light, 2 heavy), as far as `top`: taken if it
+## raises the armour or its class
+func give_armour(n: int, cls: int, top: int) -> bool:
+	if armour >= top and armour_class >= cls:
+		return false
+	if armour < top:
+		armour = mini(top, armour + n)
+	armour_class = maxi(armour_class, cls)
+	return true
+
+## ammunition into a tank, as far as it holds: how much went in. A dry
+## tank's latch goes with it, and hands holding an empty gun go to the
+## first gun this tank feeds.
+func give_ammo(kind: String, n: int) -> int:
+	if not Weapons.TANKS.has(kind):
+		return 0
+	var cap: int = Weapons.TANKS[kind][0]
+	var was: int = ammo.get(kind, 0)
+	if was >= cap or n <= 0:
+		return 0
+	ammo[kind] = mini(cap, was + n)
+	dry[kind] = false
+	switch_for_tank(kind)
+	return ammo[kind] - was
+
+## a gun into the hands' list: whether it is new
+func give_weapon(w: String) -> bool:
+	if owned.get(w, false) or not Weapons.WEAPONS.has(w):
+		return false
+	owned[w] = true
+	return true
+
+## Once a WORLD tic (Pickups.tic — the player's own tic runs four times
+## over in slow motion): health over the top bleeds back towards it.
+func world_tic(tics: int) -> void:
+	if not dead and health > Weapons.HEALTH and tics % Weapons.OVERHEAL_EVERY == 0:
+		health -= 1
 
 func death_tic() -> void:
 	view_z += (z + 8.0 - view_z) * 0.12

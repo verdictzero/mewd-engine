@@ -268,7 +268,8 @@ func update(p, t: int) -> bool:
 	var stage: int = p.charge_stage() if p != null else 0
 	var cell := 0.0
 	if p != null:
-		cell = clampf(float(p.ammo.get("cells", 0)) / float(Weapons.TANKS.cells[0]), 0.0, 1.0)
+		# (the cells carried, a pip each, four at most: a beam is a cell)
+		cell = clampf(float(p.ammo.get("cells", 0)) / 4.0, 0.0, 1.0)
 	var hold: float = p.hold_fraction() if p != null else 0.0
 	# THE TWO RINGS ARE THE SCREEN SHADER'S NOW (scope_screen.gdshader,
 	# `rings`): the charge and the hold are uniforms, set every tic, and

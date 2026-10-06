@@ -23,6 +23,9 @@ func _init() -> void:
 	root.add_child(game)
 	await process_frame
 	var p = game.player
+	# (the guns' own business, with the tanks kept full: they run dry now,
+	# and pickup_test.gd is where that is checked)
+	p.debug = true
 	var run := _clear_run(p)
 	print("weapons: clear run %d at %d deg" % [run.y, rad_to_deg(run.x)])
 	# every other actor out of the way
@@ -368,15 +371,16 @@ func _potato(p, run: Vector2) -> void:
 	game._process(0.0)
 	check(gt.zoom_index == 1 and ThermalScope._told == gt.feed_size(), "and zoomed, the world draws heat for it (%sx)" % str(gt.magnification()))
 	gt.set_zoom(0)
-	# THE HOPPER fills again, a potato every two seconds
+	# THE HOPPER NO LONGER FILLS ITSELF (at the user's request, finite
+	# ammo): an empty one stays empty until a mini nuke is picked up
 	var dbg: bool = p.debug
 	p.debug = false
 	p.ammo.potatoes = 0
 	p.ammo_tick.potatoes = 0
-	for i in Weapons.POTATO_REGEN_EVERY + 2:
+	for i in 4 * 35:
 		game.tic()
 	p.debug = dbg
-	check(p.ammo.potatoes == 1, "an empty hopper has a potato again in two seconds (%d)" % p.ammo.potatoes)
+	check(p.ammo.potatoes == 0, "an empty hopper stays empty: no potato comes back by itself (%d)" % p.ammo.potatoes)
 	for i in 200:
 		game.tic()
 	p.health = hp0
@@ -402,8 +406,8 @@ func _plasma(p, run: Vector2) -> void:
 	_hold("PLASMA", 2)
 	_settle(14)
 	check(pb.fired - f0 == 3, "and pulled twice more, twice more (%d)" % (pb.fired - f0))
-	# (a cell a bolt, and one back every PLASMA_REGEN_EVERY over the ~60 tics)
-	check(p.ammo.plasma >= Weapons.PLASMA_CELLS - 3 and p.ammo.plasma <= Weapons.PLASMA_CELLS - 2, "a cell a bolt, and they fill again (%d left)" % p.ammo.plasma)
+	# (a cell a bolt, and nothing fills them now: the tanks are finite)
+	check(p.ammo.plasma == Weapons.PLASMA_CELLS - 3, "a cell a bolt, and none come back by themselves (%d left)" % p.ammo.plasma)
 	# PRECISE: a shopper far down the run, straight down the eye, is hit
 	var v := _victim(p, run, 900.0)
 	v.speed = 0.0

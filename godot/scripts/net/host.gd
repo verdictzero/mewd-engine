@@ -59,6 +59,13 @@ func _ready() -> void:
 		elif a.begins_with("--frags="):
 			rules["fragLimit"] = int(a.substr(8))
 			rules["teamLimit"] = int(a.substr(8))
+		# (the tanks kept full, as before there were pickups: the tests' bots,
+		# which never stop shooting)
+		elif a == "--infinite-ammo":
+			rules["infiniteAmmo"] = true
+		# a round's clock, minutes (0: frags only)
+		elif a.begins_with("--minutes="):
+			rules["timeLimit"] = int(float(a.substr(10)) * 60.0 * NetMatch.TICRATE)
 		elif a.begins_with("--spawns="):
 			for pt in a.substr(9).split(";", false):
 				var xy := pt.split(",")

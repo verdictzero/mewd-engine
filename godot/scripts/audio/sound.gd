@@ -26,6 +26,10 @@ const SAMPLES := {
 	"lance_prefire": "res://assets/sfx/lance_prefire.wav",
 	"lance_fire_a": "res://assets/sfx/lance_fire_a.wav",
 	"lance_fire_b": "res://assets/sfx/lance_fire_b.wav",
+	# the pickups' (tools/pickup-sounds.py)
+	"pickup": "res://assets/sfx/pickup.wav",
+	"powerup": "res://assets/sfx/powerup.wav",
+	"noammo": "res://assets/sfx/noammo.wav",
 }
 const SAMPLE_FOR := {
 	"spinup": "minigun_start", "minigunloop": "minigun_fire", "spindown": "minigun_stop",
@@ -33,11 +37,14 @@ const SAMPLE_FOR := {
 	"lanceprefire": "lance_prefire", "lancefire": "lance_fire_a", "lancefire2": "lance_fire_b",
 	# the plasma rifle's crack: the lance's second shot, pitched up (Plasma)
 	"plasma": "lance_fire_b",
+	# a pickup taken, a big one (and IDDQD), and a trigger on nothing (Pickups, Player)
+	"pickup": "pickup", "powerup": "powerup", "noammo": "noammo",
 }
 const SAMPLE_GAIN := {
 	"minigun_fire": 0.32, "minigun_start": 0.42, "minigun_stop": 0.42,
 	"lance_charge_start": 0.46, "lance_charge_loop": 0.34, "lance_charge_full": 0.46,
 	"lance_prefire": 0.52, "lance_fire_a": 0.50, "lance_fire_b": 0.44,
+	"pickup": 0.40, "powerup": 0.42, "noammo": 0.50,
 }
 
 ## the ears: anything with an x and a y

@@ -55,6 +55,8 @@ func _frame() -> void:
 		_start = game.tics
 		p.health = 100000
 		p.weapon = gun
+		# (tanks kept full: they run dry now, at the user's request)
+		p.debug = true
 		# the longest level stretch out of the start, and the crowd along it
 		var run: Vector2 = game.level.flat_run(p.x, p.y)
 		p.angle = run.x

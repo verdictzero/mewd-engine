@@ -38,6 +38,8 @@ func _frame() -> void:
 	var p = game.player
 	if frames == 5:
 		p.weapon = "FLAMER"
+		# (tanks kept full: they run dry now, at the user's request)
+		p.debug = true
 		p.health = 100000
 		p.pitch = 0.0
 	# three seconds of the stream, then let go

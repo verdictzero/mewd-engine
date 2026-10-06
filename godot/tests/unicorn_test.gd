@@ -29,6 +29,9 @@ func _init() -> void:
 	await process_frame
 	var p = game.player
 	p.invincible = false
+	# (a body that lasts the whole test: every beam and ram below lands on
+	# it, and a hundred health is two of them now)
+	p.health = 100000
 	# the unicorn nearest the start, and the player 20 m in front of her
 	var u = null
 	for a in game.actors:
@@ -45,6 +48,9 @@ func _init() -> void:
 	p.x = px
 	p.y = py
 	p.z = game.level.floor_at(px, py)
+	# (the eye with the body: moved by hand, it stays where it was)
+	p.view_z = p.z + U.PLAYER_EYE
+	p.sector = game.level.sector_at(px, py)
 	check(u.can_see(p), "she can see the player")
 	var herd := []
 	var foals := []
@@ -56,7 +62,7 @@ func _init() -> void:
 		elif a.type == "FOAL":
 			foals.append(a)
 	# ---- hurt her ------------------------------------------------------
-	var h0: int = p.health + p.armour1 + p.armour2
+	var h0: int = p.health + p.armour
 	u.damage(1.0, p, {"shot": true})
 	check(u.fury > 0, "hurt by the player, she is in a fury (%d tics)" % u.fury)
 	check(u.state.name == "UNI_AIM", "and turns on them (%s)" % u.state.name)
@@ -76,7 +82,7 @@ func _init() -> void:
 	var rb: RainbowBeams = game.rainbow
 	var f0 := rb.fired
 	var t := 0
-	while rb.fired == f0 and t < 60:
+	while rb.fired == f0 and t < 140:
 		game.tic()
 		t += 1
 	check(rb.fired > f0, "she fires after drawing the charge in (%.1f s)" % (t / 35.0))
@@ -89,7 +95,7 @@ func _init() -> void:
 		var m: Vector3 = b.from
 		check(m.z > u.z + u.height * 0.5, "from her mouth, high on her (%.0f over her feet)" % (m.z - u.z))
 		check(b.to.distance_to(m) > away * 0.5, "reaching the player's way (%.0f units)" % b.to.distance_to(m))
-	var h1: int = p.health + p.armour1 + p.armour2
+	var h1: int = p.health + p.armour
 	check(h1 < h0, "and it hurts them (%d to %d, health and armour)" % [h0, h1])
 	if not b.is_empty():
 		check(b.to.distance_to(b.from) > Vector2(p.x - u.x, p.y - u.y).length() + 100.0,
@@ -109,7 +115,7 @@ func _init() -> void:
 	_tics(20)
 	check(swung, "a sidestep takes them out of it, for a moment")
 	# ---- where it lands -------------------------------------------------
-	p.health = 100
+	p.health = 100000
 	p.x = px
 	p.y = py
 	p.z = game.level.floor_at(px, py)
@@ -124,14 +130,14 @@ func _init() -> void:
 	check(u.state.name == "UNI_CHARGE", "after the beam, she charges them")
 	var d0c := Vector2(u.x - p.x, u.y - p.y).length()
 	var r0: int = u.rams
-	var hr: int = p.health + p.armour1 + p.armour2
+	var hr: int = p.health + p.armour
 	var f1 := rb.fired
 	t = 0
 	while u.rams == r0 and t < RainbowBeams.UNI.run_tics + 2:
 		game.tic()
 		t += 1
 	check(u.rams > r0, "and reaches them, and rams them (%.1f s from %.0f units)" % [t / 35.0, d0c])
-	check(p.health + p.armour1 + p.armour2 <= hr - int(RainbowBeams.UNI.ram_damage), "the ram hurts (%d to %d)" % [hr, p.health + p.armour1 + p.armour2])
+	check(p.health + p.armour <= hr - int(RainbowBeams.UNI.ram_damage), "the ram hurts (%d to %d)" % [hr, p.health + p.armour])
 	_tics(RainbowBeams.UNI.charge_tics + 4)
 	check(rb.fired > f1, "and she goes again")
 	# a beam aimed into the ground: scorches where it lands
@@ -166,7 +172,7 @@ func _init() -> void:
 	p.x = px
 	p.y = py
 	t = 0
-	while not rb.firing(u) and t < 80:
+	while not rb.firing(u) and t < 140:
 		game.tic()
 		t += 1
 	check(rb.firing(u), "roused again, firing again")
@@ -188,8 +194,29 @@ func _init() -> void:
 				a.fury = 0
 				near.append(a)
 		v.fury = 0
+		# (a death by nothing of yours rouses them only with you near enough
+		# to be the one to answer for it, the balance: 75 m)
+		var far_ok := true
+		var w = null
+		for a in game.actors:
+			if a.type == "UNICORN" and not a.dead and a != v and not near.has(a) and Vector2(a.x - v.x, a.y - v.y).length() > Actor.DEATH_ROUSE_R * 2.0 \
+					and Vector2(a.x - p.x, a.y - p.y).length() > 2400.0 * 1.5:
+				w = a
+				break
+		if w != null:
+			var wn := []
+			for a in game.actors:
+				if a != w and a.type == "UNICORN" and not a.dead and Vector2(a.x - w.x, a.y - w.y).length() < Actor.DEATH_ROUSE_R:
+					a.fury = 0
+					wn.append(a)
+			w.damage(1.0e7, null, {})
+			far_ok = wn.all(func(o): return o.fury == 0)
+		check(far_ok, "one dead far from anybody, of nothing of theirs: her herd stays calm")
+		p.x = v.x + 600.0
+		p.y = v.y
+		p.z = game.level.floor_at(p.x, p.y)
 		v.damage(1.0e7, null, {})
 		var turned := near.filter(func(o): return o.fury > 0 and o.target == p).size()
-		check(v.dead and not near.is_empty() and turned == near.size(), "a unicorn killed outright: every grown one near her turns on you (%d of %d)" % [turned, near.size()])
+		check(v.dead and not near.is_empty() and turned == near.size(), "a unicorn killed outright near you: every grown one near her turns on you (%d of %d)" % [turned, near.size()])
 	print("unicorn: %s" % ("PASS" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails > 0 else 0)

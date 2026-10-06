@@ -71,6 +71,8 @@ func _frame() -> void:
 	var p = game.player
 	if frames == 2:
 		p.weapon = "BORE" if mode == "bore" else "LANCE"
+		# (tanks kept full: they run dry now, at the user's request)
+		p.debug = true
 		run = _clear_run(p)
 		start = Vector2(p.x, p.y)
 		for a in game.actors:

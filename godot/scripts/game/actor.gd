@@ -964,7 +964,8 @@ const ROUSE_R := 1400.0
 ## death proximity trigger other unicorns"): a unicorn or a foal killed —
 ## by anything, the player's to answer for it — and every grown unicorn
 ## within this of her turns on the player
-const DEATH_ROUSE_R := 2400.0
+## (1600: her own herd, and not the next one over — the balance)
+const DEATH_ROUSE_R := 1600.0
 
 func _death_rouses(source = null) -> void:
 	if not (info.get("fights", false) or type == "FOAL"):
@@ -972,9 +973,13 @@ func _death_rouses(source = null) -> void:
 	# (a network client's herd is the host's to rouse)
 	if game.net != null:
 		return
-	# (on her killer, if it was a player; else whoever is nearest)
+	# (on her killer, if it was a player; else whoever is nearest — and
+	# only if they are near: a herd a long way off does not gallop in for
+	# a fire somebody else's pod or a burning girl started)
 	var p = source if source is Player and not source.dead else game.nearest_player(x, y)
 	if p == null or p.dead:
+		return
+	if not (source is Player) and U.dist2(x, y, p.x, p.y) > 2400.0 * 2400.0:
 		return
 	for o in game.blockmap.near_radius(x, y, DEATH_ROUSE_R):
 		if o == self or o.dead or o.removed or not o.info.get("fights", false):
@@ -994,18 +999,25 @@ func _furious(p) -> void:
 	target = p
 	panic = 0
 	speed = float(info.get("speed", speed))
+	# A HERD DOES NOT FIRE AS ONE (at the user's request: the balance):
+	# each roused one waits a little more before she starts drawing the
+	# charge in, a share of a second and a half off who she is — no dice,
+	# so a match's host and a game alone agree — and a roused herd is a
+	# run of beams to answer, not one volley that kills
 	if not was:
-		_fight()
+		_fight(-(((herd_i if herd_i >= 0 else id) * 29) % 53))
 
 ## in a fury and free to: into the fight (true), unless she already is
-func _fight() -> bool:
+## (`wait`: tics before her charge starts, as a negative count)
+func _fight(wait := 0) -> bool:
 	if fury <= 0 or held() or burning > 0 or dead:
 		return false
 	var nm: String = state.get("name", "")
 	if nm.begins_with("UNI_AIM") or nm.begins_with("UNI_BEAM") or nm.begins_with("UNI_CHARGE") or nm.begins_with("UNI_HUNT"):
 		return true
-	uni_t = 0
-	set_state("UNI_AIM" if _can_fire() else "UNI_HUNT1")
+	var fire := _can_fire()
+	uni_t = wait if fire else 0
+	set_state("UNI_AIM" if fire else "UNI_HUNT1")
 	return true
 
 ## WHO SHE IS FIGHTING: the player she is after while they live, else the
@@ -1053,7 +1065,8 @@ func A_UniAim() -> void:
 		return
 	uni_t += 1
 	var C: int = RainbowBeams.UNI.charge_tics
-	if game.rainbow != null:
+	# (the glow starts once her wait is over: the stagger, _furious)
+	if game.rainbow != null and uni_t > 0:
 		game.rainbow.charge(self, float(uni_t) / C)
 	if uni_t >= C:
 		uni_t = 0
@@ -1117,7 +1130,8 @@ func A_UniCharge() -> void:
 func _ram(p, dir: Vector2) -> void:
 	var R = RainbowBeams.UNI
 	rams += 1
-	p.damage(R.ram_damage, self, {"impact": true, "ram": true})
+	# (a match scales what a beast does to a player: NetMatch npcScale)
+	p.damage(game.rules.scale(self, p, R.ram_damage) if game.rules != null else R.ram_damage, self, {"impact": true, "ram": true})
 	p.momx += dir.x * R.ram_push
 	p.momy += dir.y * R.ram_push
 	if "momz" in p:

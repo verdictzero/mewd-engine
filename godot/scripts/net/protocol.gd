@@ -13,11 +13,15 @@
 ##
 ## THE HANDSHAKE:
 ##   client → host   { t:'hello', v, name }
-##   host → client   { t:'welcome', v, id, team, mode, map:{ kind, seed, opts }, tic, rate, score }
+##   host → client   { t:'welcome', v, id, team, mode, map:{ kind, seed, opts }, tic, rate, score,
+##                     rules:{ health, armour, … }, pk:[[kind, x, y, z], …] }
 ##                   or { t:'refused', why } and the line is closed
 ##   client → host   { t:'ready' } once its island is built: it is dropped in
 ##   client → host   CMD packets, one a tic
-##   host → client   { t:'snap', tic, ack, you:{…}, others:[…], ev:[…], score? }
+##   host → client   { t:'snap', tic, ack, you:{…}, others:[…], ev:[…], score?, pk? }
+##                   (`pk`: the pickups taken, by index, whenever that has
+##                   changed; `you` has your armour, every tank, and what
+##                   you walked over: ar, ac, am, got)
 ##   host → client   { t:'herd', tic, u:[…] }  the unicorns near it, 4 a second
 ##   client → host   { t:'ping', n, rtt }   and back   { t:'pong', n }
 ##   either          { t:'bye', why }
@@ -30,7 +34,7 @@
 ## read off a message is int()ed wherever it is used as one.
 class_name NetProtocol
 
-const PROTOCOL := 3          # 2: many players, and `seen` in the command; 3: islands — ready, pods, the herds
+const PROTOCOL := 4          # 2: many players, and `seen` in the command; 3: islands — ready, pods, the herds; 4: pickups, armour, finite ammo
 const MAX_PLAYERS := 16
 const DEFAULT_PORT := 7777
 const NET_PATH := "/net"

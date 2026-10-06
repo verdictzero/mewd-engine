@@ -58,6 +58,8 @@ RUNNING IT
   the lance's scope or the launcher's thermal sight up and step its zoom
   (AIM and ZOOM on the phone), 1-7 or the wheel for the guns,
   Esc or P to pause. On the title, up/down and Enter, or the mouse.
+  IDDQD typed, or L1 R1 L2 R2 L3 R3 squeezed together on a pad, is
+  invincible and infinite ammo (PICKUPS, below).
   A PAD, ANY PAD (godot/scripts/pad.gd): the one built into a handheld
   (an Anbernic RG557), a USB or Bluetooth controller, or both at once —
   every binding is for every device, not device 0, and a pad the engine
@@ -3157,6 +3159,123 @@ at the eye, as the potato cannon's does). The fault was the raised hold:
 it was solved with a half turn (yaw PI), so the gun was turned round
 backwards while raised. It is solved now as the potato cannon's is, a
 whole turn (yaw TAU), pointing forward with its screen straight ahead.
+
+PICKUPS, FINITE AMMO, ARMOUR ON TOP OF HEALTH, IDDQD, AND THE BALANCE
+At the user's request ("implement these pickups and the mechanics / ui
+elments to utilize them, health ammo armor etc, scatter tehm aroudn,
+make finite ammo and ehalth a thing, as well as armor on top of health,
+make the physical key code IDDQD or R1 + L1 + R2 + L2 + R3 + L3 together
+make the player invicible and have inifinate ammo; and while you're
+doing this balance the hell out of everything so multiplayer and single
+player feel balanced and nice and playable, a challenge but not one that
+stop enjoyment"):
+  - THE PICKUPS (game/pickups.gd). The user's twelve pictures
+    (mewd_pickups.zip: 2048-pixel paintings on a green screen) keyed,
+    cut and set on the floor of 128-pixel cells (tools/pickups-strip.py,
+    assets/things/pickups.png; the zip's Gemini_Generated_Image is a copy
+    of the bio vats and is left out). Each stands on the ground as a card
+    turned to the eye, on the standee shader, all of them one draw, lit
+    by itself and bobbing a little, with the grass mown under it. Walked
+    over, one is TAKEN, and left lying when it would do nothing (whole,
+    or the tank full: Doom's rule). A take is said in the toasts
+    ("MEDKIT  +25 HEALTH"), washes the screen gold and is heard
+    (pickup.wav, powerup.wav for the big ones: the synthesised sounds
+    are muted, so tools/pickup-sounds.py makes three small recordings,
+    and noammo.wav for an empty trigger).
+      MEDKIT          +25 health, to 100
+      TRAUMA KIT      +50 health, to 150; over 100 it bleeds back a
+                      point a second
+      LIGHT ARMOUR    +50, to 100, light (and never lowers heavy)
+      HEAVY ARMOUR    +100, to 200, heavy
+      BOX OF ROUNDS   +160 rounds          CRATE OF ROUNDS  +600
+      PLASMA BATTERY  +10 plasma, +1 cell  CELL CRATE  +25 plasma, +2
+      ROCKETS         +4 (a salvo)         ALIEN POD   +2 volts (arc maw)
+      BIO VATS        +2 bores             MINI NUKE   the IRISH POTATO
+                      CANNON (still out of the loadout until one is
+                      found) and two nukes for it
+    Ammunition is taken only for a gun you carry.
+  - WHERE THEY LIE: off the map's seed, through an RNG of their own, so the
+    crowd, the herds and the houses are where they were. A cache of four
+    by your start; two down each arm of every town's cross and a big one
+    by its middle; one every 80 m along the country roads; round the
+    crowd's gathering places (every 37th person: a prime, so the groups
+    the crowd is dealt into are not all missed but one), on an island
+    with no herds mostly ammunition; the big ones in the meadows by every
+    third herd (worth the risk); the mini nukes by rule, two by the herds
+    furthest from your start. About 150-190 on CANDY LAND, 75 on NOT
+    PENNSYLVANIA (Islands "pickups"), 30-40 on DEBUG LAND with a SHOWROOM
+    of all twelve in a row ahead of where you land.
+  - COMING BACK. Alone: a small one after two minutes, the armour after
+    three, and only once nobody is within 50 m to see it; the big ones
+    never (a death reloads the island anyway). DEBUG LAND: everything
+    after half a minute.
+  - THE TANKS ARE FINITE (Weapons.TANKS, START). Nothing fills itself but
+    the flamer's pilot light (back to 140 at 5 a second, a dry one firing
+    again after 7 s) and the extinguisher. A life begins with 600 rounds
+    (2000 the most), 10 plasma (40), 2 lance cells (6), 4 rockets (16),
+    3 volts (12), 3 bores (8). An empty trigger says so, once a press,
+    and the hands go to the minigun, the rifle or the flamer, whichever
+    has something; the cycle passes empty guns by; ammo picked up for an
+    empty gun in hand brings it back. INFINITE AMMO in the pause menu is
+    off by default now (saved prefs keep everything else).
+  - ARMOUR ON TOP OF HEALTH (Player.damage). One pool, up to 200, with a
+    class: light takes a third of every blow, heavy half, while there is
+    armour left; the rest is health. The parts of a point are carried
+    from blow to blow (a beam's one a tic, a match's round of two-ish),
+    so the shares come out exact. A life alone begins with 100 health
+    and 50 light armour; a match's with 100 and none.
+  - THE READOUT (Hud). Top left, the medkit and your HEALTH (amber at
+    half, red at a quarter, mint over the top with a gold strip for the
+    overheal) and the armour you wear and its count, LIGHT or HEAVY, each
+    with its bar; top right under the gun's name, the box its ammunition
+    comes in, the count over what it holds and the tank's bar (amber when
+    low, Weapons.LOW; E M P T Y in red; ∞ while it is endless). The
+    plasma rifle's screen shows the next ten cells and the count, the
+    launcher's the tubes and the rockets carried.
+  - IDDQD (game/cheats.gd): I D D Q D typed by the keys' places
+    (physical_keycode), or a pad's L1 R1 L2 R2 L3 R3 squeezed together
+    (the triggers as axes or Android's buttons), toggles INVINCIBLE AND
+    INFINITE AMMO — DEGREELESSNESS MODE ON, and GOD on the readout. Its
+    own flag (Player.cheat), so the pause menu does not undo it. While
+    both bumpers are down, R3's slow motion and L3 + R3's frame rate
+    hold off. Not in a match ("NO CHEATS IN A MATCH").
+  - THE BALANCE, worked out by three designs (Doom and Quake's numbers,
+    a simulation of the economy, the player on a handheld) and a judge
+    over them, re-simulated:
+      - THE UNICORNS: a full second of glow before the beam; 60 m and no
+        further; 1 a tic (35 a beam, a fifth of before: a fresh body
+        takes four); the line a little slower after you, so a strafe
+        gets out of it at 13 m; a ram of 20; still faster than you. A
+        roused herd no longer fires as one: each waits a little more,
+        off who she is (no dice). A death rouses her own herd, not the
+        next (40 m), and a death by nothing of yours only with you near.
+        An average fresh player wins against a herd of six; eight wants
+        armour, the rifle, or an opener (rockets, the arc, a nuke).
+      - The mini nuke reaches twice a rocket's blast, and a potato never
+        hits its own shooter directly (a bounce back is its blast's
+        share). A rocket at your feet is still half its blast.
+  - A MATCH (NetMatch.RULES, protocol 4): the MINIGUN and the PLASMA
+    RIFLE (empty until a battery: the range answer; its bolt drawn on the
+    other machines); a round a sixteenth of what it does to a shopper, a
+    bolt a third (three always kill a fresh body, two never), a unicorn
+    half; 100 health, no armour, 600 rounds; the pickups in rings round
+    the island's start (a cache in the middle, six round it at 150 m with
+    the two heavy armours and the two trauma kits facing each other,
+    eight at 300 m) on Quake's clocks (a medkit 20 s, heavy armour 60 s),
+    all back on a new round; 12 frags or TEN MINUTES, and a tie at the
+    clock plays on, sudden death (OVERTIME on the board, the clock
+    beside the frags). You drop 80 to 160 m from one of the others, in
+    that arena, never on a pickup or into a herd, facing them; the guard
+    ends when you shoot. The welcome carries the list and the rules; the
+    snapshots which are taken, your armour, every tank and what you
+    walked over. --infinite-ammo and --minutes=N on a dedicated server.
+Tests: godot/tests/pickup_test.gd on CANDY LAND, NOT PENNSYLVANIA and DEBUG
+LAND (where they lie, taking and leaving, armour's share, overheal,
+finite tanks, coming back, the empty trigger, the mini nuke, IDDQD by
+keys and by pad and refused in a match, a match's life, its clock and
+sudden death, what hurts whom); net_test.gd (the list and the takes on a
+client, a life's tanks and armour from the host, the bolt drawn).
+Pictures: candy_shot --pickups --hud [--god].
 
 TESTS
 

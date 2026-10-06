@@ -121,12 +121,17 @@ class Puppet extends RefCounted:
 	var dead := false
 	var team := -1
 	var pitch := 0.0
+	## a plasma bolt the host says they fired, to draw (_puppet_tic)
+	var bolt := false
 
 var game
 var client: NetClient
 var now_fn: Callable
 var session: Session
-var history := {}              # seq → {cmd, angle, pitch, rounds}, in order
+var history := {}              # seq → {cmd, angle, pitch, ammo}, in order
+## THE HOST'S RULES (its welcome's, over NetMatch.RULES): what a life
+## starts with, and whether the tanks run dry
+var rules := {}
 var puppets := {}              # id → Puppet
 var last_tic := 0
 var last_at := 0
@@ -168,19 +173,20 @@ func _init(g, c: NetClient, now := Callable()) -> void:
 	g.session = session
 	g.net = self
 	g.rules = ClientRules.new(self)
+	rules = NetMatch.RULES.duplicate(true)
+	var wr = w.get("rules")
+	if wr is Dictionary:
+		rules.merge(wr, true)
 	var p = g.player
+	NetMatch.renew(p, p.x, p.y, p.angle, rules)
 	p.id = c.id
 	p.team = c.team
 	p.invincible = true
-	p.debug = false
-	p.owned = {}
-	for wpn in NetMatch.RULES.loadout:
-		p.owned[wpn] = true
-	p.weapon = NetMatch.RULES.loadout[0]
 	p.pending_weapon = ""
-	p.health = int(NetMatch.RULES.health)
-	p.armour1 = int(NetMatch.RULES.armour1)
-	p.armour2 = int(NetMatch.RULES.armour2)
+	# THE PICKUPS ARE THE HOST'S: its list, by index, and its word on
+	# which are taken (on_snap)
+	if w.get("pk") is Array and g.get("pickups") != null:
+		g.pickups.load_list(w.pk)
 	c.on_snap = on_snap
 	c.on_herd = on_herd
 	# (until the host has dropped this player in: a moment, usually)
@@ -210,7 +216,7 @@ func seen_tic() -> int:
 # ---- commands -----------------------------------------------------------------
 
 func sent(c: Dictionary) -> void:
-	history[int(c.tic)] = {"cmd": c.duplicate(), "angle": 0.0, "pitch": 0.0, "rounds": 0}
+	history[int(c.tic)] = {"cmd": c.duplicate(), "angle": 0.0, "pitch": 0.0, "ammo": {}}
 	if history.size() > HISTORY:
 		history.erase(history.keys()[0])
 	client.send(c)
@@ -227,13 +233,13 @@ func tic() -> void:
 		client.send_ready()
 	var p = game.player
 	# the same top-up the host gives, so the prediction fires when the host does
-	if NetMatch.RULES.infiniteAmmo:
+	if rules.get("infiniteAmmo", false):
 		NetMatch.top_up(p)
 	var h = history.get(session.seq)
 	if h != null:
 		h.angle = p.angle
 		h.pitch = p.pitch
-		h.rounds = int(p.ammo.rounds)
+		h.ammo = p.ammo.duplicate()
 	for pup in puppets.values():
 		_puppet_tic(pup)
 	# (the pods the game has done with: forgotten)
@@ -252,6 +258,9 @@ func on_snap(s: Dictionary) -> void:
 	last_at = int(now_fn.call())
 	reconcile(s.get("you"), int(s.get("ack", 0)))
 	_others(t, s.get("others", []))
+	# which of the pickups are taken (sent when that changes)
+	if s.get("pk") is Array and game.get("pickups") != null:
+		game.pickups.apply_down(s.pk)
 	var ev = s.get("ev")
 	if ev is Array:
 		for e in ev:
@@ -275,7 +284,7 @@ func reconcile(you, ack: int) -> void:
 	var fresh: bool = int(you.n) != spawn_n
 	if fresh:
 		spawn_n = int(you.n)
-		NetMatch.renew(p, float(you.x), float(you.y), float(you.a))
+		NetMatch.renew(p, float(you.x), float(you.y), float(you.a), rules)
 		p.invincible = true
 		g.big_message = null
 	# IN A POD: the same pod flown here, from where it was aimed and when
@@ -284,18 +293,55 @@ func reconcile(you, ack: int) -> void:
 		my_pod_tic = int(pod[2])
 		_fly_in(p, float(pod[0]), float(pod[1]), my_pod_tic)
 	# what the host says of you, whatever this machine thinks
-	var was: int = p.health + p.armour1 + p.armour2
+	var was: int = p.health + p.armour
 	p.health = int(you.h)
-	p.armour1 = int(you.a1)
-	p.armour2 = int(you.a2)
-	var now: int = p.health + p.armour1 + p.armour2
-	if now < was and not int(you.d):
+	p.armour = int(you.get("ar", 0))
+	p.armour_class = int(you.get("ac", 0))
+	var now: int = p.health + p.armour
+	if now < was and not int(you.d) and not fresh:
 		p.damage_flash = mini(16, int(5 + (was - now) * 0.3))
 		g.play_sound("hurt", p)
 	p.respawn_in = int(you.back)
-	var h = history.get(ack)
-	if h != null:
-		p.ammo.rounds = clampi(int(you.r) + (int(p.ammo.rounds) - int(h.rounds)), 0, Weapons.BELT)
+	# WHAT YOU WALKED OVER, as the host has it: said, heard and flashed here
+	var got = you.get("got")
+	if got is Array and g.get("pickups") != null:
+		for k in got:
+			if int(k) >= 0 and int(k) < Pickups.KINDS.size():
+				p.bonus_flash = 6
+				g.pickups.feedback(int(k), [])
+	# THE TANKS: the host's count, and what this machine has spent since
+	# the command it answered (a new life: the host's count, flat)
+	var am = you.get("am")
+	if am is Dictionary:
+		var h = history.get(ack)
+		for k in Weapons.TANKS:
+			var host_n := int(am.get(k, 0))
+			var had := int(p.ammo.get(k, 0))
+			var n := host_n
+			if not fresh:
+				# (the command it answered already gone: nothing to measure
+				# from, so this machine's own count stands until the next)
+				if h == null or not (h.ammo as Dictionary).has(k):
+					continue
+				n = host_n - (int(h.ammo[k]) - had)
+			n = clampi(n, 0, int(Weapons.TANKS[k][0]))
+			if n == had:
+				continue
+			# the commands still in flight measured from the corrected count
+			# too, or the next snapshot would see this correction as spending
+			for s2 in history:
+				if s2 > ack and (history[s2].ammo as Dictionary).has(k):
+					history[s2].ammo[k] = int(history[s2].ammo[k]) + (n - had)
+			p.ammo[k] = n
+			# (more than there was: a pickup, which lets a dry tank go and
+			# puts an empty hand on the gun it feeds, as the host's did)
+			if n > had:
+				p.dry[k] = false
+				if not fresh:
+					p.switch_for_tank(k)
+		if fresh:
+			for k2 in history:
+				history[k2].ammo = p.ammo.duplicate()
 	for k in history.keys():
 		if k <= ack:
 			history.erase(k)
@@ -426,6 +472,8 @@ func _others(t: int, list: Array) -> void:
 			pup.buf.pop_front()
 		pup.team = tm
 		pup.a.net_team = tm
+		if (int(o[6]) & 32) != 0:
+			pup.bolt = true
 	for id in puppets.keys():
 		if not here.has(id):
 			_drop(id, puppets[id])
@@ -643,6 +691,15 @@ func _puppet_tic(pup: Puppet) -> void:
 	# snapshots, and what is drawn is the same gun going off from where they
 	# are drawn — the holes, the tracers and the blood are this machine's,
 	# and hurt nothing
+	# AND THEIR PLASMA BOLT (flag 32): the rifle's own bolt, down the way
+	# they look, for the look of it too — it was the host's that hit
+	if pup.bolt:
+		pup.bolt = false
+		if not pup.dead and g.get("plasma") != null:
+			var from := Vector3(a.x + cos(a.angle) * 16.0, a.y + sin(a.angle) * 16.0, a.z + 40.0)
+			g.hitscan(a, a.angle, 6000.0, 0.0, {"shot": true, "hot": true, "pitch": pup.pitch, "from": from})
+			g.plasma.spawn(from, g.last_hit)
+			g.play_sound("plasma", a)
 	if pup.firing and not pup.dead:
 		var from := Vector3(a.x + cos(a.angle) * 16.0, a.y + sin(a.angle) * 16.0, a.z + 40.0)
 		for i in 2:
@@ -739,6 +796,15 @@ func board_lines(held: bool) -> Array:
 		return ["CONNECTED"] if host_note == "" else [host_note, "CONNECTED"]
 	var dead := "   RESPAWN IN %d" % ceili(p.respawn_in / float(TICRATE)) if p.dead else ""
 	var ping := "   %dMS" % roundi(client.rtt)
+	# THE ROUND'S CLOCK, when it has one (NetMatch timeLimit), counting
+	# down between the once-a-second tables
+	var left := int(s.get("clock", -1))
+	if left >= 0:
+		# (counted on from the host's tic the table was made on)
+		var secs := maxi(0, ceili((left - (host_tic() - float(s.get("at", last_tic)))) / float(TICRATE)))
+		# (past it with the top shared: sudden death, NetMatch.tied)
+		var clock := "OVERTIME" if left == 0 else "%d:%02d" % [secs / 60, secs % 60]
+		ping = "   " + clock + ping
 	var out := []
 	if s.get("teams") is Array:
 		var mine: int = team

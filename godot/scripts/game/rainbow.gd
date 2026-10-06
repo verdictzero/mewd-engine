@@ -26,15 +26,22 @@
 class_name RainbowBeams
 extends Node3D
 
+## (THE BALANCE, at the user's request, now that health is finite and
+## armour is on top of it — GODOT.txt, PICKUPS: a full second of glow
+## before she fires; 60 m and no further, so she is never an 8-pixel
+## sniper; a fifth of the beam's old bite, 35 a beam, so a fresh body
+## takes four; a line a little slower after you, so strafing out of it
+## works at 13 m; a ram of 20 and a gentler shove; and a gallop still
+## faster than your run, so you cannot just run away)
 const UNI := {
-	"charge_tics": 24,     # facing the eye, drawing it in, before it fires
+	"charge_tics": 35,     # facing the eye, drawing it in, before it fires
 	"beam_tics": 35,       # the beam: a second
-	"range": 2600.0,       # units it reaches, and she will fire from
+	"range": 1920.0,       # units it reaches, and she will fire from
 	"radius": 7.0,         # the sheath, units (the core a third of it)
 	"hit_r": 22.0,         # within this of the line, the player is in it
-	"damage": 5.0,         # a tic, to the player (175 over a whole beam)
+	"damage": 1.0,         # a tic, to the player (35 over a whole beam)
 	"wobble_tics": 18,     # the screen swims this long after a tic in it
-	"turn": 0.035,         # radians a tic the line swings after the player
+	"turn": 0.028,         # radians a tic the line swings after the player
 	"mark_every": 5,       # a scorch where it lands, every this many tics
 	# AND SHE CHARGES (at the user's request: "have the unicorns in attack
 	# mode charge the player"): after a beam she gallops straight at them
@@ -42,10 +49,10 @@ const UNI := {
 	# and if she reaches them she RAMS them: `ram_damage`, thrown back
 	# `ram_push` units a tic
 	"run_tics": 70,
-	"run_speed": 1.3,
+	"run_speed": 1.15,
 	"ram_reach": 26.0,     # past the two radii, units
-	"ram_damage": 60.0,
-	"ram_push": 14.0,
+	"ram_damage": 20.0,
+	"ram_push": 10.0,
 }
 const SIDES := 10
 const SEG := 48.0
@@ -178,14 +185,14 @@ func tic() -> void:
 		# (and nobody, for a beam only drawn: the host's hurts)
 		if not b.ghost:
 			for q in game.players:
-				if q == null or q.dead or q.invincible:
+				if q == null or q.dead or q.invincible or q.cheat:
 					continue
 				var c := chest(q)
 				var seg: Vector3 = b.to - m
 				var t := clampf((c - m).dot(seg) / maxf(seg.length_squared(), 1.0), 0.0, 1.0)
 				var near := m + seg * t
 				if near.distance_to(c) < UNI.hit_r + q.radius * 0.5:
-					q.damage(UNI.damage, u, {"impact": true, "rainbow": true})
+					q.damage(game.rules.scale(u, q, UNI.damage) if game.rules != null else UNI.damage, u, {"impact": true, "rainbow": true})
 					hits += 1
 					# the screen swims (Lofi wobble, game.screen_wobble)
 					if "wobble" in q:

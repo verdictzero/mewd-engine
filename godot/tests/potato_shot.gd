@@ -50,6 +50,8 @@ func _frame() -> void:
 	var p = game.player
 	if frames == 5:
 		p.weapon = "POTATO"
+		# (tanks kept full: they run dry now, at the user's request)
+		p.debug = true
 		p.x = 300.0
 		p.y = 760.0 if mode in ["flight", "side"] else 520.0
 		p.angle = 0.0

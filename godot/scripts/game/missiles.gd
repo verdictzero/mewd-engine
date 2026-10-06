@@ -485,7 +485,9 @@ func detonate(at: Vector3, direct = null, face = null, mark := "blast") -> void:
 		game.veg_damage.blast(at, WARHEAD.radius * (2.0 if mark == "nuke" else 1.0))
 	var hit := {}
 	var blown := []
-	var R: float = WARHEAD.radius
+	# (and THE NUKE twice as wide as a rocket's blast: a mini nuke clears
+	# most of a herd — the balance)
+	var R: float = WARHEAD.radius * (2.0 if mark == "nuke" else 1.0)
 	for a in game.actors:
 		if a.removed or a.dead or not a.shootable or a == direct:
 			continue

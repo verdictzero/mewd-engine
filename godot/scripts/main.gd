@@ -676,9 +676,13 @@ func _input(event: InputEvent) -> void:
 		Pad.held = true
 	elif event is InputEventScreenTouch or event is InputEventScreenDrag:
 		Pad.held = false
+	# IDDQD and its pad squeeze (game/cheats.gd) see every key and button first
+	if game != null and is_instance_valid(game):
+		game.cheat_input(event)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if perf_combo(event):
+	# (the stick clicks inside a squeeze of the shoulders are the cheat's)
+	if perf_combo(event) and not (game != null and is_instance_valid(game) and Pad.is_pad(event) and game.cheats.chording(event.device)):
 		toggle_perf()
 		get_viewport().set_input_as_handled()
 		return

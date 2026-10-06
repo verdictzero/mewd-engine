@@ -19,7 +19,7 @@ signal pad_setup
 signal debug_menu
 
 const PREFS := "user://prefs.cfg"
-const PREF_VERSION := 18
+const PREF_VERSION := 19
 
 ## [key, name, page, ladder of [value, label]]
 const DIALS := [
@@ -42,7 +42,7 @@ const DIALS := [
 ]
 const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 360, "pixels": 360, "pixar": 1.0, "grid": "lcd",
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
-	"debug": true, "godmode": false, "fps": true}
+	"debug": false, "godmode": false, "fps": true}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DEBUG"]
 
 var prefs := {}
@@ -281,9 +281,14 @@ func _tile_input(e: InputEvent, key: String) -> void:
 func load_prefs() -> void:
 	prefs = DEFAULTS.duplicate()
 	var cf := ConfigFile.new()
-	if cf.load(PREFS) == OK and int(cf.get_value("prefs", "v", 0)) == PREF_VERSION:
+	var v := int(cf.get_value("prefs", "v", 0)) if cf.load(PREFS) == OK else 0
+	if v == PREF_VERSION or v == 18:
 		for k in DEFAULTS:
 			prefs[k] = cf.get_value("prefs", k, DEFAULTS[k])
+	# (18 kept everything but INFINITE AMMO, which it had on by default:
+	# finite now, at the user's request, so it comes off — the rest kept)
+	if v == 18:
+		prefs["debug"] = false
 
 func save_prefs() -> void:
 	var cf := ConfigFile.new()

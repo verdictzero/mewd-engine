@@ -194,8 +194,17 @@ first shot never stops to compile a shader. There are no street lamps
 in the Godot build any more; a lamp in an older map is left out when
 it is built.
 
-The minigun is the network loadout. The pause menu's DEBUG page has
-INFINITE AMMO and INVINCIBLE, both on by default.
+PICKUPS, FINITE AMMO AND ARMOUR. The tanks run dry: only the flamer's
+pilot light and the extinguisher fill themselves, and the rest is
+picked up off the ground, walked over — medkits and trauma kits, light
+and heavy armour, boxes and crates of rounds, plasma batteries and cell
+crates, rockets, alien pods for the arc maw, bio vats for the bore, and
+a rare mini nuke that hands you the potato cannon. Armour sits on top of
+health and takes a share of every blow (a third light, half heavy). The
+readout shows health and armour top left and the gun's count top right.
+IDDQD typed, or L1 R1 L2 R2 L3 R3 squeezed on a pad, is invincible and
+infinite ammo (alone, not in a match). The pause menu's DEBUG page has
+INFINITE AMMO and INVINCIBLE, both off by default.
 
 THE PEOPLE. Shoppers and townies watch, flee and panic contagiously;
 they burn, freeze, thaw and come apart. The police and the army (the
@@ -230,11 +239,14 @@ NETWORK PLAY
 LAN play, a Godot host and Godot clients:
 
     godot --headless --path . -- --server[=PORT] [--map=island0]
-          [--seed=N] [--max=16] [--frags=N]
+          [--seed=N] [--max=16] [--frags=N] [--minutes=N] [--infinite-ammo]
     godot --path . -- --join=HOST[:PORT] [--name=NAME]
 
-Or JOIN host:port at the terminal. Deathmatch on an island: first to
-20, two-second respawns, spawn guard, infinite ammo. The simulation is
+Or JOIN host:port at the terminal. Deathmatch on an island: the minigun
+and the plasma rifle, pickups in rings round the island's start on
+fixed timers, first to 12 or ten minutes (a tie at the clock goes to
+sudden death), dropped in by pod near the others, a spawn guard that
+ends when you shoot. The simulation is
 35 tics a second; a client predicts and reconciles, the host rewinds
 to where you saw the others when it judges a shot. TAB shows the table.
 Every machine has the island baked; the host draws none of it.

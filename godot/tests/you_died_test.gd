@@ -30,9 +30,9 @@ func _init() -> void:
 	var D: PlayerDeath = game.death
 	check(D != null and not D.active, "nobody dead yet")
 	# ---- hurt, then killed ---------------------------------------------------
-	var h0: int = p.health + p.armour1 + p.armour2
+	var h0: int = p.health + p.armour
 	p.damage(40.0, null, {"impact": true})
-	check(p.health + p.armour1 + p.armour2 < h0, "a blow takes something off (%d to %d)" % [h0, p.health + p.armour1 + p.armour2])
+	check(p.health + p.armour < h0, "a blow takes something off (%d to %d)" % [h0, p.health + p.armour])
 	var at := Vector3(p.x, p.y, p.z)
 	p.damage(100000.0, null, {"impact": true})
 	check(p.dead, "and enough of them kills")

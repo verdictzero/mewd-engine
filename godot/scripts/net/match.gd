@@ -34,26 +34,39 @@ extends RefCounted
 const TICRATE := 35
 
 const RULES := {
-	"fragLimit": 20,                 # deathmatch: first to this
+	"fragLimit": 12,                 # deathmatch: first to this
 	"teamLimit": 40,                 # team deathmatch: first side to this
 	"respawnTics": 2 * TICRATE,      # down for this long at least
 	"guardTics": 2 * TICRATE,        # and nothing hurts you for this long after
 	"endTics": 8 * TICRATE,          # the scores stay up this long, and it starts again
+	# A LIFE, at the user's request (pickups, finite ammo, armour on top
+	# of health): what you drop in with; the rest is lying about
 	"health": 100,
-	"armour1": 300,                  # the inner plate, and no outer one: 400 in all
-	"armour2": 0,
-	"loadout": ["MINIGUN"],
-	# what a round does to a person, against what it does to a shopper
-	"pvpScale": 0.35,
-	# NO PICKUPS, SO NO RUNNING OUT: every tank topped up every tic
-	"infiniteAmmo": true,
+	"armour": 0,
+	"armourClass": 0,
+	# THE MINIGUN AND THE PLASMA RIFLE: the two hitscans, the host's rewind's
+	# — the rifle empty until a battery is picked up, the range answer
+	# to the minigun's spray (and its bolt drawn on the other machines)
+	"loadout": ["MINIGUN", "PLASMA"],
+	"spawnAmmo": {"rounds": 600, "plasma": 0},
+	# what a round does to a person, against what it does to a shopper: a
+	# fresh body in about a second and a half of hits at 20 m
+	"pvpScale": 0.06,
+	# and a bolt: three always kill a fresh one, two never do
+	"plasmaPvpScale": 0.32,
+	# and what a unicorn's beam and ram do to one: half
+	"npcScale": 0.5,
+	# THE TANKS RUN DRY now there is something to pick up (Pickups); a
+	# host may still say otherwise (--infinite-ammo)
+	"infiniteAmmo": false,
+	# A ROUND ENDS ON THE CLOCK TOO, ten minutes (0: only the frags) — and
+	# a tie at the top plays on, sudden death, for `overtime` at most
+	"timeLimit": 10 * 60 * TICRATE,
+	"overtime": 2 * 60 * TICRATE,
 }
 
 ## what survives a respawn: who you are, and the score
 const KEEP := ["id", "name", "team", "frags", "deaths", "session", "ping", "spawns", "pod_tic"]
-## a drop point at least this far (map units) from everybody alive, if one
-## can be found — 120 m
-const DROP_APART := 120.0 * 32.0
 
 ## a small generator of its own, so the match's choices leave the
 ## world's (U.p_random) exactly where they were
@@ -138,12 +151,19 @@ static func renew(p, x: float, y: float, angle: float, R := RULES):
 			p.set(prop.name, fresh.get(prop.name))
 	for k in keep:
 		p.set(k, keep[k])
-	p.health = int(R.health)
-	p.armour1 = int(R.armour1)
-	p.armour2 = int(R.armour2)
+	p.health = int(R.get("health", 100))
+	p.armour = int(R.get("armour", 0))
+	p.armour_class = int(R.get("armourClass", 1 if p.armour > 0 else 0))
+	# what the rules drop you in with, and nothing else
+	var given: Dictionary = R.get("spawnAmmo", {})
+	for k in Weapons.TANKS:
+		p.ammo[k] = mini(int(given.get(k, 0)), int(Weapons.TANKS[k][0]))
+		p.dry[k] = false
+		p.ammo_tick[k] = 0
 	# the debug switches a Player starts with are a single-player thing
 	p.debug = false
 	p.invincible = false
+	p.cheat = false
 	p.owned = {}
 	for w in R.loadout:
 		p.owned[w] = true
@@ -155,6 +175,7 @@ func _init(g, overrides := {}, seed := 1) -> void:
 	rules = RULES.duplicate(true)
 	rules.merge(overrides, true)
 	rnd = Lcg.new(seed if (seed & 0xFFFFFFFF) != 0 else 1)
+	round_start = g.tics
 	var pvp = g.level.world.get("pvp")
 	if pvp is Dictionary and pvp.get("teams", []).size() >= 2:
 		teams = []
@@ -173,9 +194,15 @@ func limit() -> int:
 
 # ---- sides -------------------------------------------------------------
 
-## How much of `amount` from `from` reaches `to` (Game.hitscan).
+## How much of `amount` from `from` reaches `to` (Game.hitscan, and a
+## unicorn's beam and ram: RainbowBeams, Actor._ram).
 func scale(from, to, amount: float) -> float:
-	return amount * float(rules.pvpScale) if from is Player and to is Player else amount
+	if to is Player:
+		if from is Player:
+			return amount * float(rules.get("plasmaPvpScale", rules.pvpScale) if from.weapon == "PLASMA" else rules.pvpScale)
+		if from is Actor:
+			return amount * float(rules.get("npcScale", 1.0))
+	return amount
 
 func friendly(a, b) -> bool:
 	return mode == "tdm" and a is Player and b is Player and a != b and a.team == b.team
@@ -243,30 +270,78 @@ func spawn_point(p) -> Array:
 			best = s
 	return best
 
-## WHERE A POD IS AIMED: open ground anywhere on the island (IslandLevel.
-## _find_ground: on land, out of the houses, not steep), the furthest from
-## everybody alive of a dozen tries — and any of them past DROP_APART will
-## do, with a little chance in it.
+## WHERE A POD IS AIMED (the balance, at the user's request: a match on
+## an island two and a half kilometres across was a long walk between
+## frags): 80 to 160 m from one of the others alive, on open ground
+## (IslandLevel._find_ground), inside the ARENA round the island's start
+## where the pickups are laid (Pickups' rings), no nearer than 50 m to
+## anybody, and clear of every pickup so a pod's posts never bury one —
+## the first of a dozen tries that is; else the furthest from everybody of
+## a dozen in the arena. Returns [x, y, and the point to face on landing:
+## the one it was aimed at, or the middle].
 func drop_point(p) -> Array:
 	var g = game
 	var lv = g.level
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(rnd.next() * 2147483647.0)
-	var reach: float = lv.ground.half * IslandLevel.U_PER_M * 0.85
-	var best := Vector2.ZERO
+	var A := _arena_middle()
+	var half: float = minf(lv.bounds.size.x, lv.bounds.size.y) * 0.5
+	var arena: float = minf(Pickups.RING2, 0.8 * half) + 1600.0
+	var foes := []
+	for o in g.players:
+		if o != p and not o.dead:
+			foes.append(o)
+	for k in (12 if not foes.is_empty() else 0):
+		var f = foes[int(rnd.next() * foes.size()) % foes.size()]
+		var q0 := Vector2(f.x, f.y) + Vector2.RIGHT.rotated(rnd.next() * TAU) * (2560.0 + rnd.next() * 2560.0)
+		var q: Vector2 = lv._find_ground(rng, q0, 320.0, 0.35)
+		if q.distance_to(A) > arena or not lv.on_land(q.x, q.y, 128.0) or not _clear_of_pickups(q) or _by_a_herd(q):
+			continue
+		if foes.any(func(o): return Vector2(o.x - q.x, o.y - q.y).length() < 1600.0):
+			continue
+		return [roundf(q.x), roundf(q.y), f.x, f.y]
+	var best := A
 	var best_d := -1.0
 	for k in 12:
-		var q: Vector2 = lv._find_ground(rng, Vector2.ZERO, reach, 0.35)
+		var q: Vector2 = lv._find_ground(rng, A, arena, 0.35)
+		if not lv.on_land(q.x, q.y, 128.0) or not _clear_of_pickups(q) or _by_a_herd(q):
+			continue
 		var d := 1e12
-		for o in g.players:
-			if o != p and not o.dead:
-				d = minf(d, Vector2(o.x - q.x, o.y - q.y).length())
+		for o in foes:
+			d = minf(d, Vector2(o.x - q.x, o.y - q.y).length())
 		if d > best_d:
 			best_d = d
 			best = q
-		if d >= DROP_APART:
+		if foes.is_empty():
 			break
-	return [roundf(best.x), roundf(best.y)]
+	return [roundf(best.x), roundf(best.y), A.x, A.y]
+
+## the middle of a match's arena: the island's start
+func _arena_middle() -> Vector2:
+	for t in game.level.things:
+		if t.type == "START":
+			return Vector2(t.x, t.y)
+	return game.level.bounds.get_center()
+
+## a unicorn within 40 m (a pod landing in a herd would start a fight
+## the rider never chose: its blast kills one, and her death rouses them)
+func _by_a_herd(q: Vector2) -> bool:
+	var bm = game.get("blockmap")
+	if bm == null:
+		return false
+	for a in bm.near_radius(q.x, q.y, 1280.0):
+		if a.type in ["UNICORN", "FOAL"] and not a.dead and not a.removed:
+			return true
+	return false
+
+func _clear_of_pickups(q: Vector2) -> bool:
+	var pk = game.get("pickups")
+	if pk == null:
+		return true
+	for it in pk.items:
+		if absf(it.x - q.x) < 160.0 and absf(it.y - q.y) < 160.0:
+			return false
+	return true
 
 ## Put `p` back in the world, whole — on an island, in a drop pod.
 func spawn(p):
@@ -276,8 +351,11 @@ func spawn(p):
 	var at := drop_point(p) if drop_in and spawns == null else spawn_point(p)
 	var x := float(at[0])
 	var y := float(at[1])
-	# facing the middle of the map, which is where the other side is
+	# facing the middle of the map, which is where the other side is — or,
+	# dropped by somebody, them
 	var c: Vector2 = g.level.bounds.get_center() if g.level.bounds.has_area() else Vector2(x, y)
+	if at.size() >= 4:
+		c = Vector2(float(at[2]), float(at[3]))
 	var angle := atan2(c.y - y, c.x - x)
 	renew(p, x, y, angle, rules)
 	p.respawn_at = 0
@@ -311,8 +389,35 @@ func died(p, source) -> void:
 		return
 	var top = leader()
 	if top != null and top.score >= limit():
-		over = {"winner": top.name, "id": top.id, "until": g.tics + int(rules.endTics)}
-		events.append({"k": "over", "winner": top.name})
+		_end(top)
+	# (sudden death: past the clock, the frag that breaks the tie ends it)
+	elif top != null and overtime() and not tied():
+		_end(top)
+
+func _end(top) -> void:
+	over = {"winner": top.name, "id": top.id, "until": game.tics + int(rules.endTics)}
+	events.append({"k": "over", "winner": top.name})
+
+## past the clock, the top shared: sudden death
+func overtime() -> bool:
+	var tl := int(rules.get("timeLimit", 0))
+	return over == null and tl > 0 and game.tics - round_start >= tl
+
+## whether more than one is on the top score
+func tied() -> bool:
+	var top = leader()
+	if top == null:
+		return false
+	if teams != null:
+		return teams[0].score == teams[1].score
+	var n := 0
+	for p in game.players:
+		if p.frags == top.score:
+			n += 1
+	return n > 1
+
+static func _riding(p) -> bool:
+	return p.pod != null and p.pod.active and p.pod.holds_player()
 
 ## Who is winning: a team, or a player.
 func leader():
@@ -343,10 +448,37 @@ func tic() -> void:
 		if p.guard_until and g.tics >= p.guard_until:
 			p.guard_until = 0
 			p.invincible = false
+		# (and the guard is over the moment you shoot from behind it)
+		if p.guard_until and not _riding(p) and p.session != null and p.session.get("held") != null \
+				and p.session.held.get("attack", false):
+			p.guard_until = 0
+			p.invincible = false
 		if p.dead and over == null and g.tics >= p.respawn_at:
 			spawn(p)
+	# THE CLOCK: a round with a time limit ends on it, the leader its
+	# winner — unless the top is shared: then SUDDEN DEATH, the next frag
+	# that leaves one player on top (died), until `overtime` is up too
+	var tl := int(rules.get("timeLimit", 0))
+	# (the clock waits for somebody to play against: a round alone, or an
+	# empty server, does not run out under the next to join)
+	if g.players.size() < 2:
+		round_start = g.tics
+	if over == null and tl > 0 and g.tics - round_start >= tl:
+		var top = leader()
+		var past: bool = g.tics - round_start >= tl + int(rules.get("overtime", 0))
+		if top != null and (past or not tied()):
+			_end(top)
 	if over != null and g.tics >= over.until:
 		restart()
+
+## the host's tic the round began on (the clock's)
+var round_start := 0
+
+## how many tics of the round are left on the clock, or -1 with none
+## (0 in sudden death)
+func time_left() -> int:
+	var tl := int(rules.get("timeLimit", 0))
+	return maxi(0, tl - (game.tics - round_start)) if tl > 0 else -1
 
 ## A new round: scores to nothing and everybody back on a pad.
 func restart() -> void:
@@ -359,6 +491,10 @@ func restart() -> void:
 		p.frags = 0
 		p.deaths = 0
 		spawn(p)
+	round_start = game.tics
+	# and everything lying about lies there again
+	if game.get("pickups") != null:
+		game.pickups.reset()
 	events.append({"k": "round", "n": round_n})
 
 ## The score, for a snapshot.
@@ -374,4 +510,7 @@ func table() -> Dictionary:
 	var ps := []
 	for p in game.players:
 		ps.append({"id": p.id, "name": p.name, "team": p.team, "frags": p.frags, "deaths": p.deaths, "ping": p.ping})
-	return {"mode": mode, "limit": limit(), "round": round_n, "teams": ts, "over": ov, "players": ps}
+	# (and the clock, a round with a time limit: tics left, and the tic
+	# it was read on; -1 with none, or once the round is over)
+	return {"mode": mode, "limit": limit(), "round": round_n, "teams": ts, "over": ov, "players": ps,
+		"clock": time_left() if over == null else -1, "at": game.tics}

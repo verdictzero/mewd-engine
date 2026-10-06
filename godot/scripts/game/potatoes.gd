@@ -217,8 +217,7 @@ func _fly(s: Dictionary):
 		return [Vector3(s.x, s.y, s.z), null]
 	return null
 
-## Anybody the potato touches at (x, y, z) — not its shooter while it is
-## still in the barrel's reach.
+## Anybody the potato touches at (x, y, z) — never its shooter.
 func _body_at(s: Dictionary, x: float, y: float, z: float):
 	var r: float = SHOT.radius
 	for list in [game.actors, game.players]:
@@ -227,7 +226,9 @@ func _body_at(s: Dictionary, x: float, y: float, z: float):
 				continue
 			if list == game.actors and not a.shootable:
 				continue
-			if a == s.owner and s.tics < SHOT.arm:
+			# (never its own shooter: a potato coming back off a hill is its
+			# blast's share, not a direct hit of more than a body can hold)
+			if a == s.owner:
 				continue
 			var rr: float = a.radius + r
 			if U.dist2(x, y, a.x, a.y) > rr * rr:

@@ -306,7 +306,7 @@ func _branch(b: Dictionary, np: Vector3, dmg: float) -> void:
 
 ## no more than it takes: a strike does not waste itself on the dead
 func _lethal(a, dmg: float) -> float:
-	var has: float = a.health + (a.armour1 if "armour1" in a else 0) + (a.armour2 if "armour2" in a else 0)
+	var has: float = a.health + (a.armour if "armour" in a else 0)
 	return minf(dmg, maxf(1.0, has + 4.0))
 
 func _burst(at: Vector3, size := 1.0) -> void:

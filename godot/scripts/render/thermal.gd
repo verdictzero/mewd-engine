@@ -83,7 +83,7 @@ static var _told := Vector2(-1, -1)
 var _view_set := Vector2(-1, -1)
 var _warmth := {}
 ## what the glass was last asked to show
-var tst := {"marks": [], "loaded": 0, "locks": 0, "take": 0.0, "salvo": 0}
+var tst := {"marks": [], "loaded": 0, "locks": 0, "take": 0.0, "salvo": 0, "carried": 0}
 
 func _init(g = null, is_green := false, is_blue := false) -> void:
 	super({"size": ROWS, "aspect": ASPECT, "zooms": THERMAL_ZOOMS,
@@ -203,9 +203,13 @@ func update(p, t: int) -> bool:
 	var M = game.get("missiles") if game != null and not green and not blue else null
 	var marks := _marks(M)
 	var loaded := 0
+	# (and ALL that is carried, now the tanks are finite and hold more than
+	# the panel's pips: said beside them)
+	var carried := 0
 	if p != null:
-		var cap := 6 if green else (Weapons.PLASMA_CELLS if blue else 4)
-		loaded = clampi(int(p.ammo.get("potatoes" if green else ("plasma" if blue else "rockets"), 0)), 0, cap)
+		var cap := 6 if green else (Weapons.PLASMA_CLIP if blue else 4)
+		carried = int(p.ammo.get("potatoes" if green else ("plasma" if blue else "rockets"), 0))
+		loaded = clampi(carried, 0, cap)
 	# the green and blue sights' range: to whatever is down the middle of it
 	var rng := 0
 	if (green or blue) and p != null and held and game != null:
@@ -219,13 +223,13 @@ func update(p, t: int) -> bool:
 		mk.append("%d,%d,%d,%d" % [int(m.x) >> 1, int(m.y) >> 1, m.n, int(m.r) >> 1])
 	# (the camera's field of view too: the circle is drawn off it, and it
 	# lags the zoom by up to a feed frame)
-	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d" % [1 if held else 0, zoom_index, roundi(camera.fov * 10.0), loaded, locks,
-		roundi(take * 12.0), (t >> 1) & 1 if take > 0.0 else 0, salvo, ";".join(mk), rng]
+	var key := "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d|%d" % [1 if held else 0, zoom_index, roundi(camera.fov * 10.0), loaded, locks,
+		roundi(take * 12.0), (t >> 1) & 1 if take > 0.0 else 0, salvo, ";".join(mk), rng, carried]
 	if key == _key:
 		return false
 	_key = key
 	draws += 1
-	tst = {"marks": marks, "loaded": loaded, "locks": locks, "take": take, "salvo": salvo, "range": rng}
+	tst = {"marks": marks, "loaded": loaded, "locks": locks, "take": take, "salvo": salvo, "range": rng, "carried": carried}
 	gauges.queue_redraw()
 	panel.render_target_update_mode = SubViewport.UPDATE_ONCE
 	return true
@@ -325,6 +329,8 @@ func _draw_panel(c: Control) -> void:
 			c.draw_rect(rect, T_LOCK if claimed else T_INK)
 		else:
 			c.draw_rect(rect, T_INK_DIM, false, 2.0)
+	# (every rocket carried, by the tubes)
+	_label(c, str(int(tst.get("carried", 0))), cx - H * 0.30, H * 0.88, H * 0.07, T_INK if int(tst.get("carried", 0)) > 0 else T_INK_DIM)
 	# ---- AND THE ONE CHARACTER — a triangle while a salvo leaves, the
 	# number of locks, or a dot — and the zoom
 	var ly := H * 0.13
@@ -400,7 +406,9 @@ func _draw_blue(c: Control) -> void:
 	c.draw_rect(Rect2(cx - q, cy - q, q * 2.0, q * 2.0), B_INK, false, 1.2)
 	_label(c, "%dm" % int(tst.get("range", 0)), cx, H * 0.10, H * 0.08, B_INK)
 	var loaded: int = tst.loaded
-	var n := Weapons.PLASMA_CELLS
+	var n := Weapons.PLASMA_CLIP
+	# (every cell carried, beside the next ten)
+	_label(c, str(int(tst.get("carried", 0))), W * 0.12, H * 0.88, H * 0.075, B_INK if int(tst.get("carried", 0)) > 0 else B_DIM)
 	for i in n:
 		var x := cx + (i - (n - 1) / 2.0) * H * 0.05
 		var r := Rect2(x - H * 0.015, H * 0.86, H * 0.03, H * 0.06)

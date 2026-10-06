@@ -48,4 +48,9 @@ run youdied --script res://godot/tests/you_died_test.gd -- --map=candyland
 run music   --audio-driver Dummy --script res://godot/tests/music_test.gd
 # the pad: any device, the standard layout, the menus (godot/tests/pad_test.gd)
 run pad     --script res://godot/tests/pad_test.gd
+# THE PICKUPS, finite ammo, armour on top of health, and IDDQD — on the
+# roaded island and the roadless one (godot/tests/pickup_test.gd)
+run pickups --script res://godot/tests/pickup_test.gd -- --map=candyland --seed=7
+run pickups0 --script res://godot/tests/pickup_test.gd -- --map=island0 --seed=7
+run pickupsd --script res://godot/tests/pickup_test.gd -- --map=debugland --seed=7
 exit $fail
