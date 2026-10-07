@@ -72,7 +72,27 @@ const LIST := [
 		# a SHOWROOM of the twelve pickups ahead of where you land, and
 		# everything back half a minute after it is taken
 		"pickups": {"country": 4, "respawn": 1050, "showroom": true},
-		"blurb": "a flat square of NOT PENNSYLVANIA, 512 metres a side, for trying things out"}
+		"blurb": "a flat square of NOT PENNSYLVANIA, 512 metres a side, for trying things out"},
+	# MAZE LAND, at the user's request: "make a copy of Debug Land but
+	# 1024^2; divide it conceptually into 9ths, in the 2nd 4th 5th 6th and
+	# 8th sections, build an interconnected maze using these parts,
+	# vegetation will be pared down to just grass within proximity of the
+	# maze walls, try to not plant grass under the maze walls" — DEBUG
+	# LAND's scene and ground at twice the side (maze_land.tscn), and the
+	# maze (Maze, MazeView): 111 cells of 9 m
+	# a side, the plus of five sections, a tenth of its inside walls
+	# knocked through for loops, two doors on every stretch of its outside;
+	# you start in the open south-west corner by it. Then ("make grass extra
+	# thick in and around maze, make sure rest of island is fleshed out with
+	# normal vegetation"): the grass thick through the maze and 12 m round
+	# it, none under its walls, and the rest of the island DEBUG LAND's
+	# trees, bushes, ferns and grass
+	{"key": "mazeland", "title": "MAZE LAND", "scene": "res://godot/island/scenes/maze_land.tscn", "people": 60,
+		"music": ["res://assets/music/waiting_for_something.mp3"],
+		"maze": {"cells": 111, "sections": [2, 4, 5, 6, 8], "seed": 2718, "loops": 0.1, "doors": 2,
+			"start": [80, 30], "grass_band": 12.0, "grass_clear": 0.45},
+		"pickups": {"country": 4},
+		"blurb": "a square kilometre with a maze of rusted steel walls across the middle of it"}
 ]
 
 ## The island called `key`, or the first.

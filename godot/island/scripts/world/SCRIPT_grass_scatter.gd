@@ -295,6 +295,16 @@ var _ready_ok := false
 # because a tile is pruned and rebuilt as the camera moves, and a rebuilt tile
 # has to come back mown: `_install_tile` cuts every new tile by them.
 var _mown: Array[Vector3] = []
+## HOW MUCH GRASS GROWS WHERE, if anything says (MAZE LAND, at the user's
+## request: "make grass extra thick in and around maze ... try to not
+## plant grass under the maze walls"): a Callable (island metres x, z) ->
+## float, asked of every cell before the field is (on the worker threads:
+## it must only read). 0, none; under 1, that share of what would grow
+## (rolled before the field is sampled, so a thinned cell costs nothing);
+## 1, as the field says; over 1, THICK — every cell the density roll
+## keeps grows a tuft, whatever the turf. Unset, 1 everywhere. Set before
+## the scatter is in the tree (Game.start_map).
+var mask: Callable
 const MOWN_MOST := 4000
 
 
@@ -961,6 +971,11 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	var jz := (_rand(hx, 3) - 0.5) * 0.9 * grass_grid
 	var wx := (float(cell.x) + 0.5) * grass_grid + jx
 	var wz := (float(cell.y) + 0.5) * grass_grid + jz
+	var share := 1.0
+	if mask.is_valid():
+		share = float(mask.call(wx, wz))
+		if share <= 0.0 or (share < 1.0 and _rand(hx, 8) > share):
+			return {"valid": false}
 
 	var s := f.sample(wx, wz)
 	if not s.get("on_land", false):
@@ -987,6 +1002,9 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	# soil and litter rather than stopping at a line.
 	var want := density * clampf(w.r * 1.4, 0.0, 1.0)
 	want *= lerpf(1.0, 1.0 - clampf(s.get("forest", 0.0), 0.0, 1.0), forest_falloff)
+	# (thick: whatever the ground)
+	if share > 1.0:
+		want = density
 	if keep > want:
 		return {"valid": false}
 

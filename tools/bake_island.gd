@@ -135,7 +135,14 @@ func _bake(map: String) -> int:
 	print("   ground -> %s (%.1f MB)" % [gpath, _size(gpath) / 1.0e6])
 	# THE DIGESTS, for an exported build (BakeStore.DIGEST_TABLE): every
 	# source the signatures above hashed, as this machine reads it
+	# (MERGED into what is there: one island to a process, and an island
+	# with no plant scatter — MAZE LAND — would otherwise leave the table
+	# without the scatter's digest, and every other island's plants unread)
 	var table := {}
+	if FileAccess.file_exists(BakeStore.DIGEST_TABLE):
+		var old = JSON.parse_string(FileAccess.get_file_as_string(BakeStore.DIGEST_TABLE))
+		if old is Dictionary:
+			table = old
 	for p in BakeStore._digests:
 		if String(BakeStore._digests[p]) != "":
 			table[p] = BakeStore._digests[p]

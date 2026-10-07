@@ -257,6 +257,11 @@ func start_map(which: String) -> void:
 			% [spec.title, BakeStore.file_name(IslandGround.STORE, gsig)])
 		ground = IslandGround.build(field)
 	level = IslandLevel.new(ground, spec.title)
+	# THE MAZE (MAZE LAND's, Islands "maze"): its walls the level's before
+	# anybody is put down, the start in the open corner by it, and the
+	# grass only along its walls — not under them
+	if spec.has("maze"):
+		_maze_up(spec.maze)
 	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))),
 		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)),
 		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null,
@@ -267,6 +272,9 @@ func start_map(which: String) -> void:
 	# the houses round the squares (CANDY LAND's), in the island's world
 	if island != null and not level.houses.is_empty():
 		island.add_child(HouseView.new(level, spec.houses.model))
+	# and the maze's walls and posts
+	if island != null and level.maze != null:
+		island.add_child(MazeView.new(level.maze))
 	# (the island's plants are its own: the old forest is there, empty,
 	# for what still asks it)
 	forest = Forest.new(level, {"bounds": Rect2(0, 0, 256, 256), "plants": []})
@@ -978,6 +986,31 @@ func _road_uniforms(iw: Node, field: Resource, spec: Dictionary) -> void:
 	mat.set_shader_parameter("road_count", nr)
 	mat.set_shader_parameter("town_count", nt)
 	mat.set_shader_parameter("town_pad", float(spec.get("town_verge", 5.0)))
+
+## THE MAZE ON THE LEVEL (MAZE LAND, at the user's request): Maze off the
+## island's spec — the same walls on every machine — its start looked for
+## round the cell `start` names (the open section by the maze), and the
+## grass (SCRIPT_grass_scatter `mask`; "make grass extra thick in and
+## around maze"): none under a wall or post, THICK through the plus and
+## `grass_band` metres round it (the plants keep out of the same ground:
+## maze_land.tscn's VegScatter clear_rects), and elsewhere thinned back
+## to what the usual one-metre grid grows, the scatter's own being finer
+func _maze_up(ms: Dictionary) -> void:
+	var mz := Maze.new(ms, level.floor_at(0.0, 0.0))
+	level.maze = mz
+	var at: Array = ms.get("start", [mz.n - 30, 30])
+	level.start_hint = mz.centre(int(at[0]), int(at[1]))
+	var clear := float(ms.get("grass_clear", 0.45))
+	var grass = island.get_node_or_null("GrassScatter") if island != null else null
+	if grass != null:
+		# (the plus's bars, island metres from the middle: half a section,
+		# and the band)
+		var inner := mz.n * Maze.PITCH / 6.0 + float(ms.get("grass_band", 12.0))
+		var usual := pow(float(grass.grass_grid), 2.0)
+		grass.mask = func(x: float, z: float) -> float:
+			if absf(x) <= inner or absf(z) <= inner:
+				return 0.0 if mz.near_m(x, z, 1.0) <= clear else 2.0
+			return usual
 
 ## WHERE A HERD MAY GRAZE (CANDY LAND's unicorns): open grass — no
 ## wood, no road, square or their banks, gentle ground — asked of a copy

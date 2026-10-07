@@ -59,4 +59,7 @@ run pad     --script res://godot/tests/pad_test.gd
 run pickups --script res://godot/tests/pickup_test.gd -- --map=candyland --seed=7
 run pickups0 --script res://godot/tests/pickup_test.gd -- --map=island0 --seed=7
 run pickupsd --script res://godot/tests/pickup_test.gd -- --map=debugland --seed=7
+# MAZE LAND: the maze in the plus of five sections, its walls stopping
+# bodies, rounds and eyes, grass only beside them (godot/tests/maze_test.gd)
+run maze    --script res://godot/tests/maze_test.gd -- --map=mazeland
 exit $fail

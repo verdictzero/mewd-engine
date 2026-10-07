@@ -1,0 +1,158 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_island_world.gd" id="1_world"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_terrain_splat_w2.tres" id="4_terrain"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_sky_w2_void.tres" id="5_sky"]
+
+
+
+[ext_resource type="Resource" path="res://godot/island/data/ISLANDFIELD_mazeland.tres" id="8_field"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_cliff_wall.tres" id="12_cliff"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_scatter.gd" id="13_veg"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_sky_cycle_controller.gd" id="14_todbus"]
+
+[ext_resource type="Resource" path="res://godot/island/data/SKYCYCLE_w2_blood_night.tres" id="42_skypreset"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea.gd" id="15_cloudsea"]
+
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_cloud_sea_volumetric.tres" id="16_cloudmat"]
+
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_grass_scatter.gd" id="18_grass"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_grass_billboard.tres" id="19_grassmat"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_burn.gd" id="20_vegburn"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_veg_billboard_w3.tres" id="27_vegmat"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_veg_understory_w3.tres" id="28_undermat"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_veg_fern.tres" id="29_fernmat"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_tall_fir_1_256.png" id="30_fir_t1"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_tall_fir_2_256.png" id="31_fir_t2"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_medium_fir_1_256.png" id="32_fir_m"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_juvenile_fir_1_256.png" id="33_fir_j"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_large_bush_1_128.png" id="34_bush_l1"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_large_bush_4_128.png" id="35_bush_l4"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_small_bush_1_128.png" id="36_bush_s1"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_small_bush_2_128.png" id="37_bush_s2"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_fern_1_128.png" id="38_fern"]
+
+[ext_resource type="Texture2D" path="res://godot/island/sprites/vegetation/SPRITE_grass_6_128.png" id="39_grass"]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_horizon_clouds.gd" id="25_horizonclouds"]
+
+[ext_resource type="Material" path="res://godot/island/materials/MAT_horizon_clouds.tres" id="26_horizoncloudmat"]
+
+[sub_resource type="Sky" id="Sky_w3"]
+sky_material = ExtResource("5_sky")
+process_mode = 2
+
+[sub_resource type="Environment" id="Env_w3"]
+background_mode = 2
+sky = SubResource("Sky_w3")
+ambient_light_source = 2
+ambient_light_color = Color(0.42, 0.42, 0.43, 1)
+ambient_light_energy = 1.2
+reflected_light_source = 2
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.5
+fog_enabled = true
+fog_light_color = Color(0.3, 0.3, 0.3, 1)
+fog_density = 0.0012
+fog_sky_affect = 0.0
+fog_height = -45.0
+fog_height_density = 2.0
+
+[node name="MazeLand" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_w3")
+
+[node name="SunPivot" type="Node3D" parent="."]
+transform = Transform3D(0.4608442, 0.13379453, -0.8773372, 0.31493494, 0.89957845, 0.30261424, 0.8297219, -0.4157622, 0.3724289, 0, 800, 0)
+
+[node name="IslandWorld" type="Node3D" parent="."]
+script = ExtResource("1_world")
+field = ExtResource("8_field")
+terrain_material = ExtResource("4_terrain")
+cliff_material = ExtResource("12_cliff")
+view_distance = 3600.0
+prewarm = true
+generate_collision = false
+
+[node name="VegScatter" type="Node3D" parent="."]
+script = ExtResource("13_veg")
+island_world_path = NodePath("../IslandWorld")
+material = ExtResource("27_vegmat")
+understory_material = ExtResource("28_undermat")
+fern_material = ExtResource("29_fernmat")
+tree_sprites = [ExtResource("30_fir_t1"), ExtResource("31_fir_t2"), ExtResource("32_fir_m"), ExtResource("33_fir_j")]
+bush_sprites = [ExtResource("34_bush_l1"), ExtResource("35_bush_l4"), ExtResource("36_bush_s1"), ExtResource("37_bush_s2")]
+fern_sprites = [ExtResource("38_fern")]
+prescatter = true
+clear_rects = Array[Rect2]([Rect2(-178.5, -512, 357, 1024), Rect2(-512, -178.5, 1024, 357)])
+
+[node name="GrassScatter" type="Node3D" parent="."]
+script = ExtResource("18_grass")
+island_world_path = NodePath("../IslandWorld")
+sprites = [ExtResource("39_grass")]
+material = ExtResource("19_grassmat")
+grass_grid = 0.55
+
+[node name="VegBurn" type="Node3D" parent="."]
+script = ExtResource("20_vegburn")
+burn = 0.0
+advance = false
+burn_rate = 0.02
+stump = 0.0
+stump_rate = 0.0
+front_radius = 0.0
+front_speed = 0.0
+
+[node name="TimeOfDay" type="Node3D" parent="." node_paths=PackedStringArray("sun_pivot", "world_environment")]
+script = ExtResource("14_todbus")
+sun_pivot = NodePath("../SunPivot")
+world_environment = NodePath("../WorldEnvironment")
+sky_material = ExtResource("5_sky")
+preset = ExtResource("42_skypreset")
+drive_sun_transform = false
+advance_with_time = false
+use_nightmare_switch = false
+nightmare = false
+nightmare_seconds = 3.0
+normal_phase = 0.45
+nightmare_phase = 0.85
+manual_time_of_day = 0.45
+fog_light_base = Color(0.3, 0.3, 0.3, 1)
+drive_void_sky = true
+sky_haze_base = Color(0.3, 0.3, 0.3, 1)
+sky_glow_base = Color(0.85, 0.85, 0.85, 1)
+sky_sun_glow_base = Color(1, 0.99, 0.95, 1)
+sky_vortex_base = Color(1, 1, 1, 1)
+
+[node name="CloudSea" type="Node3D" parent="."]
+script = ExtResource("15_cloudsea")
+cloud_material = ExtResource("16_cloudmat")
+
+
+[node name="HorizonClouds" type="Node3D" parent="."]
+script = ExtResource("25_horizonclouds")
+material = ExtResource("26_horizoncloudmat")

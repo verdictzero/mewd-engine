@@ -43,6 +43,14 @@ var houses: Array = []
 ## reach round it) touches, so a short look asks only the ones near
 var _house_cells := {}
 const HOUSE_CELL := 1024.0
+## THE MAZE (MAZE LAND's, Islands "maze"; Maze): its walls are walls as
+## the houses' are — they stop a body, an eye and a round — kept on a grid
+## of their own (thousands of them: a long ray asks only the lines it
+## crosses). null on every other island.
+var maze: Maze = null
+## where the start is looked for (an island with a maze: the open corner
+## by it, not its middle); INF, the island's middle
+var start_hint := Vector2.INF
 
 func _init(g: IslandGround, title := "ISLAND") -> void:
 	ground = g
@@ -178,6 +186,11 @@ func can_move(fx: float, fy: float, tx: float, ty: float, radius: float, z: floa
 			var d := _house_depth(h, tx, ty, radius)
 			if d > 0.0 and d >= _house_depth(h, fx, fy, radius) - 0.01:
 				return false
+	# A MAZE WALL in the way (and over its top is over it)
+	if maze != null and z < maze.floor_z + maze.tall and z + height > maze.floor_z:
+		var md := maze.depth(tx, ty, radius)
+		if md > 0.0 and md >= maze.depth(fx, fy, radius) - 0.01:
+			return false
 	return true
 
 # ------------------------------------------------------------------
@@ -193,17 +206,21 @@ func sight_blocked(ax: float, ay: float, az: float, bx: float, by: float, bz: fl
 		var t := float(i) / steps
 		if floor_at(ax + dx * t, ay + dy * t) > az + (bz - az) * t:
 			return true
-	return not houses.is_empty() and not ray_hit_wall(ax, ay, az, bx, by, bz).is_empty()
+	return (not houses.is_empty() or maze != null) and not ray_hit_wall(ax, ay, az, bx, by, bz).is_empty()
 
 ## THE WALLS ON AN ISLAND are the houses' (the ground is a floor, and
 ## ray_hit_flat finds it): the first house wall the ray from a to b goes
 ## into, {line, t, x, y, z} as Level's, or {}. A ray from inside a house
 ## goes out through it; one over the eaves goes over.
 func ray_hit_wall(ax: float, ay: float, az: float, bx: float, by: float, bz: float) -> Dictionary:
-	if houses.is_empty():
-		return {}
 	var best := {}
 	var best_t := INF
+	if maze != null:
+		best = maze.ray_hit(ax, ay, az, bx, by, bz)
+		if not best.is_empty():
+			best_t = best.t
+	if houses.is_empty():
+		return best
 	for h in _houses_along(ax, ay, bx, by):
 		var hit := _house_hit(h, ax, ay, az, bx, by, bz)
 		if not hit.is_empty() and hit.t < best_t:
@@ -289,7 +306,7 @@ func populate(seed: int, people: int, crowd: Array = [], roads := {}, lamps := 0
 	var squares: Array = roads.get("squares", [])
 	var start: Vector2
 	if squares.is_empty():
-		start = _find_ground(rng, Vector2.ZERO, 6000.0, 0.35)
+		start = _find_ground(rng, Vector2.ZERO if start_hint == Vector2.INF else start_hint, 6000.0 if start_hint == Vector2.INF else 1600.0, 0.35)
 	else:
 		# the square nearest the middle, somewhere inside it
 		var sq: Array = squares[0]
@@ -569,6 +586,8 @@ func _house_depth(h: Dictionary, x: float, y: float, radius: float) -> float:
 
 ## Whether a body of `radius` at (x, y) would stand in a house.
 func in_house(x: float, y: float, radius := 0.0) -> bool:
+	if maze != null and maze.blocked(x, y, radius):
+		return true
 	for h in _houses_at(x, y):
 		if _house_depth(h, x, y, radius) > 0.0:
 			return true

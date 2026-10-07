@@ -23,6 +23,7 @@
 ## ahead set alight 40 tics before it (the burning palette). --gun: the
 ## gun in hand drawn too (its matcap). --hud: the readout over it all
 ## (with --die: YOU ACHIEVED THE OPPOSITE OF LIFE).
+## --at=R,C: you stand in the middle of MAZE LAND's maze cell (R, C).
 ## --above: the eye 40 m over the start, a town's crossroads, back from it
 ## 30 m, to see the square, its quadrants and its cliffs. (--high=M: M m
 ## over it instead, to see the roads wind away from it)
@@ -199,6 +200,15 @@ func _frame() -> void:
 			for a in game.actors:
 				if a.type == "CANDYGIRL":
 					a.remove()
+		# --at=R,C: you stand in the middle of MAZE LAND's maze cell (R, C)
+		for arg in args:
+			if arg.begins_with("--at=") and game.level.maze != null:
+				var rc := arg.substr(5).split(",")
+				var q: Vector2 = game.level.maze.centre(int(rc[0]), int(rc[1]))
+				p.x = q.x
+				p.y = q.y
+				p.sector = game.level.sector_at(p.x, p.y)
+				p.z = game.level.floor_at(p.x, p.y)
 		if "--road" in args:
 			var r: Array = game._roads_of(game.island.get_node("IslandWorld").field).paths
 			if not r.is_empty():

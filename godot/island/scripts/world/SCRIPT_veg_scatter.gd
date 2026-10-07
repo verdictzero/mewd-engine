@@ -150,6 +150,10 @@ extends Node3D
 ## Plants stay out of any zone whose grooming influence exceeds this, keeping them
 ## off fairways, greens, build pads, paths and their aprons.
 @export_range(0.0, 1.0) var max_flatten := 0.30
+## Ground no plant stands on (island metres: x, z): MAZE LAND's maze and a
+## band round it (at the user's request: the maze's grass, the rest of the
+## island its plants). Empty, nowhere.
+@export var clear_rects: Array[Rect2] = []
 ## Plants are sunk this far into the ground, in METRES, so a sprite's soil base is
 ## buried rather than floating a hair above the surface on a slope. Applied to the
 ## position rather than to the quad's pivot, so it does not scale with the plant.
@@ -2027,6 +2031,9 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	var jz := (_rand(hx, 3) - 0.5) * 0.85 * veg_grid
 	var wx := (float(cell.x) + 0.5) * veg_grid + jx
 	var wz := (float(cell.y) + 0.5) * veg_grid + jz
+	for r in clear_rects:
+		if r.has_point(Vector2(wx, wz)):
+			return {"valid": false}
 
 	var s := f.sample(wx, wz)
 	if not s.get("on_land", false):

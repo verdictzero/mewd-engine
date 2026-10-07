@@ -3443,6 +3443,95 @@ standalone application, command line or CLI"):
   console on there). Also fixed: a server's game added its freed island
   to the tree ("rp_child is null" at every server's start).
 
+MAZE LAND (0000028)
+
+At the user's request (with assets/models/maze_parts.glb): "make a copy
+of Debug Land but 1024^2; divide it conceptually into 9ths, in the 2nd
+4th 5th 6th and 8th sections, build an interconnected maze using these
+parts, vegetation will be pared down to just grass within proximity of
+the maze walls, try to not plant grass under the maze walls".
+
+  THE ISLAND (Islands "mazeland", MAZE LAND on NEW GAME and HOST GAME):
+  DEBUG LAND's ground at twice the side (ISLANDFIELD_mazeland.tres,
+  hub_radius 512: a flat square 1024 m a side) and its scene
+  (maze_land.tscn).
+
+  THE PARTS: maze_wall, 8 m long, 1 m thick and 9 m tall (rusted steel
+  truss over hazard-striped panels), and maze_corner, a 1 m post as
+  tall. So the maze's grid is 9 m post to post, and a corridor is 8 m
+  wide between the walls' faces.
+
+  THE MAZE (godot/scripts/level/maze.gd, Maze): 111 cells to a side (999
+  m) centred on the island, cut into a three by three of sections
+  numbered as the user did, 1 to 9 from the north-west. The maze fills
+  sections 2, 4, 5, 6 and 8, the plus: 6845 cells. Every other cell is
+  open ground.
+    - It is carved as a spanning tree, depth-first from the middle and
+      off a fixed seed (Islands "maze" seed 2718), so every machine
+      builds the same one and every cell is reachable.
+    - A tenth of the remaining inside walls are then knocked through
+      (`loops`), making it interconnected: more than one way round
+      (7485 open inside edges where a tree has 6844).
+    - Two doors are cut in each of the 12 stretches of its outside wall
+      (`doors`).
+    - That leaves 6403 walls and 6906 posts.
+
+  ITS WALLS ARE WALLS. Each wall is a slab of its own thickness along
+  its edge, reaching half a post past each end, as tall as the wall.
+  IslandLevel asks the maze as it asks the houses:
+    - can_move: a body cannot step into a wall.
+    - in_house: nobody is put down in one, and no pickup.
+    - ray_hit_wall and sight_blocked: a round goes into a wall at its
+      face, an eye cannot see through it, and over the top is over it.
+  A ray walks only the grid lines it crosses, about 60 microseconds
+  for one across the whole maze. A wall face a round hits gets a Line
+  of its own (Maze._line) for the hit's mark.
+
+  ITS LOOKS (MazeView): the user's two meshes as instances, chunked 8 x 8
+  cells to a MultiMesh of walls and one of posts. Each chunk is drawn out
+  to 260 m (the DISTANCE page's LAND scales that) and takes the model's
+  own levels of detail by its own distance. They are lit by
+  SHADER_house, as the gingerbread houses are, and cold in the thermal
+  sight.
+
+  THE GRASS AND THE PLANTS (then, at the user's request: "make grass
+  extra thick in and around maze, make sure rest of island is fleshed
+  out with normal vegetation"):
+    - THE GRASS (SCRIPT_grass_scatter `mask`, set by Game._maze_up). The
+      mask now says how much grows, not just whether. Through the plus,
+      and 12 m round it (Islands "maze" grass_band), it is THICK: every
+      cell the density roll keeps grows a tuft, whatever the turf, on
+      MAZE LAND's 0.55 m grid (maze_land.tscn's grass_grid), about 2.7
+      times the open ground's tufts to the square metre. Nothing grows
+      within 0.45 m of a wall's face, so none under a wall or post
+      (Maze.near_m). Everywhere else the share is thinned to 0.3 (the
+      grid squared), which on the finer grid is what the usual 1 m
+      grid grows. The
+      thinning is rolled before the field is sampled, so it costs
+      nothing.
+    - THE PLANTS: DEBUG LAND's trees, bushes and ferns on the rest of
+      the island. A new export on the plant scatter, `clear_rects`
+      (island metres x, z), keeps them off the plus and the same 12 m
+      band round it. Being an export of the scatter it is in the plant
+      bake's signature; the scatter's code changing re-bakes every
+      island once.
+
+  YOU START in the open south-west corner by the maze (Islands "maze"
+  start: cell 80, 30; IslandLevel.start_hint). The crowd and the pickups
+  are put down out of the walls.
+
+  THE BAKE'S DIGEST TABLE (tools/bake_island.gd) is now merged into, not
+  rewritten. An island with no plant scatter would otherwise leave
+  CODE_DIGESTS.json without the scatter's digest, and an exported build
+  would then not read any other island's plants.
+
+  Tests: maze_test.gd checks all of the above: the plus, one maze, the
+  loops and doors, a body, a round and an eye against a wall and through
+  an open edge, the cost of a long ray, no grass under a wall and some
+  thick in the maze and as usual in the open, plants in the open corner
+and none in the maze, every wall drawn, and nobody in a wall.
+  candy_shot.gd takes --at=R,C to stand in a maze cell.
+
 TESTS
 
     tools/godot-test.sh
