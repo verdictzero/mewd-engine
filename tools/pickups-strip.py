@@ -11,6 +11,10 @@ out into the clear pixels, as the candy girls' strip is
 (tools/candy-girls-strip.py). The cells go in Pickups.KINDS order.
 
     python3 -I tools/pickups-strip.py <folder of the zip's pictures>
+    python3 -I tools/pickups-strip.py --cell=N <picture>   (one cell anew)
+
+Cell 10, the cerebral bore's ammo, is the user's later "BORE" crate
+(tools/art/pickup_bore_ammo.jpg), not the zip's bio vats.
 """
 import os
 import sys
@@ -80,6 +84,18 @@ def cut(im):
     cell.paste(Image.fromarray((small * 255 + 0.5).astype(np.uint8), "RGBA"), ((CELL - nw) // 2, CELL - 1 - nh))
     return bleed(cell)
 
+
+# ONE CELL OVER AGAIN, from a picture of its own (at the user's request:
+# the cerebral bore's ammo, "BORE", in place of the bio vats):
+#     python3 -I tools/pickups-strip.py --cell=10 <picture>
+if sys.argv[1].startswith("--cell="):
+    i = int(sys.argv[1][7:])
+    strip = Image.open(OUT).convert("RGBA")
+    strip.paste(Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0)), (i * CELL, 0))
+    strip.paste(cut(key(Image.open(sys.argv[2]))), (i * CELL, 0))
+    strip.save(OUT)
+    print(OUT, strip.size, "cell", i)
+    sys.exit(0)
 
 src = sys.argv[1]
 strip = Image.new("RGBA", (CELL * len(FILES), CELL))

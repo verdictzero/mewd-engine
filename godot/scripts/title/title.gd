@@ -33,10 +33,9 @@ signal join_game
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
 	["SET UP PAD", "pad", true], ["MULTIPLAYER", "multi", true], ["DEBUG", "debug", true],
-	["QUIT GAME", "quit", false], ["DOWNLOAD ZIP", "zip", true]]
-## THE WHOLE THING AS A ZIP, at the user's request: GitHub's own archive of
-## the repository's main branch — the Godot project, the web build, every
-## asset — so it is always the latest and costs the site nothing to host
+	["QUIT GAME", "quit", false]]
+## (DOWNLOAD ZIP, GitHub's archive of the repository, is gone: at the
+## user's request, "remove download zip")
 ## THE LEVELS, under NEW GAME: every island, then BACK
 static var LEVELS: Array = _levels()
 static func _levels() -> Array:
@@ -60,7 +59,6 @@ static func _hosts() -> Array:
 const MODES := [["DEATHMATCH", "mode:dm", true], ["TEAM DEATHMATCH", "mode:tdm", true], ["BACK", "hosts", true]]
 ## the island HOST GAME chose, waiting on MODES
 var _host_map := ""
-const ZIP_URL := "https://github.com/verdictzero/mewd-engine/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
 
@@ -304,8 +302,6 @@ func take(i: int) -> void:
 		pad_setup.emit()
 	elif what == "debug":
 		debug_menu.emit()
-	elif what == "zip":
-		OS.shell_open(ZIP_URL)
 
 func _process(dt: float) -> void:
 	for j in _shake.keys():

@@ -61,6 +61,10 @@ func set_volume(v: float) -> void:
 			d.volume_db = linear_to_db(maxf(0.0001, _gain(volume)))
 
 func start(i := 0) -> void:
+	# (whatever was playing stops: an island's own list, or the dirge — a
+	# list left running would crossfade back into its tracks)
+	stop()
+	dirging = false
 	current = i
 	var d := decks[0]
 	d.stream = load(TRACKS[i].url)
@@ -75,7 +79,14 @@ func start(i := 0) -> void:
 ## looping for as long as the title is up (looped in its import and here);
 ## NEW GAME's start / start_list takes the deck over from it
 const TITLE_THEME := "res://assets/music/sg_ocelot.mp3"
+const USE_OWN_TITLE_THEME := false
 func title_theme() -> void:
+	# THE TITLE PLAYS THE METAL TOO (at the user's request: "use the original
+	# multi metal song soundtrack for everything except candy land"): the
+	# three remixes, round and round (start); SG Ocelot is kept on the disk
+	if not USE_OWN_TITLE_THEME:
+		start(0)
+		return
 	stop()
 	var st = load(TITLE_THEME)
 	if st == null:

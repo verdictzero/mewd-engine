@@ -15,7 +15,9 @@ func check(ok: bool, what: String) -> void:
 func _init() -> void:
 	var own: Array = Islands.find("candyland").get("music", [])
 	check(own.size() == 3, "CANDY LAND has its own three tracks (%d)" % own.size())
-	check(Islands.find("island0").get("music", []) == ["res://assets/music/waiting_for_something.mp3"], "NOT PENNSYLVANIA plays Waiting for Something")
+	# (every other island the three metal remixes: no music of its own)
+	var others := Islands.LIST.filter(func(i): return i.key != "candyland" and i.has("music"))
+	check(others.is_empty(), "every island but CANDY LAND plays the metal (%s)" % str(others.map(func(i): return i.key)))
 	for u in own:
 		var st = load(u)
 		check(st != null and st.get_length() > 30.0, "%s loads (%.0f s)" % [u.get_file(), st.get_length() if st else 0.0])
@@ -49,21 +51,14 @@ func _init() -> void:
 	m.decks[0].seek(L3 - 1.0)
 	m._pl_tic(0.0)
 	check(m.decks[1].stream.resource_path == own[0] and m.decks[1].playing, "and the third back into the first: round and round")
-	# the title's own music, looping, and NEW GAME's list takes over from it
+	# the title plays the metal too, and NEW GAME's list takes over from it
 	m.title_theme()
-	check(m.playlist.is_empty() and m.decks[0].playing and m.decks[0].stream.resource_path == Music.TITLE_THEME and m.decks[0].stream.loop, "the title plays SG Ocelot, looping")
-	check(not m.decks[1].playing, "and only that")
+	check(m.playlist.is_empty() and m.decks[0].playing and m.decks[0].stream.resource_path == Music.TRACKS[0].url, "the title plays the first metal remix")
 	m.start_list(own)
 	check(m.decks[0].stream.resource_path == own[0] and m.decks[0].playing, "NEW GAME's list takes over from it")
-	# NOT PENNSYLVANIA's one track crossfades into itself
-	var np: Array = Islands.find("island0").music
-	m.start_list(np)
-	var Ln: float = m.decks[0].stream.get_length()
-	m.decks[0].seek(Ln - 1.0)
-	m._pl_tic(0.0)
-	check(m.decks[1].playing and m.decks[1].stream.resource_path == np[0], "NOT PENNSYLVANIA's track comes round again under itself")
-	m._pl_tic(Music.XFADE * 1.1)
-	check(m.decks[0].playing and not m.decks[1].playing, "and plays on alone")
+	# and an island with none of its own goes back to the metal
+	m.start(0)
+	check(m.playlist.is_empty() and m.decks[0].playing and m.decks[0].stream.resource_path == Music.TRACKS[0].url, "an island of the metal plays it")
 	# the death music takes over
 	m.dirge()
 	check(m.playlist.is_empty(), "and YOU DIED stops it for the dirge")

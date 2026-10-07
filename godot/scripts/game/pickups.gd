@@ -7,7 +7,7 @@
 ## from their green screens by tools/pickups-strip.py): a medkit and a
 ## big one, light and heavy armour, a box of rounds and a crate, a
 ## battery and a crate of cells, a case of rockets, a mini nuke, the
-## bio vats and the alien pod. Each stands on the ground as a card
+## the bore crate and the alien pod. Each stands on the ground as a card
 ## turned to the eye, Doom's way (the standee shader: one draw for all
 ## of them), bobbing a little, lit by itself so it reads on a dark
 ## field; and a player who walks over one TAKES it — unless it would do
@@ -62,7 +62,7 @@ const KINDS := [
 	{"key": "large_energy_ammo", "say": "CELL CRATE", "size": 40.0, "ammo": {"plasma": 25, "cells": 2}, "back": 1400, "sp_back": 0, "mp": true},
 	{"key": "rocket_ammo", "say": "ROCKETS", "size": 40.0, "ammo": {"rockets": 4}, "back": 0, "sp_back": 6300, "mp": false},
 	{"key": "mini_nuke_ammo", "say": "MINI NUKE", "size": 44.0, "ammo": {"potatoes": 2}, "weapon": "POTATO", "back": 0, "sp_back": 0, "mp": false},
-	{"key": "bio_gun_ammo", "say": "BIO VATS", "size": 34.0, "ammo": {"bores": 2}, "back": 0, "sp_back": 6300, "mp": false},
+	{"key": "bio_gun_ammo", "say": "BORE CRATE", "size": 34.0, "ammo": {"bores": 2}, "back": 0, "sp_back": 6300, "mp": false},
 	{"key": "arc_maw_ammo", "say": "ALIEN POD", "size": 32.0, "ammo": {"volts": 2}, "back": 0, "sp_back": 6300, "mp": false},
 ]
 

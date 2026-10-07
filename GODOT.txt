@@ -3532,6 +3532,27 @@ the maze walls, try to not plant grass under the maze walls".
 and none in the maze, every wall drawn, and nobody in a wall.
   candy_shot.gd takes --at=R,C to stand in a maze cell.
 
+NO ZIP, THE METAL EVERYWHERE BUT CANDY LAND, THE BORE CRATE (0000029)
+
+At the user's request ("remove download zip, use the original multi
+metal song soundtrack for everything except candy land"; "here is the
+bore ammo"):
+  - DOWNLOAD ZIP is gone from the title's menu (Title.ITEMS, and the
+    archive's link with it).
+  - THE MUSIC: the three metal remixes the game began with (Music.TRACKS,
+    e1m1_00 to _02, crossfaded on the bar) play on the title
+    (Music.title_theme; USE_OWN_TITLE_THEME false, SG Ocelot kept on the
+    disk) and on every island but CANDY LAND. NOT PENNSYLVANIA, DEBUG
+    LAND and MAZE LAND lost their "Waiting for Something" (Islands
+    "music"). CANDY LAND keeps its own three. The death dirge is as it
+    was.
+  - THE BORE CRATE: the cerebral bore's ammo pickup (Pickups.KINDS
+    bio_gun_ammo, now said as BORE CRATE) is the user's green-screen
+    picture of a steel case stencilled with a brain and BORE
+    (tools/art/pickup_bore_ammo.jpg). tools/pickups-strip.py --cell=10
+    keyed it and put it in cell 10 of assets/things/pickups.png, the
+    other eleven untouched. The readout's bore icon is the same cell.
+
 TESTS
 
     tools/godot-test.sh

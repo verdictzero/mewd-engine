@@ -38,9 +38,9 @@ const LIST := [
 	# are gone, as is CANDY LAND XS, at the user's request)
 	{"key": "island0", "title": "NOT PENNSYLVANIA", "scene": "res://godot/island/scenes/island_0.tscn", "people": 360,
 		"blurb": "golf's island, the first one: hills, firs and a cliff all round into the cloud",
-		# its own music, at the user's request: "Waiting for Something" (the
-		# title's until Ocelot took over), crossfading into itself
-		"music": ["res://assets/music/waiting_for_something.mp3"],
+		# (its own "Waiting for Something" is gone, as are DEBUG LAND's and
+		# MAZE LAND's: every island but CANDY LAND plays the three metal
+		# remixes, at the user's request)
 		# THE PICKUPS (game/pickups.gd): ten round each of the crowd's
 		# gathering places — the island has no roads and no towns
 		"pickups": {"country": 10}},
@@ -68,7 +68,6 @@ const LIST := [
 	# biome and rendering style of Not Pennsylvania" — NOT PENNSYLVANIA's
 	# scene and ground, squared and flattened (ISLANDFIELD_debugland.tres)
 	{"key": "debugland", "title": "DEBUG LAND", "scene": "res://godot/island/scenes/debug_land.tscn", "people": 60,
-		"music": ["res://assets/music/waiting_for_something.mp3"],
 		# a SHOWROOM of the twelve pickups ahead of where you land, and
 		# everything back half a minute after it is taken
 		"pickups": {"country": 4, "respawn": 1050, "showroom": true},
@@ -88,7 +87,6 @@ const LIST := [
 	# it, none under its walls, and the rest of the island DEBUG LAND's
 	# trees, bushes, ferns and grass
 	{"key": "mazeland", "title": "MAZE LAND", "scene": "res://godot/island/scenes/maze_land.tscn", "people": 60,
-		"music": ["res://assets/music/waiting_for_something.mp3"],
 		"maze": {"cells": 111, "sections": [2, 4, 5, 6, 8], "seed": 2718, "loops": 0.1, "doors": 2,
 			"start": [80, 30], "grass_band": 12.0, "grass_clear": 0.45},
 		"pickups": {"country": 4},

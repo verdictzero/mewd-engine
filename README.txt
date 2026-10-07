@@ -198,7 +198,7 @@ PICKUPS, FINITE AMMO AND ARMOUR. The tanks run dry: only the flamer's
 pilot light and the extinguisher fill themselves, and the rest is
 picked up off the ground, walked over — medkits and trauma kits, light
 and heavy armour, boxes and crates of rounds, plasma batteries and cell
-crates, rockets, alien pods for the arc maw, bio vats for the bore, and
+crates, rockets, alien pods for the arc maw, bore crates for the bore, and
 a rare mini nuke that hands you the potato cannon. Armour sits on top of
 health and takes a share of every blow (a third light, half heavy). The
 readout shows health and armour top left and the gun's count top right.
