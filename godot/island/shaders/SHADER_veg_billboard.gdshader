@@ -802,7 +802,9 @@ void fragment() {
 	// coarser grid (`v_cells`), the mip chosen off the real footprint
 	// (a snapped coordinate has no gradient of its own)
 	uv = (floor(uv * v_cells) + 0.5) / v_cells;
-	vec4 tex = mix(textureGrad(albedo_tex, uv, duvx, duvy), textureGrad(albedo_smooth, uv, duvx, duvy), minified);
+	// (the sharp fetch off the full picture only, as the standees: an
+	// Intel iGPU picks its mip differently and flips it along an edge)
+	vec4 tex = mix(textureLod(albedo_tex, uv, 0.0), textureGrad(albedo_smooth, uv, duvx, duvy), minified);
 	if (tex.a < alpha_scissor) {
 		discard;
 	}

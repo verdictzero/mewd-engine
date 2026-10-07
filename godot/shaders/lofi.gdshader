@@ -93,7 +93,12 @@ void fragment() {
 				// of the snap as a black block: on an Adreno it did)
 				if (any(isnan(g)) || any(isinf(g))) g = vec4(0.0);
 				g = clamp(g, vec4(0.0), vec4(16.0));
-				sum += gun_on_room ? g.rgb : mix(texture(world_tex, at).rgb, g.rgb, g.a);
+				// (and the same of the world's: a NaN some driver makes of a
+				// fragment's sum is a lone black or white pixel, a sparkle)
+				vec3 w = texture(world_tex, at).rgb;
+				if (any(isnan(w)) || any(isinf(w))) w = vec3(0.0);
+				w = clamp(w, vec3(0.0), vec3(16.0));
+				sum += gun_on_room ? g.rgb : mix(w, g.rgb, g.a);
 				n += 1.0;
 			}
 		}

@@ -3553,6 +3553,26 @@ bore ammo"):
     keyed it and put it in cell 10 of assets/things/pickups.png, the
     other eleven untouched. The readout's bore icon is the same cell.
 
+
+THE SPARKLE ON INTEL (0000030)
+
+  At the user's report (the sparkle was back, "only on intel igpu
+  apparently"): the sprites' edges choose between two fetches of the
+  same picture by how many texels a pixel covers (THE SPARKLE above) —
+  nearest, and filtered. The nearest one still took its mip from the
+  GPU's own reckoning of the footprint, and the Vulkan rules let a GPU
+  reckon it its own way; an Intel iGPU's lands on the next mip down
+  sooner and not the same across a 2 x 2 block of pixels, so along a
+  swaying edge the cut-out flipped between two mips' silhouettes, pixel
+  by pixel, frame by frame. The nearest fetch now reads the full
+  picture only (textureLod 0) in standee.gdshader and
+  SHADER_veg_billboard.gdshader; past two texels a pixel the filtered
+  one takes over as before, so nothing else changes. And the finished
+  frame (lofi.gdshader) puts any NaN or infinity out of the world's
+  picture to black before it averages, as it did the gun's — a lone
+  NaN from a driver's maths is a lone bright or black pixel.
+  Not seen here (no Intel GPU on this machine): to be confirmed on one.
+
 TESTS
 
     tools/godot-test.sh

@@ -89,7 +89,10 @@ void fragment() {
 	// how many texels one pixel covers (log2: 0 at one to one, 1 at two)
 	vec2 foot = max(abs(dFdx(UV)), abs(dFdy(UV))) * vec2(textureSize(strip, 0));
 	float minified = clamp(log2(max(max(foot.x, foot.y), 1e-6)), 0.0, 1.0);
-	vec4 c = mix(texture(strip, UV), texture(strip_smooth, UV), minified);
+	// (the sharp fetch off the full picture only: its mips were picked by
+	// the GPU's own reckoning of the footprint, and an Intel iGPU's flips
+	// between two of them along a swaying edge — the sparkle again)
+	vec4 c = mix(textureLod(strip, UV, 0.0), texture(strip_smooth, UV), minified);
 	if (c.a < 0.5) discard;
 	// FROZEN: a colour map and not a tint (js/material.js FROST) — the
 	// drawing's luminance kept and run up a ramp from a shadowed blue to a
