@@ -3573,6 +3573,19 @@ THE SPARKLE ON INTEL (0000030)
   NaN from a driver's maths is a lone bright or black pixel.
   Not seen here (no Intel GPU on this machine): to be confirmed on one.
 
+
+THE NEW LOGO (0000031)
+
+  At the user's request ("cut this out, give the cut out a black stroke,
+  make it the new game title graphic / branding graphic / logo"): the
+  white webbed MEWD on grainy black (tools/art/mewd_logo_source.jpg) cut
+  out by tools/make-logo.py — blown up 4x, its brightness the cover (the
+  black ground's grain under the levels), lone specks of grain dropped,
+  white over a black stroke the cover grown about 3.5 px of the source
+  picture. It writes assets/logo/mewd-480/960/1440/1951.webp (the title
+  reads 1440) and the boot splash (godot/data/splash.png), then
+  tools/make-icons.py the desktop, web and Android icons from it.
+
 TESTS
 
     tools/godot-test.sh
