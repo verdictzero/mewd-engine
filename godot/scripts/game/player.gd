@@ -761,6 +761,11 @@ func damage(amount: float, source, opts := {}) -> void:
 		return
 	if not opts.get("shot", false) and not opts.get("impact", false):
 		return
+	# NO FRIENDLY FIRE (a team match, NetMatch.friendly): a teammate's
+	# rocket, bolt or arc passes you by as their rounds already did
+	# (Game.targets_for) — your own still finds you
+	if source != null and source != self and game.rules != null and game.rules.friendly(source, self):
+		return
 	var raw := amount + hurt_carry
 	var hit := int(raw)
 	hurt_carry = raw - float(hit)

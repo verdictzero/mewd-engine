@@ -261,7 +261,9 @@ func start_map(which: String) -> void:
 		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)),
 		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null,
 		spec.get("houses", {}), _clear_of(field) if spec.has("houses") else null)
-	add_child(island)
+	# (a world nobody looks at has none: freed above)
+	if island != null:
+		add_child(island)
 	# the houses round the squares (CANDY LAND's), in the island's world
 	if island != null and not level.houses.is_empty():
 		island.add_child(HouseView.new(level, spec.houses.model))

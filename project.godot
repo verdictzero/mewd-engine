@@ -8,6 +8,7 @@ config_version=5
 
 config/name="MEWD"
 config/description="MEWD — Made Entirely Without Doom"
+config/version="0000027"
 run/main_scene="res://godot/scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
@@ -25,7 +26,16 @@ boot_splash/use_filter=true
 TerrainBake="*res://godot/island/scripts/autoload/AUTOLOAD_terrain_bake.gd"
 VegBake="*res://godot/island/scripts/autoload/AUTOLOAD_veg_bake.gd"
 
+[audio]
+
+; THE STANDALONE SERVER (export preset "Linux Server", feature `server`):
+; no sound card wanted
+driver/driver.server="Dummy"
+
 [display]
+
+; and no window: the headless display server, as --headless gives
+display_server/driver.server="headless"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720

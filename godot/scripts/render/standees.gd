@@ -24,6 +24,9 @@ class_name Standees
 extends Node3D
 
 const CULL_FAR := 6400.0
+## how far out anybody is drawn: CULL_FAR unless the DISTANCE page says
+## otherwise (Distances: PEOPLE)
+var cull_far := CULL_FAR
 ## how often a row is written, by distance: every tic, every other, every fourth
 const NEAR := 640.0
 const MID := 1600.0
@@ -238,7 +241,7 @@ func draw(actors: Array, cam: Vector3, tics: int, look := Vector2()) -> void:
 	var cy := -cam.z
 	var cam2 := Vector2(cx, cy)
 	var cull := look != Vector2()
-	var far2 := CULL_FAR * CULL_FAR
+	var far2 := cull_far * cull_far
 	var near2 := NEAR * NEAR
 	var mid2 := MID * MID
 	var seen := {}

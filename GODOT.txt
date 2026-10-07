@@ -3371,6 +3371,78 @@ meandering?"):
     builds do that themselves). candy_shot's --above takes --high=M to
     look at the roads from M m up.
 
+THE VERSION NUMBER, TEAMS, DRAW DISTANCES, A SETTINGS FILE, AND THE
+STANDALONE SERVER
+
+At the user's request ("add teams as a multiplayer concept"; "add
+distance culling options in the options menu"; "add the ability to save
+settings to a settings file"; "always update the version number, start
+with 0000027 — version number always single string starting zeroes 7
+character places"; "add a headless linux server as a separate
+standalone application, command line or CLI"):
+
+  THE VERSION (U.VERSION): one string, seven places, leading zeroes,
+  0000027 to start with, and ONE MORE ON EVERY CHANGE THAT SHIPS (the
+  next is 0000028). It is shown on the title screen and in the pause
+  menu's heading, and printed first in every run's log. The builds use
+  the same number: project.godot config/version, the Android preset's
+  version/name (and version/code, the same number as an integer, 27).
+  options_test checks that all of them agree.
+
+  TEAMS (NetMatch): a host's rules may say `teams`. HOST GAME on the
+  title now asks how the match is played once its island is chosen:
+  DEATHMATCH or TEAM DEATHMATCH. The dedicated server takes --teams.
+  Two sides, SWAT and ARMY (NetMatch.TEAM_NAMES), each drawn on the
+  others' screens as that side's troops. Each joiner goes to the
+  smaller side, or the side that is behind. Rounds, rockets, bolts and
+  arcs from a teammate do not hurt you (Player.damage asks
+  NetMatch.friendly, as Game.targets_for already did for rounds); your
+  own blast still does. A kill scores for the killer's side, and the
+  round ends when a side reaches the team limit. A teammate drops in
+  by pod beside one of its own, 40 to 80 m off, never within 50 m of
+  the other side. The join message says which side you are on, and the
+  readout and the score table already showed the sides. teams_test
+  checks all of it.
+
+  DRAW DISTANCES (Distances; PAUSE > 5 DISTANCE): LAND (the terrain's
+  reach, 25% to 100%), TREES (the trees', bushes' and ferns' fade band
+  and the distance past which they are not drawn, 25% to 150%), GRASS
+  (OFF, or 50% to 200%) and PEOPLE (the sprites: 50, 100, 200 or 400
+  m). They take effect at once and on every island. They are set from
+  outside the island's scripts, so no bake has to be made again.
+  DEBUG is page 6 now.
+
+  THE SETTINGS FILE (PAUSE > 7 FILE): SAVE SETTINGS TO FILE writes every
+  setting by name, with the build's number, to mewd-settings.cfg (a
+  plain ConfigFile you can read and edit). It goes beside the logs: in
+  Download/mewd on a phone that has given the storage, else in the
+  user data folder. LOAD SETTINGS FROM FILE reads it back; a missing
+  setting, or one of the wrong kind, keeps its current value. ALL
+  SETTINGS TO DEFAULTS puts everything back. The line under the tiles
+  says where the file is and what the last press did. The menu still
+  keeps its own choices as it always has (prefs.cfg). A fresh install
+  with no prefs.cfg starts from the file if there is one.
+
+  THE STANDALONE SERVER (export preset "Linux Server", feature `server`;
+  tools/build-linux.sh's second path; the linux release's
+  mewd-server-<sha>.x86_64 and .tar.gz): the dedicated server on its
+  own. It has no window, no sound and needs no GPU. project.godot gives
+  the `server` feature the headless display server and the Dummy audio
+  driver. It carries the islands' ground but not their terrain or
+  plant bakes. Main starts NetHost at once.
+    ./mewd-server help                     its flags
+    ./mewd-server --map=candyland --teams --port=7777
+  Flags work with or without Godot's `--` before them: --port, --map,
+  --seed, --max, --teams, --frags, --minutes, --infinite-ammo,
+  --score-file, --quit-after and --no-console. THE CONSOLE: lines typed
+  at its terminal are read on a thread of their own:
+    help, status (island, match, sides, players, uptime), players,
+    kick ID|NAME, say TEXT (on everybody's screen as HOST: ...),
+    restart, quit.
+  The same commands work in --server mode (`--console` turns the
+  console on there). Also fixed: a server's game added its freed island
+  to the tree ("rp_child is null" at every server's start).
+
 TESTS
 
     tools/godot-test.sh

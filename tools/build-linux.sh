@@ -4,7 +4,13 @@
 # (.github/workflows/linux.yml)
 # =====================================================================
 #
-#   tools/build-linux.sh [out.x86_64]
+#   tools/build-linux.sh [out.x86_64] [server-out.x86_64]
+#
+# With a second path, THE STANDALONE SERVER too (at the user's request:
+# "add a headless linux server as a separate standalone application"):
+# the "Linux Server" preset, feature `server` — no window, no sound, no
+# Vulkan wanted, the islands' ground but not their terrain or plants:
+#   chmod +x mewd-server.x86_64 && ./mewd-server.x86_64 help
 #
 # Godot 4.7's Linux x86_64 templates are fetched if they are not there.
 # Only those two files are read out of the 1 GB template archive, by
@@ -62,3 +68,9 @@ mkdir -p "$(dirname "$OUT")"
 "$GODOT" --headless --export-release "Linux" "$OUT"
 chmod +x "$OUT"
 ls -la "$OUT"
+if [ -n "${2:-}" ]; then
+  mkdir -p "$(dirname "$2")"
+  "$GODOT" --headless --export-release "Linux Server" "$2"
+  chmod +x "$2"
+  ls -la "$2"
+fi

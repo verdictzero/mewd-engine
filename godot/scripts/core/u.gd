@@ -6,6 +6,12 @@
 ## at Vector3(x, z, -y), everywhere, through U.v3().
 class_name U
 
+## THE BUILD'S NUMBER (at the user's request: seven places, leading
+## zeroes, one string; one more on every change that ships). Shown on the
+## title and the pause menu, and the builds' own (project.godot,
+## export_presets.cfg) kept the same.
+const VERSION := "0000027"
+
 const TICRATE := 35
 const SEC := 1.0 / TICRATE
 

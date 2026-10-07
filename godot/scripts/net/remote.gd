@@ -190,7 +190,8 @@ func _init(g, c: NetClient, now := Callable()) -> void:
 	c.on_snap = on_snap
 	c.on_herd = on_herd
 	# (until the host has dropped this player in: a moment, usually)
-	g.set_big_message("DROPPING IN", 10 * TICRATE)
+	# (a team match: which side, as it begins)
+	g.set_big_message("DROPPING IN" if c.team < 0 else "DROPPING IN — TEAM %s" % NetMatch.TEAM_NAMES[clampi(c.team, 0, 1)], 10 * TICRATE)
 	# THE HERD IS THE HOST'S: here, puppets of what it says
 	for a in g.herd:
 		a.puppet = true
@@ -753,6 +754,9 @@ func name_of(id: int) -> String:
 func _event(e: Dictionary) -> void:
 	var g = game
 	match str(e.get("k", "")):
+		# a line from the host's console (NetHost.command: say)
+		"say":
+			g.toast("HOST: " + str(e.get("text", "")).to_upper())
 		"frag":
 			var v := name_of(int(e.of))
 			g.toast(("%s FRAGGED %s" % [name_of(int(e.by)), v]) if int(e.get("by", 0)) != 0 else "%s DIED" % v)
@@ -760,7 +764,7 @@ func _event(e: Dictionary) -> void:
 			if int(e.id) != client.id:
 				var side := ""
 				if e.get("team") != null and int(e.team) >= 0:
-					side = " B" if int(e.team) else " A"
+					side = " — TEAM " + NetMatch.TEAM_NAMES[clampi(int(e.team), 0, 1)]
 				g.toast("%s JOINED%s" % [str(e.name), side])
 			# the table has them from the next score; say their name before then
 			if score is Dictionary and score.get("players") is Array:

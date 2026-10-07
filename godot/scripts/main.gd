@@ -35,9 +35,12 @@ var host: NetHost
 var net_client: NetClient
 
 func _ready() -> void:
+	print("MEWD " + U.VERSION)
 	# THE DEDICATED SERVER (--server[=PORT]): no picture, no sound, no title
 	# — the simulation behind a socket (godot/scripts/net/host.gd)
-	if _arg("--server"):
+	# (or the standalone server, mewd-server: export preset "Linux Server",
+	# whose feature `server` makes it nothing else)
+	if _arg("--server") or OS.has_feature("server"):
 		host = NetHost.new()
 		host.name = "Host"
 		add_child(host)
@@ -92,7 +95,7 @@ func _ready() -> void:
 			host_map = a.substr(7)
 	if host_map != "":
 		# HOST GAME from the command line (as the title's MULTIPLAYER page)
-		host_game(Islands.find(host_map).key)
+		host_game(Islands.find(host_map).key, "--teams" in args)
 	elif join != "":
 		join_host(join)
 	elif again != "":
@@ -223,7 +226,7 @@ func show_title() -> void:
 ## (NetHost `listen`). Gone with the game, back to the title.
 var hosting: NetHost = null
 
-func host_game(map: String) -> void:
+func host_game(map: String, teams := false) -> void:
 	if hosting != null or game != null:
 		return
 	var h := NetHost.new()
@@ -231,7 +234,7 @@ func host_game(map: String) -> void:
 	h.name = "Host"
 	add_child(h)
 	randomize()
-	var err := h.start(map, randi() & 0x7FFFFFFF, {}, NetProtocol.MAX_PLAYERS, {}, [])
+	var err := h.start(map, randi() & 0x7FFFFFFF, {}, NetProtocol.MAX_PLAYERS, {"teams": true} if teams else {}, [])
 	if err != OK:
 		h.queue_free()
 		if title != null:
@@ -482,6 +485,9 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.for_island(game.island_spec if game != null else {}, bool(p.snap))
 	music.set_volume(float(p.music))
 	fps_label.visible = bool(p.fps)
+	# how far the land, the trees, the grass and the people are drawn
+	# (the DISTANCE page: Distances)
+	Distances.apply(game, p)
 	if game != null:
 		game.look_sens = float(p.sens)
 		game.invert = bool(p.invert)

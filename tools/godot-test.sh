@@ -32,6 +32,12 @@ run damage  --script res://godot/tests/damage_test.gd -- --map=candyland
 # network play: the wire against the JS, a match over loopback, and a
 # headless --server with two headless --join clients on a real socket
 run net     --script res://godot/tests/net_test.gd
+# TEAMS: two sides, no friendly fire, a side's score and its win, a
+# teammate dropped beside its own (godot/tests/teams_test.gd)
+run teams   --script res://godot/tests/teams_test.gd
+# THE VERSION, THE DISTANCE PAGE, THE SETTINGS FILE AND THE SERVER'S
+# CONSOLE (godot/tests/options_test.gd)
+run options --script res://godot/tests/options_test.gd -- --map=candyland
 # the dead are gone: removed, and their sprites with them (godot/tests/death_test.gd)
 run death   --script res://godot/tests/death_test.gd
 # THE DROP: the pod read off its file, the ride down on the autopilot, the

@@ -26,8 +26,9 @@ signal new_game(map: String)
 signal pad_setup
 ## DEBUG: the logs and the last failure (ui/debug_menu.gd)
 signal debug_menu
-## MULTIPLAYER: host a match on this island (Main.host_game), or join one
-signal host_game(map: String)
+## MULTIPLAYER: host a match on this island (Main.host_game), every player
+## for themselves or in two teams, or join one
+signal host_game(map: String, teams: bool)
 signal join_game
 
 const ITEMS := [["NEW GAME", "new", true], ["CONTINUE", "continue", false], ["LOAD GAME", "load", false],
@@ -54,10 +55,14 @@ static func _hosts() -> Array:
 		out.append([i.title, "host:" + i.key, true])
 	out.append(["BACK", "multi", true])
 	return out
+## HOW THE HOSTED MATCH IS PLAYED, once its island is chosen (at the
+## user's request: teams): every player for themselves, or two sides
+const MODES := [["DEATHMATCH", "mode:dm", true], ["TEAM DEATHMATCH", "mode:tdm", true], ["BACK", "hosts", true]]
+## the island HOST GAME chose, waiting on MODES
+var _host_map := ""
 const ZIP_URL := "https://github.com/verdictzero/mewd-engine/archive/refs/heads/main.zip"
 const RED := Color("#c8321e")
 const RED_EDGE := Color("#e0442c")
-const VERSION := "0.2.0"
 
 var logo: TextureRect
 var panel: PanelContainer
@@ -98,7 +103,7 @@ func _ready() -> void:
 	panel.add_child(col)
 	_build_buttons()
 	var ver := Label.new()
-	ver.text = "V" + VERSION
+	ver.text = U.VERSION
 	ver.add_theme_font_override("font", font)
 	ver.add_theme_font_size_override("font_size", 11)
 	ver.add_theme_color_override("font_color", Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.35))
@@ -136,10 +141,13 @@ func show_items(list: Array) -> void:
 	mark(0)
 	_layout()
 
-## back a page: the hosts' islands to multiplayer, anything to the menu
+## back a page: the match's modes to the islands, the hosts' islands to
+## multiplayer, anything to the menu
 func _back() -> void:
 	if items == HOSTS:
 		show_items(MULTI)
+	elif items == MODES:
+		show_items(HOSTS)
 	elif items != ITEMS:
 		show_page(false)
 
@@ -284,7 +292,10 @@ func take(i: int) -> void:
 	elif what == "hosts":
 		show_items(HOSTS)
 	elif what.begins_with("host:"):
-		host_game.emit(what.substr(5))
+		_host_map = what.substr(5)
+		show_items(MODES)
+	elif what.begins_with("mode:"):
+		host_game.emit(_host_map, what == "mode:tdm")
 	elif what == "join":
 		join_game.emit()
 	elif what.begins_with("map:"):

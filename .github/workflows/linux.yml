@@ -46,7 +46,7 @@ jobs:
           path: godot/island/data/bake
           key: island-bake-${{ hashFiles('godot/island/**', 'godot/scripts/level/island_ground.gd', 'godot/scripts/level/islands.gd', 'tools/bake_island.gd') }}
       - name: build
-        run: sh tools/build-linux.sh build/linux/mewd.x86_64
+        run: sh tools/build-linux.sh build/linux/mewd.x86_64 build/linux/mewd-server.x86_64
       - name: the rolling release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,8 +54,13 @@ jobs:
           SHORT=$(git rev-parse --short HEAD)
           cp build/linux/mewd.x86_64 "build/linux/mewd-$SHORT.x86_64"
           tar -C build/linux -czf "build/linux/mewd-$SHORT-linux.tar.gz" "mewd-$SHORT.x86_64"
+          # THE STANDALONE SERVER: its own file, and a tarball that keeps
+          # the executable bit
+          cp build/linux/mewd-server.x86_64 "build/linux/mewd-server-$SHORT.x86_64"
+          tar -C build/linux -czf "build/linux/mewd-server-$SHORT-linux.tar.gz" "mewd-server-$SHORT.x86_64"
           gh release delete linux --yes --cleanup-tag || true
           gh release create linux "build/linux/mewd-$SHORT.x86_64" "build/linux/mewd-$SHORT-linux.tar.gz" \
+            "build/linux/mewd-server-$SHORT.x86_64" "build/linux/mewd-server-$SHORT-linux.tar.gz" \
             --target "$GITHUB_SHA" --prerelease \
             --title "MEWD for Linux ($SHORT, ${GITHUB_REF_NAME})" \
-            --notes "The latest Linux build, x86_64, for Ubuntu 20.04 or later. It uses the Mobile renderer on Vulkan, so it needs a Vulkan driver (mesa's, or NVIDIA's). Built from ${GITHUB_REF_NAME} at $SHORT. To run it: chmod +x mewd-$SHORT.x86_64 && ./mewd-$SHORT.x86_64 (the .tar.gz keeps the executable bit). "
+            --notes "The latest Linux build, x86_64, for Ubuntu 20.04 or later. It uses the Mobile renderer on Vulkan, so it needs a Vulkan driver (mesa's, or NVIDIA's). Built from ${GITHUB_REF_NAME} at $SHORT. To run it: chmod +x mewd-$SHORT.x86_64 && ./mewd-$SHORT.x86_64 (the .tar.gz keeps the executable bit). THE DEDICATED SERVER, mewd-server-$SHORT.x86_64, needs no screen, sound or GPU: chmod +x it and run ./mewd-server-$SHORT.x86_64 help for its options (--map, --port, --teams ...); type help at the running server for its console commands. "

@@ -65,6 +65,10 @@ const RULES := {
 	"overtime": 2 * 60 * TICRATE,
 }
 
+## the two sides of an island's team match, in the order of the troops
+## their players are drawn as (NetGame.TEAM_TROOP)
+const TEAM_NAMES := ["SWAT", "ARMY"]
+
 ## what survives a respawn: who you are, and the score
 const KEEP := ["id", "name", "team", "frags", "deaths", "session", "ping", "spawns", "pod_tic"]
 
@@ -181,6 +185,15 @@ func _init(g, overrides := {}, seed := 1) -> void:
 		teams = []
 		for t in pvp.teams.slice(0, 2):
 			teams.append({"name": str(t.name), "spawns": t.spawns.duplicate(true), "score": 0})
+	# TEAMS ON AN ISLAND (at the user's request: "add teams as a multiplayer
+	# concept"): the host's rules say so (`teams`, HOST GAME's TEAM
+	# DEATHMATCH, --teams), two sides, SWAT and ARMY — the troops each side's
+	# players are drawn as (NetGame.TEAM_TROOP) — dropped in by pod beside
+	# their own (drop_point)
+	if teams == null and bool(rules.get("teams", false)):
+		teams = []
+		for nm in TEAM_NAMES:
+			teams.append({"name": nm, "spawns": [], "score": 0})
 	mode = "tdm" if teams != null else "dm"
 	# (an island's are drop points, found as they are wanted: drop_point)
 	spawns = null if teams != null or g.level is IslandLevel else find_spawns(g.level)
@@ -243,7 +256,9 @@ func leave(p) -> void:
 ## from the nearest player not on its side, with a little chance in it so
 ## two deaths do not queue on the same pad.
 func spawn_point(p) -> Array:
-	var list: Array = teams[p.team].spawns if teams != null else spawns
+	var list: Array = teams[p.team].spawns if teams != null and not teams[p.team].spawns.is_empty() else spawns
+	if list == null or list.is_empty():
+		list = [[roundf(game.player.x), roundf(game.player.y)]]
 	var foes := []
 	var near := []
 	for o in game.players:
@@ -288,9 +303,25 @@ func drop_point(p) -> Array:
 	var half: float = minf(lv.bounds.size.x, lv.bounds.size.y) * 0.5
 	var arena: float = minf(Pickups.RING2, 0.8 * half) + 1600.0
 	var foes := []
+	var friends := []
 	for o in g.players:
 		if o != p and not o.dead:
-			foes.append(o)
+			if friendly(p, o):
+				friends.append(o)
+			else:
+				foes.append(o)
+	# A TEAM'S PLAYER comes down beside its own (40 to 80 m from one of them,
+	# still no nearer than 50 m to the other side), facing where they face
+	if not friends.is_empty():
+		for k in 12:
+			var f = friends[int(rnd.next() * friends.size()) % friends.size()]
+			var q0 := Vector2(f.x, f.y) + Vector2.RIGHT.rotated(rnd.next() * TAU) * (1280.0 + rnd.next() * 1280.0)
+			var q: Vector2 = lv._find_ground(rng, q0, 320.0, 0.35)
+			if q.distance_to(A) > arena or not lv.on_land(q.x, q.y, 128.0) or not _clear_of_pickups(q) or _by_a_herd(q):
+				continue
+			if foes.any(func(o): return Vector2(o.x - q.x, o.y - q.y).length() < 1600.0):
+				continue
+			return [roundf(q.x), roundf(q.y), q.x + cos(f.angle) * 640.0, q.y + sin(f.angle) * 640.0]
 	for k in (12 if not foes.is_empty() else 0):
 		var f = foes[int(rnd.next() * foes.size()) % foes.size()]
 		var q0 := Vector2(f.x, f.y) + Vector2.RIGHT.rotated(rnd.next() * TAU) * (2560.0 + rnd.next() * 2560.0)
@@ -346,7 +377,7 @@ func _clear_of_pickups(q: Vector2) -> bool:
 ## Put `p` back in the world, whole — on an island, in a drop pod.
 func spawn(p):
 	var g = game
-	var drop_in: bool = g.level is IslandLevel and teams == null
+	var drop_in: bool = g.level is IslandLevel
 	# (a host told where to drop people, --spawns, aims there: the tests)
 	var at := drop_point(p) if drop_in and spawns == null else spawn_point(p)
 	var x := float(at[0])
