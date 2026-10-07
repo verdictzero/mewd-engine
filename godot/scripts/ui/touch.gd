@@ -9,8 +9,15 @@
 ## PERF, top left, turns the performance overlay on and off.
 ## LEFT-HANDED mirrors the lot. They dim after a while untouched.
 ##
-## PORTRAIT is not played: a phone held upright gets a full-screen red
-## ROTATE DEVICE, at the user's request.
+## PORTRAIT is not played: a phone held upright gets a full-screen
+## ROTATE DEVICE, at the user's request (RotateNotice).
+##
+## IN GOLF'S HOUSE STYLE, at the user's request (UiStyle): no hue, only
+## greys — every button a dark glass with a READY edge, white (CURSOR)
+## while a thumb is on it; FIRE told apart by a heavier edge and its
+## name in bold, not by orange; the names in the house's words, TAG at
+## rest, in a black outline over the moving world. The buttons and the
+## stick stay round: they are for thumbs, and a thumb is round.
 class_name TouchControls
 extends Control
 
@@ -45,6 +52,8 @@ var stick_knob := Vector2()
 var stick_on := false
 var idle := 0.0
 var font: Font
+## the words in bold, for FIRE
+var bold: Font
 
 static func stick_vector(d: Vector2, r: float, dead := 0.12) -> Vector2:
 	var len := d.length()
@@ -59,7 +68,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the menus still want the taps as clicks; the game ignores those
 	# while the glass is up (Game.handle_input)
-	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"]))
+	font = UiStyle.words("Medium")
+	bold = UiStyle.words("Bold")
 
 ## the buttons, where the web build's stylesheet puts them
 func _buttons() -> Dictionary:
@@ -189,23 +199,29 @@ func _draw() -> void:
 		var r: float = bs[k][1]
 		var held: bool = pointers.values().any(func(q): return q.kind == k)
 		var fire: bool = k == "fire"
-		var fill := Color(232 / 255.0, 98 / 255.0, 26 / 255.0, 0.52 if held else 0.16) if fire else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.30 if held else 0.08)
-		var edge := Color("#ffe07a") if (fire and held) else (Color(232 / 255.0, 98 / 255.0, 26 / 255.0, 0.62) if fire else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.34))
-		if k in ["aim", "zoom"]:
-			edge = Color(150 / 255.0, 1.0, 138 / 255.0, 0.46)
+		# the glass, and over it while held the cursor's white breath
+		var fill := Color(UiStyle.CURSOR, 0.26) if held else Color(UiStyle.PANEL_BG, 0.45 if fire else 0.32)
+		var edge := Color(UiStyle.CURSOR) if held else Color(UiStyle.READY, 0.6 if fire else 0.42)
+		# (AIM and ZOOM, the scope's, a step quieter than the rest)
+		if k in ["aim", "zoom"] and not held:
+			edge = Color(UiStyle.TAG, 0.5)
 		fill.a *= dim
 		edge.a *= dim
 		draw_circle(c, r * (0.94 if held else 1.0), fill)
-		draw_arc(c, r * (0.94 if held else 1.0), 0, TAU, 48, edge, 1.5)
-		var fs := 13 if fire else (9 if k == "perf" else 11)
+		draw_arc(c, r * (0.94 if held else 1.0), 0, TAU, 48, edge, 2.5 if fire else 1.5, true)
+		var fs := 15 if fire else (10 if k == "perf" else 12)
+		var f: Font = bold if fire else font
 		var t: String = bs[k][2]
-		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		draw_string(font, c + Vector2(-w / 2.0, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
-			Color(1.0, 0.85, 0.66, dim) if fire else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.85 * dim))
+		var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var at := c + Vector2(-w / 2.0, fs * 0.35)
+		var ink := Color(UiStyle.CURSOR if held else (UiStyle.NAME if fire else UiStyle.TAG), dim)
+		draw_string_outline(f, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 2, Color(0, 0, 0, 0.8 * dim))
+		draw_string(f, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
 	if stick_on:
-		draw_circle(stick_base, radius, Color(1, 1, 1, 0.06))
-		draw_arc(stick_base, radius, 0, TAU, 48, Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.34), 1.5)
+		draw_circle(stick_base, radius, Color(UiStyle.PANEL_BG, 0.25))
+		draw_arc(stick_base, radius, 0, TAU, 48, Color(UiStyle.READY, 0.42), 1.5, true)
 		var k := stick_knob - stick_base
 		if k.length() > radius:
 			k = k.normalized() * radius
-		draw_circle(stick_base + k, radius * 0.42, Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.45 if run and move.length() > 0.85 else 0.3))
+		var running := run and move.length() > 0.85
+		draw_circle(stick_base + k, radius * 0.42, Color(UiStyle.CURSOR, 0.45) if running else Color(UiStyle.READY, 0.3))

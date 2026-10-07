@@ -1,18 +1,25 @@
 ## MEWD — the title (index.html #title, css/style.css, js/main.js).
 ## (MEWD: Made Entirely Without Doom.)
 ##
-## The logo over the menu, the pair centred on the glass — as wide as
-## the glass allows (96% of it, or 112% of its height) and never so
-## tall that the menu falls off (66% of the height); a phone on its
-## side is too short for one above the other, so there the logo takes
-## the left and the menu stands at its right.
+## IN GOLF'S HOUSE STYLE (at the user's request: "port the UI design
+## language from verdictzero/golf over to MEWD"; UiStyle): the logo across
+## the top, the menu a column of rows at the bottom right, each row a box
+## of the glass with its top right and bottom left cut, the words in
+## Zalando Sans Condensed. The one you are on is white and bold, its box
+## brighter and its keyline white, and slides in from the right; the
+## others rest in thin grey; one not ready yet is dim and shakes its head
+## when tried. No hue.
 ##
-## THE MENU, DOOM'S SHAPE IN THIS GAME'S CLOTHES: a column of words (no
-## blinking marker, at the user's request). The
-## one you are on is filled in red, the logo's brick, at the user's
-## request. NEW GAME opens the LEVELS — the islands (Islands.LIST), at
-## the user's request — in the same column, and one of those starts the
-## game; the others shake their heads.
+## THE LOGO KEEPS ITS SIZE (at the user's request: "make sure the MEWD
+## logo on the title retains a constant size regardless of menu
+## configuration"): its size is the screen's alone — 46% of the height, or
+## 90% of the width if that is less — and the menu takes what is under it,
+## its rows made shorter (never the logo smaller) when a column is long. A
+## phone on its side is too short for one above the other, so there the
+## logo takes the left and the menu stands at its right.
+##
+## NEW GAME opens the LEVELS — the islands (Islands.LIST), at the user's
+## request — in the same column, and one of those starts the game.
 ##
 ## THE LAYERS, at the user's request, top to bottom: this menu; MEWD and
 ## its SHADOWS, softer than they were, in front of the dither (`shade`, a
@@ -59,12 +66,21 @@ static func _hosts() -> Array:
 const MODES := [["DEATHMATCH", "mode:dm", true], ["TEAM DEATHMATCH", "mode:tdm", true], ["BACK", "hosts", true]]
 ## the island HOST GAME chose, waiting on MODES
 var _host_map := ""
-const RED := Color("#c8321e")
-const RED_EDGE := Color("#e0442c")
+## THE ROWS (golf's title menu: SCRIPT_main_menu.gd): their height, the
+## words' size, the gap between them, and how far the one you are on
+## slides in
+const ROW_H := 38.0
+const ROW_FONT := 22
+const ROW_GAP := 6.0
+const INDENT_SEL := 26.0
+const ROW_W := 372.0
 
 var logo: TextureRect
-var panel: PanelContainer
+## the column of rows (a VBox; each row a MarginContainer round its Button,
+## the margin the slide)
+var panel: VBoxContainer
 var buttons: Array[Button] = []
+var rows: Array[MarginContainer] = []
 var at := 0
 ## the column on show: the main menu, or the levels
 var items: Array = ITEMS
@@ -77,55 +93,55 @@ var _shake := {}
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"]))
+	theme = UiStyle.theme()
+	font = UiStyle.words("ExtraLight")
 	logo = TextureRect.new()
 	logo.texture = load("res://assets/logo/mewd-1440.webp")
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(logo)
-	panel = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(11 / 255.0, 13 / 255.0, 20 / 255.0, 0.82)
-	sb.border_color = Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.5)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(16)
-	sb.shadow_color = Color(0, 0, 0, 0.6)
-	sb.shadow_size = 18
-	sb.set_content_margin_all(10)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel = VBoxContainer.new()
+	panel.alignment = BoxContainer.ALIGNMENT_END
+	panel.add_theme_constant_override("separation", int(ROW_GAP))
 	add_child(panel)
-	col = VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	panel.add_child(col)
+	col = panel
 	_build_buttons()
 	var ver := Label.new()
 	ver.text = U.VERSION
-	ver.add_theme_font_override("font", font)
-	ver.add_theme_font_size_override("font_size", 11)
-	ver.add_theme_color_override("font_color", Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.35))
-	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	ver.position -= Vector2(64, 24)
+	ver.add_theme_font_override("font", UiStyle.numbers())
+	ver.add_theme_font_size_override("font_size", 16)
+	ver.add_theme_color_override("font_color", UiStyle.TAG)
+	ver.add_theme_constant_override("outline_size", 3)
+	ver.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	ver.position += Vector2(24, -30)
 	add_child(ver)
 	mark(0)
 	resized.connect(_layout)
 	_layout()
 
 func _build_buttons() -> void:
-	for b in buttons:
-		col.remove_child(b)
-		b.queue_free()
+	for r in rows:
+		col.remove_child(r)
+		r.queue_free()
 	buttons = []
+	rows = []
 	for i in items.size():
+		var r := MarginContainer.new()
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var b := Button.new()
-		b.text = _spaced(items[i][0])
+		b.text = items[i][0]
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_override("font", font)
+		b.add_theme_constant_override("outline_size", 4)
 		b.mouse_entered.connect(func(): mark(i))
 		b.pressed.connect(func(): take(i))
-		col.add_child(b)
+		r.add_child(b)
+		col.add_child(r)
 		buttons.append(b)
+		rows.append(r)
 
 ## The column on show: the main menu, or the levels under NEW GAME.
 func show_page(levels: bool) -> void:
@@ -149,13 +165,12 @@ func _back() -> void:
 	elif items != ITEMS:
 		show_page(false)
 
-## A LINE UNDER THE MENU for a few seconds (why a join came to nothing)
+## A LINE UNDER THE MENU for a few seconds (why a join came to nothing):
+## golf's flash — BRIGHT, held, then faded
 var _note: Label
 func notice(text: String) -> void:
 	if _note == null:
-		_note = Label.new()
-		_note.add_theme_font_override("font", font)
-		_note.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		_note = UiStyle.label("", "bright", 20, "Medium", 4)
 		_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_note.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 40)
 		add_child(_note)
@@ -164,10 +179,6 @@ func notice(text: String) -> void:
 	var tw := create_tween()
 	tw.tween_interval(5.0)
 	tw.tween_property(_note, "modulate:a", 0.0, 1.0)
-
-## the menu's words set wide, as the page's letter-spacing sets them
-static func _spaced(s: String) -> String:
-	return " ".join(s.split(""))
 
 ## The shadows go into `into`, a Control under the logo; `k` maps this
 ## screen's pixels to its.
@@ -199,41 +210,46 @@ func attach_shade(into: Control) -> void:
 func _layout() -> void:
 	var W := size.x
 	var H := size.y
-	if W <= 0 or H <= 0:
+	if W <= 0 or H <= 0 or logo == null:
 		return
-	var tex_aspect := 1951.0 / 954.0
+	var ts := logo.texture.get_size()
+	var tex_aspect := ts.x / maxf(ts.y, 1.0)
 	var side := H <= 520.0 and W > H
-	var lw: float
+	var n := maxi(items.size(), 1)
+	var margin := clampf(minf(W, H) * 0.055, 16.0, 48.0)
+	# THE LOGO: the screen's size alone, never the menu's
 	var lh: float
-	var fs := int(clampf(H * 0.021, 11.0, 14.4))
-	for b in buttons:
-		b.add_theme_font_size_override("font_size", fs)
-		b.custom_minimum_size = Vector2(0, 30 if side else 34)
-	var pw := minf(320.0, W * 0.8) if not side else minf(240.0, W * 0.32)
-	panel.custom_minimum_size = Vector2(pw, 0)
-	panel.size = Vector2(pw, 0)
-	panel.reset_size()
-	var ph := panel.get_combined_minimum_size().y
+	var lw: float
 	if side:
-		lw = minf(W * 0.60, H * 1.5)
-		lh = minf(lw / tex_aspect, H * 0.9)
-		lw = lh * tex_aspect
+		lw = W * 0.5
+		lh = minf(lw / tex_aspect, H * 0.8)
+	else:
+		lh = minf(H * 0.46, W * 0.9 / tex_aspect)
+	lw = lh * tex_aspect
+	# THE ROWS: as golf's, made shorter only if the column would not fit
+	var room := H - margin * 2.0 if side else H - (H * 0.04 + lh) - margin * 1.6 - 18.0
+	var rh := clampf(minf(ROW_H, (room - ROW_GAP * (n - 1)) / n), 22.0, ROW_H)
+	var fs := int(clampf(rh * ROW_FONT / ROW_H, 13.0, ROW_FONT))
+	var rw := minf(ROW_W, (W * 0.42 if side else W - margin * 2.0))
+	for j in rows.size():
+		rows[j].custom_minimum_size = Vector2(rw, rh)
+		buttons[j].add_theme_font_size_override("font_size", fs)
+	panel.add_theme_constant_override("separation", int(ROW_GAP if rh >= ROW_H - 0.5 else maxf(2.0, ROW_GAP * rh / ROW_H)))
+	var ph := n * rh + (n - 1) * panel.get_theme_constant("separation")
+	if side:
 		var gap := W * 0.03
-		var total := lw + gap + pw
+		var total := lw + gap + rw
 		logo.position = Vector2((W - total) / 2.0, (H - lh) / 2.0)
 		panel.position = Vector2(logo.position.x + lw + gap, (H - ph) / 2.0)
 	else:
-		lw = minf(minf(W * 0.96, H * 1.12), 1951.0)
-		var gap := clampf(H * 0.025, 6.0, 26.0)
-		# the logo takes what the menu leaves, and the menu never falls
-		# off the bottom however many things are on it
-		lh = minf(lw / tex_aspect, minf(H * 0.66, H - ph - gap - H * 0.05))
-		lw = lh * tex_aspect
-		var total := lh + gap + ph
-		logo.position = Vector2((W - lw) / 2.0, (H - total) / 2.0)
-		panel.position = Vector2((W - pw) / 2.0, logo.position.y + lh + gap)
+		logo.position = Vector2((W - lw) / 2.0, H * 0.04)
+		# bottom right, as golf's; centred under the logo where the
+		# screen is narrower than it is tall
+		var px := W - margin - rw if W > H * 1.1 else (W - rw) / 2.0
+		# (lifted clear of the logs' line in the bottom right: Main._logs_note)
+		panel.position = Vector2(px, H - margin - 18.0 - ph)
 	logo.size = Vector2(lw, lh)
-	panel.size = Vector2(pw, ph)
+	panel.size = Vector2(rw, ph)
 	_place_shadows()
 
 func _place_shadows() -> void:
@@ -253,27 +269,16 @@ func mark(i: int) -> void:
 
 func _style() -> void:
 	for j in buttons.size():
-		var b := buttons[j]
 		var on := j == at
 		var live: bool = items[j][2]
-		var sb := StyleBoxFlat.new()
-		sb.set_corner_radius_all(10)
-		sb.set_border_width_all(2)
-		if on and live:
-			sb.bg_color = RED
-			sb.border_color = RED_EDGE
-		elif on:
-			sb.bg_color = Color(1, 1, 1, 0.05)
-			sb.border_color = Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.4)
-		else:
-			sb.bg_color = Color(0, 0, 0, 0)
-			sb.border_color = Color(0, 0, 0, 0)
-		for st in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(st, sb)
-		var ink := Color("#ffffff") if (on and live) else (Color("#e9e9ee") if live else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.6 if on else 0.34))
-		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			b.add_theme_color_override(c, ink)
-		b.text = _spaced(items[j][0])
+		UiStyle.dress_row(buttons[j], on, not live, buttons[j].get_theme_font_size("font_size"))
+		# (golf's title rows: thin at rest, bold where you are)
+		buttons[j].add_theme_font_override("font", UiStyle.words("Bold" if on and live else "ExtraLight"))
+		buttons[j].add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		# the one you are on slides in from the right
+		rows[j].add_theme_constant_override("margin_left", int(0.0 if on else INDENT_SEL))
+		rows[j].add_theme_constant_override("margin_right", int(INDENT_SEL if on else 0.0))
+		buttons[j].text = items[j][0]
 
 func take(i: int) -> void:
 	mark(i)
@@ -307,7 +312,8 @@ func _process(dt: float) -> void:
 	for j in _shake.keys():
 		_shake[j] -= dt
 		var t: float = 0.32 - _shake[j]
-		buttons[j].position.x = sin(t / 0.32 * TAU * 2.0) * 5.0 if _shake[j] > 0 else 0.0
+		var home := float(rows[j].get_theme_constant("margin_left"))
+		buttons[j].position.x = home + (sin(t / 0.32 * TAU * 2.0) * 5.0 if _shake[j] > 0 else 0.0)
 		if _shake[j] <= 0:
 			_shake.erase(j)
 	_place_shadows()

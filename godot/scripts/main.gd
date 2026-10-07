@@ -124,12 +124,16 @@ class _LogsNote extends Button:
 func _logs_note() -> Control:
 	var l := _LogsNote.new()
 	l.text = Logs.where()
-	l.add_theme_font_size_override("font_size", 10)
-	l.add_theme_color_override("font_color", Color(0.75, 0.8, 0.78, 0.8))
+	# (golf's house style, at the user's request: a hint in the words' face
+	# and TAG grey, outlined black over the title's forest; under the mouse
+	# it is where you are, so white — never a hue)
+	l.add_theme_font_override("font", UiStyle.words())
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", UiStyle.TAG)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 3)
-	l.add_theme_color_override("font_hover_color", Color(1, 1, 0.8))
-	l.add_theme_color_override("font_pressed_color", Color(1, 1, 0.6))
+	l.add_theme_color_override("font_hover_color", UiStyle.CURSOR)
+	l.add_theme_color_override("font_pressed_color", UiStyle.CURSOR)
 	l.flat = true
 	l.focus_mode = Control.FOCUS_NONE
 	l.alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -139,7 +143,8 @@ func _logs_note() -> Control:
 	# put it off the top of the glass)
 	l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 8)
 	if not Logs.granted():
-		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3, 0.9))
+		# (the storage not given: a step brighter, not amber)
+		l.add_theme_color_override("font_color", UiStyle.NAME)
 	l.pressed.connect(open_debug)
 	# (the permission's answer comes after the title is up; a method on
 	# the note, never a lambda of this scene, which the note outlives)

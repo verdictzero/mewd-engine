@@ -3586,6 +3586,73 @@ THE NEW LOGO (0000031)
   reads 1440) and the boot splash (godot/data/splash.png), then
   tools/make-icons.py the desktop, web and Android icons from it.
 
+
+GOLF'S LOOK, THE LOGO THAT KEEPS ITS SIZE, THE RIFLE'S GLASS, THE MATCAPS (0000032)
+
+  At the user's request ("the plasma rifle is missing its glass material,
+  make sure the MEWD logo on the title retains a constant size regardless
+  of menu configuration, port the UI design language from
+  verdictzero/golf over to MEWD and implement fully in all aspects, give
+  the maze sections and the drop pod a matcap so their PBRness looks
+  nice"):
+
+  THE UI IS GOLF'S (its docs/DOC_ui_style.md and SCRIPT_menu_system.gd).
+  godot/scripts/ui/ui_style.gd (UiStyle) holds it and every screen reads
+  it by name:
+    - NO HUE: a ramp of greys by role — CURSOR white (where you are; a
+      gauge topped out), READY, NAME, TAG, WAIT, DIM, BRIGHT (a flash),
+      HP / TP / EXP for bar fills by weight — and the glass, a
+      translucent near-black with a breath of blue (PANEL_BG), keylined
+      in PANEL_BORDER. ui_test holds every one of them to golf's own
+      rule: no channel more than 0.031 from the others.
+    - CUT CORNERS, NEVER ROUNDED: godot/scripts/ui/cut_box.gd (CutBox),
+      golf's SCRIPT_combat_panel as a StyleBox, so any PanelContainer,
+      Button or LineEdit wears it, and drawable straight onto a canvas
+      for the HUD. The house shape cuts the top right and the bottom
+      left; windows 16, rows 12, plates 10, the cursor 8.
+    - TYPE BY ROLE: words in Zalando Sans Condensed (assets/fonts/
+      zalando, SIL OFL), numbers in digital-7 mono (assets/fonts/
+      digital7), zero-padded; PromptFont kept for pad glyphs. Letters
+      spaced with spaces, as golf spaces them.
+    - THE CURSOR: no hover of its own and no filled red button — the one
+      cursor, which the pad and the mouse both move, makes a row white
+      and bold, its box brighter and its keyline white.
+  Every screen in it: THE TITLE (the logo across the top, the menu a
+  column of rows at the bottom right, thin at rest, bold and slid in
+  where you are, as golf's title), THE PAUSE MENU (a window, its pages a
+  row of plates, its tiles and footer rows, a line of hints), THE HUD
+  (greys, digital-7 numbers, Zalando words, bars on golf's track; low
+  health and a dry tank go white — the alarm — not red; the scoreboard a
+  cut window), the DEBUG menu, the JOIN box, the PAD WIZARD, the LOADING
+  screen, the ROTATE notice, the PERF readout, the TOUCH controls and the
+  logs' line. Kept as they were, as effects rather than chrome: the death
+  card's red wash, its faces and its 死, and the screen's red and gold
+  flashes when hurt or picking up. The terminal keeps its own green
+  screen, being a thing in the world.
+
+  THE LOGO KEEPS ITS SIZE (Title._layout): the screen's alone — 46% of
+  the height, or 90% of the width if less — and the menu takes what is
+  under it, its rows made shorter (never the logo smaller) when a column
+  is long; on a phone on its side the logo half the width at the left.
+  ui_test: the same size on the main menu, the islands, the hosts, the
+  modes, at 1280x720, 900x400 and 720x1280, the menu on the screen on
+  every one.
+
+  THE RIFLE'S GLASS: it was there but drawn as a flat white disc — its
+  `inner` light, the coil's, was added over the whole pane at three times
+  white. Now that light comes out at the pane's rim and in a soft swirl
+  (gun_glass.gdshader), the Sarakawa's at a third of what it was, and
+  the glass reads as blue glass with the coil glowing through it.
+  lance_shot.gd's new `plasma` mode pictures it.
+
+  THE MATCAPS (SHADER_matcap_prop, MatcapProp): MAZE LAND's walls and
+  posts and the drop pod's hull and door keep their colour, normal and
+  metal-roughness maps, lit by two pictures of a lit ball — a soft clay
+  (assets/matcaps/clay.png, nidorx's 4F4F4F_9C9C9C_121212_7C7C7C) for
+  the diffuse light and the arc maw's pearl for what a polished surface
+  reflects, mixed by metal and roughness — with a share of the island's
+  own light over them, its haze, and the cold band to the thermal sight.
+
 TESTS
 
     tools/godot-test.sh

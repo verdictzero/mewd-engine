@@ -62,4 +62,7 @@ run pickupsd --script res://godot/tests/pickup_test.gd -- --map=debugland --seed
 # MAZE LAND: the maze in the plus of five sections, its walls stopping
 # bodies, rounds and eyes, grass only beside them (godot/tests/maze_test.gd)
 run maze    --script res://godot/tests/maze_test.gd -- --map=mazeland
+# THE HOUSE STYLE (golf's): no hue, cut corners, the title's logo the same
+# size on every page of the menu (godot/tests/ui_test.gd)
+run ui      --script res://godot/tests/ui_test.gd
 exit $fail

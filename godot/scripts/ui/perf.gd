@@ -17,6 +17,10 @@
 ##
 ## Four times a second, in the corner, over a dark panel; the specs are
 ## read once. Never filtered by the lo-fi pass (it is on the HUD layer).
+##
+## IN GOLF'S HOUSE STYLE, at the user's request (UiStyle, CutBox): the
+## panel a house window with a small cut, its keyline thin; the readout
+## in the house's words (Medium) in NAME, no green.
 class_name PerfOverlay
 extends PanelContainer
 
@@ -36,15 +40,12 @@ var _sec := 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0.62)
-	sb.set_content_margin_all(6)
-	sb.set_corner_radius_all(4)
+	var sb := CutBox.new(UiStyle.PANEL_BG, UiStyle.PANEL_BORDER_REST, 1.0, UiStyle.CUT_CURSOR).margins(10, 6, 12, 6)
 	add_theme_stylebox_override("panel", sb)
 	label = Label.new()
-	label.add_theme_font_override("font", U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"])))
-	label.add_theme_font_size_override("font_size", 11)
-	label.add_theme_color_override("font_color", Color(0.86, 0.95, 0.86))
+	label.add_theme_font_override("font", UiStyle.words("Medium"))
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", UiStyle.NAME)
 	label.add_theme_constant_override("line_spacing", 0)
 	add_child(label)
 	position = Vector2(8, 44)

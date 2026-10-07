@@ -8,6 +8,15 @@
 ## build's (but the world drawn at the chunky grid's own size, for speed): 320 rows of 2:3 pixels, brightness 1.35, the
 ## clock at two, clear, and BOTH DEBUG SWITCHES ON — infinite ammo and
 ## invincibility — at the user's request.
+##
+## IN GOLF'S HOUSE STYLE (at the user's request: "port the UI design
+## language from verdictzero/golf"; UiStyle): a window of the glass with
+## its top right and bottom left cut, over the game darkened in grey; the
+## pages a row of plates, the tiles and the footer cut-corner rows. No
+## hover of their own and no red: the one cursor (the pad's, or the
+## mouse's as it moves) makes a row white and bold, its box brighter and
+## its keyline white. The words Zalando Sans Condensed; a line of hints
+## at the bottom in TAG.
 class_name PauseMenu
 extends Control
 
@@ -83,35 +92,35 @@ var file_note: Label
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"]))
+	theme = UiStyle.theme()
+	font = UiStyle.words("Medium")
 	load_prefs()
 	var shade := ColorRect.new()
-	shade.color = Color(4 / 255.0, 5 / 255.0, 9 / 255.0, 0.88)
+	shade.color = UiStyle.SHADE
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
 	var centre := CenterContainer.new()
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(centre)
 	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(11 / 255.0, 13 / 255.0, 20 / 255.0, 0.92)
-	sb.border_color = Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.5)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(16)
-	sb.set_content_margin_all(18)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", UiStyle.window(Vector4(28, 22, 28, 22)))
 	centre.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	panel.add_child(col)
-	var h := _label("P A U S E D   " + U.VERSION, 20, Color("#e9e9ee"))
-	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(h)
+	# the window's tag, and the build's number across from it
+	var top := HBoxContainer.new()
+	var h := UiStyle.label(UiStyle.spaced("paused"), "tag", 18)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(h)
+	top.add_child(UiStyle.number(U.VERSION, "tag", 20))
+	col.add_child(top)
+	col.add_child(UiStyle.rule())
 	var tabrow := HBoxContainer.new()
 	tabrow.add_theme_constant_override("separation", 6)
 	col.add_child(tabrow)
 	for i in PAGES.size():
-		var t := _button(PAGES[i], 11)
+		var t := _button(PAGES[i], 14)
 		t.pressed.connect(func(): show_page(i + 1))
 		tabrow.add_child(t)
 		tabs.append(t)
@@ -122,69 +131,73 @@ func _ready() -> void:
 	grid.custom_minimum_size = Vector2(560, 300)
 	col.add_child(grid)
 	for d in DIALS + ACTIONS:
-		var tile := _button("", 12)
+		var tile := _button("", 16)
 		tile.custom_minimum_size = Vector2(180, 92)
+		tile.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tile.gui_input.connect(func(e): _tile_input(e, d[0]))
+		tile.mouse_entered.connect(func(): _hover(d[0]))
 		grid.add_child(tile)
 		tiles[d[0]] = tile
 	# (what the last SAVE or LOAD did, and where the file is)
-	file_note = _label("", 11, Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.75))
+	file_note = UiStyle.label("", "tag", 14)
 	file_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	file_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	file_note.custom_minimum_size = Vector2(560, 0)
 	col.add_child(file_note)
+	col.add_child(UiStyle.rule())
 	var foot := HBoxContainer.new()
 	foot.alignment = BoxContainer.ALIGNMENT_CENTER
-	foot.add_theme_constant_override("separation", 12)
+	foot.add_theme_constant_override("separation", 8)
 	col.add_child(foot)
-	var resume := _button("RESUME", 14, true)
+	var resume := _button("RESUME", 18)
 	resume.pressed.connect(func(): resumed.emit())
 	foot.add_child(resume)
-	var quit := _button("QUIT TO TITLE", 14)
+	var quit := _button("QUIT TO TITLE", 18)
 	quit.pressed.connect(func(): quit_to_title.emit())
 	foot.add_child(quit)
-	var setup := _button("SET UP PAD", 14)
+	var setup := _button("SET UP PAD", 18)
 	setup.pressed.connect(func(): pad_setup.emit())
 	foot.add_child(setup)
-	var dbg := _button("DEBUG", 14)
+	var dbg := _button("DEBUG", 18)
 	dbg.pressed.connect(func(): debug_menu.emit())
 	foot.add_child(dbg)
 	_foot = [resume, quit, setup, dbg]
+	for j in _foot.size():
+		_foot[j].mouse_entered.connect(func(): _cursor_to(_stops().size() + j))
+	# golf's hint line: what the keys and the pad do here
+	var hint := UiStyle.label("↑↓←→  MOVE      A / CLICK  STEP      B / RIGHT-CLICK  BACK A STEP      L1 R1 / 1–7  PAGE      START  RESUME", "tag", 13)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(hint)
 	show_page(1)
 	visibility_changed.connect(func(): if visible: _cursor_to(-1))
 
 func _label(t: String, size: int, c: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.add_theme_font_override("font", font)
-	l.add_theme_font_size_override("font_size", size)
+	var l := UiStyle.label(t, "name", size)
 	l.add_theme_color_override("font_color", c)
 	return l
 
-func _button(t: String, size: int, primary := false) -> Button:
+## a row of the house's (UiStyle.dress_row), resting until the cursor
+## comes to it
+func _button(t: String, size: int, _primary := false) -> Button:
 	var b := Button.new()
 	b.text = t
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_override("font", font)
-	b.add_theme_font_size_override("font_size", size)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#c8321e") if primary else Color(1, 1, 1, 0.04)
-	sb.border_color = Color("#e0442c") if primary else Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.35)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(10)
-	sb.set_content_margin_all(8)
-	var hov := sb.duplicate()
-	hov.bg_color = Color("#d8432e") if primary else Color(1, 1, 1, 0.1)
-	for st in ["normal", "focus"]:
-		b.add_theme_stylebox_override(st, sb)
-	for st in ["hover", "pressed"]:
-		b.add_theme_stylebox_override(st, hov)
+	b.set_meta("size", size)
+	UiStyle.dress_row(b, false, false, size)
 	return b
+
+## the mouse moving onto a tile moves the cursor there (golf: no hover of
+## its own, the one cursor follows the mouse)
+func _hover(key: String) -> void:
+	var stops := _stops()
+	var i := stops.find(key)
+	if i >= 0:
+		_cursor_to(i)
 
 func show_page(n: int) -> void:
 	page = n
 	for i in tabs.size():
-		tabs[i].modulate = Color(1, 1, 1, 1.0 if i + 1 == n else 0.5)
+		UiStyle.dress_row(tabs[i], i + 1 == n, false, tabs[i].get_meta("size", 14))
 	for d in DIALS + ACTIONS:
 		tiles[d[0]].visible = d[2] == n
 	if file_note != null:
@@ -212,18 +225,7 @@ func _cursor_to(i: int) -> void:
 		_mark(_foot[j], cursor == stops.size() + j)
 
 func _mark(b: Button, on: bool) -> void:
-	var sb: StyleBox = b.get_theme_stylebox("normal")
-	if on:
-		var hi := sb.duplicate()
-		hi.border_color = Color("#e0442c")
-		hi.set_border_width_all(3)
-		b.add_theme_stylebox_override("focus", hi)
-		b.add_theme_stylebox_override("normal", hi)
-		b.set_meta("plain", sb)
-	elif b.has_meta("plain"):
-		b.add_theme_stylebox_override("normal", b.get_meta("plain"))
-		b.add_theme_stylebox_override("focus", b.get_meta("plain"))
-		b.remove_meta("plain")
+	UiStyle.dress_row(b, on, false, b.get_meta("size", 16))
 
 ## the pad (Pad.nav): moves the cursor over the page's three-wide grid
 ## and the footer, steps the tile under it, turns the page

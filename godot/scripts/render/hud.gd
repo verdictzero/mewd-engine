@@ -11,21 +11,36 @@
 ## request: "the mechanics / ui elements to utilize them") stand by each
 ## number: the medkit by your health, the armour you wear by your
 ## armour, the box a gun's ammunition comes in by its count.
+##
+## IN GOLF'S HOUSE STYLE, at the user's request (UiStyle, CutBox): no hue
+## in the chrome, only greys, and brightness the only thing a value can
+## mean — a gauge run dry or run low goes white and its number brighter.
+## The words in Zalando Sans Condensed, the numbers in digital-7,
+## zero-padded; labels and units in TAG, values in NAME. Over the moving
+## world the text wears a black outline, not a drop shadow.
 class_name Hud
 extends Control
 
-## the page's own colours, not the palette's: a bar is a bar, not a material
+## the readout's old names for its inks, each now one of the house's greys
+## (read by name from UiStyle, never copied). The one hue left is the
+## death's own red, which is the death's and not the chrome's.
 const UI := {
-	"ink": Color8(236, 232, 220, 240), "rule": Color8(232, 195, 74, 140),
-	"track": Color8(6, 7, 12, 158), "trackEdge": Color8(236, 232, 220, 77),
-	"mark": Color8(255, 255, 255, 235), "burn": Color("#e8621a"),
-	"full": Color("#5fd0e8"), "low": Color("#e8c34a"), "empty": Color("#e8503c"),
-	"armour2": Color("#5a8fe8"), "armour1": Color("#a07ae8"), "health": Color("#ece6d2"),
-	"death": Color("#c8102e"), "over": Color("#7ff0c8"), "gold": Color("#ffd75a"),
+	"ink": UiStyle.NAME, "label": UiStyle.TAG, "rule": UiStyle.DIM,
+	"track": UiStyle.BAR_BG, "trackEdge": UiStyle.BAR_BORDER,
+	"mark": UiStyle.CURSOR, "burn": UiStyle.CURSOR,
+	"full": UiStyle.TP, "low": UiStyle.BRIGHT, "empty": UiStyle.CURSOR,
+	"armour2": UiStyle.TP, "armour1": UiStyle.TP, "health": UiStyle.HP,
+	"death": Color("#c8102e"), "over": UiStyle.CURSOR, "gold": UiStyle.BRIGHT,
 }
 
 var game
+## the old monospaced face: kept for 死 on a match's death card, and as
+## the death's fallback when its own faces will not load
 var font: Font
+## the house's words (Medium, and Bold for what must be heard) and numbers
+var words: Font
+var bold: Font
+var nums: Font
 ## the pickups' strip as drawn (sRGB, not the world's decoded copy), for
 ## the icons
 var icons: Texture2D
@@ -34,6 +49,9 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono", "Liberation Mono"]))
+	words = UiStyle.words("Medium")
+	bold = UiStyle.words("Bold")
+	nums = UiStyle.numbers()
 	icons = load(Pickups.STRIP)
 	_make_wash()
 
@@ -44,6 +62,8 @@ func _process(_dt: float) -> void:
 func _scale() -> float:
 	return clampf(size.y / 720.0, 0.78, 1.7)
 
+## a bar the house's way: the dark track, the fill, a one-pixel keyline
+## round it, and square ends
 func _bar(x: float, y: float, w: float, h: float, lit: float, colour: Color, mark := 0.0) -> void:
 	draw_rect(Rect2(x, y, w, h), UI.track)
 	var fill := clampf(lit, 0.0, 1.0) * w
@@ -72,77 +92,94 @@ func _draw() -> void:
 	var d := p.def()
 	if not p.dead:
 		_draw_vitals(p, lx, M, bw, BAR, s)
-	# the weapon's name, far corner, an amber hairline under it
+	# the weapon's name, far corner, a DIM hairline under it
 	if not p.dead:
-		var name: String = d.name
-		var fs := int(roundf(13.0 * s))
-		var spaced := " ".join(name.split(""))
-		var w := font.get_string_size(spaced, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var wname: String = d.name
+		var fs := int(roundf(15.0 * s))
+		var spaced := UiStyle.spaced(wname)
+		var w := _wide(spaced, fs, words)
 		var x := rx - w
 		var ny := M + fs
-		draw_string(font, Vector2(x + 1, ny + 1), spaced, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6))
-		draw_string(font, Vector2(x, ny), spaced, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)
+		_text(x, ny, spaced, fs, UI.ink)
 		draw_rect(Rect2(x, ny + roundf(5.0 * s), w, maxf(1.0, roundf(s))), UI.rule)
 		# WHAT IS LEFT IN IT, under the name
 		var ay := ny + roundf(5.0 * s)
 		if d.has("ammo"):
 			ay = _draw_ammo(p, d, rx, ay, bw, BAR, s)
-		# the brains taken (Trophies), under it
+		# the brains taken (Trophies), under it: the count and its name
 		if p.brains > 0:
-			var bs := int(roundf(11.0 * s))
-			var bt := "B R A I N S  %d" % p.brains
-			var bx := rx - font.get_string_size(bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs).x
-			var by := ay + bs + roundf(6.0 * s)
-			draw_string(font, Vector2(bx + 1, by + 1), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(0, 0, 0, 0.6))
-			draw_string(font, Vector2(bx, by), bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, Color(1.0, 0.72, 0.78, 0.92))
+			var bs := int(roundf(12.0 * s))
+			var ns := int(roundf(18.0 * s))
+			var by := ay + ns + roundf(6.0 * s)
+			var bn := UiStyle.padded(int(p.brains))
+			var nw := _wide(bn, ns, nums)
+			_text(rx - nw, by, bn, ns, UI.ink, nums)
+			var bt := UiStyle.spaced("brains")
+			_text(rx - nw - roundf(8.0 * s) - _wide(bt, bs, words), by, bt, bs, UI.label)
 	elif game.get("death") == null or not game.death.active:
 		# the card: 死, and YOU DIED (a match's death; a game alone has its
-		# own words, _draw_death)
+		# own words, _draw_death). Over a darkened band, so no outline.
 		var band := size.y * 0.22
 		var top := size.y * 0.5 - band * 0.5
 		draw_rect(Rect2(0, top, size.x, band), Color(0, 0, 0, 0.72))
 		var ks := int(band * 0.55)
 		var kw := font.get_string_size("死", HORIZONTAL_ALIGNMENT_LEFT, -1, ks).x
 		draw_string(font, Vector2(size.x * 0.5 - kw * 0.5, top + band * 0.62), "死", HORIZONTAL_ALIGNMENT_LEFT, -1, ks, UI.death)
-		var ts := int(roundf(18.0 * s))
-		var txt := "Y O U   D I E D"
-		var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x
-		draw_string(font, Vector2(size.x * 0.5 - tw * 0.5, top + band * 0.9), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, UI.death)
+		var ts := int(roundf(20.0 * s))
+		var txt := UiStyle.spaced("you died")
+		var tw := _wide(txt, ts, bold)
+		draw_string(bold, Vector2(size.x * 0.5 - tw * 0.5, top + band * 0.9), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, UiStyle.BRIGHT)
 	# SLOW MOTION, said at the top of the screen while it is on
 	if game.get("slow_mo") == true:
-		var ss := int(roundf(12.0 * s))
-		var st := "S L O W   M O T I O N"
-		var sw := font.get_string_size(st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss).x
+		var ss := int(roundf(14.0 * s))
+		var st := UiStyle.spaced("slow motion")
+		var sw := _wide(st, ss, words)
 		var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.004)
-		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5 + 1, M + ss + 1), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(0, 0, 0, 0.6))
-		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, M + ss), st, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(UI.rule.r, UI.rule.g, UI.rule.b, pulse))
+		_text(size.x * 0.5 - sw * 0.5, M + ss, st, ss, Color(UI.ink, pulse))
 	# THE DROP'S READOUT (DropPod): the altitude, the fall, the tilt, the
-	# retros, the autopilot when it has the burn, the reentry fire before
+	# retros, the autopilot when it has the burn, the reentry fire before.
+	# Each line a TAG name, a digital-7 number and a TAG unit, centred.
 	var drop = game.get("drop")
 	if drop != null and drop.active and drop.phase == "drop":
 		var r: Dictionary = drop.readout()
-		var ds := int(roundf(13.0 * s))
-		var lines := ["A L T  %5.0f m" % r.alt, "F A L L  %4.0f m/s" % r.fall, "T I L T  %3.0f°" % r.tilt]
+		var ls := int(roundf(12.0 * s))
+		var ns := int(roundf(19.0 * s))
+		var gap := roundf(7.0 * s)
+		var rows := [
+			["alt", "%05d" % roundi(r.alt), "m"],
+			["fall", "%03d" % roundi(r.fall), "m/s"],
+			["tilt", "%03d" % roundi(r.tilt), "°"],
+		]
 		# (no RCS line while the pod has none: DropPod.RCS_ON)
 		if r.has("fuel"):
 			var fuel := float(r.fuel)
-			lines.append(("R C S  %3.0f%%" % (fuel * 100.0)) if fuel > 0.0 else "R C S   D R Y")
-		var y0 := M + ds
-		for ln in lines:
-			var lw := font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds).x
-			draw_string(font, Vector2(size.x * 0.5 - lw * 0.5 + 1, y0 + 1), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, Color(0, 0, 0, 0.6))
-			draw_string(font, Vector2(size.x * 0.5 - lw * 0.5, y0), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, UI.ink)
-			y0 += ds + 4.0 * s
+			rows.append(["rcs", "%03d" % roundi(fuel * 100.0), "%"] if fuel > 0.0 else ["rcs", "", UiStyle.spaced("dry")])
+		var y0 := M + ns
+		for row in rows:
+			var lt := UiStyle.spaced(row[0])
+			var vt: String = row[1]
+			var ut: String = row[2]
+			var lw := _wide(lt, ls, words)
+			var vw := _wide(vt, ns, nums)
+			var uw := _wide(ut, ls, words)
+			var x0 := roundf(size.x * 0.5 - (lw + gap + vw + gap * 0.5 + uw) * 0.5)
+			_text(x0, y0, lt, ls, UI.label)
+			_text(x0 + lw + gap, y0, vt, ns, UI.ink, nums)
+			# (a dry tank is said brighter: it is an alarm)
+			_text(x0 + lw + gap + vw + gap * 0.5, y0, ut, ls, UI.low if vt == "" else UI.label)
+			y0 += ns + 4.0 * s
 		var warn := ""
 		if r.retro > 0.0:
-			warn = "A U T O   B U R N" if r.auto else "R E T R O S"
+			warn = UiStyle.spaced("auto burn") if r.auto else UiStyle.spaced("retros")
 		elif float(r.get("heat", 0.0)) > 0.1:
-			warn = "R E E N T R Y"
+			warn = UiStyle.spaced("reentry")
 		if warn != "":
-			var rw := font.get_string_size(warn, HORIZONTAL_ALIGNMENT_LEFT, -1, ds).x
+			var ws := int(roundf(14.0 * s))
+			var rw := _wide(warn, ws, bold)
 			var pulse := 0.7 + 0.3 * sin(Time.get_ticks_msec() * 0.01)
-			draw_string(font, Vector2(size.x * 0.5 - rw * 0.5, y0 + ds), warn, HORIZONTAL_ALIGNMENT_LEFT, -1, ds, Color(UI.burn.r, UI.burn.g, UI.burn.b, pulse))
-	# the red wash when something hits you, and the gold of a pickup
+			_text(size.x * 0.5 - rw * 0.5, y0 + ws, warn, ws, Color(UI.burn, pulse), bold)
+	# the red wash when something hits you, and the gold of a pickup (the
+	# world's own flashes, not the chrome's, so they keep their hue)
 	if p.damage_flash > 0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.02, minf(0.35, p.damage_flash * 0.025)))
 	if p.bonus_flash > 0:
@@ -153,11 +190,21 @@ func _draw() -> void:
 	if game.get("net") != null:
 		_draw_board(s)
 
-## text with the house's drop shadow; how wide it was
-func _text(x: float, y: float, t: String, fs: int, col: Color) -> float:
-	draw_string(font, Vector2(x + 1, y + 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6 * col.a))
-	draw_string(font, Vector2(x, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
-	return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+## how wide a line is in a face (the house's words when none is named)
+func _wide(t: String, fs: int, f: Font = null) -> float:
+	var ff: Font = words if f == null else f
+	return ff.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+
+## text the house's way: in the words unless another face is named, and
+## over the moving world in a black outline (two to four pixels, with
+## the size); how wide it was. `outlined` false for text on a panel.
+func _text(x: float, y: float, t: String, fs: int, col: Color, f: Font = null, outlined := true) -> float:
+	var ff: Font = words if f == null else f
+	if outlined:
+		var ow := clampi(roundi(fs * 0.16), 2, 4)
+		draw_string_outline(ff, Vector2(x, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ow, Color(0, 0, 0, col.a))
+	draw_string(ff, Vector2(x, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	return ff.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
 ## a pickup's picture (its cell of the strip), `h` high, its foot at y
 func _icon(cell: int, x: float, y: float, h: float) -> void:
@@ -166,83 +213,104 @@ func _icon(cell: int, x: float, y: float, h: float) -> void:
 	var c := float(icons.get_height())
 	draw_texture_rect_region(icons, Rect2(x, y - h, h, h), Rect2(cell * c, 0, c, c))
 
-## HEALTH AND ARMOUR, top left: the medkit and the number (amber at half,
-## red at a quarter, mint over the top), the bar under it; the armour
-## you wear and its number, its bar in its class's colour (violet
-## light, blue heavy); and GOD in gold while IDDQD is on.
+## HEALTH AND ARMOUR, top left: the medkit and the number, the bar under
+## it — the bar white and the number brighter at a quarter (the alarm),
+## and a white strip along its foot for what is over the top; the armour
+## you wear and its number, its bar a step down the ramp, the number
+## gone to WAIT when there is none; and GOD while IDDQD is on.
 func _draw_vitals(p: Player, x: float, y: float, bw: float, bh: float, s: float) -> void:
-	var fs := int(roundf(24.0 * s))
-	var ls := int(roundf(11.0 * s))
+	var fs := int(roundf(30.0 * s))
+	var ls := int(roundf(12.0 * s))
 	var ih := roundf(34.0 * s)
 	bw = roundf(bw * 0.85)
 	var gap := roundf(10.0 * s)
 	var nx := x + ih + gap
 	# health
 	var h: int = p.health
-	var hc: Color = UI.over if h > Weapons.HEALTH else (UI.empty if h <= 25 else (UI.low if h <= 50 else UI.health))
+	var alarm := h <= 25
+	var hc: Color = UI.low if alarm else UI.ink
+	var hf: Color = UI.empty if alarm else UI.health
 	var base := y + ih - roundf(3.0 * s)
 	_icon(Pickups.kind_of("health"), x, y + ih, ih)
-	var w := _text(nx, base, "%3d" % h, fs, hc)
-	var lw := _text(nx + w + gap, base, "H E A L T H", ls, Color(UI.ink, 0.7))
+	var w := _text(nx, base, UiStyle.padded(h), fs, hc, nums)
+	var lw := _text(nx + w + gap, base, UiStyle.spaced("health"), ls, UI.label)
 	if p.cheat:
-		_text(nx + w + gap * 3.0 + lw, base, "G O D", ls, UI.gold)
+		_text(nx + w + gap * 3.0 + lw, base, UiStyle.spaced("god"), ls, UI.gold, bold)
 	var by := y + ih + roundf(4.0 * s)
-	_bar(nx, by, bw, bh, minf(h, Weapons.HEALTH) / float(Weapons.HEALTH), hc)
+	_bar(nx, by, bw, bh, minf(h, Weapons.HEALTH) / float(Weapons.HEALTH), hf)
 	if h > Weapons.HEALTH:
-		draw_rect(Rect2(nx, by + bh - maxf(2.0, roundf(2.0 * s)), bw * minf(1.0, float(h - Weapons.HEALTH) / float(Weapons.HEALTH_TOP - Weapons.HEALTH)), maxf(2.0, roundf(2.0 * s))), UI.gold)
+		draw_rect(Rect2(nx, by + bh - maxf(2.0, roundf(2.0 * s)), bw * minf(1.0, float(h - Weapons.HEALTH) / float(Weapons.HEALTH_TOP - Weapons.HEALTH)), maxf(2.0, roundf(2.0 * s))), UI.over)
 	# armour
 	var ay := by + bh + roundf(10.0 * s)
 	var heavy: bool = p.armour_class >= 2
 	var ac: Color = UI.armour2 if heavy else UI.armour1
+	var an: Color = UI.ink
 	if p.armour <= 0:
-		ac = Color(UI.ink, 0.45)
+		an = UiStyle.WAIT
 	_icon(Pickups.kind_of("armor_big" if heavy else "armor"), x, ay + ih, ih)
 	var ab := ay + ih - roundf(3.0 * s)
-	var aw := _text(nx, ab, "%3d" % p.armour, fs, ac)
-	_text(nx + aw + gap, ab, ("H E A V Y" if heavy else ("L I G H T" if p.armour_class == 1 else "A R M O U R")), ls, Color(UI.ink, 0.7))
+	var aw := _text(nx, ab, UiStyle.padded(int(p.armour)), fs, an, nums)
+	_text(nx + aw + gap, ab, UiStyle.spaced("heavy" if heavy else ("light" if p.armour_class == 1 else "armour")), ls, UI.label)
 	_bar(nx, ay + ih + roundf(4.0 * s), bw, bh, p.armour / float(Weapons.ARMOUR_MAX), ac)
 
 ## WHAT IS LEFT IN THE GUN, under its name at the right: the box its
 ## ammunition comes in, the count (∞ while the pause menu or IDDQD keeps
-## it full; EMPTY in red), over what the tank holds and its name, and
-## the tank's bar under that. Returns where it ended.
+## it full; EMPTY in bold), over what the tank holds and its name, and
+## the tank's bar under that — white, the alarm, when it runs low or dry
+## or latches, and the count brighter. Returns where it ended.
 func _draw_ammo(p: Player, d: Dictionary, rx: float, y: float, bw: float, bh: float, s: float) -> float:
 	var tank: String = d.ammo
 	var cap: int = Weapons.TANKS[tank][0]
 	var n: int = p.ammo.get(tank, 0)
-	var fs := int(roundf(24.0 * s))
-	var ls := int(roundf(11.0 * s))
+	var fs := int(roundf(30.0 * s))
+	var ls := int(roundf(12.0 * s))
+	var cs := int(roundf(17.0 * s))
 	var ih := roundf(32.0 * s)
 	var gap := roundf(6.0 * s)
 	var endless: bool = p.debug or p.cheat
 	var t := n / float(cap)
-	var col: Color = UI.empty if (p.latched(p.weapon) or not p.has_ammo(p.weapon)) else (UI.low if n <= int(Weapons.LOW.get(tank, 0)) else UI.full)
+	var places := maxi(3, str(cap).length())
+	var dry: bool = p.latched(p.weapon) or not p.has_ammo(p.weapon)
+	var alarm := dry or n <= int(Weapons.LOW.get(tank, 0))
+	var nc: Color = UI.low if alarm else UI.ink
+	var fc: Color = UI.empty if alarm else UI.full
+	if endless:
+		nc = UI.gold
+		fc = UI.over
 	var top := y + roundf(6.0 * s)
 	var base := top + ih - roundf(3.0 * s)
-	var label := "/%d  %s" % [cap, " ".join(Pickups.tank_say(tank).split(""))]
-	var count := "∞" if endless else ("E M P T Y" if not p.has_ammo(p.weapon) else str(n))
-	var lw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x
-	var cw := font.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var x := rx - lw
-	_text(x, base, label, ls, Color(UI.ink, 0.7))
-	x -= cw + gap
-	_text(x, base, count, fs, UI.gold if endless else col)
+	# right to left: the tank's name, what it holds, the count, the box
+	var tag := UiStyle.spaced(Pickups.tank_say(tank))
+	var x := rx - _wide(tag, ls, words)
+	_text(x, base, tag, ls, UI.label)
+	var held := "/" + UiStyle.padded(cap, places)
+	x -= _wide(held, cs, nums) + gap
+	_text(x, base, held, cs, UI.label, nums)
+	var count := "∞" if endless else ("" if not p.has_ammo(p.weapon) else UiStyle.padded(n, places))
+	if count == "":
+		var et := UiStyle.spaced("empty")
+		var es := int(roundf(16.0 * s))
+		x -= _wide(et, es, bold) + gap * 1.5
+		_text(x, base, et, es, nc, bold)
+	else:
+		x -= _wide(count, fs, nums) + gap
+		_text(x, base, count, fs, nc, nums)
 	_icon(int(Pickups.TANK_ICON.get(tank, -1)), x - gap - ih, top + ih, ih)
 	var by := top + ih + roundf(4.0 * s)
 	var bwr := roundf(bw * 0.75)
 	var mark: float = Weapons.TANKS[tank][2] if p.latched(p.weapon) else 0.0
-	_bar(rx - bwr, by, bwr, bh, 1.0 if endless else t, UI.gold if endless else col, mark)
+	_bar(rx - bwr, by, bwr, bh, 1.0 if endless else t, fc, mark)
 	return by + bh
 
 ## THE BOTTOM LEFT: the gun's own notices, stacked, newest at the bottom
-## in amber and the rest in the ordinary ink, each fading in its last
-## second and a quarter (js/hud.js _drawToasts, toastFade)
+## in NAME and the rest in TAG, each fading in its last second and a
+## quarter (js/hud.js _drawToasts, toastFade)
 func _draw_toasts(s: float) -> void:
 	var list: Array = game.get("toasts") if game.get("toasts") != null else []
 	if list.is_empty():
 		return
 	var M := roundf(20.0 * s)
-	var fs := int(roundf(minf(13.0 * s, size.x / 34.0)))
+	var fs := int(roundf(minf(14.0 * s, size.x / 32.0)))
 	var lead := roundf(fs * 1.7)
 	for i in list.size():
 		var up := list.size() - 1 - i
@@ -250,10 +318,8 @@ func _draw_toasts(s: float) -> void:
 		if y < lead:
 			continue
 		var a := clampf(float(list[i].tics) / (1.25 * 35.0), 0.0, 1.0)
-		var col: Color = UI.low if up == 0 else UI.ink
-		var t := " ".join(str(list[i].text).split(""))
-		draw_string(font, Vector2(M + 1, y + 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6 * a))
-		draw_string(font, Vector2(M, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col, col.a * a))
+		var col: Color = UI.ink if up == 0 else UI.label
+		_text(M, y, UiStyle.spaced(str(list[i].text)), fs, Color(col, col.a * a))
 
 ## YOU DIED (PlayerDeath), as galvarius has it: the screen washed red,
 ## the words big across the middle in its Mechsuit face, and once a press
@@ -340,48 +406,157 @@ func _draw_death(s: float) -> void:
 	# user's request), in the same block, RIGHT-justified to its edge
 	if D.can_restart():
 		var h := DEATH_KEY
-		var hs := int(roundf(16.0 * s))
-		var hw := font.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
+		var hs := int(roundf(18.0 * s))
+		var hw := bold.get_string_size(h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 		var a := 0.8 + 0.2 * sin(Time.get_ticks_msec() * 0.005)
 		var hp := Vector2(x0 + bw - hw, y2 + hs * 2.2)
 		# a drop shadow and a solid black stroke round it (at the user's
-		# request); only the letters themselves pulse
+		# request); only the letters themselves pulse. The letters are the
+		# house's (golf's words, in bold, BRIGHT): the small print round
+		# the card is chrome, the card itself is not
 		var so := maxf(2.0, roundf(3.0 * s))
 		var ow := int(maxf(4.0, roundf(6.0 * s)))
-		draw_string_outline(font, hp + Vector2(so, so), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 0.6))
-		draw_string_outline(font, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 1.0))
-		draw_string(font, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(1.0, 0.95, 0.9, a))
+		draw_string_outline(bold, hp + Vector2(so, so), h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 0.6))
+		draw_string_outline(bold, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, ow, Color(0, 0, 0, 1.0))
+		draw_string(bold, hp, h, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(UiStyle.BRIGHT, a))
 
-## the big card across the middle (Game.set_big_message)
+## the big card across the middle (Game.set_big_message): the words in
+## bold, BRIGHT, in a heavy outline over the world
 func _draw_big(s: float) -> void:
 	var t = game.get("big_message")
 	if t == null or str(t) == "":
 		return
-	var fs := int(roundf(26.0 * s))
-	var w := font.get_string_size(str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var fs := int(roundf(30.0 * s))
+	var w := _wide(str(t), fs, bold)
 	var y := size.y * 0.36
-	draw_string(font, Vector2(size.x * 0.5 - w * 0.5 + 2, y + 2), str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7))
-	draw_string(font, Vector2(size.x * 0.5 - w * 0.5, y), str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.low)
+	_text(size.x * 0.5 - w * 0.5, y, str(t), fs, UiStyle.BRIGHT, bold)
 
 ## A MATCH'S SCORE (js/net/remote.js NetBoard): a line at the top of the
 ## screen, and the whole table under it while TAB is held or the round
-## is over
+## is over — in a house window, the column names in TAG, the rows in
+## NAME, your own row white and bold on the cursor's glass, the numbers
+## in digital-7. The lines come set out for a monospaced face (each
+## column padded to its place); the faces here are not, so the columns
+## are found where the headings start and each is set out again by its
+## widest cell.
 func _draw_board(s: float) -> void:
 	var lines: Array = game.net.board_lines(Input.is_physical_key_pressed(KEY_TAB))
-	var fs := int(roundf(12.0 * s))
-	var lh := roundf(fs * 1.35)
+	var fs := int(roundf(14.0 * s))
+	var ls := int(roundf(12.0 * s))
+	var ns := int(roundf(17.0 * s))
+	var lh := roundf(ns * 1.35)
 	var y := roundf(8.0 * s) + fs
-	var head: String = lines[0]
-	var w := font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(font, Vector2(size.x * 0.5 - w * 0.5 + 1, y + 1), head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.8))
-	draw_string(font, Vector2(size.x * 0.5 - w * 0.5, y), head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)
+	var head := str(lines[0])
+	var w := _wide(head, fs, words)
+	_text(size.x * 0.5 - w * 0.5, y, head, fs, UI.ink)
 	if lines.size() <= 1:
 		return
+	# the headings' line, if the table is up
+	var hi := -1
+	for i in range(1, lines.size()):
+		if str(lines[i]).begins_with("NAME"):
+			hi = i
+			break
+	# the lines above it, said plainly (the score, the host's note)
+	var plain: Array[String] = []
+	for i in range(1, hi if hi > 0 else lines.size()):
+		plain.append(str(lines[i]))
+	# the columns: where each heading starts is where its cells start
+	var starts: Array[int] = []
+	var heads: Array[String] = []
+	var rows: Array = []
+	var mine: Array[bool] = []
+	if hi > 0:
+		var hl := str(lines[hi])
+		for i in hl.length():
+			if hl[i] != " " and (i == 0 or hl[i - 1] == " "):
+				starts.append(i)
+		for c in starts.size():
+			heads.append(_cell(hl, starts, c))
+		for i in range(hi + 1, lines.size()):
+			var ln := str(lines[i])
+			var cells: Array[String] = []
+			for c in starts.size():
+				cells.append(_cell(ln, starts, c))
+			rows.append(cells)
+			mine.append(ln.begins_with(">"))
+	# a column of nothing but whole numbers is a column of numbers
+	var numeric: Array[bool] = []
+	var widths: Array[float] = []
+	for c in starts.size():
+		var all_int := not rows.is_empty() and c > 0
+		for r in rows:
+			var v: String = r[c]
+			if v != "" and not v.is_valid_int():
+				all_int = false
+		numeric.append(all_int)
+		widths.append(_wide(heads[c], ls, words))
+	for ri in rows.size():
+		for c in starts.size():
+			var v: String = rows[ri][c]
+			var cw := _wide(_board_num(v), ns, nums) if numeric[c] else _wide(v, ns, bold if mine[ri] else words)
+			widths[c] = maxf(widths[c], cw)
+	var cgap := roundf(16.0 * s)
 	var tw := 0.0
-	for i in range(1, lines.size()):
-		tw = maxf(tw, font.get_string_size(str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
-	var pad := roundf(10.0 * s)
+	for c in widths.size():
+		tw += widths[c] + (cgap if c > 0 else 0.0)
+	for t in plain:
+		tw = maxf(tw, _wide(t, fs, words))
+	# how tall it all is
+	var th := 0.0
+	for t in plain:
+		th += lh * (0.5 if t == "" else 1.0)
+	if hi > 0:
+		th += lh + roundf(6.0 * s) + rows.size() * lh
+	var pad := roundf(12.0 * s)
 	var top := y + lh * 0.5
-	draw_rect(Rect2(size.x * 0.5 - tw * 0.5 - pad, top, tw + pad * 2.0, (lines.size() - 1) * lh + pad), Color(0, 0, 0, 0.72))
-	for i in range(1, lines.size()):
-		draw_string(font, Vector2(size.x * 0.5 - tw * 0.5, top + i * lh - lh * 0.2), str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.ink)
+	var left := roundf(size.x * 0.5 - tw * 0.5)
+	CutBox.draw_on(self, Rect2(left - pad, top, tw + pad * 2.0, th + pad * 2.0), UiStyle.PANEL_BG, UiStyle.PANEL_BORDER,
+		clampf(roundf(2.0 * s), 1.0, 2.0), roundf(UiStyle.CUT_ROW * s))
+	# (on the window's glass the text needs no outline)
+	var yy := top + pad
+	for t in plain:
+		if t == "":
+			yy += lh * 0.5
+			continue
+		yy += lh
+		_text(left, yy - lh * 0.25, t, fs, UI.ink, words, false)
+	if hi <= 0:
+		return
+	yy += lh
+	var x := left
+	for c in starts.size():
+		var hw := _wide(heads[c], ls, words)
+		_text(x + (widths[c] - hw if numeric[c] else 0.0), yy - lh * 0.25, heads[c], ls, UI.label, words, false)
+		x += widths[c] + cgap
+	draw_rect(Rect2(left, yy + roundf(2.0 * s), tw, 1.0), UI.rule)
+	yy += roundf(6.0 * s)
+	for ri in rows.size():
+		var me: bool = mine[ri]
+		if me:
+			CutBox.draw_on(self, Rect2(left - pad * 0.5, yy + lh * 0.08, tw + pad, lh * 0.92), UiStyle.SEL_BG, Color(0, 0, 0, 0), 0.0,
+				roundf(UiStyle.CUT_CURSOR * s))
+		yy += lh
+		var ink: Color = UiStyle.CURSOR if me else UI.ink
+		x = left
+		for c in starts.size():
+			var v: String = rows[ri][c]
+			if numeric[c]:
+				var nt := _board_num(v)
+				_text(x + widths[c] - _wide(nt, ns, nums), yy - lh * 0.22, nt, ns, ink, nums, false)
+			else:
+				_text(x, yy - lh * 0.25, v, ns, ink, bold if me else words, false)
+			x += widths[c] + cgap
+
+## one cell of a monospaced line: from its column's start to the next's,
+## trimmed (and the first column without the > that marks your row)
+func _cell(ln: String, starts: Array[int], c: int) -> String:
+	var a := 0 if c == 0 else starts[c]
+	var v := ln.substr(a, (starts[c + 1] - a) if c + 1 < starts.size() else -1).strip_edges()
+	if c == 0 and v.begins_with(">"):
+		v = v.substr(1).strip_edges()
+	return v
+
+## a whole number on the board, zero-padded the house's way
+func _board_num(v: String) -> String:
+	return "" if v == "" else "%03d" % v.to_int()

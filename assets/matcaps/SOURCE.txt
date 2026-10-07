@@ -1,2 +1,5 @@
 pearl.png — the matcap D0CCCB_524D50_928891_727581 (512 px) from
 https://github.com/nidorx/matcaps (the user's choice, for the arc maw).
+clay.png — the matcap 4F4F4F_9C9C9C_121212_7C7C7C (512 px) from
+https://github.com/nidorx/matcaps: the soft, matte light of the maze walls
+and the drop pod (SHADER_matcap_prop), the pearl their sheen.

@@ -1,0 +1,2 @@
+digital-7 (mono) by Sizenko Alexander / Style-7 (www.styleseven.com), freeware.
+Taken from verdictzero/golf (vendor/fonts): the UI's numbers (UiStyle).

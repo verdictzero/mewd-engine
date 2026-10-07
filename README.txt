@@ -222,6 +222,14 @@ what a small one does. Every surface is unlit and lit by its own
 shader: depth diminishing, the sky's lift, Doom's 32 light steps, then
 the air. The gun is drawn in a world of its own over the room.
 
+THE LOOK OF THE MENUS AND THE HUD is golf's (github.com/verdictzero/
+golf, docs/DOC_ui_style.md; UiStyle, CutBox): no hue, only greys,
+brightness the only meaning; panels and rows of translucent glass with
+their corners cut at 45 degrees, never rounded; words in Zalando Sans
+Condensed, numbers in digital-7, zero-padded; one white cursor that
+the pad and the mouse both move. The title's logo keeps its size
+whatever the menu under it shows.
+
 THE PAUSE MENU keeps its settings in user://prefs.cfg:
 
     CONTROLS   look speed, invert look, music
@@ -319,9 +327,12 @@ non-zero if any fails:
     death      the dead removed, and their sprites with them
     pad        the pad's bindings on every device, the menus' reading,
                a map set up by hand, the SET UP PAD wizard driven
+    ui         the house style: no hue, cut corners, the title's logo
+               the same size on every page of its menu
 
 With xvfb, `--shot=out.png` renders a picture of anything for checking
-by eye; godot/tests/island_shot.gd pictures a gun held on a crowd.
+by eye; godot/tests/island_shot.gd pictures a gun held on a crowd,
+godot/tests/ui_shot.gd any screen of the menus.
 
 
 RELEASES
@@ -341,7 +352,9 @@ verdictzero/vandre) and the crowd's drawings (github.com/verdictzero/
 galvarius) are the user's own. The fire extinguisher rifle and the
 cerebral bore are Vaportrash's, off Sketchfab, CC-BY-4.0; the
 flamethrower is Vaportrash's too and carries no licence. Michroma
-(the title face) is SIL OFL. three.js r160 is MIT. Godot is MIT. The
+and Zalando Sans (the menus' words) are SIL OFL, as is PromptFont;
+digital-7 (the numbers) is Style-7's freeware; those three came with
+golf. The matcaps (assets/matcaps) are nidorx's. three.js r160 is MIT. Godot is MIT. The
 night-sky photograph in assets/sky is Polyhaven's, CC0, and no longer
 shipped.
 

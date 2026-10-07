@@ -16,6 +16,11 @@
 ##
 ## Along the bottom, the last thing the pad sent, raw — a button's
 ## number, an axis and how far — to tell what a pad is doing at all.
+##
+## Dressed in golf's house style (UiStyle), at the user's request: greys
+## only, a window cut at two corners, the readout in the numbers' face,
+## and SKIP, DEFAULTS and CANCEL as rows under one cursor the mouse moves
+## (every press of the pad and the keys is an answer here, never a move).
 class_name PadWizard
 extends Control
 
@@ -23,6 +28,11 @@ signal finished
 
 const WAIT := 10.0
 const PUSH := 0.6
+## how far the row under the cursor slides in, and the rows' type
+const INDENT := 16.0
+const ROW_SIZE := 16
+## where the saved list's second column starts
+const COLUMN := 150.0
 
 ## [action, words, kind]: kind "any", "stick" (an axis, or a button and
 ## then its opposite asked too), "look_y", "look_x"
@@ -60,45 +70,51 @@ var _base := {}
 var _settle := 0.0
 var _done := false
 var _close_in := -1.0
+## SKIP, DEFAULTS, CANCEL, and the one under the cursor
+var _rows: Array[Button] = []
+var _cursor := 0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	font = U.ui_font(PackedStringArray(["monospace", "DejaVu Sans Mono"]))
+	theme = UiStyle.theme()
+	font = UiStyle.words()
 	var shade := ColorRect.new()
-	shade.color = Color(4 / 255.0, 5 / 255.0, 9 / 255.0, 0.94)
+	# (darker than the pause's shade: the wizard is all there is to look at)
+	shade.color = Color(UiStyle.SHADE, 0.94)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
 	var centre := CenterContainer.new()
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(centre)
 	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(11 / 255.0, 13 / 255.0, 20 / 255.0, 0.96)
-	sb.border_color = Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.5)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(16)
-	sb.set_content_margin_all(20)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", UiStyle.window(Vector4(24, 20, 24, 20)))
 	centre.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(560, 0)
 	panel.add_child(col)
-	title = _label("S E T   U P   T H E   P A D", 18, Color("#e9e9ee"))
-	col.add_child(title)
-	ask = _label("", 20, Color.WHITE)
+	var head := UiStyle.header(UiStyle.spaced("set up the pad"))
+	title = head.get_child(0) as Label
+	col.add_child(head)
+	ask = _label("", 20, "name")
 	ask.custom_minimum_size.y = 110
 	col.add_child(ask)
 	bar = ProgressBar.new()
 	bar.show_percentage = false
 	bar.max_value = WAIT
 	bar.custom_minimum_size.y = 6
+	# (a thin bar, so the first weight of fill: UiStyle)
+	bar.add_theme_stylebox_override("background", UiStyle.track())
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = UiStyle.HP
+	bar.add_theme_stylebox_override("fill", fill)
 	col.add_child(bar)
-	info = _label("", 12, Color(207 / 255.0, 207 / 255.0, 214 / 255.0, 0.75))
+	info = _label("", 14, "tag")
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(info)
-	raw = _label("the pad says: nothing yet", 11, Color("#8fd19e"))
+	raw = UiStyle.number("the pad says: nothing yet", "name", 18)
+	raw.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(raw)
 	var foot := HBoxContainer.new()
 	foot.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -107,21 +123,31 @@ func _ready() -> void:
 	for pair in [["SKIP", func(): skip()], ["DEFAULTS", func(): defaults()], ["CANCEL", func(): cancel()]]:
 		var b := Button.new()
 		b.text = pair[0]
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_override("font", font)
-		b.add_theme_font_size_override("font_size", 14)
+		b.custom_minimum_size = Vector2(140, 36)
 		b.pressed.connect(pair[1])
+		b.mouse_entered.connect(_hover.bind(_rows.size()))
+		_rows.append(b)
 		foot.add_child(b)
+	_mark()
 	start()
 
-func _label(t: String, size: int, c: Color) -> Label:
-	var l := Label.new()
-	l.text = t
+## A centred line in a role (UiStyle.ink): "name", "tag", ...
+func _label(t: String, size: int, role: String) -> Label:
+	var l := UiStyle.label(t, role, size)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", font)
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", c)
 	return l
+
+## The rows dressed again: the one under the cursor white, bold, slid in
+## (wide enough already that the slide moves no neighbour).
+func _mark() -> void:
+	for i in _rows.size():
+		var on := i == _cursor
+		UiStyle.dress_row(_rows[i], on, false, ROW_SIZE, INDENT if on else 0.0)
+
+func _hover(i: int) -> void:
+	if i != _cursor:
+		_cursor = i
+		_mark()
 
 func start() -> void:
 	steps = STEPS.duplicate()
@@ -309,12 +335,14 @@ func _finish() -> void:
 		var said := []
 		for w in acts[a]:
 			said.append(Pad.say(w))
-		lines.append("%-12s %s" % [a.replace("_", " ").to_upper(), ", ".join(said)])
+		lines.append("%s\t%s" % [a.replace("_", " ").to_upper(), ", ".join(said)])
 	var lx: Dictionary = Pad.look
-	lines.append("%-12s axis %d, axis %d" % ["LOOK", lx.x, lx.y])
+	lines.append("%s\taxis %d, axis %d" % ["LOOK", lx.x, lx.y])
 	ask.text = "SAVED"
 	info.text = "\n".join(lines) + "\n\npress any button"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# (the words are not monospace, so the column is a tab stop, not spaces)
+	info.tab_stops = PackedFloat32Array([COLUMN])
 	bar.value = 0
 	_close_in = 30.0
 

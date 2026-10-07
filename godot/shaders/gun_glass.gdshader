@@ -53,10 +53,14 @@ void fragment() {
 	float spec = pow(max(dot(reflect(-normalize(VIEW), n), key), 0.0), 40.0);
 	vec3 col = mix(body * 0.62, acc.rgb * body * 0.92, acc.a) + vec3(0.9, 1.0, 0.95) * (fres * 0.45 + spec * 0.6);
 	float hot = smoothstep(0.45, 0.95, max(acc.r, max(acc.g, acc.b))) * acc.a;
-	col += acc.rgb * hot * bloom + inner;
+	// the light inside comes out at the pane's rim and in a soft swirl
+	// across it, not as a flat sheet (a flat sheet was a white disc over
+	// the Sarakawa's chamber, no glass to be seen)
+	float glow = (0.15 + 0.85 * fres) * (0.6 + 0.8 * noise(q * 0.35));
+	col += acc.rgb * hot * bloom + inner * glow;
 	// over the gun: the bent picture, near opaque; over the room: a tint
 	ALBEDO = col;
 	// (and the pane itself always reads: frosted a little, a rim, a glint)
 	float frost = 0.22 + 0.10 * noise(q * 0.6);
-	ALPHA = clamp(mix(frost, mix(0.94, 0.3, clear), acc.a) + fres * 0.45 + spec * 0.5 + hot * bloom * 0.6 + max(inner.r, max(inner.g, inner.b)) * 0.4, 0.0, 1.0);
+	ALPHA = clamp(mix(frost, mix(0.94, 0.3, clear), acc.a) + fres * 0.45 + spec * 0.5 + hot * bloom * 0.6 + max(inner.r, max(inner.g, inner.b)) * glow * 0.25, 0.0, 1.0);
 }

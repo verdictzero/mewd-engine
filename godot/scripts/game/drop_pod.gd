@@ -303,6 +303,15 @@ func _ready() -> void:
 					bm.emission = Color.WHITE
 					bm.emission_texture = bm.albedo_texture
 					bm.emission_energy_multiplier = POD_LOOK.glow
+	# UNDER MATCAPS (MatcapProp, at the user's request: "give ... the drop
+	# pod a matcap so their PBRness looks nice"): the paint, normal map and
+	# metal-roughness as drawn, lit by the clay and the pearl and a share of
+	# the island's light — not the engine's lights, which left it flat
+	for mi: MeshInstance3D in [hull, door]:
+		if mi == null or mi.mesh == null:
+			continue
+		for k in mi.mesh.get_surface_count():
+			mi.set_surface_override_material(k, MatcapProp.material(mi.mesh.surface_get_material(k)))
 	fired.resize(nozzles.size())
 	fired.fill(0.0)
 	_make_flames()

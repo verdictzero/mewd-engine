@@ -85,7 +85,7 @@ const GUNS := {
 		"emit": {"material": "Material.002", "color": [6.0, 8.0, 12.0]},
 		"glass": "Glass", "glass_body": [0.70, 0.86, 1.0], "pbr": true,
 		# (and the glass round the coil lets it shine out through it)
-		"glass_clear": 0.75, "glass_bloom": 1.4, "glass_inner": [1.5, 1.9, 2.6],
+		"glass_clear": 0.75, "glass_bloom": 1.4, "glass_inner": [0.45, 0.65, 1.05],
 		# the end of the barrel, in the model (at the user's request: "make
 		# the plasma beam start at the end of the barrel not in mid air")
 		"muzzle": [0.0, 0.46, 17.28],

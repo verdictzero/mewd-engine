@@ -6,8 +6,9 @@
 ## DISTANCE page's LAND scaling it: Distances) and the near ones take the
 ## model's own detail levels each by its own distance. Hung under the
 ## island, in its metres: the game's (x, y) is the island's (x, -y) / 32.
-## Drawn as the houses are (SHADER_house: the island's own lighting, cold
-## to the thermal sight).
+## Under matcaps (MatcapProp, at the user's request: their colour, normal
+## and metal-roughness maps lit by the clay and the pearl, a share of the
+## island's light over them; cold to the thermal sight).
 class_name MazeView
 extends Node3D
 
@@ -26,9 +27,9 @@ func _init(maze: Maze) -> void:
 	var post_mesh: Mesh = null
 	for mi in scene.find_children("*", "MeshInstance3D", true, false):
 		if str(mi.name).begins_with("maze_wall"):
-			wall_mesh = HouseView._cold_mesh(mi.mesh)
+			wall_mesh = MatcapProp.mesh(mi.mesh)
 		elif str(mi.name).begins_with("maze_corner"):
-			post_mesh = HouseView._cold_mesh(mi.mesh)
+			post_mesh = MatcapProp.mesh(mi.mesh)
 	scene.free()
 	var k := IslandLevel.U_PER_M
 	var fy := maze.floor_z / k
