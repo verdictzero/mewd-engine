@@ -1,0 +1,37 @@
+THE FETUS LAUNCHER — the user's own model, kept for later (at the user's
+request: "make this gun available for later"). Not in the game yet: it
+lives here, under tools/ (which Godot does not import), so it costs the
+builds nothing until it is made a weapon — then it goes to
+assets/models/ as the other guns did (weapon3d.gd GUNS).
+
+    fetus_launcher.glb           as it came (Blender glTF I/O 5.2.40),
+                                 47.6 MB; 7z'd in two volumes
+    fetus_launcher_preview.png   four views of it (godot/tests/model_shot.gd
+                                 reads it here unimported)
+
+IN THE FILE: 11 parts, one node and one material each, every material
+PBR and baked (colour, normal, AO-roughness-metal; 34 PNGs, 1024 square
+but the body's three at 2048), 86,325 triangles:
+
+    main_gun_body      25,959   the body, stock to front
+    barrel_ext         45,020   the red caged barrel (the cage's holes)
+    barrel_mid          2,462   the barrel's sleeve
+    barrel_int            270   its bore
+    container_frame     4,172   the canister's frame on top
+    glass                 512   the canister: KHR_materials_transmission,
+                                ior 1.52 — Godot draws it opaque; give it
+                                gun_glass.gdshader as the hopper's
+    flesh               1,666   what is in the canister
+    flesh_ball            862   the round of it
+    grip_ext            1,056   the grip
+    grip_int            3,108   its inside
+    mechanical_thing    1,238   the works under the canister
+
+Its own units: 30.8 long, 8.5 wide, 15.1 high, the barrel to +z (its
+muzzle near z = 17.7), the stock to -z, the canister standing up over
+the middle; weapon3d's `fit` scales it to the hand.
+
+FOR THE GAME, when it is wanted: the barrel's 45k triangles are most of
+it (decimate the cage, or bake it to a cut-out on a simpler sleeve, as
+the launcher's remesh was), the textures down to 1024 or 512, and the
+glass to gun_glass with the flesh lit behind it.

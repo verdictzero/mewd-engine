@@ -3653,6 +3653,21 @@ GOLF'S LOOK, THE LOGO THAT KEEPS ITS SIZE, THE RIFLE'S GLASS, THE MATCAPS (00000
   reflects, mixed by metal and roughness — with a share of the island's
   own light over them, its haze, and the cold band to the thermal sight.
 
+
+THE FETUS LAUNCHER, KEPT FOR LATER (0000033)
+
+  At the user's request ("make this gun available for later", the model
+  as fetus_launcher.7z in two volumes): the GLB as it came, in
+  tools/art/models/ — under tools/, which carries a .gdignore, so Godot
+  neither imports it nor ships it (the export takes all resources, and
+  47.6 MB of an unused gun would have gone into every APK). Beside it
+  fetus_launcher.txt — its eleven parts, their triangles and materials,
+  its axes and size, and what it will want to be a weapon (the caged
+  barrel's 45k triangles cut down, the textures smaller, the canister's
+  transmission glass to gun_glass.gdshader) — and a picture of it from
+  four sides. godot/tests/model_shot.gd now reads a model Godot has not
+  imported (GLTFDocument, at run time), so it can be pictured there.
+
 TESTS
 
     tools/godot-test.sh

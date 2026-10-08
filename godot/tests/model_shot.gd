@@ -4,6 +4,10 @@
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --rendering-method mobile \
 ##   --script res://godot/tests/model_shot.gd -- --model=res://assets/models/drop_pod.glb out.png [yaw] [pitch] [dist]
+##
+## A --model= outside res:// (or under a folder Godot does not import, as
+## tools/art/models/) is read from the file as it is, at run time
+## (GLTFDocument), so a model kept for later can be pictured unimported.
 extends SceneTree
 
 var out := "model_shot.png"
@@ -30,7 +34,18 @@ func _init() -> void:
 		dist = float(pos[3])
 	var scene := Node3D.new()
 	root.add_child(scene)
-	var m: Node3D = (load(model) as PackedScene).instantiate()
+	var m: Node3D
+	if ResourceLoader.exists(model):
+		m = (load(model) as PackedScene).instantiate()
+	else:
+		var doc := GLTFDocument.new()
+		var st := GLTFState.new()
+		var err := doc.append_from_file(ProjectSettings.globalize_path(model), st)
+		if err != OK:
+			push_error("model_shot: could not read %s (%d)" % [model, err])
+			quit(1)
+			return
+		m = doc.generate_scene(st)
 	scene.add_child(m)
 	# the model's extent, for the eye
 	var box := AABB()
