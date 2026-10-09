@@ -3743,6 +3743,20 @@ GUILBAULT ARENA, ITS PARK, AND THE TITLE IN BLACK AND WHITE (0000034)
   both off (Main.start_game) and the title back on.
 
 
+THE VERSION ON THE LOGS' LINE (0000035)
+
+  At the user's request ("make version number same font and same line as
+  log location, except on the left"): the title's version number is no
+  longer a digital-7 label of the Title's own, a little above the corner,
+  but the logs' note's twin (Main._version_note): the same kind of
+  control on the title's layer, in the same face (Zalando, 14), the same
+  TAG grey and black outline (Main._note_face, which both now wear), the
+  same 8 pixels into the bottom-left corner as the logs' path is into the
+  bottom-right — so the two sit on the very same line. The mouse goes
+  through it. ui_test: the two lines' middles within half a pixel, the
+  version at the left edge and the path at the right, one face, one size.
+
+
 TESTS
 
     tools/godot-test.sh

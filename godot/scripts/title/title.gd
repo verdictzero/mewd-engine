@@ -120,16 +120,7 @@ func _ready() -> void:
 	add_child(panel)
 	col = panel
 	_build_buttons()
-	var ver := Label.new()
-	ver.text = U.VERSION
-	ver.add_theme_font_override("font", UiStyle.numbers())
-	ver.add_theme_font_size_override("font_size", 16)
-	ver.add_theme_color_override("font_color", UiStyle.TAG)
-	ver.add_theme_constant_override("outline_size", 3)
-	ver.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	ver.position += Vector2(24, -30)
-	add_child(ver)
+	# (the version is on the logs' line, at the left: Main._version_note)
 	mark(0)
 	resized.connect(_layout)
 	_layout()

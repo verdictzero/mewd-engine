@@ -112,6 +112,19 @@ func _init() -> void:
 	check(is_equal_approx(tint.x, tint.y) and is_equal_approx(tint.y, tint.z) and tint.x < was,
 		"its grey darker than the blue was (%.2f against %.2f)" % [tint.x, was])
 	check(float(lofi.mat.get_shader_parameter("grain")) >= 0.3, "and film grain under the filter, intense (%.2f)" % float(lofi.mat.get_shader_parameter("grain")))
+	# THE VERSION on the logs' line, at the left, in its face (at the user's request)
+	var ver: Button = main.find_child("Version", true, false)
+	var logs: Button = null
+	for b in main.find_children("*", "Button", true, false):
+		if b != ver and b.text == Logs.where():
+			logs = b
+	var vr := ver.get_global_rect() if ver != null else Rect2()
+	var lr := logs.get_global_rect() if logs != null else Rect2()
+	check(ver != null and logs != null and ver.text == U.VERSION and absf(vr.get_center().y - lr.get_center().y) < 0.5
+		and vr.position.x < 20.0 and lr.end.x > root.get_visible_rect().size.x - 20.0,
+		"the version on the logs' line, at the left (%s, %s)" % [str(vr), str(lr)])
+	check(ver != null and logs != null and ver.get_theme_font("font") == logs.get_theme_font("font")
+		and ver.get_theme_font_size("font_size") == logs.get_theme_font_size("font_size"), "and in the same face and size")
 	main.queue_free()
 	await process_frame
 	print("ui: " + ("OK" if fails == 0 else "%d FAILED" % fails))

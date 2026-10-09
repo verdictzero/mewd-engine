@@ -127,11 +127,7 @@ func _logs_note() -> Control:
 	# (golf's house style, at the user's request: a hint in the words' face
 	# and TAG grey, outlined black over the title's forest; under the mouse
 	# it is where you are, so white — never a hue)
-	l.add_theme_font_override("font", UiStyle.words())
-	l.add_theme_font_size_override("font_size", 14)
-	l.add_theme_color_override("font_color", UiStyle.TAG)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 3)
+	_note_face(l)
 	l.add_theme_color_override("font_hover_color", UiStyle.CURSOR)
 	l.add_theme_color_override("font_pressed_color", UiStyle.CURSOR)
 	l.flat = true
@@ -150,6 +146,33 @@ func _logs_note() -> Control:
 	# the note, never a lambda of this scene, which the note outlives)
 	Logs.changed = l.refresh
 	return l
+
+## THE VERSION, ON THE LOGS' LINE AT THE LEFT (at the user's request: "make
+## version number same font and same line as log location, except on the
+## left"): the same kind of control as the logs' note, in the same face,
+## size, grey and outline, the same 8 pixels into the other bottom corner
+## — so it sits on the very same line. Not a button to anyone: the mouse
+## goes through it.
+func _version_note() -> Control:
+	var v := Button.new()
+	v.name = "Version"
+	v.text = U.VERSION
+	_note_face(v)
+	v.flat = true
+	v.focus_mode = Control.FOCUS_NONE
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	v.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 8)
+	return v
+
+## the face of the title's two notes (the logs' and the version's)
+func _note_face(b: Button) -> void:
+	b.add_theme_font_override("font", UiStyle.words())
+	b.add_theme_font_size_override("font_size", 14)
+	b.add_theme_color_override("font_color", UiStyle.TAG)
+	b.add_theme_color_override("font_outline_color", Color.BLACK)
+	b.add_theme_constant_override("outline_size", 3)
 
 func show_terminal() -> void:
 	var layer := CanvasLayer.new()
@@ -222,6 +245,7 @@ func show_title() -> void:
 	title.host_game.connect(host_game)
 	title.join_game.connect(open_join_box)
 	title_layer.add_child(_logs_note())
+	title_layer.add_child(_version_note())
 	title.pad_setup.connect(open_pad_wizard)
 	title.debug_menu.connect(open_debug)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
