@@ -13,8 +13,6 @@ signal join(where: String)
 signal back
 
 const SAVE := "user://join.cfg"
-## how far the row under the cursor slides in
-const INDENT := 16.0
 
 var field: LineEdit
 ## JOIN and BACK, and the one of them under the cursor
@@ -59,11 +57,11 @@ func _ready() -> void:
 	_mark()
 	field.grab_focus()
 
-## Both rows dressed again: the one under the cursor white, bold, slid in.
+## Both rows dressed again: the one under the cursor white and bold, in its place.
 func _mark() -> void:
 	for i in _rows.size():
 		var on := i == _cursor
-		UiStyle.dress_row(_rows[i], on, false, 20, INDENT if on else 0.0)
+		UiStyle.dress_row(_rows[i], on, false, 20)
 
 func _hover(i: int) -> void:
 	if i != _cursor:

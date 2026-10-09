@@ -17,7 +17,7 @@
 ## THE LOOK is golf's house style (UiStyle, CutBox), at the user's request:
 ## greys only, the window and the rows cut at the corners, never rounded,
 ## and one cursor over the rows — the view being shown, or whatever row
-## the mouse is over — white and bold and slid in. The view shown is
+## the mouse is over — white and bold, in its place. The view shown is
 ## named again over the viewer, so the cursor can wander without losing
 ## it. The log itself stays in a monospace face: a developer's readout
 ## (golf's "technical" role), where a traceback's columns have to line up.
@@ -43,8 +43,7 @@ var _cursor := 0
 ## the name of the view shown, over the viewer
 var _view_name: Label
 
-## how far the row under the cursor slides in, and the rows' type
-const INDENT := 16.0
+## the rows' type
 const ROW_SIZE := 16
 
 func _ready() -> void:
@@ -121,8 +120,8 @@ func _ready() -> void:
 	show_view("log")
 
 ## A row (golf has no buttons, only rows): dressed by `_mark`, the cursor
-## brought to it by the mouse. Wide enough for its longest words in bold
-## and slid in, so the cursor arriving moves the words and not the rows
+## brought to it by the mouse. Wide enough for its longest words in bold,
+## so the cursor arriving changes the words' weight and not the rows
 ## beside them. (CLOSE was a red "primary" once; a row that matters says
 ## so by being where the cursor is, never by a colour.) `longest`: other
 ## words the row will wear (COPY's COPIED).
@@ -133,17 +132,17 @@ func _button(t: String, longest := "") -> Button:
 	var widest := maxf(bold.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE).x,
 		bold.get_string_size(longest, HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE).x)
 	var frame := UiStyle.row(true)
-	b.custom_minimum_size = Vector2(ceilf(widest + frame.content_margin_left + frame.content_margin_right + INDENT) + 4.0, 38)
+	b.custom_minimum_size = Vector2(ceilf(widest + frame.content_margin_left + frame.content_margin_right) + 4.0, 38)
 	b.mouse_entered.connect(_hover.bind(_rows.size()))
 	_rows.append(b)
 	UiStyle.dress_row(b, false, false, ROW_SIZE)
 	return b
 
-## Every row dressed again: the one under the cursor white, bold, slid in.
+## Every row dressed again: the one under the cursor white and bold, in its place.
 func _mark() -> void:
 	for i in _rows.size():
 		var on := i == _cursor
-		UiStyle.dress_row(_rows[i], on, false, ROW_SIZE, INDENT if on else 0.0)
+		UiStyle.dress_row(_rows[i], on, false, ROW_SIZE)
 
 func _hover(i: int) -> void:
 	if i != _cursor:

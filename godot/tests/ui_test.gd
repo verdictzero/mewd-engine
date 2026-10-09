@@ -10,7 +10,7 @@
 ## lengths, and the menu inside the screen on every one; the logo and the
 ## main menu ONE GROUP, centred across and down; the logo SMALLER (under a
 ## third of the height). THE ROWS: the one you are on white and bold, the
-## rest not. THE PAUSE MENU: its frames cut, no red in it. THE TITLE'S
+## rest not, and all in one place (highlighted, never indented). THE PAUSE MENU: its frames cut, no red in it. THE TITLE'S
 ## PICTURE: black and white, darker than it was, film grain under the
 ## filter. Prints OK or fails.
 extends SceneTree
@@ -76,6 +76,13 @@ func _init() -> void:
 		var b1: Button = t.buttons[1]
 		check(b0.get_theme_color("font_color") == UiStyle.CURSOR and b1.get_theme_color("font_color") != UiStyle.CURSOR,
 			"%dx%d: the row you are on is white, the rest not" % [sz.x, sz.y])
+		# (highlighted, not moved: at the user's request, "dont indent menu items, just highlight")
+		await process_frame
+		var s0: StyleBox = b0.get_theme_stylebox("normal")
+		var s1: StyleBox = b1.get_theme_stylebox("normal")
+		check(is_equal_approx(b0.get_global_rect().position.x, b1.get_global_rect().position.x)
+			and is_equal_approx(b0.size.x, b1.size.x) and is_equal_approx(s0.content_margin_left, s1.content_margin_left),
+			"%dx%d: and in the same place as the rest, the same width (%.0f, %.0f)" % [sz.x, sz.y, b0.get_global_rect().position.x, b1.get_global_rect().position.x])
 		t.queue_free()
 		await process_frame
 

@@ -5,9 +5,10 @@
 ## language from verdictzero/golf over to MEWD"; UiStyle): the menu a
 ## column of rows, each row a box of the glass with its top right and
 ## bottom left cut, the words in Zalando Sans Condensed. The one you are on
-## is white and bold, its box brighter and its keyline white, and slides in
-## from the right; the others rest in thin grey; one not ready yet is dim
-## and shakes its head when tried. No hue.
+## is white and bold, its box brighter and its keyline white — HIGHLIGHTED,
+## NOT MOVED (at the user's request: "dont indent menu items, just
+## highlight"); the others rest in thin grey; one not ready yet is dim and
+## shakes its head when tried. No hue.
 ##
 ## THE LOGO AND THE MENU, ONE GROUP IN THE MIDDLE (at the user's request:
 ## "have the MEWD logo and the menu vertically centered and horizontally
@@ -75,12 +76,10 @@ const MODES := [["DEATHMATCH", "mode:dm", true], ["TEAM DEATHMATCH", "mode:tdm",
 ## the island HOST GAME chose, waiting on MODES
 var _host_map := ""
 ## THE ROWS (golf's title menu: SCRIPT_main_menu.gd): their height, the
-## words' size, the gap between them, and how far the one you are on
-## slides in
+## words' size and the gap between them
 const ROW_H := 38.0
 const ROW_FONT := 22
 const ROW_GAP := 6.0
-const INDENT_SEL := 26.0
 const ROW_W := 372.0
 ## the logo's height, a share of the screen's (it was 0.46)
 const LOGO_H := 0.30
@@ -278,9 +277,6 @@ func _style() -> void:
 		# (golf's title rows: thin at rest, bold where you are)
 		buttons[j].add_theme_font_override("font", UiStyle.words("Bold" if on and live else "ExtraLight"))
 		buttons[j].add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-		# the one you are on slides in from the right
-		rows[j].add_theme_constant_override("margin_left", int(0.0 if on else INDENT_SEL))
-		rows[j].add_theme_constant_override("margin_right", int(INDENT_SEL if on else 0.0))
 		buttons[j].text = items[j][0]
 
 func take(i: int) -> void:
@@ -315,8 +311,7 @@ func _process(dt: float) -> void:
 	for j in _shake.keys():
 		_shake[j] -= dt
 		var t: float = 0.32 - _shake[j]
-		var home := float(rows[j].get_theme_constant("margin_left"))
-		buttons[j].position.x = home + (sin(t / 0.32 * TAU * 2.0) * 5.0 if _shake[j] > 0 else 0.0)
+		buttons[j].position.x = sin(t / 0.32 * TAU * 2.0) * 5.0 if _shake[j] > 0 else 0.0
 		if _shake[j] <= 0:
 			_shake.erase(j)
 	_place_shadows()

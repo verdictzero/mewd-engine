@@ -3757,6 +3757,16 @@ THE VERSION ON THE LOGS' LINE (0000035)
   version at the left edge and the path at the right, one face, one size.
 
 
+HIGHLIGHTED, NOT INDENTED (0000036)
+
+  At the user's request ("dont indent menu items, just highlight"): the
+  row you are on no longer slides in — on the title (its rows' margins no
+  longer swapped), in the DEBUG menu, the JOIN box and the PAD WIZARD
+  (UiStyle.dress_row has no `indent` any more). It is only highlighted:
+  white and bold, its box brighter, its keyline white. ui_test: the row
+  you are on in the same place and the same width as the rest.
+
+
 TESTS
 
     tools/godot-test.sh

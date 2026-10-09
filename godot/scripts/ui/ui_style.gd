@@ -25,7 +25,8 @@
 ##
 ## THE CURSOR: no hover state and no filled call-to-action pill — the one
 ## cursor moves with the mouse or the pad, and the row under it goes white,
-## bold, its box brighter and its keyline white, and slides in.
+## bold, its box brighter and its keyline white. It is highlighted, never
+## moved (at the user's request: "dont indent menu items, just highlight").
 class_name UiStyle
 extends RefCounted
 
@@ -134,14 +135,13 @@ static func track() -> StyleBoxFlat:
 # ---- controls ----------------------------------------------------------------
 
 ## a Button dressed as a row: no hover of its own (the cursor is the
-## hover), white and bold when `selected`, slid in by `indent`
-static func dress_row(b: Button, selected: bool, disabled := false, size := 20, indent := 0.0) -> void:
+## hover), white and bold when `selected` — in its place
+static func dress_row(b: Button, selected: bool, disabled := false, size := 20) -> void:
 	b.flat = false
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_override("font", words("Bold" if selected and not disabled else "Medium"))
 	b.add_theme_font_size_override("font_size", size)
 	var box := row(selected, disabled)
-	box.content_margin_left += indent
 	for st in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 		b.add_theme_stylebox_override(st, box)
 	var ink := DIM if disabled else (CURSOR if selected else READY)
