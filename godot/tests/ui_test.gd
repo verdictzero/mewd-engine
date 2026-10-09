@@ -132,6 +132,15 @@ func _init() -> void:
 		"the version on the logs' line, at the left (%s, %s)" % [str(vr), str(lr)])
 	check(ver != null and logs != null and ver.get_theme_font("font") == logs.get_theme_font("font")
 		and ver.get_theme_font_size("font_size") == logs.get_theme_font_size("font_size"), "and in the same face and size")
+	# THE FRAME RATE'S READOUT in the lower left corner (at the user's
+	# request), on the title standing on the version that has the corner
+	var ov: PerfOverlay = main.get("fps_label")
+	ov.visible = true
+	ov._process(1.0)
+	var orr := ov.get_global_rect()
+	check(ov != null and ver != null and orr.position.x < 20.0 and orr.end.y <= vr.position.y + 0.5 and orr.end.y > vr.position.y - 12.0,
+		"the frame rate's readout in the lower left corner, on the title just above the version (%s over %s)" % [str(orr), str(vr)])
+	ov.visible = false
 	main.queue_free()
 	await process_frame
 	print("ui: " + ("OK" if fails == 0 else "%d FAILED" % fails))

@@ -15,8 +15,13 @@
 ##                 cores, the OS and the device, the window, the chunky
 ##                 grid the world is drawn at, and the refresh rate
 ##
-## Four times a second, in the corner, over a dark panel; the specs are
-## read once. Never filtered by the lo-fi pass (it is on the HUD layer).
+## Four times a second, over a dark panel; the specs are read once. Never
+## filtered by the lo-fi pass (it is on the HUD layer). IN THE LOWER LEFT
+## CORNER, at the user's request (it sat at the top, over the health and
+## armour): growing upward from the corner as its lines come and go, the
+## gun's notices stacked above it while it shows (Hud._draw_toasts), and
+## on the title above the version that has that corner (`stand_on`, Main).
+## And the cores, and where the renderer is (Cores).
 ##
 ## IN GOLF'S HOUSE STYLE, at the user's request (UiStyle, CutBox): the
 ## panel a house window with a small cut, its keyline thin; the readout
@@ -25,6 +30,8 @@ class_name PerfOverlay
 extends PanelContainer
 
 const EVERY := 0.25
+## from the screen's edges
+const EDGE := 8.0
 
 var label: Label
 var game = null
@@ -37,6 +44,9 @@ var _best := 1e9
 var _w_shown := 0.0
 var _b_shown := 0.0
 var _sec := 0.0
+## what it stands on in the corner, when something else has it (the
+## title's version: Main), or null for the edge
+var stand_on: Control = null
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -48,8 +58,19 @@ func _ready() -> void:
 	label.add_theme_color_override("font_color", UiStyle.NAME)
 	label.add_theme_constant_override("line_spacing", 0)
 	add_child(label)
-	position = Vector2(8, 44)
 	_spec = spec_text()
+	visibility_changed.connect(place)
+	get_viewport().size_changed.connect(place)
+	place()
+
+## in the lower left corner — on the edge, or on `stand_on` where it is
+## now — as tall as its lines now (shrunk back when they are fewer)
+func place() -> void:
+	reset_size()
+	var bottom := get_viewport_rect().size.y - EDGE
+	if stand_on != null and is_instance_valid(stand_on) and stand_on.is_inside_tree() and stand_on.visible:
+		bottom = minf(bottom, stand_on.get_global_rect().position.y - 4.0)
+	position = Vector2(EDGE, bottom - size.y)
 
 ## what the machine is, read once
 static func spec_text() -> String:
@@ -117,5 +138,7 @@ func _process(dt: float) -> void:
 	# (which of the gun's ways of drawing is in use: Lofi.gun_state)
 	if lofi != null and lofi.has_method("gun_state"):
 		lines.append(lofi.gun_state())
+	lines.append(Cores.state())
 	lines.append(_spec)
 	label.text = "\n".join(lines)
+	place()

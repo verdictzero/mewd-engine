@@ -245,7 +245,11 @@ func show_title() -> void:
 	title.host_game.connect(host_game)
 	title.join_game.connect(open_join_box)
 	title_layer.add_child(_logs_note())
-	title_layer.add_child(_version_note())
+	var ver := _version_note()
+	title_layer.add_child(ver)
+	# (the frame rate's readout, when it is on, stands on the version)
+	fps_label.stand_on = ver
+	fps_label.place()
 	title.pad_setup.connect(open_pad_wizard)
 	title.debug_menu.connect(open_debug)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -336,6 +340,8 @@ func start_game() -> void:
 	lofi.set_tint(Color.WHITE)
 	lofi.set_mono(0.0)
 	lofi.set_grain(0.0)
+	fps_label.stand_on = null
+	fps_label.place()
 	var w3d := Weapon3D.new()
 	lofi.gun.add_child(w3d)
 	game = preload("res://godot/scripts/game/game.gd").new()
@@ -383,6 +389,7 @@ func start_game() -> void:
 	sound.layered = game.level != null and game.level.layered
 	var hud := Hud.new()
 	hud.game = game
+	hud.perf = fps_label
 	hud_layer.add_child(hud)
 	game.hud = hud
 	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--touch"):
@@ -523,6 +530,8 @@ func apply_prefs(p: Dictionary) -> void:
 	# switches (Lofi.gun_diag) — again whenever the guns have been built
 	lofi.gun_diag(str(p.get("gun_depth", "shader")), str(p.get("gun_tone", "auto")),
 		str(p.get("gun_clear", "grey")), bool(p.get("gun_hdr", true)))
+	# where the renderer runs next time the game starts (Cores)
+	Cores.want_render(str(p.get("render_thread", "auto")))
 	# how far the land, the trees, the grass and the people are drawn
 	# (the DISTANCE page: Distances)
 	Distances.apply(game, p)

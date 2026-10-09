@@ -8,12 +8,14 @@ config_version=5
 
 config/name="MEWD"
 config/description="MEWD — Made Entirely Without Doom"
-config/version="0000037"
+config/version="0000038"
 run/main_scene="res://godot/scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
 ; Android's Back (a handheld's Select, often) pauses, never quits
 config/quit_on_go_back=false
+; (the DEBUG page's RENDER THREAD, read before anything starts: Cores)
+config/project_settings_override="user://render_thread.cfg"
 boot_splash/bg_color=Color(0.043, 0.075, 0.078, 1)
 boot_splash/image="res://godot/data/splash.png"
 boot_splash/fullsize=false
@@ -45,6 +47,15 @@ window/stretch/aspect="expand"
 window/handheld/orientation=4
 
 [rendering]
+
+; RENDERING ON A THREAD OF ITS OWN, at the user's request (an old Xeon
+; running the game on one core): it draws one frame while the game works
+; out the next (Cores). Godot 4.7 still calls it experimental: the desktop
+; has it, Android not yet (the DEBUG page's RENDER THREAD turns it on or
+; off for the next launch), and the server draws nothing.
+driver/threads/thread_model=2
+driver/threads/thread_model.android=1
+driver/threads/thread_model.server=1
 
 ; MOBILE, at the user's request, for real decals (Decal nodes, which
 ; Compatibility has not got): on the desktop and on Android alike.

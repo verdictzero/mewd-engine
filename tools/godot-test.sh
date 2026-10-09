@@ -71,4 +71,9 @@ run ui      --script res://godot/tests/ui_test.gd
 # gun's world writes its own depth, the DEBUG page's switches swap them
 # (godot/tests/gun_depth_test.gd; its pictures under xvfb, not headless)
 run gundepth --script res://godot/tests/gun_depth_test.gd
+# EVERY CORE: the renderer on a thread of its own (and the DEBUG page's
+# switch really moving it, in a fresh copy of the game), the crowd's
+# steps the same answer cheaper, the readout in the lower left corner
+# (godot/tests/cores_test.gd)
+run cores   --script res://godot/tests/cores_test.gd -- --map=candyland --perf-log
 exit $fail

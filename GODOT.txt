@@ -3839,6 +3839,93 @@ THE GUN'S BLACK SQUARES ON AN ADRENO, FOR REAL THIS TIME (0000037)
   undrawn. A watchdog quits it if it ever hangs. Not seen on an Adreno
   here — to be confirmed on the phone.
 
+  THE ANSWER, after it shipped (the user: "potato cannon is currenty not
+  in use, i have not seen the issue on the plasma rifle or any othe
+  weapons"): the FLAMER only. Every gun but the plasma rifle tonemaps in
+  the same subpass as the flamer and showed nothing, so the subpass
+  cannot be the cause on its own; the flamer is the gun you start with,
+  and its tanks are the broadest faces any gun holds near the eye — LRZ
+  can only drop a block one draw covers whole. The own depth answers that
+  whatever set it off; the Adreno's tonemap pass of its own stays as cheap
+  insurance until the flamer has been seen clean on 0000037.
+
+
+EVERY CORE, AND THE READOUT IN THE LOWER LEFT (0000038)
+
+  At the user's request ("so this runs like crap on my old xeon 2.4ghz
+  box because cpu events are only using 1 core, can we have it use all
+  available processors inparallel? can we also put the debug data in the
+  lower left corner").
+
+  WHERE THE TIME WENT (perf_bench, and the crowd's actions timed one by
+  one, on CANDY LAND: ~1,200 people, ~320 awake): the renderer ran on the
+  game's own thread — Godot's default, "Safe" — so a frame was the game's
+  work and THEN the renderer's (what is in view, the culling, the command
+  lists for every viewport), one after the other on one core. Of the
+  game's own work the crowd was most, ~3.3 ms a tic, and of that the
+  girls walking up to you: in the knot round you nine steps in ten fail on
+  a body, and every step had asked the ground's walls first
+  (Level.slide_move, ~35 µs) and the bodies only after (~15 µs).
+
+  WHAT CHANGED:
+    - RENDERING ON A THREAD OF ITS OWN (project.godot: rendering/driver/
+      threads/thread_model=2, "Separate"): it draws one frame while the
+      game works out the next, so a frame costs the slower of the two, not
+      both added; and CANDY LAND loaded in 5.9 s here instead of 20.1 s.
+      Godot 4.7 still prints that it is experimental, so the desktop has
+      it, Android not yet (thread_model.android=1) and the server draws
+      nothing (.server=1). The DEBUG page's RENDER THREAD (RESTART): AUTO,
+      OWN CORE, GAME'S CORE. Godot reads the thread model before any
+      script runs, so the choice is written to user://render_thread.cfg,
+      which project.godot names as its project_settings_override (the
+      plain key and Android's both: Android's own would win over a plain
+      one); AUTO removes it (Cores).
+    - NOTHING ASKS THE RENDERER ANYTHING EVERY FRAME: the performance log
+      read the renderer's own CPU and GPU times every frame, which with
+      the renderer on its own thread makes the game wait for it (Godot
+      warns so, every frame). Not read there now: -1 on the FRAME lines,
+      and render_thread= on the BEGIN line (PerfLog).
+    - THE CROWD'S STEPS, CHEAPEST QUESTION FIRST (Actor.can_stand_at):
+      the bodies round the spot, then the players, then the trees, and
+      only then the walls. The same answer — none of the four changes
+      anything — and the loop over the bodies typed, its distance written
+      out. A_Watch asks the grid for the bodies round it once, not twice.
+      CANDY LAND's crowd: 1,146 -> 659 ms over 350 tics, about 40% less.
+    - THE READOUT IN THE LOWER LEFT CORNER (PerfOverlay): it sat at the
+      top over the health and armour; now it grows up from the bottom left
+      corner as its lines come and go, the gun's notices stand on it while
+      it shows (Hud.toasts_bottom), on the title it stands on the version
+      (`stand_on`), and it has a line for the cores and where the renderer
+      runs (and where it will next launch, if RENDER THREAD has changed).
+
+  TRIED AND NOT KEPT: the crowd's look round (A_Watch, the one question of
+  theirs that only reads the world) asked by everybody due to act, all at
+  once on every core, at the start of the tic (WorkerThreadPool). Slower:
+  twenty-odd questions a tic of ~20 µs each are less than waking the
+  threads costs, and even asked in order the gathering cost more than it
+  saved. The rest of the crowd's thinking cannot be split without
+  changing it: who stands where decides who can step where, and they draw
+  on one table of random numbers in turn. The island's chunks were
+  already built on the worker threads (IslandWorld).
+
+  Seen: under xvfb on the separate thread CANDY LAND draws as before and
+  the bench runs through; on quitting, Godot 4.7 prints "This function
+  (finalize) can only be called from the render thread" (it does for an
+  empty script too: the engine's, harmless).
+
+  godot/tests/cores_test.gd: project.godot's thread model, desktop,
+  Android and server; this run on its own thread; RENDER THREAD writing
+  and removing the file, and a FRESH COPY OF THE GAME started on each
+  setting (this script again, --report) running where it says; an
+  unknown setting is AUTO; the DEBUG page's tile and default; the
+  performance log not asking every frame; the crowd's steps asked in both
+  orders 5,300 times beside bodies, the player, walls and open ground,
+  the same every time; A_Watch frightened by somebody alight and somebody
+  running past and by nothing else; the readout's corner, shrinking back,
+  standing on what has the corner, and the notices above it.
+  godot/tests/ui_test.gd: on the title, the readout just above the
+  version.
+
 
 TESTS
 

@@ -247,20 +247,25 @@ func try_walk(dir: int = -1) -> bool:
 	movecount = U.p_random() & 15
 	return true
 
+## CHEAPEST QUESTION FIRST (at the user's request, an old Xeon running
+## it "like crap"): the bodies round the spot, then the players, then the
+## trees, and only then the ground's walls — the same answer in any order
+## (none of the four changes anything), but a crowd pressing round you
+## fails nearly every step on a body (nine in ten on CANDY LAND, its
+## girls all walking up to you), and the walls were most of a step's cost.
+## (Typed and the distance written out: asked of every body near every
+## step, the call and the untyped look-ups were half its cost.)
 func can_stand_at(nx: float, ny: float) -> bool:
-	var r: Vector3 = game.level.slide_move(x, y, nx - x, ny - y, radius, z, height, true)
-	if r.z > 0.0 or absf(r.x - nx) > 0.01 or absf(r.y - ny) > 0.01:
-		return false
-	if game.forest != null and not (game.level.layered and sector != null and sector.storey > 0) and game.forest.blocks(nx, ny, radius):
-		return false
 	var layered: bool = game.level.layered
-	for o in game.blockmap.near(nx, ny):
+	for o: Actor in game.blockmap.near(nx, ny):
 		if o == self or o.removed or not o.solid or o.dead:
 			continue
 		if layered and (o.z >= z + height or z >= o.z + o.height):
 			continue
-		var rr: float = radius + o.radius
-		if U.dist2(nx, ny, o.x, o.y) < rr * rr:
+		var rr := radius + o.radius
+		var dx := nx - o.x
+		var dy := ny - o.y
+		if dx * dx + dy * dy < rr * rr:
 			return false
 	# (every player in the world, not only this machine's: a match has
 	# sixteen)
@@ -270,6 +275,11 @@ func can_stand_at(nx: float, ny: float) -> bool:
 		var rr: float = radius + p.radius
 		if U.dist2(nx, ny, p.x, p.y) < rr * rr:
 			return false
+	if game.forest != null and not (layered and sector != null and sector.storey > 0) and game.forest.blocks(nx, ny, radius):
+		return false
+	var r: Vector3 = game.level.slide_move(x, y, nx - x, ny - y, radius, z, height, true)
+	if r.z > 0.0 or absf(r.x - nx) > 0.01 or absf(r.y - ny) > 0.01:
+		return false
 	return true
 
 func update_sector() -> void:
@@ -622,6 +632,8 @@ func A_BurnAway() -> void:
 
 ## Standing still and smelling the air: nine samples of the fire grid,
 ## and anybody running past near enough to see their face.
+## (The bodies round asked for once, not once a question; typed, and the
+## distance written out — Actor.can_stand_at.)
 func A_Watch() -> void:
 	if burning:
 		A_Scare(x, y)
@@ -630,19 +642,24 @@ func A_Watch() -> void:
 	# spread is gone, and only people and cars burn — so what frightens
 	# a shopper is somebody alight, or somebody already running)
 	var R := float(info.get("scareRange", 320))
-	for o in game.blockmap.near(x, y):
+	var near: Array = game.blockmap.near(x, y)
+	for o: Actor in near:
 		if o == self or o.removed or o.burning <= 0:
 			continue
-		if U.dist2(x, y, o.x, o.y) > R * R:
+		var dx := x - o.x
+		var dy := y - o.y
+		if dx * dx + dy * dy > R * R:
 			continue
 		A_Scare(o.x, o.y)
 		return
 	const SEE := 190.0
 	const FADE := 24
-	for o in game.blockmap.near(x, y):
+	for o: Actor in near:
 		if o == self or o.removed or o.dead or o.panic <= FADE * 2:
 			continue
-		if U.dist2(x, y, o.x, o.y) > SEE * SEE:
+		var dx := x - o.x
+		var dy := y - o.y
+		if dx * dx + dy * dy > SEE * SEE:
 			continue
 		A_Scare(o.flee_x, o.flee_y, o.panic - FADE)
 		return

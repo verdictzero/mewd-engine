@@ -244,7 +244,17 @@ THE PAUSE MENU keeps its settings in user://prefs.cfg:
     WORLD      time of night (22:00 to 08:00), weather
     DEBUG      infinite ammo, invincible, and the performance overlay
                (frame rate and time, draw calls, where the time goes,
-               and the device's renderer, GPU, CPU and OS), on by default
+               the cores and where the renderer runs, and the device's
+               renderer, GPU, CPU and OS), on by default, in the lower
+               left corner; RENDER THREAD (from the next start): AUTO,
+               OWN CORE, GAME'S CORE
+
+THE RENDERER RUNS ON A THREAD OF ITS OWN on the desktop: it draws one
+frame while the game works out the next, so a frame costs the slower of
+the two instead of both added (and CANDY LAND loaded in 6 s instead of
+20 here). Godot 4.7 still calls that experimental, so Android keeps it on
+the game's thread unless the DEBUG page's RENDER THREAD says OWN CORE
+(Godot reads it from user://render_thread.cfg before it starts).
 
 
 NETWORK PLAY
@@ -336,7 +346,12 @@ non-zero if any fails:
     ui         the house style: no hue, cut corners, the title's logo
                the same size and place on every page of its menu,
                logo and menu centred as a group, the title's picture
-               black and white and grained
+               black and white and grained, the frame rate's readout in
+               the lower left corner
+    cores      the renderer on a thread of its own, and RENDER THREAD
+               really moving it in a fresh copy of the game; the crowd's
+               steps the same answer as before, cheaper; the readout in
+               the lower left corner with the gun's notices above it
 
 With xvfb, `--shot=out.png` renders a picture of anything for checking
 by eye; godot/tests/island_shot.gd pictures a gun held on a crowd,

@@ -58,6 +58,8 @@ var _buf := PackedStringArray()
 var _t0 := 0
 var _frame := 0
 var _last_us := 0
+## the renderer's CPU and GPU times read (not on a render thread of its own)
+var _render_times := true
 ## this frame's sections (usec) and doings
 var _sec := {}
 var _did := {}
@@ -136,7 +138,12 @@ func _ready() -> void:
 	_t0 = Time.get_ticks_msec()
 	_sec_t = _t0
 	_last_us = Time.get_ticks_usec()
-	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	# (the renderer's own times only when it is on the game's thread: on a
+	# thread of its own — Cores — asking would make the game wait for it
+	# every frame, Godot says, and lose what the thread is for)
+	_render_times = not Cores.render_own()
+	if _render_times:
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	# the island's nodes, run from _process here so each can be timed
 	var isl = game.get("island")
 	if isl != null:
@@ -146,17 +153,18 @@ func _ready() -> void:
 				node.set_process(false)
 				_island.append([node, n])
 	var vs := DisplayServer.window_get_size()
-	_line("BEGIN %s  map=%s  os=%s  cpu=%s x%d  gpu=%s (%s)  api=%s  renderer=%s  window=%dx%d  render=%s  vsync=%d  max_fps=%d" % [
+	_line("BEGIN %s  map=%s  os=%s  cpu=%s x%d  gpu=%s (%s)  api=%s  renderer=%s  render_thread=%s  window=%dx%d  render=%s  vsync=%d  max_fps=%d" % [
 		Time.get_datetime_string_from_system(), str(game.get("map_name")), OS.get_name(),
 		OS.get_processor_name(), OS.get_processor_count(),
 		RenderingServer.get_video_adapter_name(), RenderingServer.get_video_adapter_vendor(),
 		RenderingServer.get_video_adapter_api_version(),
-		str(ProjectSettings.get_setting("rendering/renderer/rendering_method")), vs.x, vs.y,
+		str(ProjectSettings.get_setting("rendering/renderer/rendering_method")),
+		"own" if Cores.render_own() else "main", vs.x, vs.y,
 		str(get_viewport().get_visible_rect().size), DisplayServer.window_get_vsync_mode(), Engine.max_fps])
 	_line("POOLS hole=%d blood=%d heat=%d sear=%d blast=%d gore=%d  (one MultiMesh of boxes a pool; each box a projected decal)" % [
 		Decals.POOLS.hole, Decals.POOLS.blood, Decals.POOLS.heat, Decals.SEAR_POOL, Decals.BLAST_POOL, GoreDecals.CAP])
 	_line("ISLAND nodes timed from here: " + ", ".join(_island.map(func(e): return e[1])))
-	_line("columns: FRAME ms=wall process=the engine's whole _process physics=_physics_process render_cpu/gpu=the frame before's draws prims objs | sec: Game's sections and the island's nodes (isl.), ms | other=process minus the sections | n: counts | did: what happened this frame")
+	_line("columns: FRAME ms=wall process=the engine's whole _process physics=_physics_process render_cpu/gpu=the frame before's (-1: the renderer on a thread of its own, not asked) draws prims objs | sec: Game's sections and the island's nodes (isl.), ms | other=process minus the sections | n: counts | did: what happened this frame")
 	_line("columns: SEC fps worst_ms placed | the sections' average ms over the second, biggest first || PLACE pool kind slot live/cap at=(x,y,z) size || SPIKE ms, the three biggest sections")
 	_flush()
 
@@ -270,8 +278,8 @@ func _frame_line(own0: int) -> void:
 	_own_us = Time.get_ticks_usec() - own0
 	_line("FRAME ms=%.2f process=%.2f physics=%.2f render_cpu=%.2f render_gpu=%.2f draws=%d prims=%d objs=%d | sec: %s | other=%.2f log=%.2f | n: %s | did: %s" % [
 		ms, process_ms, physics_ms,
-		RenderingServer.viewport_get_measured_render_time_cpu(vp),
-		RenderingServer.viewport_get_measured_render_time_gpu(vp),
+		RenderingServer.viewport_get_measured_render_time_cpu(vp) if _render_times else -1.0,
+		RenderingServer.viewport_get_measured_render_time_gpu(vp) if _render_times else -1.0,
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),

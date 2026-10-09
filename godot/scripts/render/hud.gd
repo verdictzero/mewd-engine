@@ -34,6 +34,8 @@ const UI := {
 }
 
 var game
+## the frame rate's readout, in the bottom left corner too (Main's)
+var perf: Control = null
 ## the old monospaced face: kept for 死 on a match's death card, and as
 ## the death's fallback when its own faces will not load
 var font: Font
@@ -304,7 +306,8 @@ func _draw_ammo(p: Player, d: Dictionary, rx: float, y: float, bw: float, bh: fl
 
 ## THE BOTTOM LEFT: the gun's own notices, stacked, newest at the bottom
 ## in NAME and the rest in TAG, each fading in its last second and a
-## quarter (js/hud.js _drawToasts, toastFade)
+## quarter (js/hud.js _drawToasts, toastFade) — stacked on the frame
+## rate's readout while it shows there (`perf`, PerfOverlay)
 func _draw_toasts(s: float) -> void:
 	var list: Array = game.get("toasts") if game.get("toasts") != null else []
 	if list.is_empty():
@@ -312,14 +315,23 @@ func _draw_toasts(s: float) -> void:
 	var M := roundf(20.0 * s)
 	var fs := int(roundf(minf(14.0 * s, size.x / 32.0)))
 	var lead := roundf(fs * 1.7)
+	var bottom := toasts_bottom(s)
 	for i in list.size():
 		var up := list.size() - 1 - i
-		var y := size.y - M - up * lead
+		var y := bottom - up * lead
 		if y < lead:
 			continue
 		var a := clampf(float(list[i].tics) / (1.25 * 35.0), 0.0, 1.0)
 		var col: Color = UI.ink if up == 0 else UI.label
 		_text(M, y, UiStyle.spaced(str(list[i].text)), fs, Color(col, col.a * a))
+
+## where the newest notice stands: the margin above the bottom edge, or
+## above the frame rate's readout while it shows there
+func toasts_bottom(s: float) -> float:
+	var bottom := size.y - roundf(20.0 * s)
+	if perf != null and is_instance_valid(perf) and perf.visible:
+		bottom = minf(bottom, perf.position.y - roundf(8.0 * s))
+	return bottom
 
 ## YOU DIED (PlayerDeath), as galvarius has it: the screen washed red,
 ## the words big across the middle in its Mechsuit face, and once a press
