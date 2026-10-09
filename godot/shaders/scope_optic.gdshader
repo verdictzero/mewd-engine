@@ -10,6 +10,12 @@ uniform float charge = 0.0;
 uniform float tics = 0.0;
 
 void fragment() {
+	// ITS OWN DEPTH (the very value the GPU would write: nothing looks
+	// different): a draw that writes its depth is never culled by an
+	// Adreno's LRZ, the 8x8 blocks of black on the gun (Lofi.gun_depth)
+#ifndef MEWD_FIXED_DEPTH
+	DEPTH = FRAGCOORD.z;
+#endif
 	float f = 1.0 - abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float rim = pow(f, 2.2);
 	vec3 c = base * (0.25 + 0.55 * (1.0 - f)) + vec3(0.55, 1.0, 0.62) * rim * 0.8;

@@ -114,5 +114,8 @@ func _process(dt: float) -> void:
 		grid = " · world %dx%d" % [lofi.world.size.x, lofi.world.size.y]
 	var hz := DisplayServer.screen_get_refresh_rate()
 	lines.append("window %dx%d%s%s" % [win.x, win.y, grid, (" · %d Hz" % roundi(hz)) if hz > 1.0 and hz < 1000.0 else ""])
+	# (which of the gun's ways of drawing is in use: Lofi.gun_state)
+	if lofi != null and lofi.has_method("gun_state"):
+		lines.append(lofi.gun_state())
 	lines.append(_spec)
 	label.text = "\n".join(lines)

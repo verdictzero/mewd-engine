@@ -196,7 +196,9 @@ func _light_native(group: Node3D) -> void:
 	rim.light_color = Color(0.85, 0.92, 1.0)
 	rim.light_energy = 1.6
 	group.add_child(rim)
-	var w := get_viewport().world_3d if is_inside_tree() else null
+	# (find_world_3d: an own-world viewport's `world_3d` is the one never
+	# assigned — null — not the one it draws)
+	var w := get_viewport().find_world_3d() if is_inside_tree() else null
 	if w != null and w.environment == null:
 		var env := Environment.new()
 		env.background_mode = Environment.BG_CLEAR_COLOR

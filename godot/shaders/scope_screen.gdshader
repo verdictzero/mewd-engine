@@ -85,6 +85,12 @@ void vertex() {
 }
 
 void fragment() {
+	// ITS OWN DEPTH (the very value the GPU would write: nothing looks
+	// different): a draw that writes its depth is never culled by an
+	// Adreno's LRZ, the 8x8 blocks of black on the gun (Lofi.gun_depth)
+#ifndef MEWD_FIXED_DEPTH
+	DEPTH = FRAGCOORD.z;
+#endif
 	// the panel's own box, and u flipped — see the header. v runs UP the
 	// panel; a texture's rows run down, so it is flipped at the sample.
 	vec2 uv = vec2(1.0 - (local.x - box.x) * box.z, (local.y - box.y) * box.w);

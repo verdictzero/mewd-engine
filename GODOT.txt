@@ -3767,6 +3767,79 @@ HIGHLIGHTED, NOT INDENTED (0000036)
   you are on in the same place and the same width as the rest.
 
 
+THE GUN'S BLACK SQUARES ON AN ADRENO, FOR REAL THIS TIME (0000037)
+
+  At the user's request ("this gun rendering bug is still happening", a
+  recording from a Galaxy S23 Ultra — Adreno 740, Vulkan, Mobile — then
+  "note this doesnt happen on the mediatek dimensity chipset", "just
+  adreno qualcomm").
+
+  WHAT THE RECORDING SHOWED: every black patch on the flamer was a union
+  of EXACT 8 x 8 blocks of the gun's own texels, on its 8-texel grid (rows
+  136-143 x cols 296-303, 144-151 x 288-303, ...), flickering with the
+  gun's bob, mostly on the red tank. Their value is the gun world's clear
+  colour — Godot's default 0.3 grey, 0.0732 linear, which the filter
+  takes to (18,14,18)..(34,31,27) — not zero: in those blocks NOTHING was
+  drawn, neither the gun nor the room quad behind it. The NaN fix of
+  "NO BLACK SQUARES ON THE GUN" could never have touched that (and a NaN
+  is one texel, not 8 x 8).
+
+  WHY (a workflow of three investigators and a judge: the code, the field,
+  Godot 4.7's own source): nothing in Godot's Mobile path works in 8 x 8
+  blocks — no compute runs, the clears are whole-pass — but an Adreno's
+  LRZ does: the coarse depth test that keeps one value to 8 x 8 pixels and
+  throws a whole block away before it is shaded. A wrong or stale value
+  there, nearer than the gun, drops the gun and the room alike and leaves
+  the clear colour; it can only sit where the gun filled a whole block
+  (the tank's broad faces) and it moves with the gun. A MediaTek's Mali
+  has no LRZ. (The holes in the gun "with the room showing through" that
+  the Adreno showed before the room quad existed were the same thing.)
+  The one way the gun's pass differs from the world's, which never shows
+  a square: with no glow it is ONE render pass of two subpasses, the
+  tonemap reading the colour as an input attachment; the world's, with
+  glow, tonemaps in a pass of its own.
+
+  THE FIX (Lofi.gun_depth, .gun_tone; render/lofi.gd's notes):
+    - every shader that writes depth in the gun's world — gun, gun_matcap,
+      scope_screen, thermal_screen, scope_optic, gun_room — writes its own
+      first thing (`DEPTH = FRAGCOORD.z`, the very value the GPU would
+      have written: checked byte for byte), and a draw that writes its
+      own depth is neither tested against LRZ nor written into it;
+    - on an Adreno the gun's frame is tonemapped in a pass of its own, as
+      the world's is (an empty CompositorEffect after the transparent
+      pass, put on the gun world's scenario: RenderingServer.
+      scenario_set_compositor); elsewhere not, since it moves a few texels
+      by a half-float step.
+  THE SWITCHES, to tell the causes apart on the phone if a square is ever
+  seen again (pause menu, 6 DEBUG; the PERF readout says which are on):
+  GUN DEPTH (OWN — the fix —, GPU'S, GPU'S WITH NO CUT-OUT: copies of the
+  shaders compiled with MEWD_FIXED_DEPTH / MEWD_NO_DISCARD), GUN TONEMAP
+  (AUTO, OWN PASS, IN 3D PASS), GUN CLEAR (GREY, MAGENTA: where nothing
+  was drawn shows magenta), GUN HDR (ON, OFF: 8-bit colour, the numbers
+  wrong, for telling a colour-compression fault by its changed shape).
+  Also: Weapon3D._light_native asked the own-world viewport for
+  `world_3d` (always null there) — find_world_3d now; latent, no gun is
+  `native`.
+
+  A value a switch does not know (a settings file edited by hand) is the
+  fix. MAGENTA, switched off, gives the gun world back whatever
+  environment it had. Under Compatibility (no room pass) the readout says
+  so and the switches do nothing. NB: a gun with glass (POTATO, PLASMA)
+  reads the screen, which already puts its tonemap in a pass of its own —
+  so whether the squares were ever seen on those two says whether the
+  subpass mattered; try GUN TONEMAP with another gun.
+
+  godot/tests/gun_depth_test.gd: every one of the six writes its own depth
+  before anything else (read from the shaders' code); the switches swap
+  the gun and matcap materials of every gun, and the room's, and back,
+  settings kept (the scope screens, which the test has no scopes for, by
+  the same code); an unknown value is the fix; and under a real renderer,
+  the flamer drawn: own depth identical to the byte to the GPU's, the own
+  tonemap pass within 0.00098, and cleared to magenta, not a texel
+  undrawn. A watchdog quits it if it ever hangs. Not seen on an Adreno
+  here — to be confirmed on the phone.
+
+
 TESTS
 
     tools/godot-test.sh

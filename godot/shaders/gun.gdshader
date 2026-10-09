@@ -18,10 +18,14 @@
 // of falloffs rather than read off a texture. `matcap` how much of it.
 //
 // NO BLACK SQUARES, at the user's request ("weird weapon artifacting on
-// Qualcomm GPU"): on an Adreno a normal that came out of the vertex
-// stage zero or broken made a NaN here, and a NaN pixel came out of the
-// filter as a black block. The normal is normalized safely (a dead one
-// faces the eye) and what is written is scrubbed of NaN and infinity.
+// Qualcomm GPU", then "this gun rendering bug is still happening", "just
+// adreno qualcomm"): the squares were 8x8 blocks of the gun's picture
+// where nothing was drawn at all — the clear grey, neither gun nor room —
+// the shape of an Adreno's LRZ, the coarse depth test that drops a whole
+// 8x8 block before it is shaded (Lofi.gun_depth). So this draw writes its
+// own depth (the same value), which takes it out of LRZ. (A NaN was
+// suspected first: the normal is still normalized safely and what is
+// written still scrubbed of NaN and infinity, which costs nothing.)
 shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_opaque;
 
@@ -73,8 +77,16 @@ void vertex() {
 }
 
 void fragment() {
+	// ITS OWN DEPTH (the very value the GPU would write: nothing looks
+	// different): a draw that writes its depth is never culled by an
+	// Adreno's LRZ, the 8x8 blocks of black on the gun (Lofi.gun_depth)
+#ifndef MEWD_FIXED_DEPTH
+	DEPTH = FRAGCOORD.z;
+#endif
 	vec4 c = has_map ? texture(map, UV) * base : base;
+#ifndef MEWD_NO_DISCARD
 	if (c.a < 0.5) discard;
+#endif
 	vec3 key = normalize(vec3(-0.45, 0.7, 0.55));
 	vec3 nv = safe_n(n_view);
 	float l = 0.38 + 0.62 * max(dot(nv, key), 0.0);

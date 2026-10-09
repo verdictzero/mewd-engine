@@ -54,6 +54,12 @@ const DIALS := [
 	["debug", "DEBUG: INFINITE AMMO", 6, [[false, "OFF"], [true, "ON"]]],
 	["godmode", "DEBUG: INVINCIBLE", 6, [[false, "OFF"], [true, "ON"]]],
 	["fps", "FRAME RATE", 6, [[false, "OFF"], [true, "ON"]]],
+	# THE GUN'S BLACK SQUARES ON AN ADRENO (Lofi.gun_diag): the fix as it
+	# ships, and the switches to tell the causes apart on the phone
+	["gun_depth", "GUN DEPTH", 6, [["shader", "OWN (FIX)"], ["fixed", "GPU'S"], ["nodiscard", "GPU'S, NO CUT-OUT"]]],
+	["gun_tone", "GUN TONEMAP", 6, [["auto", "AUTO"], ["pass", "OWN PASS"], ["subpass", "IN 3D PASS"]]],
+	["gun_clear", "GUN CLEAR", 6, [["grey", "GREY"], ["magenta", "MAGENTA"]]],
+	["gun_hdr", "GUN HDR", 6, [[true, "ON"], [false, "OFF"]]],
 ]
 ## THE SETTINGS FILE (at the user's request: "add the ability to save
 ## settings to a settings file"): [key, name, page] — tiles that do
@@ -72,6 +78,7 @@ const SETTINGS_FILE := "mewd-settings.cfg"
 const DEFAULTS := {"sens": 1.0, "invert": false, "music": 0.5, "detail": 360, "pixels": 360, "pixar": 1.0, "grid": "lcd",
 	"snap": true, "bright": 1.35, "contrast": 1.0, "gamma": 1.0, "hour": 2.0, "weather": "clear",
 	"debug": false, "godmode": false, "fps": true,
+	"gun_depth": "shader", "gun_tone": "auto", "gun_clear": "grey", "gun_hdr": true,
 	"dist_land": 1.0, "dist_trees": 1.0, "dist_grass": 1.0, "dist_people": 6400.0}
 const PAGES := ["1 CONTROLS", "2 PICTURE", "3 LEVELS", "4 WORLD", "5 DISTANCE", "6 DEBUG", "7 FILE"]
 

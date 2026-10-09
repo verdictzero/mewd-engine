@@ -118,7 +118,9 @@ void fragment() {
 				vec2 at = uv0 + (t + 0.5) / taps * span;
 				vec4 g = texture(gun_tex, at);
 				// (a NaN or an infinity from the gun's world would come out
-				// of the snap as a black block: on an Adreno it did)
+				// of the snap as a black block — suspected once on an
+				// Adreno; its squares were LRZ's, Lofi.gun_depth, but a
+				// NaN is still put out here, which costs nothing)
 				if (any(isnan(g)) || any(isinf(g))) g = vec4(0.0);
 				g = clamp(g, vec4(0.0), vec4(16.0));
 				// (and the same of the world's: a NaN some driver makes of a

@@ -3,7 +3,9 @@
 // the far plane, so the gun is drawn onto the room by the depth test
 // rather than laid over it by an alpha the Mobile renderer does not keep.
 // Unshaded and read as it is: the gun viewport is HDR (U.raw_out), so
-// what is written is what the room was.
+// what is written is what the room was. It writes its own depth, as every
+// draw in the gun's world does, so an Adreno's LRZ never drops it
+// (Lofi.gun_depth).
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_always, shadows_disabled, fog_disabled, skip_vertex_transform;
 
@@ -16,5 +18,11 @@ void vertex() {
 }
 
 void fragment() {
+	// ITS OWN DEPTH (the very value the GPU would write: nothing looks
+	// different): a draw that writes its depth is never culled by an
+	// Adreno's LRZ, the 8x8 blocks of black on the gun (Lofi.gun_depth)
+#ifndef MEWD_FIXED_DEPTH
+	DEPTH = FRAGCOORD.z;
+#endif
 	ALBEDO = texture(room, SCREEN_UV).rgb;
 }

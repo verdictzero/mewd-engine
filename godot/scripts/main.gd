@@ -519,6 +519,10 @@ func apply_prefs(p: Dictionary) -> void:
 	lofi.for_island(game.island_spec if game != null else {}, bool(p.snap))
 	music.set_volume(float(p.music))
 	fps_label.visible = bool(p.fps)
+	# the gun's black squares on an Adreno: the fix, and the DEBUG page's
+	# switches (Lofi.gun_diag) — again whenever the guns have been built
+	lofi.gun_diag(str(p.get("gun_depth", "shader")), str(p.get("gun_tone", "auto")),
+		str(p.get("gun_clear", "grey")), bool(p.get("gun_hdr", true)))
 	# how far the land, the trees, the grass and the people are drawn
 	# (the DISTANCE page: Distances)
 	Distances.apply(game, p)

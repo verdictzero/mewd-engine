@@ -37,11 +37,53 @@ var mat: ShaderMaterial
 ## THE GUN OVER THE ROOM, UNDER MOBILE: the room's picture is drawn in
 ## the gun's own world first, behind everything (gun_room.gdshader), and
 ## the gun straight onto it, so the filter reads one picture.
-## Compatibility composites the two by the gun's alpha instead — which
-## Mobile does not keep: its 3D targets hold two bits of alpha, and on a
-## phone's GPU (an Adreno) whole pieces of a solid gun came out as holes
-## with the room showing through.
+## Compatibility composites the two by the gun's alpha instead. (On a
+## phone's Adreno whole pieces of a solid gun once came out as holes with
+## the room showing through; that was put down to Mobile's alpha, but was
+## most likely the black squares below, in another guise.)
 var gun_on_room := false
+
+## THE GUN'S BLACK SQUARES, ON AN ADRENO (at the user's request: "weird
+## weapon artifacting on Qualcomm GPU", "this gun rendering bug is still
+## happening", "just adreno qualcomm" — never on a MediaTek's Mali). They
+## were blocks of exactly 8 x 8 of the gun's texels, on its 8-texel grid,
+## where NOTHING was drawn — the clear grey, neither the gun nor the room
+## behind it: whole blocks thrown away before they were shaded. That is
+## the shape of an Adreno's LRZ, the coarse depth test kept one value to
+## 8 x 8 pixels, holding a value it should not. So, by default:
+##   - DEPTH, "shader": every draw in the gun's world that writes depth
+##     writes it itself (gun, gun_matcap, the scope screens and optic, the
+##     room: `DEPTH = FRAGCOORD.z`, the value the GPU would have written,
+##     so nothing looks different), and a draw that writes its own depth
+##     is neither tested against LRZ nor written into it;
+##   - TONEMAP, "auto": on an Adreno the gun's frame is tonemapped in a
+##     pass of its own (an empty compositor effect), the way the world's
+##     is, which never showed a square — rather than in a second subpass
+##     of the 3D pass. (Elsewhere left as it was: it shifts a few texels by
+##     a half-float step.)
+## And the switches to tell the causes apart on the phone, if a square is
+## ever seen again (the DEBUG page: GUN DEPTH, GUN TONEMAP, GUN CLEAR, GUN
+## HDR; Main.apply_prefs -> gun_diag):
+##   DEPTH "fixed" the GPU's own depth again (as before), "nodiscard" that
+##   and the gun's cut-out compiled out; TONEMAP "pass" or "subpass"
+##   forced; CLEAR "magenta" paints where nothing was drawn magenta; HDR
+##   off draws the gun in 8-bit colour (the picture's numbers come out
+##   wrong — for telling a colour-compression fault by its new shape).
+const GUN_SHADERS := ["res://godot/shaders/gun.gdshader", "res://godot/shaders/gun_matcap.gdshader",
+	"res://godot/shaders/scope_screen.gdshader", "res://godot/shaders/thermal_screen.gdshader",
+	"res://godot/shaders/scope_optic.gdshader", "res://godot/shaders/gun_room.gdshader"]
+var gun_depth := "shader"
+var gun_tone := "auto"
+var gun_clear := "grey"
+var gun_hdr := true
+## the tonemap in a pass of its own, now
+var gun_tone_pass := false
+## (kept: the scenario holds only its RID)
+var gun_comp: Compositor
+var _gun_variants := {}
+var _gun_magenta: Environment
+## (the gun world's own environment, if it had one, while MAGENTA stands in)
+var _gun_env_was: Environment
 var render_rows := RENDER
 var pixel_rows := PIXELS
 var pixel_aspect := PIXEL_ASPECT
@@ -139,6 +181,7 @@ func _ready() -> void:
 		((gun.get_node("Room") as MeshInstance3D).mesh.material as ShaderMaterial).set_shader_parameter("room", world.get_texture())
 	get_viewport().size_changed.connect(_resize)
 	_resize()
+	gun_diag(gun_depth, gun_tone, gun_clear, gun_hdr)
 
 ## THE PICTURE NEVER STRETCHES BY A FRACTION, at the user's request
 ## ("only mathematically acceptable ratios that won't result in
@@ -260,6 +303,108 @@ func set_mono(k: float) -> void:
 ## ... and film grain under the filter, how strong (0 none)
 func set_grain(k: float) -> void:
 	mat.set_shader_parameter("grain", U.col(maxf(k, 0.0)))
+
+# ---- the gun's black squares (above) -----------------------------------------
+
+## whether this is an Adreno (Qualcomm's GPU)
+static func is_adreno() -> bool:
+	return RenderingServer.get_video_adapter_name().containsn("adreno")
+
+## The four switches at once (DEPTH, TONEMAP, CLEAR, HDR: above).
+func gun_diag(depth: String, tone: String, clear: String, hdr: bool) -> void:
+	# (anything not known — a settings file edited by hand — is the fix)
+	gun_depth = depth if depth in ["shader", "fixed", "nodiscard"] else "shader"
+	gun_tone = tone if tone in ["auto", "pass", "subpass"] else "auto"
+	gun_clear = clear if clear in ["grey", "magenta"] else "grey"
+	gun_hdr = hdr
+	apply_gun_depth()
+	set_gun_tonemap(gun_tone == "pass" or (gun_tone == "auto" and is_adreno()))
+	var w := gun.find_world_3d()
+	if w != null:
+		if gun_clear == "magenta":
+			if _gun_magenta == null:
+				_gun_magenta = Environment.new()
+				_gun_magenta.background_mode = Environment.BG_COLOR
+				_gun_magenta.background_color = Color(1, 0, 1)
+			if w.environment != _gun_magenta:
+				_gun_env_was = w.environment
+			w.environment = _gun_magenta
+		elif _gun_magenta != null and w.environment == _gun_magenta:
+			w.environment = _gun_env_was
+			_gun_env_was = null
+	if hdr:
+		U.raw_out(gun)
+	else:
+		gun.use_hdr_2d = false
+
+## Every material of the gun's world on its depth switch: the shipped
+## shaders (they write their own depth) for "shader", or a copy of each
+## compiled with MEWD_FIXED_DEPTH (and MEWD_NO_DISCARD) for the others.
+## Run again whenever guns are built (Main.apply_prefs, after the level's).
+func apply_gun_depth() -> void:
+	var defs: Array = {"fixed": ["MEWD_FIXED_DEPTH"], "nodiscard": ["MEWD_FIXED_DEPTH", "MEWD_NO_DISCARD"]}.get(gun_depth, [])
+	for n in gun.find_children("*", "GeometryInstance3D", true, false):
+		var mats := []
+		var g := n as GeometryInstance3D
+		if g.material_override != null:
+			mats.append(g.material_override)
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
+			var mi := n as MeshInstance3D
+			for i in mi.mesh.get_surface_count():
+				mats.append(mi.get_surface_override_material(i))
+				mats.append(mi.mesh.surface_get_material(i))
+		for m in mats:
+			if m is ShaderMaterial:
+				_gun_variant(m, defs)
+
+func _gun_variant(m: ShaderMaterial, defs: Array) -> void:
+	var base: Shader = m.get_meta("mewd_base") if m.has_meta("mewd_base") else m.shader
+	if base == null or not GUN_SHADERS.has(base.resource_path):
+		return
+	m.set_meta("mewd_base", base)
+	if defs.is_empty():
+		if m.shader != base:
+			m.shader = base
+		return
+	var key := base.resource_path + "|" + ",".join(defs)
+	if not _gun_variants.has(key):
+		var head := "shader_type spatial;"
+		for d in defs:
+			head += "\n#define " + d
+		var v := Shader.new()
+		v.code = base.code.replace("shader_type spatial;", head)
+		_gun_variants[key] = v
+	if m.shader != _gun_variants[key]:
+		m.shader = _gun_variants[key]
+
+## The gun's frame tonemapped in a pass of its own (an empty compositor
+## effect after the transparent pass turns the 3D pass's tonemap subpass
+## off), or in the 3D pass as Godot does by default.
+func set_gun_tonemap(separate: bool) -> void:
+	gun_tone_pass = separate and gun_on_room
+	if not gun_on_room:
+		return
+	var w := gun.find_world_3d()
+	if w == null:
+		return
+	if separate and gun_comp == null:
+		gun_comp = Compositor.new()
+		var fx := CompositorEffect.new()
+		fx.effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT
+		fx.enabled = true
+		var list: Array[CompositorEffect] = [fx]
+		gun_comp.compositor_effects = list
+	RenderingServer.scenario_set_compositor(w.scenario, gun_comp.get_rid() if separate else RID())
+
+## what the gun's switches are, for the PERF readout (the tonemap as set:
+## a gun with glass — POTATO, PLASMA — reads the screen, which puts its
+## tonemap in a pass of its own whatever the switch says)
+func gun_state() -> String:
+	if not gun_on_room:
+		return "gun: compat (no room pass; the switches do nothing here)"
+	var d: String = {"shader": "own depth", "fixed": "gpu depth", "nodiscard": "gpu depth, no discard"}.get(gun_depth, gun_depth)
+	return "gun %s · tonemap %s%s%s%s" % [d, "pass" if gun_tone_pass else "subpass",
+		" (auto)" if gun_tone == "auto" else "", " · magenta" if gun_clear == "magenta" else "", "" if gun_hdr else " · 8-bit"]
 
 ## the filter on or off: off, the buffer is shown as it is
 var _snap := 1.0

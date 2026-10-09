@@ -22,6 +22,12 @@ uniform float glow = 0.0;
 uniform vec3 tint = vec3(1.0);
 
 void fragment() {
+	// ITS OWN DEPTH (the very value the GPU would write: nothing looks
+	// different): a draw that writes its depth is never culled by an
+	// Adreno's LRZ, the 8x8 blocks of black on the gun (Lofi.gun_depth)
+#ifndef MEWD_FIXED_DEPTH
+	DEPTH = FRAGCOORD.z;
+#endif
 	vec3 n = NORMAL;
 	if (has_normal) {
 		vec3 t = texture(normal_map, UV).xyz * 2.0 - 1.0;

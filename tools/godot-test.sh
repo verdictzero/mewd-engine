@@ -67,4 +67,8 @@ run maze    --script res://godot/tests/maze_test.gd -- --map=mazeland
 # size and place on every page of the menu, logo and menu centred as a
 # group, the title's picture black and white and grained (godot/tests/ui_test.gd)
 run ui      --script res://godot/tests/ui_test.gd
+# THE GUN'S BLACK SQUARES ON AN ADRENO: every depth-writing shader of the
+# gun's world writes its own depth, the DEBUG page's switches swap them
+# (godot/tests/gun_depth_test.gd; its pictures under xvfb, not headless)
+run gundepth --script res://godot/tests/gun_depth_test.gd
 exit $fail
