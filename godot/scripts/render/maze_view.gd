@@ -1,4 +1,4 @@
-## MEWD — THE MAZE DRAWN (MAZE LAND, at the user's request; Maze): every
+## MEWD — THE MAZE DRAWN (GUILBAULT ARENA, at the user's request; Maze): every
 ## wall and every post of the level's maze as instances of the user's two
 ## parts (assets/models/maze_parts.glb: maze_wall, 8 m along its x, and
 ## maze_corner, a 1 m post), in CHUNKS of CHUNK x CHUNK cells — a MultiMesh
@@ -6,6 +6,9 @@
 ## DISTANCE page's LAND scaling it: Distances) and the near ones take the
 ## model's own detail levels each by its own distance. Hung under the
 ## island, in its metres: the game's (x, y) is the island's (x, -y) / 32.
+## THE PARTS AT HALF THEIR SIZE (Maze.SCALE, at the user's request), and
+## drawn half as far, so as many are drawn as were and a wall is cut off at
+## the size on the screen it was.
 ## Under matcaps (MatcapProp, at the user's request: their colour, normal
 ## and metal-roughness maps lit by the clay and the pearl, a share of the
 ## island's light over them; cold to the thermal sight).
@@ -15,7 +18,7 @@ extends Node3D
 const MODEL := "res://assets/models/maze_parts.glb"
 const CHUNK := 8
 ## metres out to which a chunk is drawn (its own box's distance)
-const VIEW := 260.0
+const VIEW := 260.0 * Maze.SCALE
 
 var walls := 0
 var posts := 0
@@ -44,13 +47,13 @@ func _init(maze: Maze) -> void:
 			w_by[key] = []
 		# (an east-west wall lies along the island's x as the model does; a
 		# north-south one is turned a quarter onto its z)
-		var b := Basis.IDENTITY if w[1] == w[3] else Basis(Vector3.UP, PI * 0.5)
+		var b := (Basis.IDENTITY if w[1] == w[3] else Basis(Vector3.UP, PI * 0.5)).scaled(Vector3.ONE * Maze.SCALE)
 		w_by[key].append(Transform3D(b, Vector3(mx / k, fy, -my / k)))
 	for p in maze.posts():
 		var key := _chunk(maze, p.x, p.y, span)
 		if not p_by.has(key):
 			p_by[key] = []
-		p_by[key].append(Transform3D(Basis.IDENTITY, Vector3(p.x / k, fy, -p.y / k)))
+		p_by[key].append(Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * Maze.SCALE), Vector3(p.x / k, fy, -p.y / k)))
 	for key in w_by:
 		add_child(_mm(wall_mesh, w_by[key], "Walls%d_%d" % [key.x, key.y]))
 		walls += w_by[key].size()
@@ -75,7 +78,7 @@ func _mm(mesh: Mesh, xf: Array, nm: String) -> MultiMeshInstance3D:
 	mi.name = nm
 	mi.multimesh = mm
 	mi.visibility_range_end = VIEW
-	mi.visibility_range_end_margin = 20.0
+	mi.visibility_range_end_margin = 20.0 * Maze.SCALE
 	mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi

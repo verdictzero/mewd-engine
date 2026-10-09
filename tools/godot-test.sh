@@ -59,10 +59,12 @@ run pad     --script res://godot/tests/pad_test.gd
 run pickups --script res://godot/tests/pickup_test.gd -- --map=candyland --seed=7
 run pickups0 --script res://godot/tests/pickup_test.gd -- --map=island0 --seed=7
 run pickupsd --script res://godot/tests/pickup_test.gd -- --map=debugland --seed=7
-# MAZE LAND: the maze in the plus of five sections, its walls stopping
-# bodies, rounds and eyes, grass only beside them (godot/tests/maze_test.gd)
+# GUILBAULT ARENA: the maze in the plus's four arms at half size, the park
+# in its middle, its walls stopping bodies, rounds and eyes, grass only
+# beside them (godot/tests/maze_test.gd)
 run maze    --script res://godot/tests/maze_test.gd -- --map=mazeland
 # THE HOUSE STYLE (golf's): no hue, cut corners, the title's logo the same
-# size on every page of the menu (godot/tests/ui_test.gd)
+# size and place on every page of the menu, logo and menu centred as a
+# group, the title's picture black and white and grained (godot/tests/ui_test.gd)
 run ui      --script res://godot/tests/ui_test.gd
 exit $fail

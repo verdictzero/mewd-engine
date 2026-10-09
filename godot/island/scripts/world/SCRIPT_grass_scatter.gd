@@ -295,7 +295,7 @@ var _ready_ok := false
 # because a tile is pruned and rebuilt as the camera moves, and a rebuilt tile
 # has to come back mown: `_install_tile` cuts every new tile by them.
 var _mown: Array[Vector3] = []
-## HOW MUCH GRASS GROWS WHERE, if anything says (MAZE LAND, at the user's
+## HOW MUCH GRASS GROWS WHERE, if anything says (GUILBAULT ARENA, at the user's
 ## request: "make grass extra thick in and around maze ... try to not
 ## plant grass under the maze walls"): a Callable (island metres x, z) ->
 ## float, asked of every cell before the field is (on the worker threads:

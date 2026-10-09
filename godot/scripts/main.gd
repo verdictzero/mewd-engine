@@ -202,7 +202,10 @@ func join_host(where: String) -> void:
 func show_title() -> void:
 	forest = TitleForest.new()
 	lofi.world.add_child(forest)
-	lofi.set_tint(TitleForest.BLUE)
+	# (black and white, darker, grained: TitleForest TINT, GRAIN)
+	lofi.set_tint(TitleForest.TINT)
+	lofi.set_mono(1.0)
+	lofi.set_grain(TitleForest.GRAIN)
 	title_layer = CanvasLayer.new()
 	title_layer.layer = 2
 	add_child(title_layer)
@@ -307,6 +310,8 @@ func start_game() -> void:
 		forest = null
 		title = null
 	lofi.set_tint(Color.WHITE)
+	lofi.set_mono(0.0)
+	lofi.set_grain(0.0)
 	var w3d := Weapon3D.new()
 	lofi.gun.add_child(w3d)
 	game = preload("res://godot/scripts/game/game.gd").new()

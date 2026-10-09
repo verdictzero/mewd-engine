@@ -3668,6 +3668,81 @@ THE FETUS LAUNCHER, KEPT FOR LATER (0000033)
   four sides. godot/tests/model_shot.gd now reads a model Godot has not
   imported (GLTFDocument, at run time), so it can be pictured there.
 
+GUILBAULT ARENA, ITS PARK, AND THE TITLE IN BLACK AND WHITE (0000034)
+
+  At the user's requests: "rename maze Guilbault Arena"; "make maze have
+  as tall but use twice as many sections" (read as HALF as tall); "give
+  me a big ass 'central park' chunk of forest and meadow in the middle";
+  "on wide screens have the MEWD logo and the menu vertically centered
+  and horizontally centered as a group ... make that the way it is
+  permanently"; "make the MEWD logo smaller on the title screen, make the
+  title screen background coloring darker, black and white monochrome
+  only, add intense film grain under the pixel filter".
+
+  GUILBAULT ARENA is MAZE LAND renamed — its title (Islands.LIST), its
+  key still `mazeland`, so a saved choice or a server's --map finds it.
+
+  HALF AS TALL, TWICE AS MANY (Maze.SCALE 0.5): the user's wall and post
+  drawn at half their size — a wall 4 m long, half a metre thick, 4.5 m
+  tall; a post half a metre square — and the grid twice as fine each way,
+  222 cells of 4.5 m where there were 111 of 9, so the maze covers the
+  same ground: a finer maze of the same proportions. Its doors four to a
+  stretch where they were two (the same number to the metre). MazeView
+  scales the instances and draws the chunks out to half the distance
+  (VIEW 130 m), so as many walls and posts are drawn as were and a wall
+  is cut off at the size on the screen it was; the DISTANCE page's LAND
+  scales it as before. (So from the very middle of the park the arms are
+  out of sight until you walk toward one.)
+
+  THE PARK: section 5 — 333 m square — is no longer the maze's. The maze
+  is the plus's four arms (sections 2, 4, 6, 8), each carved as a piece
+  of its own (a depth-first tree from its first cell, then the loops),
+  and its outside opened in four places on every stretch — the stretch
+  facing the park too — so the park is walled in by the arms and reached
+  through them. Its woods and its meadows are the island's own: the
+  plants are cleared off the arms and their 12 m band only
+  (maze_land.tscn's VegScatter clear_rects, four rectangles where there
+  were two crossing bars), so the field's forest stands where its noise
+  says — about a quarter of the park wood, the rest open — and the grass
+  there is a MEADOW (Game._maze_up's mask: all the field grows at the
+  scatter's own grid, two and a half times the open ground's, thinned
+  under the trees). maze_test: four arms, each one piece; the middle
+  open, no wall in it, doors into it from every arm; the park's grass a
+  meadow's, wood and open ground both in it, plants in it and none in
+  the arms; the checks that stood in the middle moved into the north
+  arm. (The thick grass in the maze is about 2.2 times the open's, and
+  the test asks 1.8 of it where it asked 2.2: half-size cells give the
+  walls and their bare strips more of the ground.)
+
+  THE TITLE, ONE GROUP IN THE MIDDLE (Title._layout): the logo over the
+  menu, both centred across, and the two together centred down — on the
+  longest column, the main menu, so the logo never moves as the pages
+  change and every column hangs from the same line under it. One layout
+  for every screen: no more menu in the bottom right, no logo-at-the-
+  left for a short one (the canvas is never shorter than 720 —
+  window/stretch/aspect "expand"). THE LOGO SMALLER: 30% of the height
+  (LOGO_H) where it was 46%, or 60% of the width if that is less. A
+  row's height is now never less than its words and frame need (the
+  group was 7 px low with the rows taller than reckoned). ui_test: the
+  logo the same size AND place on every page, logo and main menu centred
+  across and down to a pixel, the logo under a third of the height — at
+  1280x720, 1600x720, 1728x720 and 1280x800, the canvases a 16:9, a
+  phone's 20:9, a 21:9 and a 16:10 make.
+
+  THE TITLE'S PICTURE, BLACK AND WHITE (lofi.gdshader `mono`, `grain`;
+  Lofi.set_mono, set_grain; TitleForest TINT, GRAIN): the finished frame
+  is taken to its brightness alone before the dither and the snap and
+  again after them (the earth palette's nearest to a grey is not always
+  a grey) — not a trace of colour left — and darkened by a grey, 0.18,
+  where the logo's blue was (the ground about a third darker than it
+  was: mean brightness 0.12 where it was 0.19). FILM GRAIN under the
+  pixel filter: a fresh speck in every chunky pixel 24 times a second,
+  near-gaussian (four hashes summed), strongest in the middle tones and
+  never gone from the shadows, added BEFORE the dither and the snap, so
+  the filter's own pixels are made of it — at 0.9, intense. A game turns
+  both off (Main.start_game) and the title back on.
+
+
 TESTS
 
     tools/godot-test.sh

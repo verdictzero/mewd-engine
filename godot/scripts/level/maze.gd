@@ -1,20 +1,31 @@
-## MEWD — THE MAZE (at the user's request, MAZE LAND: "divide it
+## MEWD — THE MAZE (at the user's request, GUILBAULT ARENA: "divide it
 ## conceptually into 9ths, in the 2nd 4th 5th 6th and 8th sections, build
 ## an interconnected maze using these parts" — assets/models/maze_parts.glb:
 ## a wall 8 m long, 1 m thick and 9 m tall, and a post 1 m square).
 ##
-## THE GRID: square cells PITCH apart (a post's metre and a wall's eight),
-## `n` to a side, centred on the island. The island is cut into a three by
-## three of SECTIONS, numbered as the user did, 1 to 9 across from the
-## north-west; the maze fills the cells of the sections in `sections` (by
-## default the plus: 2, 4, 5, 6, 8), and every other cell is open ground.
+## HALF AS TALL, TWICE AS MANY (at the user's request: "make maze have as
+## tall but use twice as many sections" — half as tall): the parts at half
+## their size (SCALE) — a wall 4 m long, half a metre thick and 4.5 m tall,
+## a post half a metre square — and twice as many cells each way, so the
+## maze covers the same ground: a finer one, of the same proportions.
 ##
-## THE MAZE: a spanning tree over its cells (a depth-first carve from the
-## middle, off the seed), so every cell reaches every other, and then a
-## share of the walls left knocked through as well (`loops`) — more than
-## one way round, an interconnected maze rather than a tree. Its outside
-## wall is opened in `doors` places a side on each arm, where it faces open
-## ground or the island's edge.
+## THE GRID: square cells PITCH apart (a post's half-metre and a wall's
+## four), `n` to a side, centred on the island. The island is cut into a
+## three by three of SECTIONS, numbered as the user did, 1 to 9 across from
+## the north-west; the maze fills the cells of the sections in `sections`
+## (by default the plus's four arms: 2, 4, 6, 8), and every other cell is
+## open ground. THE MIDDLE, 5, IS A PARK (at the user's request: "give me a
+## big ass 'central park' chunk of forest and meadow in the middle"): open
+## ground walled in by the four arms, its woods and meadows the island's
+## own (Game._maze_up's grass, maze_land.tscn's VegScatter clear_rects).
+##
+## THE MAZE: a spanning tree over each piece of it (a depth-first carve
+## from its first cell, off the seed) — the four arms, four pieces — so
+## every cell of an arm reaches every other, and then a share of the walls
+## left knocked through as well (`loops`): more than one way round, an
+## interconnected maze rather than a tree. Its outside wall is opened in
+## `doors` places on every stretch, where it faces open ground, the park or
+## the island's edge.
 ##
 ## WHAT IS A WALL: an edge of the grid with a wall on it is a slab of the
 ## wall's thickness along it, a post's half-metre past each end, as tall as
@@ -28,16 +39,18 @@ class_name Maze
 extends RefCounted
 
 const U := 32.0
+## the parts' size, as the model's (half, at the user's request)
+const SCALE := 0.5
 ## a cell, post to post, in metres
-const PITCH := 9.0
+const PITCH := 9.0 * SCALE
 ## the wall's half-thickness, metres
-const HALF := 0.5
+const HALF := 0.5 * SCALE
 ## how tall, metres
-const TALL := 9.0
+const TALL := 9.0 * SCALE
 
 ## cells to a side, and which sections hold the maze (1..9)
-var n := 111
-var sections: Array = [2, 4, 5, 6, 8]
+var n := 222
+var sections: Array = [2, 4, 6, 8]
 ## the floor the walls stand on, in the game's units (the island is flat)
 var floor_z := 0.0
 ## (the grid's north-west corner, game units)
@@ -58,8 +71,8 @@ var _lines := {}
 
 ## spec: Islands "maze" {cells, sections, seed, loops, doors}
 func _init(spec: Dictionary, floor_units := 0.0) -> void:
-	n = int(spec.get("cells", 111))
-	sections = spec.get("sections", [2, 4, 5, 6, 8])
+	n = int(spec.get("cells", 222))
+	sections = spec.get("sections", [2, 4, 6, 8])
 	floor_z = floor_units
 	var span := n * pitch
 	x0 = -span * 0.5
@@ -89,33 +102,36 @@ func _carve(seed: int, loops: float, doors: int) -> void:
 	for r in n:
 		for c in n + 1:
 			vwall[r * (n + 1) + c] = 1 if (cell(r, c - 1) or cell(r, c)) else 0
-	# THE TREE: a depth-first carve from the middle (an explicit stack: a
-	# few thousand cells deep would overflow a recursive one)
+	# THE TREES: a depth-first carve of each piece from its first cell (an
+	# explicit stack: a few thousand cells deep would overflow a recursive
+	# one)
 	var seen := PackedByteArray()
 	seen.resize(n * n)
-	var mid := n / 2
-	var stack := PackedInt32Array([mid * n + mid])
-	seen[mid * n + mid] = 1
 	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
-	while not stack.is_empty():
-		var at: int = stack[stack.size() - 1]
-		var r := at / n
-		var c := at % n
-		var open := []
-		for d in dirs:
-			var rr: int = r + d.y
-			var cc: int = c + d.x
-			if cell(rr, cc) and seen[rr * n + cc] == 0:
-				open.append(d)
-		if open.is_empty():
-			stack.remove_at(stack.size() - 1)
+	for first in n * n:
+		if in_maze[first] == 0 or seen[first] == 1:
 			continue
-		var d: Vector2i = open[rng.randi() % open.size()]
-		_knock(r, c, d)
-		var nr: int = r + d.y
-		var nc: int = c + d.x
-		seen[nr * n + nc] = 1
-		stack.append(nr * n + nc)
+		var stack := PackedInt32Array([first])
+		seen[first] = 1
+		while not stack.is_empty():
+			var at: int = stack[stack.size() - 1]
+			var r := at / n
+			var c := at % n
+			var open := []
+			for d in dirs:
+				var rr: int = r + d.y
+				var cc: int = c + d.x
+				if cell(rr, cc) and seen[rr * n + cc] == 0:
+					open.append(d)
+			if open.is_empty():
+				stack.remove_at(stack.size() - 1)
+				continue
+			var d: Vector2i = open[rng.randi() % open.size()]
+			_knock(r, c, d)
+			var nr: int = r + d.y
+			var nc: int = c + d.x
+			seen[nr * n + nc] = 1
+			stack.append(nr * n + nc)
 	# AND THE LOOPS: a share of the inside walls knocked through as well
 	for r in n:
 		for c in n:

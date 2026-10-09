@@ -9,7 +9,7 @@
 // grid, and the SNAP to the nearest of the palette's 256 colours by a
 // 32x32x32 atlas (godot/data/palette_lut.png: blue picks the slice, red
 // is x within it, green is y). Nearest, so the snap is a snap and never
-// a blend of two palette entries. Then the tint (the title's blue).
+// a blend of two palette entries. Then the tint (the title's grey).
 shader_type canvas_item;
 
 uniform sampler2D lut : filter_nearest;
@@ -41,6 +41,34 @@ uniform float knee = 0.0;
 // seconds.
 uniform float wobble = 0.0;
 uniform float now = 0.0;
+// THE TITLE'S LOOK, at the user's request ("make the title screen
+// background coloring darker, black and white monochrome only, add intense
+// film grain under the pixel filter"): `mono` 0..1 takes the picture to its
+// brightness alone — before the dither and the snap, and again after them
+// (the earth palette's nearest to a grey is not always a grey) — and
+// `grain` is FILM GRAIN, how strong: a fresh speck in every chunky pixel,
+// 24 times a second like a projector's frames, near-gaussian, strongest in
+// the middle tones as film's is, added BEFORE the dither and the snap, so
+// the filter's own pixels are made of it.
+uniform float mono = 0.0;
+uniform float grain = 0.0;
+
+const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+
+float hash12(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+// a speck of grain, -1..1, about gaussian (four uniform draws summed)
+float speck(vec2 cell, float frame) {
+	// (each frame somewhere else in the noise, by an offset kept under a
+	// thousand cells, so the hash keeps its precision however long it runs)
+	vec2 q = cell + vec2(fract(frame * 0.6180339), fract(frame * 0.7548776)) * 1000.0;
+	float s = hash12(q) + hash12(q + 17.31) + hash12(q + 43.7) + hash12(q + 71.13);
+	return (s - 2.0) * 0.866;
+}
 
 vec3 hue_turn(vec3 c, float a) {
 	// round the grey axis
@@ -110,8 +138,17 @@ void fragment() {
 	c = shoulder(c);
 	if (wobble > 0.0)
 		c = max(mix(c, hue_turn(c, now * 75.0), clamp(wobble * 1.5, 0.0, 1.0)), 0.0);
+	if (mono > 0.0)
+		c = mix(c, vec3(dot(c, LUMA)), mono);
+	if (grain > 0.0) {
+		float l = clamp(dot(c, LUMA), 0.0, 1.0);
+		float g = speck(cell, floor(TIME * 24.0)) * grain * (0.5 + 1.2 * l * (1.0 - l) + 0.2 * l);
+		c = max(c + vec3(g), 0.0);
+	}
 	if (dither > 0.0)
 		c += vec3((bayer4(cell) / 15.0 - 0.5) * dither) / dither_levels;
 	c = mix(c, pal_snap(c), snap);
+	if (mono > 0.0)
+		c = mix(c, vec3(dot(c, LUMA)), mono);
 	COLOR = vec4(c * tint, 1.0);
 }

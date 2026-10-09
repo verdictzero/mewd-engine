@@ -39,7 +39,7 @@ const LIST := [
 	{"key": "island0", "title": "NOT PENNSYLVANIA", "scene": "res://godot/island/scenes/island_0.tscn", "people": 360,
 		"blurb": "golf's island, the first one: hills, firs and a cliff all round into the cloud",
 		# (its own "Waiting for Something" is gone, as are DEBUG LAND's and
-		# MAZE LAND's: every island but CANDY LAND plays the three metal
+		# GUILBAULT ARENA's: every island but CANDY LAND plays the three metal
 		# remixes, at the user's request)
 		# THE PICKUPS (game/pickups.gd): ten round each of the crowd's
 		# gathering places — the island has no roads and no towns
@@ -72,7 +72,7 @@ const LIST := [
 		# everything back half a minute after it is taken
 		"pickups": {"country": 4, "respawn": 1050, "showroom": true},
 		"blurb": "a flat square of NOT PENNSYLVANIA, 512 metres a side, for trying things out"},
-	# MAZE LAND, at the user's request: "make a copy of Debug Land but
+	# GUILBAULT ARENA, at the user's request: "make a copy of Debug Land but
 	# 1024^2; divide it conceptually into 9ths, in the 2nd 4th 5th 6th and
 	# 8th sections, build an interconnected maze using these parts,
 	# vegetation will be pared down to just grass within proximity of the
@@ -85,12 +85,18 @@ const LIST := [
 	# thick in and around maze, make sure rest of island is fleshed out with
 	# normal vegetation"): the grass thick through the maze and 12 m round
 	# it, none under its walls, and the rest of the island DEBUG LAND's
-	# trees, bushes, ferns and grass
-	{"key": "mazeland", "title": "MAZE LAND", "scene": "res://godot/island/scenes/maze_land.tscn", "people": 60,
-		"maze": {"cells": 111, "sections": [2, 4, 5, 6, 8], "seed": 2718, "loops": 0.1, "doors": 2,
-			"start": [80, 30], "grass_band": 12.0, "grass_clear": 0.45},
+	# trees, bushes, ferns and grass. GUILBAULT ARENA since (at the user's
+	# request: "rename maze Guilbault Arena"; its key as it was), the maze
+	# half as tall in twice as many cells each way ("make maze have as tall
+	# but use twice as many sections": Maze.SCALE), and its middle section
+	# a PARK ("give me a big ass 'central park' chunk of forest and meadow
+	# in the middle"): the four arms round it, doors through every stretch
+	# of their outsides, the park's too
+	{"key": "mazeland", "title": "GUILBAULT ARENA", "scene": "res://godot/island/scenes/maze_land.tscn", "people": 60,
+		"maze": {"cells": 222, "sections": [2, 4, 6, 8], "seed": 2718, "loops": 0.1, "doors": 4,
+			"start": [160, 60], "grass_band": 12.0, "grass_clear": 0.45, "park": 5},
 		"pickups": {"country": 4},
-		"blurb": "a square kilometre with a maze of rusted steel walls across the middle of it"}
+		"blurb": "a square kilometre: a maze of rusted steel walls round a park of wood and meadow"}
 ]
 
 ## The island called `key`, or the first.

@@ -12,8 +12,12 @@
 ## NO GAPS is arithmetic: every row is tall enough that the line from
 ## the eye over its tops lands on the next row's roots, the plants of a
 ## row stand closer than a third of their height, and behind the last
-## pines is a dark band. Everything is GREY here; the blue is laid over
-## the finished frame, over the dither (Lofi.set_tint, BLUE).
+## pines is a dark band. Everything is GREY here, and stays so: at the
+## user's request ("make the title screen background coloring darker,
+## black and white monochrome only, add intense film grain under the pixel
+## filter") the finished frame is taken to black and white and grained
+## under the dither (Lofi.set_mono, set_grain: GRAIN), and darkened over it
+## by a grey (Lofi.set_tint, TINT) where the logo's blue was.
 class_name TitleForest
 extends Node3D
 
@@ -23,10 +27,11 @@ const EYE_Y := 2.6
 const GROUND_TILE := 4.0
 const FOV := 50.0
 const MAX_ASPECT := 2.6
-## the logo's own green-blue — the glass in its letters, about #20584d
-## — muted and dark, at the user's request: white grass comes out a
-## deep slate teal, the pines darker still
-const BLUE := Color(0.17, 0.36, 0.42)
+## the grey laid over the finished frame — darker than the blue it took
+## the place of (whose brightness was about a third)
+const TINT := Color(0.18, 0.18, 0.18)
+## the film grain's strength, under the filter: intense
+const GRAIN := 0.9
 
 const GRASS := ["meadow_grass_var_a", "meadow_grass_var_b", "new_meadow_grass_1", "new_meadow_grass_2",
 	"new_meadow_grass_tall_1", "grass", "savanna_grass_short_1", "savanna_grass_short_2",

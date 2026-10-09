@@ -5,11 +5,14 @@
 ##
 ## NO HUE: every colour of the palette a grey (golf's own test: no channel
 ## more than 0.031 from the others), the frames cut and never rounded. THE
-## LOGO KEEPS ITS SIZE (at the user's request): the same on the main menu,
-## the islands, the hosted match's modes, whatever their lengths, and the
-## menu inside the screen on every one; the same on a phone on its side.
-## THE ROWS: the one you are on white and bold, the rest not. THE PAUSE
-## MENU: its frames cut, no red in it. Prints OK or fails.
+## LOGO KEEPS ITS SIZE AND ITS PLACE (at the user's request): the same on
+## the main menu, the islands, the hosted match's modes, whatever their
+## lengths, and the menu inside the screen on every one; the logo and the
+## main menu ONE GROUP, centred across and down; the logo SMALLER (under a
+## third of the height). THE ROWS: the one you are on white and bold, the
+## rest not. THE PAUSE MENU: its frames cut, no red in it. THE TITLE'S
+## PICTURE: black and white, darker than it was, film grain under the
+## filter. Prints OK or fails.
 extends SceneTree
 
 var fails := 0
@@ -37,24 +40,37 @@ func _init() -> void:
 	check(UiStyle.padded(7) == "007", "numbers zero-padded")
 
 	# ---- the title's logo ---------------------------------------------------
-	for sz in [Vector2(1280, 720), Vector2(900, 400), Vector2(720, 1280)]:
+	# (the canvas as the game has it: 720 high at least, wider on a wider
+	# screen — window/stretch/aspect "expand" — a 16:9, a phone's 20:9, a
+	# 21:9, a 16:10)
+	for sz in [Vector2(1280, 720), Vector2(1600, 720), Vector2(1728, 720), Vector2(1280, 800)]:
 		var t := Title.new()
 		root.add_child(t)
 		t.size = sz
 		await process_frame
 		var sizes := []
+		var places := []
 		var inside := true
 		for list in [Title.ITEMS, Title.LEVELS, Title.MODES, Title.MULTI, Title.HOSTS]:
 			t.show_items(list)
 			t._layout()
 			sizes.append(t.logo.size)
+			places.append(t.logo.position)
 			inside = inside and t.panel.position.y >= 0.0 and t.panel.position.y + t.panel.size.y <= sz.y + 0.5
 		var same := true
-		for s in sizes:
-			same = same and s.is_equal_approx(sizes[0])
-		check(same, "%dx%d: the logo the same size on every page of the menu (%s)" % [sz.x, sz.y, str(sizes[0])])
+		for i in sizes.size():
+			same = same and sizes[i].is_equal_approx(sizes[0]) and places[i].is_equal_approx(places[0])
+		check(same, "%dx%d: the logo the same size and place on every page of the menu (%s)" % [sz.x, sz.y, str(sizes[0])])
 		check(inside, "%dx%d: and the menu on the screen on every page" % [sz.x, sz.y])
 		t.show_items(Title.ITEMS)
+		t._layout()
+		var lc := t.logo.position.x + t.logo.size.x / 2.0
+		var pc := t.panel.position.x + t.panel.size.x / 2.0
+		var mid := (t.logo.position.y + t.panel.position.y + t.panel.size.y) / 2.0
+		check(absf(lc - sz.x / 2.0) < 1.0 and absf(pc - sz.x / 2.0) < 1.0 and absf(mid - sz.y / 2.0) < 1.0,
+			"%dx%d: the logo and the menu one group, centred across and down (%.0f, %.0f, %.0f)" % [sz.x, sz.y, lc, pc, mid])
+		check(t.logo.size.y <= sz.y * 0.31 and t.logo.position.y + t.logo.size.y < t.panel.position.y,
+			"%dx%d: the logo smaller (%.0f high), over the menu" % [sz.x, sz.y, t.logo.size.y])
 		t.mark(0)
 		var b0: Button = t.buttons[0]
 		var b1: Button = t.buttons[1]
@@ -81,6 +97,22 @@ func _init() -> void:
 				red += 1
 	check(red == 0, "pause: every button a grey cut-corner row (%d not)" % red)
 	pm.queue_free()
+	await process_frame
+
+	# ---- the title's picture -------------------------------------------------
+	var main: Node = load("res://godot/scenes/main.tscn").instantiate()
+	root.add_child(main)
+	for i in 5:
+		await process_frame
+	var lofi: Lofi = main.get("lofi")
+	var tint: Vector3 = lofi.mat.get_shader_parameter("tint")
+	var was := Vector3(0.17, 0.36, 0.42).dot(Vector3(0.299, 0.587, 0.114))
+	check(main.get("title") != null and float(lofi.mat.get_shader_parameter("mono")) == 1.0,
+		"the title's picture black and white")
+	check(is_equal_approx(tint.x, tint.y) and is_equal_approx(tint.y, tint.z) and tint.x < was,
+		"its grey darker than the blue was (%.2f against %.2f)" % [tint.x, was])
+	check(float(lofi.mat.get_shader_parameter("grain")) >= 0.3, "and film grain under the filter, intense (%.2f)" % float(lofi.mat.get_shader_parameter("grain")))
+	main.queue_free()
 	await process_frame
 	print("ui: " + ("OK" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails else 0)

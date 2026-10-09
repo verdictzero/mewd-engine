@@ -252,6 +252,15 @@ func set_wobble(k: float) -> void:
 func set_tint(c: Color) -> void:
 	mat.set_shader_parameter("tint", U.col(Vector3(c.r, c.g, c.b)))
 
+## THE TITLE'S LOOK (lofi.gdshader, at the user's request): the picture in
+## black and white, 0..1 ...
+func set_mono(k: float) -> void:
+	mat.set_shader_parameter("mono", U.col(clampf(k, 0.0, 1.0)))
+
+## ... and film grain under the filter, how strong (0 none)
+func set_grain(k: float) -> void:
+	mat.set_shader_parameter("grain", U.col(maxf(k, 0.0)))
+
 ## the filter on or off: off, the buffer is shown as it is
 var _snap := 1.0
 func set_filtered(on: bool) -> void:

@@ -43,7 +43,7 @@ var houses: Array = []
 ## reach round it) touches, so a short look asks only the ones near
 var _house_cells := {}
 const HOUSE_CELL := 1024.0
-## THE MAZE (MAZE LAND's, Islands "maze"; Maze): its walls are walls as
+## THE MAZE (GUILBAULT ARENA's, Islands "maze"; Maze): its walls are walls as
 ## the houses' are — they stop a body, an eye and a round — kept on a grid
 ## of their own (thousands of them: a long ray asks only the lines it
 ## crosses). null on every other island.

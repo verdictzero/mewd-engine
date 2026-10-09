@@ -2,29 +2,37 @@
 ## (MEWD: Made Entirely Without Doom.)
 ##
 ## IN GOLF'S HOUSE STYLE (at the user's request: "port the UI design
-## language from verdictzero/golf over to MEWD"; UiStyle): the logo across
-## the top, the menu a column of rows at the bottom right, each row a box
-## of the glass with its top right and bottom left cut, the words in
-## Zalando Sans Condensed. The one you are on is white and bold, its box
-## brighter and its keyline white, and slides in from the right; the
-## others rest in thin grey; one not ready yet is dim and shakes its head
-## when tried. No hue.
+## language from verdictzero/golf over to MEWD"; UiStyle): the menu a
+## column of rows, each row a box of the glass with its top right and
+## bottom left cut, the words in Zalando Sans Condensed. The one you are on
+## is white and bold, its box brighter and its keyline white, and slides in
+## from the right; the others rest in thin grey; one not ready yet is dim
+## and shakes its head when tried. No hue.
+##
+## THE LOGO AND THE MENU, ONE GROUP IN THE MIDDLE (at the user's request:
+## "have the MEWD logo and the menu vertically centered and horizontally
+## centered as a group ... since we only support wide screens ... make
+## that the way it is permanently"): the logo over the menu, both centred
+## across, the two together centred down — on the longest column (the main
+## menu), so the logo never moves as the pages change and every column
+## hangs from the same line under it. One layout, every screen.
 ##
 ## THE LOGO KEEPS ITS SIZE (at the user's request: "make sure the MEWD
 ## logo on the title retains a constant size regardless of menu
-## configuration"): its size is the screen's alone — 46% of the height, or
-## 90% of the width if that is less — and the menu takes what is under it,
-## its rows made shorter (never the logo smaller) when a column is long. A
-## phone on its side is too short for one above the other, so there the
-## logo takes the left and the menu stands at its right.
+## configuration"), and a SMALLER one ("make the MEWD logo smaller on the
+## title screen"): its size is the screen's alone — LOGO_H of the height,
+## or 60% of the width if that is less — and the menu takes what is under
+## it, its rows made shorter (never the logo smaller) when the screen is
+## short.
 ##
 ## NEW GAME opens the LEVELS — the islands (Islands.LIST), at the user's
 ## request — in the same column, and one of those starts the game.
 ##
 ## THE LAYERS, at the user's request, top to bottom: this menu; MEWD and
 ## its SHADOWS, softer than they were, in front of the dither (`shade`, a
-## Control under the logo on the title's own layer); the blue, over the
-## finished frame; the dither; the forest in grey.
+## Control under the logo on the title's own layer); the darkening grey,
+## over the finished frame; the dither; the film grain, under it; the
+## forest, in black and white (TitleForest: TINT, GRAIN).
 class_name Title
 extends Control
 
@@ -74,6 +82,10 @@ const ROW_FONT := 22
 const ROW_GAP := 6.0
 const INDENT_SEL := 26.0
 const ROW_W := 372.0
+## the logo's height, a share of the screen's (it was 0.46)
+const LOGO_H := 0.30
+## every column the title shows, for the longest
+static var PAGES: Array = [ITEMS, LEVELS, MULTI, HOSTS, MODES]
 
 var logo: TextureRect
 ## the column of rows (a VBox; each row a MarginContainer round its Button,
@@ -103,7 +115,7 @@ func _ready() -> void:
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(logo)
 	panel = VBoxContainer.new()
-	panel.alignment = BoxContainer.ALIGNMENT_END
+	panel.alignment = BoxContainer.ALIGNMENT_BEGIN
 	panel.add_theme_constant_override("separation", int(ROW_GAP))
 	add_child(panel)
 	col = panel
@@ -214,41 +226,41 @@ func _layout() -> void:
 		return
 	var ts := logo.texture.get_size()
 	var tex_aspect := ts.x / maxf(ts.y, 1.0)
-	var side := H <= 520.0 and W > H
 	var n := maxi(items.size(), 1)
+	var most := 1
+	for p in PAGES:
+		most = maxi(most, p.size())
 	var margin := clampf(minf(W, H) * 0.055, 16.0, 48.0)
 	# THE LOGO: the screen's size alone, never the menu's
-	var lh: float
-	var lw: float
-	if side:
-		lw = W * 0.5
-		lh = minf(lw / tex_aspect, H * 0.8)
-	else:
-		lh = minf(H * 0.46, W * 0.9 / tex_aspect)
-	lw = lh * tex_aspect
-	# THE ROWS: as golf's, made shorter only if the column would not fit
-	var room := H - margin * 2.0 if side else H - (H * 0.04 + lh) - margin * 1.6 - 18.0
-	var rh := clampf(minf(ROW_H, (room - ROW_GAP * (n - 1)) / n), 22.0, ROW_H)
+	var lh := minf(H * LOGO_H, W * 0.6 / tex_aspect)
+	var lw := lh * tex_aspect
+	var gap := clampf(H * 0.04, 12.0, 32.0)
+	# THE ROWS: as golf's, made shorter only if the longest column would not
+	# fit under the logo
+	var room := H - margin * 2.0 - lh - gap
+	var rh := clampf(minf(ROW_H, (room - ROW_GAP * (most - 1)) / most), 22.0, ROW_H)
 	var fs := int(clampf(rh * ROW_FONT / ROW_H, 13.0, ROW_FONT))
-	var rw := minf(ROW_W, (W * 0.42 if side else W - margin * 2.0))
+	var rw := minf(ROW_W, W - margin * 2.0)
 	for j in rows.size():
-		rows[j].custom_minimum_size = Vector2(rw, rh)
 		buttons[j].add_theme_font_size_override("font_size", fs)
-	panel.add_theme_constant_override("separation", int(ROW_GAP if rh >= ROW_H - 0.5 else maxf(2.0, ROW_GAP * rh / ROW_H)))
-	var ph := n * rh + (n - 1) * panel.get_theme_constant("separation")
-	if side:
-		var gap := W * 0.03
-		var total := lw + gap + rw
-		logo.position = Vector2((W - total) / 2.0, (H - lh) / 2.0)
-		panel.position = Vector2(logo.position.x + lw + gap, (H - ph) / 2.0)
-	else:
-		logo.position = Vector2((W - lw) / 2.0, H * 0.04)
-		# bottom right, as golf's; centred under the logo where the
-		# screen is narrower than it is tall
-		var px := W - margin - rw if W > H * 1.1 else (W - rw) / 2.0
-		# (lifted clear of the logs' line in the bottom right: Main._logs_note)
-		panel.position = Vector2(px, H - margin - 18.0 - ph)
+	# (and never shorter than a row's words and frame need: the true height,
+	# measured with the last layout's minimum let go)
+	for r in rows:
+		r.custom_minimum_size = Vector2.ZERO
+	for r in rows:
+		rh = maxf(rh, r.get_combined_minimum_size().y)
+	for r in rows:
+		r.custom_minimum_size = Vector2(rw, rh)
+	var sep := int(ROW_GAP if rh >= ROW_H - 0.5 else maxf(2.0, ROW_GAP * rh / ROW_H))
+	panel.add_theme_constant_override("separation", sep)
+	var ph := n * rh + (n - 1) * sep
+	# THE GROUP: the logo and the longest column, centred down; each centred
+	# across
+	var tall := lh + gap + most * rh + (most - 1) * sep
+	var top := maxf(margin * 0.5, (H - tall) / 2.0)
+	logo.position = Vector2((W - lw) / 2.0, top)
 	logo.size = Vector2(lw, lh)
+	panel.position = Vector2((W - rw) / 2.0, top + lh + gap)
 	panel.size = Vector2(rw, ph)
 	_place_shadows()
 

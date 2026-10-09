@@ -136,7 +136,7 @@ func _bake(map: String) -> int:
 	# THE DIGESTS, for an exported build (BakeStore.DIGEST_TABLE): every
 	# source the signatures above hashed, as this machine reads it
 	# (MERGED into what is there: one island to a process, and an island
-	# with no plant scatter — MAZE LAND — would otherwise leave the table
+	# with no plant scatter — GUILBAULT ARENA — would otherwise leave the table
 	# without the scatter's digest, and every other island's plants unread)
 	var table := {}
 	if FileAccess.file_exists(BakeStore.DIGEST_TABLE):

@@ -1,6 +1,6 @@
 // MEWD — a solid thing on an island under MATCAPS (at the user's request:
 // "give the maze sections and the drop pod a matcap so their PBRness looks
-// nice"): MAZE LAND's walls and posts (MazeView) and the drop pod (DropPod).
+// nice"): GUILBAULT ARENA's walls and posts (MazeView) and the drop pod (DropPod).
 // Their files are PBR — a colour, a normal map, and metal (B) and roughness
 // (G) in one — and the engine's lights left them flat and dark against the
 // island, which is lit its own way (SHADERINC_island_light). Here the

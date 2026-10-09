@@ -257,7 +257,7 @@ func start_map(which: String) -> void:
 			% [spec.title, BakeStore.file_name(IslandGround.STORE, gsig)])
 		ground = IslandGround.build(field)
 	level = IslandLevel.new(ground, spec.title)
-	# THE MAZE (MAZE LAND's, Islands "maze"): its walls the level's before
+	# THE MAZE (GUILBAULT ARENA's, Islands "maze"): its walls the level's before
 	# anybody is put down, the start in the open corner by it, and the
 	# grass only along its walls — not under them
 	if spec.has("maze"):
@@ -987,14 +987,19 @@ func _road_uniforms(iw: Node, field: Resource, spec: Dictionary) -> void:
 	mat.set_shader_parameter("town_count", nt)
 	mat.set_shader_parameter("town_pad", float(spec.get("town_verge", 5.0)))
 
-## THE MAZE ON THE LEVEL (MAZE LAND, at the user's request): Maze off the
+## THE MAZE ON THE LEVEL (GUILBAULT ARENA, at the user's request): Maze off the
 ## island's spec — the same walls on every machine — its start looked for
 ## round the cell `start` names (the open section by the maze), and the
 ## grass (SCRIPT_grass_scatter `mask`; "make grass extra thick in and
 ## around maze"): none under a wall or post, THICK through the plus and
 ## `grass_band` metres round it (the plants keep out of the same ground:
 ## maze_land.tscn's VegScatter clear_rects), and elsewhere thinned back
-## to what the usual one-metre grid grows, the scatter's own being finer
+## to what the usual one-metre grid grows, the scatter's own being finer.
+## THE PARK (the middle section, "park", at the user's request: "a big ass
+## 'central park' chunk of forest and meadow"): past the band, a MEADOW —
+## all the field grows at the scatter's own grid, two and a half times the
+## open ground's, still thinned under the trees, which are the island's own
+## woods (the plants are cleared only off the arms)
 func _maze_up(ms: Dictionary) -> void:
 	var mz := Maze.new(ms, level.floor_at(0.0, 0.0))
 	level.maze = mz
@@ -1005,9 +1010,15 @@ func _maze_up(ms: Dictionary) -> void:
 	if grass != null:
 		# (the plus's bars, island metres from the middle: half a section,
 		# and the band)
-		var inner := mz.n * Maze.PITCH / 6.0 + float(ms.get("grass_band", 12.0))
+		var band := float(ms.get("grass_band", 12.0))
+		var inner := mz.n * Maze.PITCH / 6.0 + band
+		# (the park's meadow, island metres from the middle: half a section
+		# less the band; none if there is no park)
+		var park := mz.n * Maze.PITCH / 6.0 - band if ms.has("park") else -1.0
 		var usual := pow(float(grass.grass_grid), 2.0)
 		grass.mask = func(x: float, z: float) -> float:
+			if absf(x) < park and absf(z) < park:
+				return 1.0
 			if absf(x) <= inner or absf(z) <= inner:
 				return 0.0 if mz.near_m(x, z, 1.0) <= clear else 2.0
 			return usual

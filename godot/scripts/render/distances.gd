@@ -36,7 +36,7 @@ static func apply(game, prefs: Dictionary) -> void:
 	if world != null:
 		var base := _base(world, "view_distance")
 		world.view_distance = base * float(prefs.get("dist_land", 1.0))
-	# (and MAZE LAND's walls with the land)
+	# (and GUILBAULT ARENA's walls with the land)
 	var mz = isl.get_node_or_null("Maze")
 	if mz != null:
 		mz.set_view(float(prefs.get("dist_land", 1.0)))

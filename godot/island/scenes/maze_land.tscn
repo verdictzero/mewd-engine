@@ -108,7 +108,7 @@ tree_sprites = [ExtResource("30_fir_t1"), ExtResource("31_fir_t2"), ExtResource(
 bush_sprites = [ExtResource("34_bush_l1"), ExtResource("35_bush_l4"), ExtResource("36_bush_s1"), ExtResource("37_bush_s2")]
 fern_sprites = [ExtResource("38_fern")]
 prescatter = true
-clear_rects = Array[Rect2]([Rect2(-178.5, -512, 357, 1024), Rect2(-512, -178.5, 1024, 357)])
+clear_rects = Array[Rect2]([Rect2(-178.5, -512, 357, 357.5), Rect2(-178.5, 154.5, 357, 357.5), Rect2(-512, -178.5, 357.5, 357), Rect2(154.5, -178.5, 357.5, 357)])
 
 [node name="GrassScatter" type="Node3D" parent="."]
 script = ExtResource("18_grass")

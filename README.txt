@@ -32,7 +32,10 @@ GET IT
                                                         Linux x86_64 (Ubuntu)
 
 Both are rebuilt on every push to main or claude/godot-rewrite. NEW
-GAME on the title lists the islands.
+GAME on the title lists the islands: NOT PENNSYLVANIA, CANDY LAND,
+DEBUG LAND and GUILBAULT ARENA (a square kilometre: a maze of rusted
+steel walls 4.5 m tall in the four arms of a plus, round a park of
+wood and meadow in the middle).
 
 
 RUN IT LOCALLY
@@ -228,7 +231,10 @@ brightness the only meaning; panels and rows of translucent glass with
 their corners cut at 45 degrees, never rounded; words in Zalando Sans
 Condensed, numbers in digital-7, zero-padded; one white cursor that
 the pad and the mouse both move. The title's logo keeps its size
-whatever the menu under it shows.
+and its place whatever the menu under it shows: the logo over the
+menu, the two one group in the middle of the screen. Behind them the
+forest in black and white, dark, with heavy film grain under the
+pixel filter.
 
 THE PAUSE MENU keeps its settings in user://prefs.cfg:
 
@@ -328,7 +334,9 @@ non-zero if any fails:
     pad        the pad's bindings on every device, the menus' reading,
                a map set up by hand, the SET UP PAD wizard driven
     ui         the house style: no hue, cut corners, the title's logo
-               the same size on every page of its menu
+               the same size and place on every page of its menu,
+               logo and menu centred as a group, the title's picture
+               black and white and grained
 
 With xvfb, `--shot=out.png` renders a picture of anything for checking
 by eye; godot/tests/island_shot.gd pictures a gun held on a crowd,
