@@ -536,7 +536,10 @@ static func build(field: IslandField, isl: IslandField.Island, base_x: float,
 					poly_x.append(false)
 				if (ma > 0.0) != (mb > 0.0):
 					var cw := _crossing(ka, kb, gmask, g, gx, gz)
-					poly_p.append(Vector3(cw.x - pivot.x, isl.base_y - pivot.y,
+					# (the coast's own height: the shore level, `isl.base_y`, on
+					# every island but a real place's square, whose edge is
+					# wherever the ground there is — `IslandField.coast_y`)
+					poly_p.append(Vector3(cw.x - pivot.x, field.coast_y(isl, cw.x, cw.y) - pivot.y,
 							cw.y - pivot.z))
 					# The shore ramp is flat where it meets the cliff, so the
 					# coastline vertex is level and its lip is bare rock.
@@ -588,7 +591,7 @@ static func build(field: IslandField, isl: IslandField.Island, base_x: float,
 		return {}
 
 	if field.chunk_skirt_depth > 0.0:
-		_build_skirt(field, n, r, g, gx, gz, gmask, gheight, gcolor, guv, guv2,
+		_build_skirt(field, n, r, g, gx, gz, gmask, gheight, gnormal, gcolor, guv, guv2,
 				pivot, verts, norms, cols, uvs, uv2s, idx)
 
 	# THE RIM IS BUILT BEFORE THE SURFACE IS FINALISED, because half of it lands
@@ -702,7 +705,8 @@ static func _ruin_at_point(ruin: IslandField.RuinSite, ruins: Array, x: float,
 # `SCRIPT_island_world.gd` pins every chunk holding coastline to one shared LOD.
 static func _build_skirt(field: IslandField, n: int, r: int, g: int,
 		gx: PackedFloat64Array, gz: PackedFloat64Array, gmask: PackedFloat32Array,
-		gheight: PackedFloat32Array, gcolor: PackedColorArray, guv: PackedVector2Array,
+		gheight: PackedFloat32Array, gnormal: PackedVector3Array,
+		gcolor: PackedColorArray, guv: PackedVector2Array,
 		guv2: PackedVector2Array, pivot: Vector3, verts: PackedVector3Array,
 		norms: PackedVector3Array, cols: PackedColorArray, uvs: PackedVector2Array,
 		uv2s: PackedVector2Array, idx: PackedInt32Array) -> void:
@@ -731,8 +735,15 @@ static func _build_skirt(field: IslandField, n: int, r: int, g: int,
 			verts.append(pb)
 			verts.append(pb - Vector3(0.0, drop, 0.0))
 			verts.append(pa - Vector3(0.0, drop, 0.0))
-			for i in range(4):
-				norms.append(outward)
+			if field.chunk_skirt_shaded:
+				# (lit as the ground it hangs from: `IslandField.chunk_skirt_shaded`)
+				norms.append(gnormal[ka])
+				norms.append(gnormal[kb])
+				norms.append(gnormal[kb])
+				norms.append(gnormal[ka])
+			else:
+				for i in range(4):
+					norms.append(outward)
 			# Match the ground it hangs from, so a skirt that does peek through
 			# reads as more terrain rather than a stripe of the wrong material.
 			cols.append(gcolor[ka])
@@ -1104,6 +1115,11 @@ static func _rim_profile(field: IslandField, isl: IslandField.Island, x: float,
 	# rim gets its irregularity, and — the reason this is not merely equivalent —
 	# the handoff depth is then ONE number per column used by both halves, so the
 	# two meshes meet exactly whatever the noise did.
+	# The lip starts at the coast's own height (`IslandField.coast_y`): the
+	# shore level on golf's islands, the ground at the edge on a real place's
+	# square. The wall below it falls to the same depths either way, so on a
+	# square the first stretch of it is the cut face of the land itself.
+	var top := field.coast_y(isl, x, z)
 	var d_s := 0.0
 	if sr > 0:
 		d_s = depth * pow(t_s, field.cliff_ring_bias) * (1.0 + wobble)
@@ -1112,11 +1128,11 @@ static func _rim_profile(field: IslandField, isl: IslandField.Island, x: float,
 		for k in range(sr):
 			var dd := d_s * float(k) / float(sr)
 			prof.append(Vector2(r0 + sh.y * (1.0 - exp(-dd / l)),
-					isl.base_y - dd))
+					top - dd))
 
 	# The handoff, shared: the shoulder's last ring and the wall's first.
 	var r_hand := r0 + sh.y * (1.0 - exp(-IslandField.SHOULDER_SPANS)) if sr > 0 else r0
-	prof.append(Vector2(r_hand, isl.base_y - d_s))
+	prof.append(Vector2(r_hand, top - d_s))
 
 	# --- the wall -------------------------------------------------------------
 	#

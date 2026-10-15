@@ -1,0 +1,170 @@
+{
+ "name": "oeschinen",
+ "title": "OESCHINENSEE",
+ "lat": 46.4986,
+ "lon": 7.727,
+ "size": 3000.0,
+ "datum": 1527,
+ "height": {
+  "file": "height.grid",
+  "n": 1501,
+  "res": 2.0,
+  "offset": 1528.8235867494818,
+  "scale": 0.0159721123786882,
+  "min": 1528.82,
+  "max": 2567.01
+ },
+ "water": {
+  "file": "water.grid",
+  "kind": "wkind.grid",
+  "n": 751,
+  "res": 4.0
+ },
+ "cover": {
+  "file": "cover.grid",
+  "n": 751,
+  "res": 4.0,
+  "planes": 3,
+  "layers": [
+   "grass",
+   "forest",
+   "rock",
+   "scree",
+   "sand",
+   "soil",
+   "snow",
+   "mud",
+   "paving",
+   "dry",
+   "moss",
+   "bed"
+  ]
+ },
+ "veg": {
+  "file": "veg.grid",
+  "n": 751,
+  "res": 4.0,
+  "channels": [
+   "tree",
+   "conifer",
+   "bush",
+   "grass"
+  ]
+ },
+ "bodies": [
+  {
+   "id": 1,
+   "kind": "lake",
+   "level": 2173.32,
+   "area_m2": 3768,
+   "half_width_m": 35.7
+  },
+  {
+   "id": 2,
+   "kind": "lake",
+   "level": 1837.04,
+   "area_m2": 148,
+   "half_width_m": 6.0
+  },
+  {
+   "id": 3,
+   "kind": "lake",
+   "level": 1569.5,
+   "area_m2": 1119620,
+   "half_width_m": 476.0
+  },
+  {
+   "id": 4,
+   "kind": "lake",
+   "level": 1655.12,
+   "area_m2": 260,
+   "half_width_m": 10.0
+  },
+  {
+   "id": 6,
+   "kind": "lake",
+   "level": 1572.6,
+   "area_m2": 236,
+   "half_width_m": 4.8
+  },
+  {
+   "id": 7,
+   "kind": "lake",
+   "level": 1580.57,
+   "area_m2": 184,
+   "half_width_m": 6.0
+  },
+  {
+   "id": 8,
+   "kind": "lake",
+   "level": 1595.27,
+   "area_m2": 1460,
+   "half_width_m": 14.0
+  },
+  {
+   "id": 9,
+   "kind": "lake",
+   "level": 1592.48,
+   "area_m2": 452,
+   "half_width_m": 10.0
+  },
+  {
+   "id": 10,
+   "kind": "lake",
+   "level": 1570.83,
+   "area_m2": 5100,
+   "half_width_m": 24.6
+  },
+  {
+   "id": 11,
+   "kind": "lake",
+   "level": 1759.07,
+   "area_m2": 216,
+   "half_width_m": 8.0
+  },
+  {
+   "id": 14,
+   "kind": "lake",
+   "level": 1577.88,
+   "area_m2": 4188,
+   "half_width_m": 32.0
+  },
+  {
+   "id": 15,
+   "kind": "lake",
+   "level": 1534.71,
+   "area_m2": 728,
+   "half_width_m": 13.3
+  },
+  {
+   "id": 17,
+   "kind": "lake",
+   "level": 1551.05,
+   "area_m2": 572,
+   "half_width_m": 8.5
+  },
+  {
+   "id": 18,
+   "kind": "lake",
+   "level": 1564.16,
+   "area_m2": 336,
+   "half_width_m": 8.5
+  },
+  {
+   "id": 19,
+   "kind": "lake",
+   "level": 1574.27,
+   "area_m2": 240,
+   "half_width_m": 6.8
+  }
+ ],
+ "sources": {
+  "height": "AWS Terrain Tiles, Terrarium, zoom 14 (Mapzen: SRTM, GMTED, ETOPO1, national lidar)",
+  "cover": "ESA WorldCover 10 m 2021 v200 (CC BY 4.0)",
+  "osm": "OpenStreetMap contributors (ODbL), via Overpass"
+ },
+ "attribution": "Height: Mapzen Terrain Tiles. Land cover: \u00a9 ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium. Map data: \u00a9 OpenStreetMap contributors.",
+ "digest": "6323fbd36129318ddb1e8efe",
+ "made": "2026-10-15",
+ "tool": "tools/earth_fetch.py"
+}

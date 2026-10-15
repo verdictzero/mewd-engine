@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="EnviroWeather" load_steps=2 format=3]
+
+; EnviroSky weather: CLOUDY, most of it.
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_weather.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+id = "cloudy"
+coverage = 0.8
+density = 0.045
+cloud_type = 0.6
+base = 900.0
+thickness = 2600.0
+cirrus = 0.3
+gloom = 0.15
+shade = 0.6
+haze = 0.1
+haze_color = Color(0.66, 0.69, 0.73, 1)
+fog_density = 1.3
+fog_near = 0.9
+light = 0.85
+wind = 10.0
+wind_from = 240.0
+rain = 0.0
+snow = 0.0
+lightning = 0.0

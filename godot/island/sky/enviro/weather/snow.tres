@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="EnviroWeather" load_steps=2 format=3]
+
+; EnviroSky weather: SNOW, heavy snow.
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_weather.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+id = "snow"
+coverage = 1.0
+density = 0.07
+cloud_type = 0.3
+base = 400.0
+thickness = 2200.0
+cirrus = 0.0
+gloom = 0.55
+shade = 0.92
+haze = 0.6
+haze_color = Color(0.8, 0.82, 0.86, 1)
+fog_density = 3.5
+fog_near = 0.35
+light = 0.72
+wind = 8.0
+wind_from = 300.0
+rain = 0.0
+snow = 1.0
+lightning = 0.0

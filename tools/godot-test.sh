@@ -24,6 +24,10 @@ run weapons --script res://godot/tests/weapons_test.gd -- --seed=7
 #   godot --headless --script res://tools/bake_island.gd
 run island  --script res://godot/tests/island_test.gd
 run candyland --script res://godot/tests/island_test.gd -- --map=candyland
+# A REAL PLACE (EarthField, tools/earth_fetch.py): the field against its own
+# open data, the square, the water, the woods; and OESCHINENSEE through the
+# game, nobody in the lake (godot/tests/earth_test.gd)
+run earth   --script res://godot/tests/earth_test.gd -- --map=earth_oeschinen
 # CANDY LAND: roads, lamps, the candy girls greeting you and running (godot/tests/candy_test.gd)
 run candy   --script res://godot/tests/candy_test.gd -- --map=candyland
 # WHAT ROUNDS AND BLASTS DO TO SPRITES: bites out of people, lamps shot to

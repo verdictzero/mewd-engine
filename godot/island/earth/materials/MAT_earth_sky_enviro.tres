@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" load_steps=7 format=3]
+
+; THE SKY OVER A REAL PLACE (SHADER_sky_enviro.gdshader), set every frame by
+; EnviroSky (SCRIPT_enviro_sky.gd): these are only its first numbers. The
+; clouds' noise is tools/earth/make_sky_noise.py's.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_sky_enviro.gdshader" id="1_sky"]
+[ext_resource type="CompressedTexture3D" path="res://godot/island/sky/enviro/TEX_cloud_shape.png" id="2_shape"]
+[ext_resource type="CompressedTexture3D" path="res://godot/island/sky/enviro/TEX_cloud_detail.png" id="3_detail"]
+[ext_resource type="Texture2D" path="res://godot/island/sky/enviro/TEX_cloud_weather.png" id="4_weather"]
+[ext_resource type="Texture2D" path="res://godot/island/sky/enviro/TEX_cirrus.png" id="5_cirrus"]
+[ext_resource type="Texture2D" path="res://godot/island/sky/enviro/TEX_moon.png" id="6_moon"]
+
+[resource]
+shader = ExtResource("1_sky")
+shader_parameter/cloud_shape = ExtResource("2_shape")
+shader_parameter/cloud_detail = ExtResource("3_detail")
+shader_parameter/cloud_weather = ExtResource("4_weather")
+shader_parameter/cirrus_tex = ExtResource("5_cirrus")
+shader_parameter/moon_tex = ExtResource("6_moon")

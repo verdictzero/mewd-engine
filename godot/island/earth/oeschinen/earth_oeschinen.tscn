@@ -1,0 +1,148 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_island_world.gd" id="1_world"]
+[ext_resource type="Resource" path="res://godot/island/earth/oeschinen/ISLANDFIELD_earth_oeschinen.tres" id="2_field"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_terrain.tres" id="3_terrain"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_cliff.tres" id="4_cliff"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_sky_enviro.tres" id="5_sky"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_water.tres" id="6_water"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_dress.gd" id="7_dress"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_scatter.gd" id="8_veg"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_grass_scatter.gd" id="9_grass"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_burn.gd" id="10_burn"]
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_sky.gd" id="11_tod"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea.gd" id="13_sea"]
+[ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_cloud_sea.tres" id="14_seamat"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_veg.tres" id="17_vmat"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_understory.tres" id="18_umat"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_fern.tres" id="19_fmat"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_grass.tres" id="20_gmat"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_0.png" id="s_conifer_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_120.png" id="s_conifer_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_240.png" id="s_conifer_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_sapling_medium_0_0.png" id="s_conifer_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_sapling_medium_1_0.png" id="s_conifer_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_sapling_medium_2_0.png" id="s_conifer_5"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_pine_sapling_small_0_0.png" id="s_conifer_6"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_pine_sapling_small_1_0.png" id="s_conifer_7"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_broadleaf_island_tree_01_0_0.png" id="s_broadleaf_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_broadleaf_island_tree_01_0_120.png" id="s_broadleaf_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_broadleaf_island_tree_02_0_0.png" id="s_broadleaf_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_broadleaf_island_tree_02_0_120.png" id="s_broadleaf_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_broadleaf_island_tree_03_0_0.png" id="s_broadleaf_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_fir_sapling_0_0.png" id="s_bush_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_fir_sapling_1_0.png" id="s_bush_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_fir_sapling_2_0.png" id="s_bush_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_searsia_lucida_0_0.png" id="s_bush_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_searsia_lucida_0_120.png" id="s_bush_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_didelta_spinosa_0_0.png" id="s_bush_5"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_didelta_spinosa_1_0.png" id="s_bush_6"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_shrub_02_0_0.png" id="s_bush_7"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_shrub_02_1_0.png" id="s_bush_8"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_bush_shrub_03_0_0.png" id="s_bush_9"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_fern_02_0_0.png" id="s_fern_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_fern_02_1_0.png" id="s_fern_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_fern_02_2_0.png" id="s_fern_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_nettle_plant_0_0.png" id="s_fern_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_celandine_01_0_0.png" id="s_fern_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_0_0.png" id="s_grass_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_1_0.png" id="s_grass_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_2_0.png" id="s_grass_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_0_0.png" id="s_grass_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_1_0.png" id="s_grass_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_dandelion_01_0_0.png" id="s_grass_5"]
+
+[sub_resource type="Sky" id="Sky_earth"]
+sky_material = ExtResource("5_sky")
+radiance_size = 1
+process_mode = 2
+
+[sub_resource type="Environment" id="Env_earth"]
+background_mode = 2
+sky = SubResource("Sky_earth")
+ambient_light_source = 2
+ambient_light_color = Color(0.56, 0.66, 0.82, 1)
+ambient_light_energy = 1.0
+reflected_light_source = 2
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 1.0
+glow_bloom = 0.03
+glow_hdr_threshold = 1.2
+glow_blend_mode = 1
+fog_enabled = false
+
+[node name="EarthOeschinen" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_earth")
+
+[node name="SunPivot" type="Node3D" parent="."]
+transform = Transform3D(0.866025, 0.307934, -0.394022, 0, 0.788011, 0.615661, 0.5, -0.533357, 0.682466, 0, 800, 0)
+
+[node name="IslandWorld" type="Node3D" parent="."]
+script = ExtResource("1_world")
+field = ExtResource("2_field")
+terrain_material = ExtResource("3_terrain")
+cliff_material = ExtResource("4_cliff")
+view_distance = 3600.0
+prewarm = true
+generate_collision = false
+
+[node name="EarthDress" type="Node3D" parent="."]
+script = ExtResource("7_dress")
+island_world_path = NodePath("../IslandWorld")
+water_material = ExtResource("6_water")
+
+[node name="VegScatter" type="Node3D" parent="."]
+script = ExtResource("8_veg")
+island_world_path = NodePath("../IslandWorld")
+material = ExtResource("17_vmat")
+understory_material = ExtResource("18_umat")
+fern_material = ExtResource("19_fmat")
+tree_sprites = [ExtResource("s_conifer_0"), ExtResource("s_conifer_1"), ExtResource("s_conifer_2"), ExtResource("s_conifer_3"), ExtResource("s_conifer_4"), ExtResource("s_conifer_5"), ExtResource("s_conifer_6"), ExtResource("s_conifer_7")]
+broadleaf_sprites = [ExtResource("s_broadleaf_0"), ExtResource("s_broadleaf_1"), ExtResource("s_broadleaf_2"), ExtResource("s_broadleaf_3"), ExtResource("s_broadleaf_4")]
+bush_sprites = [ExtResource("s_bush_0"), ExtResource("s_bush_1"), ExtResource("s_bush_2"), ExtResource("s_bush_3"), ExtResource("s_bush_4"), ExtResource("s_bush_5"), ExtResource("s_bush_6"), ExtResource("s_bush_7"), ExtResource("s_bush_8"), ExtResource("s_bush_9")]
+fern_sprites = [ExtResource("s_fern_0"), ExtResource("s_fern_1"), ExtResource("s_fern_2"), ExtResource("s_fern_3"), ExtResource("s_fern_4")]
+tree_height = Vector2(14, 28)
+broadleaf_height = Vector2(10, 20)
+bush_height = Vector2(1.4, 3.2)
+fern_height = Vector2(0.6, 1.2)
+prescatter = true
+max_slope = 0.34
+sink_most = 0.2
+
+[node name="GrassScatter" type="Node3D" parent="."]
+script = ExtResource("9_grass")
+island_world_path = NodePath("../IslandWorld")
+sprites = [ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4"), ExtResource("s_grass_5")]
+material = ExtResource("20_gmat")
+grass_grid = 0.6
+tuft_size = Vector2(1.1, 0.55)
+max_slope = 0.4
+view_distance = 80.0
+
+[node name="VegBurn" type="Node3D" parent="."]
+script = ExtResource("10_burn")
+burn = 0.0
+advance = false
+burn_rate = 0.02
+stump = 0.0
+stump_rate = 0.0
+front_radius = 0.0
+
+[node name="EnviroSky" type="Node3D" parent="."]
+script = ExtResource("11_tod")
+sky_material = ExtResource("5_sky")
+world_environment = NodePath("../WorldEnvironment")
+island_world_path = NodePath("../IslandWorld")
+day_of_year = 196
+hour = 10.5
+weather = "fair"
+fog_base = Color(0.62, 0.72, 0.84, 1)
+
+[node name="CloudSea" type="Node3D" parent="."]
+script = ExtResource("13_sea")
+cloud_material = ExtResource("14_seamat")
+

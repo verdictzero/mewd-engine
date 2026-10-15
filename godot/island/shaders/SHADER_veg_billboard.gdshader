@@ -276,6 +276,11 @@ uniform float fog_distance_power : hint_range(1.0, 4.0) = 2.0;
 // `SHADER_terrain_splat_w2.gdshader`. "Has to match the terrain's" above is now also true
 // of the tint, and it comes free: both read the same global.
 global uniform vec4 tod_haze_tint;
+// THE WEATHER'S FOG (EnviroSky): the density times this, the start times
+// that; both 1 wherever no EnviroSky is.
+global uniform float tod_fog_density;
+global uniform float tod_fog_near;
+
 // THE CLOCK A HIT IS TIMED BY (seconds; Game sets it every frame): see the
 // shake in vertex().
 global uniform float shake_clock;
@@ -978,7 +983,7 @@ void fragment() {
 
 	float haze = 0.0;
 	if (fog_enabled) {
-		float fd = max(d - fog_distance_start, 0.0) * fog_distance_density;
+		float fd = max(d - fog_distance_start * tod_fog_near, 0.0) * fog_distance_density * tod_fog_density;
 		haze = 1.0 - exp(-pow(fd, fog_distance_power));
 		// Unshaded, so the haze is a straight mix toward the fog colour rather
 		// than the darken-plus-EMISSION dance a lit shader needs to survive its

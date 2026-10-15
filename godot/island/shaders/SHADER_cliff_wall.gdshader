@@ -203,6 +203,11 @@ uniform float fog_distance_power : hint_range(1.0, 4.0) = 2.0;
 // note is in `SHADER_terrain_splat_w2.gdshader`, and the "has to match" above is why this
 // shader cannot opt out of it: the wall and the ground are one picture.
 global uniform vec4 tod_haze_tint;
+// THE WEATHER'S FOG (EnviroSky): the density times this, the start times
+// that; both 1 wherever no EnviroSky is.
+global uniform float tod_fog_density;
+global uniform float tod_fog_near;
+
 
 // The art bus -- a multiplier on the albedo of everything the lighting model never
 // reaches. This shader IS lit (through SHADERINC_island_light.gdshaderinc), so it is not the
@@ -335,7 +340,7 @@ void fragment() {
 	if (fog_enabled) {
 		// VERTEX is view-space here, so its length is the true camera distance —
 		// the same quantity the terrain shader fogs on.
-		float fd = max(length(VERTEX) - fog_distance_start, 0.0) * fog_distance_density;
+		float fd = max(length(VERTEX) - fog_distance_start * tod_fog_near, 0.0) * fog_distance_density * tod_fog_density;
 		fog = 1.0 - exp(-pow(fd, fog_distance_power));
 	}
 	float veil = 1.0 - (1.0 - sea) * (1.0 - fog);

@@ -33,9 +33,10 @@ GET IT
 
 Both are rebuilt on every push to main or claude/godot-rewrite. NEW
 GAME on the title lists the islands: NOT PENNSYLVANIA, CANDY LAND,
-DEBUG LAND and GUILBAULT ARENA (a square kilometre: a maze of rusted
+DEBUG LAND, GUILBAULT ARENA (a square kilometre: a maze of rusted
 steel walls 4.5 m tall in the four arms of a plus, round a park of
-wood and meadow in the middle).
+wood and meadow in the middle) and OESCHINENSEE (a real place: see A
+REAL PLACE ON EARTH).
 
 
 RUN IT LOCALLY
@@ -145,6 +146,41 @@ build; NEW GAME lists them.
                  360 people
     ISLAND -2    ISLAND 0 at a quarter of the size (625 m across), the
                  same 360 people, so a crowd wherever you look
+
+A REAL PLACE ON EARTH. Any square of the real world can be an island:
+its ground, its water and its woods out of open map data, a cliff all
+round into the cloud. The first is OESCHINENSEE, 3 km of the Bernese
+Oberland round the lake under the Bluemlisalp (46.4986 N, 7.7270 E).
+
+    python3 tools/earth_fetch.py NAME --lat 46.4986 --lon 7.7270 \
+        --size 3000 --title "TITLE" --register
+
+fetches the height (the AWS Terrain Tiles, or --dem copernicus), what
+is on the ground (ESA WorldCover 10 m) and OpenStreetMap's water,
+roads, rock, scree and forests for a square --size metres on a side,
+and writes godot/island/earth/NAME/: the ground every 2 m, the water's
+level (a lake flat, the sea at 0, a river falling with its valley) and
+its carved bed, twelve surface layers and the plants' densities every
+4 m, and pictures of each in preview/. --register adds its field, its
+scene and its entry in NEW GAME; bake it with tools/bake_island.gd
+--map=earth_NAME. The field (EarthField) answers the island system
+out of those grids, so the chunks, LODs, bakes and plants are golf's
+own. The ground is twelve CC0 photo-scanned PBR materials at 2048 px
+(colour, height, normal, roughness, occlusion), height-blended off the
+data; the plants are billboards rendered from CC0 3D models at up to
+1024 px, firs and broadleaves mixed by altitude, latitude and OSM's
+leaf type (tools/earth_pack.py makes both; GODOT.txt, "A REAL PLACE ON
+EARTH", has the whole of it).
+
+A real place has its own sky (EnviroSky, after Unity's Enviro): the
+air's scattering for its colours, raymarched volumetric cumulus and
+cirrus that the wind carries, the sun and the moon where they really
+are over the place at its hour and date (the moon's phase the real
+one), stars, and eleven weathers from CLEAR to STORM and SNOW that the
+sky moves between: rain, snow and lightning, fog that thickens, a night
+lit by the moon. The pause menu's WEATHER picks one; --sky-hour=H,
+--sky-day=D (of the year), --sky-weather=NAME and --sky-minutes=M (a
+day in M real minutes) set the rest (GODOT.txt, "A REAL PLACE'S SKY").
 
 THE VEGETATION IS VISUAL COVER, and stays that way: you, the crowd and
 every round go through trees, bushes, ferns and grass. A tree you walk
@@ -312,6 +348,11 @@ TOOLS
                                workflow, which puts it up as a release)
     tools/build-linux.sh       export the Linux x86_64 build (the linux
                                workflow puts it up as a release)
+    tools/earth_fetch.py       a real place as an island, out of open map
+                               data (height, land cover, OpenStreetMap)
+    tools/earth_pack.py        the real places' PBR ground textures and
+                               billboard plants (CC0), with
+                               tools/earth_billboards.gd
     tools/make-icons.py        every icon from the MEWD logo
     tools/prep-*.mjs, .py      crunch outside art into assets/ (people,
                                troops, models)
@@ -365,6 +406,16 @@ digital-7 (the numbers) is Style-7's freeware; those three came with
 golf. The matcaps (assets/matcaps) are nidorx's. three.js r160 is MIT. Godot is MIT. The
 night-sky photograph in assets/sky is Polyhaven's, CC0, and no longer
 shipped.
+
+The real places' ground textures are Poly Haven's and ambientCG's, CC0,
+and their plants are rendered from Poly Haven's CC0 models
+(godot/island/earth/textures/layers.json and sprites/sprites.json say
+which). OESCHINENSEE's data: heights from the Mapzen Terrain Tiles on
+AWS (SRTM and others); land cover © ESA WorldCover project 2021 /
+contains modified Copernicus Sentinel data (2021) processed by the ESA
+WorldCover consortium, CC BY 4.0; map data © OpenStreetMap
+contributors, ODbL. Each region's region.json carries its own
+attribution.
 
 
 WHAT IS NOT DONE

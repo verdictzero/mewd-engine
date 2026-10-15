@@ -1,0 +1,175 @@
+{
+ "sprites": [
+  {
+   "name": "SPRITE_earth_conifer_fir_tree_01_0_0",
+   "class": "conifer",
+   "model": "fir_tree_01"
+  },
+  {
+   "name": "SPRITE_earth_conifer_fir_tree_01_0_120",
+   "class": "conifer",
+   "model": "fir_tree_01"
+  },
+  {
+   "name": "SPRITE_earth_conifer_fir_tree_01_0_240",
+   "class": "conifer",
+   "model": "fir_tree_01"
+  },
+  {
+   "name": "SPRITE_earth_conifer_fir_sapling_medium_0_0",
+   "class": "conifer",
+   "model": "fir_sapling_medium"
+  },
+  {
+   "name": "SPRITE_earth_conifer_fir_sapling_medium_1_0",
+   "class": "conifer",
+   "model": "fir_sapling_medium"
+  },
+  {
+   "name": "SPRITE_earth_conifer_fir_sapling_medium_2_0",
+   "class": "conifer",
+   "model": "fir_sapling_medium"
+  },
+  {
+   "name": "SPRITE_earth_conifer_pine_sapling_small_0_0",
+   "class": "conifer",
+   "model": "pine_sapling_small"
+  },
+  {
+   "name": "SPRITE_earth_conifer_pine_sapling_small_1_0",
+   "class": "conifer",
+   "model": "pine_sapling_small"
+  },
+  {
+   "name": "SPRITE_earth_broadleaf_island_tree_01_0_0",
+   "class": "broadleaf",
+   "model": "island_tree_01"
+  },
+  {
+   "name": "SPRITE_earth_broadleaf_island_tree_01_0_120",
+   "class": "broadleaf",
+   "model": "island_tree_01"
+  },
+  {
+   "name": "SPRITE_earth_broadleaf_island_tree_02_0_0",
+   "class": "broadleaf",
+   "model": "island_tree_02"
+  },
+  {
+   "name": "SPRITE_earth_broadleaf_island_tree_02_0_120",
+   "class": "broadleaf",
+   "model": "island_tree_02"
+  },
+  {
+   "name": "SPRITE_earth_broadleaf_island_tree_03_0_0",
+   "class": "broadleaf",
+   "model": "island_tree_03"
+  },
+  {
+   "name": "SPRITE_earth_bush_fir_sapling_0_0",
+   "class": "bush",
+   "model": "fir_sapling"
+  },
+  {
+   "name": "SPRITE_earth_bush_fir_sapling_1_0",
+   "class": "bush",
+   "model": "fir_sapling"
+  },
+  {
+   "name": "SPRITE_earth_bush_fir_sapling_2_0",
+   "class": "bush",
+   "model": "fir_sapling"
+  },
+  {
+   "name": "SPRITE_earth_bush_searsia_lucida_0_0",
+   "class": "bush",
+   "model": "searsia_lucida"
+  },
+  {
+   "name": "SPRITE_earth_bush_searsia_lucida_0_120",
+   "class": "bush",
+   "model": "searsia_lucida"
+  },
+  {
+   "name": "SPRITE_earth_bush_didelta_spinosa_0_0",
+   "class": "bush",
+   "model": "didelta_spinosa"
+  },
+  {
+   "name": "SPRITE_earth_bush_didelta_spinosa_1_0",
+   "class": "bush",
+   "model": "didelta_spinosa"
+  },
+  {
+   "name": "SPRITE_earth_bush_shrub_02_0_0",
+   "class": "bush",
+   "model": "shrub_02"
+  },
+  {
+   "name": "SPRITE_earth_bush_shrub_02_1_0",
+   "class": "bush",
+   "model": "shrub_02"
+  },
+  {
+   "name": "SPRITE_earth_bush_shrub_03_0_0",
+   "class": "bush",
+   "model": "shrub_03"
+  },
+  {
+   "name": "SPRITE_earth_fern_fern_02_0_0",
+   "class": "fern",
+   "model": "fern_02"
+  },
+  {
+   "name": "SPRITE_earth_fern_fern_02_1_0",
+   "class": "fern",
+   "model": "fern_02"
+  },
+  {
+   "name": "SPRITE_earth_fern_fern_02_2_0",
+   "class": "fern",
+   "model": "fern_02"
+  },
+  {
+   "name": "SPRITE_earth_fern_nettle_plant_0_0",
+   "class": "fern",
+   "model": "nettle_plant"
+  },
+  {
+   "name": "SPRITE_earth_fern_celandine_01_0_0",
+   "class": "fern",
+   "model": "celandine_01"
+  },
+  {
+   "name": "SPRITE_earth_grass_grass_medium_01_0_0",
+   "class": "grass",
+   "model": "grass_medium_01"
+  },
+  {
+   "name": "SPRITE_earth_grass_grass_medium_01_1_0",
+   "class": "grass",
+   "model": "grass_medium_01"
+  },
+  {
+   "name": "SPRITE_earth_grass_grass_medium_01_2_0",
+   "class": "grass",
+   "model": "grass_medium_01"
+  },
+  {
+   "name": "SPRITE_earth_grass_grass_medium_02_0_0",
+   "class": "grass",
+   "model": "grass_medium_02"
+  },
+  {
+   "name": "SPRITE_earth_grass_grass_medium_02_1_0",
+   "class": "grass",
+   "model": "grass_medium_02"
+  },
+  {
+   "name": "SPRITE_earth_grass_dandelion_01_0_0",
+   "class": "grass",
+   "model": "dandelion_01"
+  }
+ ],
+ "licence": "rendered from CC0 Poly Haven models"
+}

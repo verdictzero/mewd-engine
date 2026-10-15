@@ -71,6 +71,8 @@ var tics := 0
 var clock := 0.0
 var kills := 0
 var weather := Weather.new()
+# the island's own sky, when it has one (EnviroSky): see `_island_light`
+var _enviro: Node = null
 var rain: Rain
 ## the systems the guns hand their work to, when they are ported
 var flame: FlameStream
@@ -262,6 +264,12 @@ func start_map(which: String) -> void:
 	# grass only along its walls — not under them
 	if spec.has("maze"):
 		_maze_up(spec.maze)
+	# WHERE YOU ARE PUT DOWN, when the island says (Islands "start", island
+	# metres east and south of its middle): a real place's middle may well be
+	# its lake
+	if spec.has("start"):
+		var st: Vector2 = spec.start
+		level.start_hint = Vector2(st.x * IslandLevel.U_PER_M, -st.y * IslandLevel.U_PER_M)
 	level.populate(seed, int(net_map.get("opts", {}).get("people", spec.get("people", 300))),
 		spec.get("crowd", []), roads, float(spec.get("lamps", 0.0)),
 		spec.get("herds", {}), _meadow_of(field) if spec.has("herds") else null,
@@ -381,13 +389,18 @@ func start_map(which: String) -> void:
 ## rather than the old maps' night: under the open sky, no Doom fall-off
 ## with distance, and the air the island's own grey haze from far off.
 ## Distances are METRES here: the game is drawn at the island's scale.
+## An island with its own sky and clock (EnviroSky, a real place's) says how
+## lit the world is now: night, a storm's gloom, a lightning flash.
 func _island_light() -> void:
-	U.gset("sky_light", 1.0)
-	U.gset("min_light", 0.85)
+	if _enviro == null and island != null and is_instance_valid(island):
+		_enviro = island.get_node_or_null("EnviroSky")
+	var wl: Dictionary = _enviro.world_light() if _enviro != null and is_instance_valid(_enviro) else {}
+	U.gset("sky_light", wl.get("sky_light", 1.0))
+	U.gset("min_light", wl.get("min_light", 0.85))
 	U.gset("light_falloff", 1.0e6)
-	U.gset("air_near", 700.0)
-	U.gset("air_far", 3200.0)
-	U.gset("air_color", island_spec.get("air", Color(0.3, 0.3, 0.3)))
+	U.gset("air_near", wl.get("air_near", 700.0))
+	U.gset("air_far", wl.get("air_far", 3200.0))
+	U.gset("air_color", wl.get("air_color", island_spec.get("air", Color(0.3, 0.3, 0.3))))
 	U.gset("light_color", Color.WHITE)
 	U.gset("ambient_light", Color(0, 0, 0, 1))
 	U.gset("map_fog", Vector4(0, 0, 0, 0))

@@ -29,6 +29,12 @@
 ##            either side of every road, the road's texture along it
 ##   town_verge (optional, with road_verge) a square town paved to this
 ##            many metres inside its edge, grass from there to the bank
+##   start    (optional) where you are put down: Vector2(east, south), metres
+##            from the island's middle (a real place's middle may be a lake)
+##   sky      (optional, an island with an EnviroSky) {hour, day (of the
+##            year), weather (a preset: clear, fair, partly_cloudy, cloudy,
+##            overcast, foggy, light_rain, rain, storm, light_snow, snow),
+##            day_minutes (real minutes a day; 0 holds the clock)}
 class_name Islands
 extends RefCounted
 
@@ -96,7 +102,22 @@ const LIST := [
 		"maze": {"cells": 222, "sections": [2, 4, 6, 8], "seed": 2718, "loops": 0.1, "doors": 4,
 			"start": [160, 60], "grass_band": 12.0, "grass_clear": 0.45, "park": 5},
 		"pickups": {"country": 4},
-		"blurb": "a square kilometre: a maze of rusted steel walls round a park of wood and meadow"}
+		"blurb": "a square kilometre: a maze of rusted steel walls round a park of wood and meadow"},
+	# OESCHINENSEE, at the user's request: a real place, not a made one — a 3 km
+	# square of the Bernese Oberland round the lake under the Bluemlisalp, its
+	# ground, its water and its woods out of open map data (tools/earth_fetch.py,
+	# EarthField), high-resolution PBR ground and plants rendered from CC0 models
+	# (tools/earth_pack.py), cut out of the world with a cliff all round into the
+	# cloud. Full colour: the ground's photographs are not snapped to the palette
+	{"key": "earth_oeschinen", "title": "OESCHINENSEE", "scene": "res://godot/island/earth/oeschinen/earth_oeschinen.tscn", "people": 360,
+		"blurb": "a real place: 46.4986 N, 7.7270 E, a 3 km square", "palette": false,
+		# (on the open pasture by the lake's west shore, where the path up from
+		# Kandersteg comes out of the trees)
+		"start": Vector2(-1050, 150),
+		# its sky (EnviroSky): a mid-July morning, fair-weather cumulus; the
+		# pause menu's WEATHER moves it, --sky-hour/-day/-weather too
+		"sky": {"hour": 10.5, "day": 196, "weather": "fair"},
+		"air": Color(0.62, 0.72, 0.84), "pickups": {"country": 10}},
 ]
 
 ## The island called `key`, or the first.

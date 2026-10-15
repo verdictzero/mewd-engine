@@ -1002,6 +1002,11 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	# soil and litter rather than stopping at a line.
 	var want := density * clampf(w.r * 1.4, 0.0, 1.0)
 	want *= lerpf(1.0, 1.0 - clampf(s.get("forest", 0.0), 0.0, 1.0), forest_falloff)
+	# A FIELD THAT KNOWS ITS OWN GRASS says so (a real place's, `EarthField`:
+	# "veg" off its open map data), and that is the density, whatever the turf
+	var veg: Variant = s.get("veg")
+	if veg is Dictionary:
+		want = density * clampf(float((veg as Dictionary).get("grass", 0.0)), 0.0, 1.0)
 	# (thick: whatever the ground)
 	if share > 1.0:
 		want = density

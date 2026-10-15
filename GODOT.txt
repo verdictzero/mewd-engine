@@ -3757,6 +3757,294 @@ THE VERSION ON THE LOGS' LINE (0000035)
   version at the left edge and the path at the right, one face, one size.
 
 
+A REAL PLACE ON EARTH: OESCHINENSEE (0000036)
+
+At the user's request ("i want a system that will take coordinates on
+earth and within defined boundaries (a square) render terrain faithfully
+using the chunk based terrain system in mewd-engine, using open source
+map data to define height water level and vegetation / biomes. i want
+this to use high res pbr textures on the map, but still use billboard
+vegetation, albeit high res"):
+
+  THE IDEA. golf's island system asks one object, the field, every
+  question it has: how high the ground is, where the coast is, what the
+  ground is made of, how thick the wood. EarthField
+  (godot/island/scripts/world/SCRIPT_earth_field.gd) is an IslandField
+  that answers them out of grids made from open map data instead of out
+  of noise. So the chunk mesher, its LODs, the terrain and plant bakes,
+  the scatters and the crowd's ground all build a real place the way
+  they build golf's islands, unchanged: a square cut out of the world
+  with a cliff all round into the cloud.
+
+  THE DATA (tools/earth_fetch.py, run once, off the game; Python with
+  numpy and Pillow, everything fetched over plain HTTPS with no key, and
+  cached in tools/.earth-cache/):
+    - HEIGHT: the AWS Terrain Tiles (Mapzen's Terrarium PNGs: SRTM,
+      GMTED, ETOPO1 and the national lidar sets merged), zoom 14,
+      bicubic onto a 2 m grid. --dem copernicus reads Copernicus GLO-30
+      out of its cloud-optimised GeoTIFFs instead (a surface model: the
+      canopy is in it). The tiles under Switzerland are 30 m data
+      brought up to 6 m and show it as a 30 m checker on every slope, so
+      the height is blurred 8 m (--smooth) and the field puts relief
+      finer than that back by noise, more on rock than on turf.
+    - WHAT IS ON THE GROUND: ESA WorldCover 10 m (2021), its eleven
+      classes (trees, shrubs, grass, crops, built-up, bare, snow and
+      ice, water, wetland, mangrove, moss) read tile by tile out of its
+      cloud-optimised GeoTIFFs by range request. Each class is sampled
+      as a soft share, at points pushed about a few metres by noise, so
+      a wood's edge wanders instead of stepping in 10 m pixels.
+    - OPENSTREETMAP through the Overpass API (any of several servers;
+      Switzerland's own for a square inside it): the lakes' and rivers'
+      shorelines, the rivers and streams, the roads, tracks and paths,
+      the railways, the buildings, the forests' leaf type, and the rock,
+      scree, sand, wetland and glacier areas, all drawn onto the 2 m
+      grid. With no server answering it goes on without them.
+  From those it works out, on one square grid x east and z south:
+    - THE WATER. Every body WorldCover or OSM has (OSM's shoreline where
+      it has one), found as connected areas, and each given its level:
+      a lake flat at the ground's own height across it (the DEMs flatten
+      a lake to its surface), the sea at 0, a river falling with its
+      banks (their heights relaxed across it). Its bed is carved under
+      it by how far from the shore (a lake down to a fifth of its
+      half-width, at most 35 m; a river a few metres) wherever the DEM
+      is only the flat top of the water, and the banks are held up out
+      of it, so the water's edge is where the ground meets its level.
+      Streams under 4 m wide are pebbled channels sunk 0.6 m, not
+      slivers of water; so is a lake's arm that climbs away from it (an
+      outflow the maps drew joined to the lake: its ground stands metres
+      over the lake's level, and given that level it was cut into a
+      trench 30 m deep), and a small tarn the DEM never flattened takes
+      its own middle height for its level.
+    - TWELVE SURFACE LAYERS: grass, forest floor, rock, scree, sand,
+      soil, snow, mud, paving, dry scrub, moss and the bed under the
+      water — WorldCover's classes as layers, sharpened by OSM's rock,
+      scree, sand, wetland and glacier areas (their straight sides worn
+      into wandering outlines), rock wherever the ground is steeper than
+      36 to 50 degrees (62 under snow), scree on the steep turf, a beach
+      on the sea's shore and pebbles round a lake's, the roads (asphalt
+      or earth by their surface), the railways' ballast and the
+      buildings' footprints on top.
+    - THE PLANTS: trees off WorldCover's tree cover (none on the roads,
+      the rock, the snow or the water, thinning on the steep), the
+      conifer share of them off OSM's leaf type where it is mapped and
+      otherwise the climate's guess (firs coming in over the broadleaves
+      from 1500 m less 25 m a degree of latitude past 20, all firs 700 m
+      above that, and north of 52 degrees), bushes off the shrubland and
+      the woods' edges, grass off the turf.
+  And writes godot/island/earth/<name>/: height.grid (2 m, 16-bit),
+  water.grid and wkind.grid (4 m: the surface, and sea, lake or river),
+  cover.grid (4 m: the twelve layers as three RGBA pictures),
+  veg.grid (4 m), region.json (how to read them, the water bodies, the
+  sources and the attribution their licences ask for, and a digest),
+  and pictures of each in preview/ for people. --register also writes
+  the field and the scene (copies of OESCHINENSEE's) and the Islands
+  entry. A 3 km square is about 5 MB and takes under a minute.
+
+  THE FIELD reads them once per process (the mesher's and the scatters'
+  per-thread clones share them) and answers:
+    - base_height: the 2 m grid, bilinear, less the datum (a metre under
+      the region's lowest ground, so the island's y = 0 is under all of
+      it), plus the fine relief. No shore ramp: the land runs to the
+      square's edge.
+    - coast_y, a new hook on IslandField the mesher now asks for the
+      height of the coastline (the coast's vertices and the cliff's lip
+      start there): on golf's islands it is the shore level, as before;
+      on a real place it is the ground at the edge, so the square ends
+      in a cut face falling into the cloud instead of a ramp down to a
+      shore that is not there.
+    - sample() carries four more keys: "veg" (tree, conifer, bush, fern
+      and grass densities), "water" (how deep over the ground), "water_y"
+      and "cover" (the twelve layers); its "weights" are the twelve
+      folded into golf's four, for the code that reads those.
+    - height_at, the crowd's ground: none where the water is deeper than
+      0.9 m (`wade_depth`), so a lake is a coast to the crowd.
+    - the bakes: `data_digest` (the region's digest and this script's
+      own) is a stored property, so the terrain, plant and ground bakes
+      key themselves on the data as well as the settings.
+  It is square_land with no coast wobble, one hub the region's size, no
+  satellites, every golf feature off and no rounded lip on the cliff.
+  Its chunks' skirts are 10 m deep and shaded with the ground's own
+  normal (`chunk_skirt_shaded`, a new IslandField switch, off on golf's
+  islands): on a mountain a coarse chunk beside a fine one leaves a step,
+  and a skirt lit as a wall drew every LOD seam as a dark line across
+  the slope.
+
+  THE LOOK:
+    - THE GROUND (SHADER_terrain_earth.gdshader) blends the twelve
+      layers off the cover grid's three pictures (handed to the material
+      by SCRIPT_earth_dress.gd when the island is made), at the data's
+      own 4 m whatever the chunk's LOD; the mesher's vertex colours are
+      not read. Each layer is a CC0 photo-scanned material at 2048 px
+      (Poly Haven and ambientCG; tools/earth_pack.py fetches them; three
+      of them tinted in the material to sit together: the turf duller,
+      the forest floor darker, the slate rock lighter):
+      colour and height in one 12-layer texture array, normal, roughness
+      and occlusion in another. Only the layers with weight are sampled;
+      where two meet the taller texels win (height blending); steep
+      ground is projected from the side too; a second sample at a
+      quarter of the frequency further off and a broad variation in
+      brightness break the tiling. Lit by the island's own light
+      unbanded, on the normal-mapped normal, with the occlusion on the
+      ambient and the sun's highlight off the roughness, then the
+      island's fog. The cliff all round wears the same rock.
+    - THE WATER (SHADER_water_earth.gdshader): flat sheets of the 4 m
+      water grid at each body's level, laid over the carved beds by
+      SCRIPT_earth_dress.gd, with how deep it is and a river's flow in
+      the vertices. The sky reflected by Fresnel off two drifting wave
+      maps (a tiling one made by earth_pack, by FFT), the sun's glint,
+      its own colour through it by depth, foam where it thins over the
+      shore, a river's maps running downstream. Where water reaches the
+      square's edge it is closed by a wall of water down to the bed.
+    - THE PLANTS stay billboards, at the user's request, but high res:
+      CC0 Poly Haven models (a full-grown fir and fir and pine saplings
+      for the trees, three broadleaves, young firs and four shrubs for
+      the bushes, ferns, nettles and celandine for the undergrowth, two
+      grasses and dandelions for the tufts: 34 sprites in all; four
+      models that would not draw one plant at a time, or drew black,
+      are left out, earth_pack.py says which) rendered side-on by Godot itself
+      (tools/earth_billboards.gd, through earth_pack.py billboards),
+      each plant of a many-plant model drawn on its own, lit from the
+      front and above with its own shadows so the crown has volume,
+      at twice the size and brought down to 1024 x 1024 (broadleaves),
+      512 x 1024 (firs), 512 x 512 and 512 x 256, with a burn map
+      beside each for the billboard shader's fire. Their materials read
+      them texel for texel (lofi_texels_per_m 0).
+    - VegScatter now takes `broadleaf_sprites` beside the firs (and
+      `broadleaf_height`): a tree is one or the other by the field's
+      conifer share where it gives one, `broadleaf_share` where not.
+      Where the sample has "veg", the class densities are the scene's
+      forest densities times the field's own (trees, bushes, the
+      undergrowth), and GrassScatter's tufts likewise.
+    - The sky is EnviroSky's (A REAL PLACE'S SKY, below): the sun and
+      the moon where they really are over the place, clouds and weather.
+      The air and fog are a pale blue, thinner and further off than golf's
+      islands so a valley's far side shows; the Environment's own fog is
+      off (seen from a peak it whitened the whole valley), the ground and
+      the water fog themselves. The Islands entry has "palette": false, so the
+      photographs keep their colour (the pixel grid stays the picture
+      settings').
+
+  OESCHINENSEE is the first: a 3 km square of the Bernese Oberland
+  round the lake under the Bluemlisalp (46.4986 N, 7.7270 E). 1527 to
+  2567 m; the lake 1.18 square km at the DEM's 1569.5 m (the map says
+  1578; SRTM's datum and its flattening of the water put it there),
+  seven smaller tarns, the larch and spruce on the west shore, the
+  pastures, the scree fans and the cliffs. You are put down on the
+  pasture by the west shore (Islands "start", a new key: metres east
+  and south of the middle, since a real place's middle may be its
+  lake), and the ground search for the crowd and the start now widens
+  until it finds land rather than giving up on a point in the water.
+
+  A NEW PLACE:
+    python3 tools/earth_fetch.py NAME --lat .. --lon .. --size METRES \
+        --title "TITLE" --register
+    godot --headless --editor --quit
+    godot --headless --script res://tools/bake_island.gd -- --map=earth_NAME
+  The earth pack (the textures and the sprites) is shared by every
+  region and only needs making again to change it:
+    python3 tools/earth_pack.py textures      (--res 1k for a lighter one)
+    python3 tools/earth_pack.py models
+    python3 tools/earth_pack.py billboards    (Godot under xvfb-run)
+    python3 tools/earth/make_scene.py         (OESCHINENSEE's scene)
+
+  godot/tests/earth_test.gd checks the field against its own data (the
+  ground to the sample, the square, the edge's height, the lake, deep
+  water no ground, the layers summing to one, the woods and their firs,
+  the bake digest) and then the level through the game.
+
+  The island field and the mesher changed (coast_y), so every island
+  bakes again; the builds do that themselves. The exports now carry
+  *.grid files.
+
+
+A REAL PLACE'S SKY: CLOUDS, THE CLOCK AND THE WEATHER, AFTER ENVIRO
+
+At the user's request ("make a cloud sky etc system reminiscent of the
+enviro 3 unity plugin"): EnviroSky (godot/island/scripts/
+SCRIPT_enviro_sky.gd), one node in a real place's scene in place of
+golf's sky cycle, and the sky shader it drives (godot/island/shaders/
+SHADER_sky_enviro.gdshader). OESCHINENSEE has it.
+
+  THE AIR: single scattering through a spherical atmosphere, Rayleigh
+  and Mie (Nishita's model, as wwwtyro's glsl-atmosphere has it), from
+  the island's real height over the sea: the blue overhead, the pale
+  horizon, the reds of a sunset and the twilight after it are the
+  physics', not a gradient's. Below the horizon the air goes on as at
+  the horizon (the island floats over the void). A weather's haze
+  thickens the low sky.
+
+  THE CLOUDS: a layer of cumulus raymarched through a shell of the sky
+  on the planet's curve, so it falls away to the horizon, its base a
+  weather's `base` metres over the place's highest ground and its top
+  `thickness` over that. Shaped by a 128-cube Perlin-Worley noise
+  (billows) eroded by a 32-cube Worley detail (wisps), spread over the
+  sky by a weather map whose threshold is the coverage (read off the
+  map's own percentiles, so 0.45 covers about 45 per cent), stratus to
+  towering cumulus by `cloud_type`. Lit by a five-step march toward the
+  sun (Beer-Lambert, the powder darkening on the sunlit side, a two-lobed
+  Henyey-Greenstein for the silver lining and the backscatter, two
+  weaker octaves for the light scattered on through them, so a low sun
+  lights them from inside), the sky's zenith and horizon for their
+  ambient, faded into the air with distance. Above them a sheet of
+  cirrus at nine kilometres. The wind carries both, the cirrus faster.
+  All of it is drawn in Godot's QUARTER-RESOLUTION sky pass, which on
+  the lo-fi picture is a few thousand pixels; the GL compatibility
+  renderer has no such pass, and there (EnviroSky sees which renderer
+  it is) they are drawn in the main pass with three quarters the steps.
+  The noise is tools/earth/make_sky_noise.py's (Texture3D, sliced).
+
+  THE CLOCK, THE SUN AND THE MOON: an hour, a day of the year and a
+  year, held still or run at `day_minutes` real minutes a day. The sun
+  and the moon are placed where they really are for the place's own
+  latitude and longitude (an EarthField's region.json), by Paul
+  Schlyter's low-precision formulae (the sun to a hundredth of a degree,
+  the moon with its biggest perturbations to about one), so OESCHINENSEE
+  at 10:30 on the 15th of July has the sun 54 degrees up in the
+  south-east and a moon a day past the new moon of 14 July 2026, and its
+  sunset comes down behind its own ridges. The moon is drawn with its
+  face lit from where the sun really is, so its phase is the real one.
+  Stars twinkle when the sun is down, where the clouds let them.
+
+  THE WEATHER (EnviroWeather, godot/island/sky/enviro/weather/*.tres, one
+  resource a weather as Enviro keeps them): CLEAR, FAIR, PARTLY CLOUDY,
+  CLOUDY, OVERCAST, FOGGY, LIGHT RAIN, RAIN, STORM, LIGHT SNOW and SNOW,
+  each a set of numbers (coverage, density, type, base, thickness,
+  cirrus, gloom, how much sun they take off the ground, haze and its
+  colour, the island fog's density and start, the light, the wind, rain,
+  snow, lightning). The sky is always on its way from where it was to
+  the weather asked for, over `transition_seconds` (30). The pause
+  menu's WEATHER chooses: CLEAR is the island's own, OVERCAST, RAIN and
+  MIST (as FOGGY) the presets. An Islands entry's "sky" (hour, day,
+  weather, day_minutes) is the island's own; --sky-hour=, --sky-day=,
+  --sky-weather= and --sky-minutes= override it.
+
+  THE ISLAND'S LIGHT: the same scattering, run in GDScript five times a
+  second with fewer samples, gives the sunlight reaching the ground (its
+  colour through the air: white at noon, gold at seven, nothing after
+  sunset), the sky's light, the bounce off the ground and the horizon's
+  colour; the clouds take their share of the sun and grey the sky's.
+  Those become the tod_* globals every island surface is lit by (the
+  moon's light at night, and a night that is dark blue, not black), the
+  fog's tint (tod_haze_tint: the fog fades the ground into the real
+  horizon), the plants' and the water's tint (tod_art_tint), and the
+  crowd's light (EnviroSky.world_light, which Game._island_light now
+  asks for when the island has one). Two new globals, tod_fog_density
+  and tod_fog_near (1 everywhere else, so golf's islands are as they
+  were), carry a weather's fog into the terrain, water, plant and cliff
+  shaders.
+
+  WHAT FALLS: rain and snow round the eye (GPU particles: streaks, and
+  flakes drifting with the wind), lit as dark as the light under the
+  clouds. A STORM throws lightning: the whole sky flashes, the bolt
+  forks down in it, and the island lights up with it for a moment.
+
+  godot/tests/earth_test.gd checks the sky on OESCHINENSEE: the sun high
+  in the south-east at 10:30 in July, the moon's phase, a storm
+  covering the sky and darkening the crowd's light, the island dark at
+  23:00. godot/tests/earth_shot.gd takes the --sky- options and
+  --look=sun|moon.
+
+
 TESTS
 
     tools/godot-test.sh
@@ -3793,6 +4081,12 @@ TESTS
   a ninth mark on a tile mesh and the refused ones laid as quads, a sear
   all three layers or none, a hot spot real and gone when it cools, the
   caps, and the web's way untouched.
+  A REAL PLACE (godot/tests/earth_test.gd, on OESCHINENSEE): the field
+  against its own data (the ground to the sample, the square and its
+  edge's height, the lake, deep water no ground, the twelve layers
+  summing to one, the woods and their firs, the bake digest), then the
+  level through the game (you at the start, nobody in deep water, the
+  water laid, the ground's paint bound, the island up).
   CANDY LAND (godot/tests/candy_test.gd): roads and squares off the
   field, every road level across, you in a square, the lamps, all 600
   candy girls in all nine flavours, the girls walking up and saying

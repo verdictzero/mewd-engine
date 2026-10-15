@@ -1,0 +1,30 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+; A REAL PLACE'S WATER (SHADER_water_earth.gdshader), on the sheets
+; SCRIPT_earth_dress.gd lays at each lake's, river's and sea's own level.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_water_earth.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/textures/TEX_earth_water_normal.png" id="2_waves"]
+
+[resource]
+render_priority = 1
+shader = ExtResource("1_shader")
+shader_parameter/wave_normal = ExtResource("2_waves")
+shader_parameter/shallow_color = Color(0.18, 0.46, 0.44, 1)
+shader_parameter/deep_color = Color(0.02, 0.11, 0.16, 1)
+shader_parameter/absorb = 0.35
+shader_parameter/alpha_shallow = 0.25
+shader_parameter/alpha_deep = 0.93
+shader_parameter/wave_scale = 9.0
+shader_parameter/wave_scale_2 = 3.1
+shader_parameter/wave_speed = 0.35
+shader_parameter/wave_strength = 0.3
+shader_parameter/glint = 1.2
+shader_parameter/glint_power = 380.0
+shader_parameter/foam_depth = 0.35
+shader_parameter/reflect_strength = 0.6
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.72, 0.84, 1)
+shader_parameter/fog_distance_start = 1800.0
+shader_parameter/fog_distance_density = 0.0004
+shader_parameter/fog_distance_power = 2.0

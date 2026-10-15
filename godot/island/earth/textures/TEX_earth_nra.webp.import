@@ -1,0 +1,30 @@
+[remap]
+
+importer="2d_array_texture"
+type="CompressedTexture2DArray"
+uid="uid://dv1fjqfsc4gsy"
+path.bptc="res://.godot/imported/TEX_earth_nra.webp-255f955d0bd5c0d786d53db62704b8a3.bptc.ctexarray"
+path.astc="res://.godot/imported/TEX_earth_nra.webp-255f955d0bd5c0d786d53db62704b8a3.astc.ctexarray"
+metadata={
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
+}
+
+[deps]
+
+source_file="res://godot/island/earth/textures/TEX_earth_nra.webp"
+dest_files=["res://.godot/imported/TEX_earth_nra.webp-255f955d0bd5c0d786d53db62704b8a3.bptc.ctexarray", "res://.godot/imported/TEX_earth_nra.webp-255f955d0bd5c0d786d53db62704b8a3.astc.ctexarray"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=true
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/channel_pack=1
+mipmaps/generate=true
+mipmaps/limit=-1
+slices/horizontal=4
+slices/vertical=3

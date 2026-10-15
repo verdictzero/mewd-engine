@@ -452,6 +452,10 @@ func _find_ground(rng: RandomNumberGenerator, c: Vector2, r: float, max_slope: f
 		if slope < best_slope:
 			best_slope = slope
 			best = p
+	# NO LAND AT ALL in the circle (a real place's middle can be its lake:
+	# EarthField): wider, until there is, rather than a point in the water
+	if best_slope == INF and r < ground.half * U_PER_M * 2.0:
+		return _find_ground(rng, c, r * 2.0, max_slope)
 	return best
 
 # ------------------------------------------------------------------

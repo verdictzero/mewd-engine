@@ -127,6 +127,14 @@ extends Node3D
 ## wide, so a sprite whose stored aspect disagreed with its content's would draw
 ## every instance of that variant squashed. See rule 4 in `SCRIPT_crunch_art.gd`.
 @export var tree_sprites: Array[Texture2D] = []
+## BROADLEAF TREES beside the firs above, for a real place's woods (at the
+## user's request, the plants of a place on Earth: `EarthField`). They are trees
+## like the rest — one class, one density — and which of the two a tree is comes
+## from the field's "conifer" share where it gives one, `broadleaf_share` where
+## it does not. Empty, every tree is a fir, as before.
+@export var broadleaf_sprites: Array[Texture2D] = []
+## The share of trees that are broadleaf where the field does not say.
+@export_range(0.0, 1.0) var broadleaf_share := 0.0
 @export var bush_sprites: Array[Texture2D] = []
 @export var fern_sprites: Array[Texture2D] = []
 
@@ -388,6 +396,8 @@ extends Node3D
 ## at 0.74 of the figure here. `SCRIPT_crunch_art.gd` prints the content fraction of every
 ## sprite it bakes.
 @export var tree_height := Vector2(11.0, 22.0)
+## The broadleaf trees' height (`broadleaf_sprites`).
+@export var broadleaf_height := Vector2(9.0, 18.0)
 @export var bush_height := Vector2(2.2, 4.0)
 @export var fern_height := Vector2(1.3, 2.2)
 ## Extra width jitter, as a multiplier on the aspect-derived width. Independent of
@@ -660,6 +670,9 @@ var _instances: Array[MultiMeshInstance3D] = []
 var _class_span: Array[Vector2i] = []
 # Class -> quad height range, indexed the same way.
 var _class_height: Array[Vector2] = []
+# How many of the tree class's sprites are firs (`tree_sprites`); the rest of
+# its span is `broadleaf_sprites`.
+var _conifers := 0
 # Flat sprite index -> its quad's width over its height, so `_evaluate_cell`
 # knows how far a plant's quad reaches either side of its base (see `sink`).
 var _sprite_aspect := PackedFloat32Array()
@@ -764,7 +777,16 @@ func _build_multimeshes() -> void:
 	_sprite_pad.clear()
 	_class_view_sq.resize(3)
 	_fill_fp.resize(3)
-	var sets := [tree_sprites, bush_sprites, fern_sprites]
+	var trees: Array = []
+	_conifers = 0
+	for t in tree_sprites:
+		if t != null:
+			trees.append(t)
+			_conifers += 1
+	for t in broadleaf_sprites:
+		if t != null:
+			trees.append(t)
+	var sets := [trees, bush_sprites, fern_sprites]
 	var heights := [tree_height, bush_height, fern_height]
 	var names := ["Tree", "Bush", "Fern"]
 	# Trees take `material`; the bushes and the ferns each take their own when the
@@ -2169,6 +2191,18 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	var d_tree := lerpf(tree_open_density, tree_forest_density, forest) * tree_clump
 	var d_bush := lerpf(bush_open_density, bush_forest_density, forest) * bush_clump
 	var d_fern := lerpf(fern_open_density, fern_forest_density, forest) * fern_clump
+	# A FIELD THAT KNOWS WHAT GROWS WHERE says so: a real place's (`EarthField`)
+	# reads its trees, bushes and undergrowth off open map data, 0..1 each, and
+	# those scale the class's forest density instead of the one forest mask. The
+	# early-out above still holds: none of these can pass max(open, forest).
+	var veg: Variant = s.get("veg")
+	var conifer := 1.0 - broadleaf_share
+	if veg is Dictionary:
+		var vd: Dictionary = veg
+		d_tree = tree_forest_density * clampf(float(vd.get("tree", 0.0)), 0.0, 1.0) * tree_clump
+		d_bush = bush_forest_density * clampf(float(vd.get("bush", 0.0)), 0.0, 1.0) * bush_clump
+		d_fern = fern_forest_density * clampf(float(vd.get("fern", 0.0)), 0.0, 1.0) * fern_clump
+		conifer = clampf(float(vd.get("conifer", conifer)), 0.0, 1.0)
 
 	# THE THREE CLASSES ARE CLAMPED IN PRIORITY ORDER, and this is what lets a wood
 	# be full without the classes cannibalising each other. One cell grows at most
@@ -2245,9 +2279,18 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 		# the count only ADDS to a stand instead of reshuffling it.
 		var lane := i * 16
 		var sprite := -1
-		if span.y > 0:
-			sprite = span.x + int(_rand(hx, 5 + lane) * float(span.y)) % span.y
-		var h := lerpf(hr.x, hr.y, _rand(hx, 4 + lane))
+		var sub := span
+		var shr := hr
+		# a tree is a fir or a broadleaf by the conifer share (its own lane, 13)
+		if cls == CLS_TREE and _conifers < span.y:
+			if _conifers > 0 and _rand(hx, 13 + lane) < conifer:
+				sub = Vector2i(span.x, _conifers)
+			else:
+				sub = Vector2i(span.x + _conifers, span.y - _conifers)
+				shr = broadleaf_height
+		if sub.y > 0:
+			sprite = sub.x + int(_rand(hx, 5 + lane) * float(sub.y)) % sub.y
+		var h := lerpf(shr.x, shr.y, _rand(hx, 4 + lane))
 		var wj := lerpf(width_jitter.x, width_jitter.y, _rand(hx, 6 + lane))
 		# the slope's share of the sink: half the quad's width down the gradient
 		var aspect := _sprite_aspect[sprite] if sprite >= 0 and sprite < _sprite_aspect.size() else 1.0

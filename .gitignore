@@ -17,3 +17,7 @@ build/
 
 # python
 __pycache__/
+
+# tools/earth_fetch.py and earth_pack.py: what they download (data tiles,
+# texture sources, plant models), kept so a second run costs nothing
+/tools/.earth-cache/

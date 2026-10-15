@@ -1,0 +1,40 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3]
+
+; THE GROUND OF A REAL PLACE (SHADER_terrain_earth.gdshader): twelve CC0 PBR
+; layers at 2048 px, blended off the region's control pictures, which
+; SCRIPT_earth_dress.gd binds when the island is made (they are each region's
+; own). Lit smooth (sun_bands 0), the island's sky ball for the ambient, the
+; fog thinner and further off than golf's islands so a valley's far side shows.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_terrain_earth.gdshader" id="1_shader"]
+[ext_resource type="CompressedTexture2DArray" path="res://godot/island/earth/textures/TEX_earth_albedo.webp" id="2_albedo"]
+[ext_resource type="CompressedTexture2DArray" path="res://godot/island/earth/textures/TEX_earth_nra.webp" id="3_nra"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2.png" id="4_envball"]
+[ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2_night.png" id="5_envballn"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_height = ExtResource("2_albedo")
+shader_parameter/normal_rough_ao = ExtResource("3_nra")
+shader_parameter/height_blend = 0.35
+shader_parameter/normal_strength = 1.0
+shader_parameter/far_start = 25.0
+shader_parameter/far_end = 90.0
+shader_parameter/macro_strength = 0.22
+shader_parameter/macro_scale = 70.0
+shader_parameter/sun_bands = 0.0
+shader_parameter/sun_wrap = 0.12
+shader_parameter/rim_power = 4.0
+shader_parameter/rim_strength = 0.12
+shader_parameter/ao_strength = 0.8
+shader_parameter/specular = 0.5
+shader_parameter/exposure = 0.85
+shader_parameter/env_ball_enabled = true
+shader_parameter/env_ball = ExtResource("4_envball")
+shader_parameter/env_ball_night = ExtResource("5_envballn")
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.72, 0.84, 1)
+shader_parameter/fog_distance_start = 1800.0
+shader_parameter/fog_distance_density = 0.0004
+shader_parameter/fog_distance_power = 2.0

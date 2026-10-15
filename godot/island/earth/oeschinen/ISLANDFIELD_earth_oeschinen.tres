@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="EarthField" load_steps=2 format=3]
+
+; OESCHINENSEE, Bernese Oberland, Switzerland (46.4986 N, 7.7270 E): a 3 km
+; square round the lake under the Bluemlisalp, out of open data by
+; tools/earth_fetch.py (region.json says which, and the attribution it owes).
+;
+; An EarthField: golf's island field answering out of the region's grids
+; (SCRIPT_earth_field.gd). One square hub the region's size (hub_radius is half
+; its side), no satellites, no coast wobble, every golf feature off, and the
+; cliff's rounded lip off too (cliff_shoulder_height 0): the square ends in a
+; clean cut face. tools/earth_fetch.py --register writes one of these for a new
+; region by copying this one.
+
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_field.gd" id="1_field"]
+
+[resource]
+script = ExtResource("1_field")
+region = "res://godot/island/earth/oeschinen"
+world_seed = 1337
+hub_enabled = true
+hub_center = Vector2(0, 0)
+hub_radius = 1500.0
+square_land = true
+hub_base_y = 0.0
+hub_peak = 1.0
+satellite_density_near = 0.0
+satellite_density_far = 0.0
+coast_irregularity = 0.0
+coast_jagged = false
+hill_height = 0.0
+ridge_height = 0.0
+micro_height = 0.0
+zone_enabled = false
+path_enabled = false
+sand_enabled = false
+crater_enabled = false
+divot_enabled = false
+ruin_enabled = false
+coast_rock_width = 0.0
+cliff_shoulder_height = 0.0
+chunk_skirt_depth = 10.0
+chunk_skirt_shaded = true

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="EnviroWeather" load_steps=2 format=3]
+
+; EnviroSky weather: LIGHT SNOW, a few flakes.
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_weather.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+id = "light_snow"
+coverage = 0.9
+density = 0.05
+cloud_type = 0.3
+base = 500.0
+thickness = 1800.0
+cirrus = 0.0
+gloom = 0.4
+shade = 0.85
+haze = 0.4
+haze_color = Color(0.78, 0.8, 0.84, 1)
+fog_density = 2.5
+fog_near = 0.55
+light = 0.8
+wind = 5.0
+wind_from = 300.0
+rain = 0.0
+snow = 0.45
+lightning = 0.0

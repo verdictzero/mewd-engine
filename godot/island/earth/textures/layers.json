@@ -1,0 +1,46 @@
+{
+ "layers": [
+  "grass",
+  "forest",
+  "rock",
+  "scree",
+  "sand",
+  "soil",
+  "snow",
+  "mud",
+  "paving",
+  "dry",
+  "moss",
+  "bed"
+ ],
+ "sources": [
+  "acg:Grass004",
+  "ph:forrest_ground_01",
+  "acg:Rock030",
+  "ph:gray_rocks",
+  "ph:coast_sand_01",
+  "ph:brown_mud_dry",
+  "ph:snow_01",
+  "ph:brown_mud_02",
+  "ph:asphalt_02",
+  "acg:Ground037",
+  "ph:mossy_rock",
+  "ph:ganges_river_pebbles"
+ ],
+ "metres": [
+  3.0,
+  3.5,
+  8.0,
+  4.0,
+  4.0,
+  3.5,
+  5.0,
+  3.5,
+  4.0,
+  3.5,
+  4.0,
+  2.5
+ ],
+ "px": 2048,
+ "licence": "CC0 (Poly Haven, ambientCG)"
+}

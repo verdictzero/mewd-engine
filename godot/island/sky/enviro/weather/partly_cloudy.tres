@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="EnviroWeather" load_steps=2 format=3]
+
+; EnviroSky weather: PARTLY CLOUDY, half the sky in cumulus.
+
+[ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_weather.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+id = "partly_cloudy"
+coverage = 0.62
+density = 0.04
+cloud_type = 0.8
+base = 1000.0
+thickness = 2600.0
+cirrus = 0.35
+gloom = 0.0
+shade = 0.35
+haze = 0.05
+haze_color = Color(0.64, 0.68, 0.74, 1)
+fog_density = 1.1
+fog_near = 1.0
+light = 0.95
+wind = 8.0
+wind_from = 240.0
+rain = 0.0
+snow = 0.0
+lightning = 0.0

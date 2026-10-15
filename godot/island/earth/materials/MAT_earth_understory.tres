@@ -1,0 +1,29 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; A REAL PLACE'S PLANTS: the bushes, the billboard shader as golf's islands have it
+; but sampled at the sprites' full resolution (lofi_texels_per_m 0: they are
+; rendered from CC0 models at 512-1024 px, tools/earth_pack.py), the tint
+; near white (the sprites carry their own light) and the earth sky's fog.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/lofi_texels_per_m = 0.0
+shader_parameter/tint = Color(0.97, 0.97, 0.97, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.06
+shader_parameter/wind_speed = 0.55
+shader_parameter/wind_scale = 17.0
+shader_parameter/near_gone = 2.0
+shader_parameter/near_solid = 3.5
+shader_parameter/near_fade_whole_plant = true
+shader_parameter/far_start = 330.0
+shader_parameter/far_end = 450.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.72, 0.84, 1)
+shader_parameter/fog_distance_start = 1800.0
+shader_parameter/fog_distance_density = 0.0004
+shader_parameter/fog_distance_power = 2.0

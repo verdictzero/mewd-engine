@@ -2081,6 +2081,12 @@ class Hole extends RefCounted:
 ## curvature over one coarse cell — so a few metres is ample. It is hidden inside
 ## the cliff cone from every angle you can actually get to.
 @export var chunk_skirt_depth := 3.0
+## Shade the skirt with the ground's own normal at the edge it hangs from,
+## rather than the flat outward one. Off on golf's gentle islands, where a
+## skirt is never seen; on for a real place's mountains (EarthField), where a
+## coarse chunk beside a fine one leaves a step a skirt shows in, and a skirt
+## lit as a wall drew every LOD seam as a dark line across the slope.
+@export var chunk_skirt_shaded := false
 
 @export_group("Cliffs")
 ## Nominal drop from coastline to tip, as a MULTIPLE of the island's radius.
@@ -2710,6 +2716,19 @@ func cliff_wall_rings_for(isl: Island) -> int:
 	# wall is perfectly straight and hide the lean it does have.
 	var conv := pow(t_end, cliff_taper)
 	return clampi(int(round(lerpf(float(lo), float(full), conv))), lo, full)
+
+
+## The height of the coastline at a point on it: where the mesher puts the
+## coast's vertices and where the cliff's lip starts falling from.
+##
+## THE SHORE LEVEL, `isl.base_y`, on every island the field makes itself: its
+## terrain is faded to that level at the coast (`base_height`'s shore ramp), so
+## the coast is level all round. A field whose ground does not come down to one
+## level at its edge — a real place cut out as a square (`EarthField`) — says
+## here where its edge actually is, and the land ends in a cut face instead of a
+## ramp down to a shore that is not there.
+func coast_y(isl: Island, _x: float, _z: float) -> float:
+	return isl.base_y
 
 
 ## Per-position wobble applied to cliff depth, in 0..1 of `cliff_depth_variance`.
