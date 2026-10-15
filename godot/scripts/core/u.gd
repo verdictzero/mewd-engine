@@ -4,7 +4,7 @@ class_name U
 ## THE BUILD'S NUMBER (seven places, leading zeroes, one string; one more on
 ## every change that ships). The builds' own (project.godot,
 ## export_presets.cfg) are kept the same.
-const VERSION := "0000040"
+const VERSION := "0000041"
 
 ## THE GLOBAL SHADER UNIFORMS, as last set: every one is set through gset,
 ## which keeps a copy here, because the Mobile renderer will not read one

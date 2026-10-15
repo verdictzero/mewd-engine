@@ -1,5 +1,5 @@
 #!/bin/sh
-# MEWD — the terrain engine's headless suites (see GODOT.txt, TESTS). Exits
+# FENRIR — the terrain engine's headless suites (see GODOT.txt, TESTS). Exits
 # non-zero if any of them fails. The places want baking first:
 #   godot --headless --script res://tools/bake_island.gd -- --all --if-missing
 cd "$(dirname "$0")/.." || exit 1

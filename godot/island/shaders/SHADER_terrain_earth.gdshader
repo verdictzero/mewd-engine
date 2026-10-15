@@ -3,6 +3,7 @@ render_mode cull_disabled, unshaded;
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_ground.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_water.gdshaderinc"
 
@@ -206,14 +207,16 @@ void earth_layer(int layer, vec3 p, vec3 n, vec3 tw, float far_t,
 	ah /= max(kept, 1e-4);
 	ra /= max(kept, 1e-4);
 	nrm = normalize(nrm);
+	// (the tints as SCRIPT_earth_dress.gd publishes them for the plants
+	// too, so the two agree: SHADERINC_earth_ground)
 	if (layer == 0) {
-		ah.rgb *= grass_tint;
+		ah.rgb *= earth_ground_tint(0, grass_tint);
 	} else if (layer == 1) {
-		ah.rgb *= forest_tint;
+		ah.rgb *= earth_ground_tint(1, forest_tint);
 	} else if (layer == 2) {
-		ah.rgb *= rock_tint;
+		ah.rgb *= earth_ground_tint(2, rock_tint);
 	} else if (layer == 3) {
-		ah.rgb *= scree_tint;
+		ah.rgb *= earth_ground_tint(3, scree_tint);
 	}
 }
 

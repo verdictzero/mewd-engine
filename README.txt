@@ -1,7 +1,8 @@
-MEWD — A TERRAIN ENGINE
-=======================
+FENRIR — A TERRAIN ENGINE
+=========================
 
-MEWD draws places: real ones, cut out of the world as a square and made
+FENRIR (Fusion-Enabled Networked Real-time Interactive Rendering; its
+badge is tools/brand/FENRIR_logo.svg) draws places: real ones, cut out of the world as a square and made
 out of open map data (heights, water, land cover, OpenStreetMap), and
 golf's procedural island. Each is a scene of the chunked island system
 (godot/island/): terrain meshed in chunks at five levels of detail and
@@ -9,7 +10,8 @@ streamed round the eye, pre-baked so it loads at once, with high-
 resolution PBR ground, billboard plants rendered from CC0 3D models, real
 water, a physical sky with raymarched clouds and weather, the sun and the
 moon where they really are, and a camera to fly round it. Nothing else:
-the game it used to be (MEWD, Made Entirely Without Doom) is gone, at the
+the game it used to be (MEWD, Made Entirely Without Doom; the repository
+keeps that name) is gone, at the
 user's request ("i just wanted the terrain engine, you can strip all
 gameplay elements"), and lives in the git history.
 
@@ -65,7 +67,8 @@ Then `godot --path .` (or F5 in the editor). After `--`:
 CONTROLS
 --------
 
-  mouse          click to look (Esc lets the mouse go)
+  mouse          click to look, or drag with the right button (Esc lets
+                 the mouse go)
   W A S D        fly (and the arrow keys)     E / Q   up / down
   Shift / Ctrl   four times as fast / a quarter     wheel  flying speed
   G              walk on the ground or fly

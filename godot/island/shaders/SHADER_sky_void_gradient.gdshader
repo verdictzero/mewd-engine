@@ -210,7 +210,7 @@ uniform float eye_fade_low : hint_range(-1.0, 1.0) = 0.06;
 uniform float eye_fade_high : hint_range(-1.0, 1.0) = 0.40;
 
 group_uniforms apex_sun;
-// MEWD — A SUN AT THE APEX, at the user's request for CANDY LAND: a
+// FENRIR — A SUN AT THE APEX, at the user's request for CANDY LAND: a
 // picture (the candy sun) pinned in the sky where the sun is (the light's
 // direction, or the time-of-day bus's — the scene's SunPivot), at
 // infinity like the vortex, with a halo and a wide bloom round it. High,

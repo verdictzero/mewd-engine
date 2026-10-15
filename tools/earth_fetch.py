@@ -91,7 +91,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(HERE, ".earth-cache")
 EARTH = os.path.join(ROOT, "godot", "island", "earth")
-UA = "mewd-engine-earth/1.0 (+https://github.com/verdictzero/mewd-engine)"
+UA = "fenrir-earth/1.0 (+https://github.com/verdictzero/mewd-engine)"
 
 # The twelve surface layers, in the order cover.grid and the terrain
 # shader's texture arrays hold them. Keep in step with SCRIPT_earth_field.gd

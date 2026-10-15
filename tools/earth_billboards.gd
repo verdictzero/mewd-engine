@@ -1,6 +1,6 @@
 extends SceneTree
 
-## MEWD — the real places' plants as billboards, rendered from their models.
+## FENRIR — the real places' plants as billboards, rendered from their models.
 ##
 ##   godot --path . --rendering-driver opengl3 --script res://tools/earth_billboards.gd \
 ##       -- tools/.earth-cache/models/manifest.json tools/.earth-cache/sprites

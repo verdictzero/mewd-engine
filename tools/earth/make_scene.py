@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MEWD — the sample region's scene, godot/island/earth/oeschinen/earth_oeschinen.tscn,
+"""FENRIR — the sample region's scene, godot/island/earth/oeschinen/earth_oeschinen.tscn,
 written from the earth pack's sprites (godot/island/earth/sprites/sprites.json).
 
     python3 tools/earth/make_scene.py

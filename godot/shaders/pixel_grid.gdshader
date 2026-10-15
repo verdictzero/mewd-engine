@@ -1,4 +1,4 @@
-// MEWD — THE PIXEL GRID, AN LCD (at the user's request: "a pixel grid
+// FENRIR — THE PIXEL GRID, AN LCD (at the user's request: "a pixel grid
 // filter to lower value pixel options", then "pixel grid = looks like
 // LCD"). The finished chunky frame, blown up nearest to the screen
 // (render/lofi.gd `rect`), drawn as a handheld's panel would show it:

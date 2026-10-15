@@ -1,6 +1,6 @@
 #!/bin/sh
 # =====================================================================
-# MEWD — the Android APK on a clean machine (.github/workflows/android.yml)
+# FENRIR — the Android APK on a clean machine (.github/workflows/android.yml)
 # =====================================================================
 #
 #   tools/ci-android.sh [out.apk]
@@ -33,7 +33,7 @@ if [ ! -f "$T/android_release.apk" ]; then
 fi
 
 # a key
-WORK="${RUNNER_TEMP:-/tmp}/mewd-android"
+WORK="${RUNNER_TEMP:-/tmp}/fenrir-android"
 mkdir -p "$WORK"
 KS="$WORK/mewd.keystore"
 if [ -n "${MEWD_KEYSTORE_B64:-}" ]; then
@@ -43,7 +43,7 @@ else
   MEWD_KEY_ALIAS=mewd
   MEWD_KEY_PASS=mewd-$(date +%s)
   keytool -genkeypair -keystore "$KS" -alias "$MEWD_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
-    -storepass "$MEWD_KEY_PASS" -keypass "$MEWD_KEY_PASS" -dname "CN=MEWD, O=MEWD, C=US" > /dev/null 2>&1
+    -storepass "$MEWD_KEY_PASS" -keypass "$MEWD_KEY_PASS" -dname "CN=FENRIR, O=FENRIR, C=US" > /dev/null 2>&1
 fi
 DKS="$WORK/debug.keystore"
 [ -f "$DKS" ] || keytool -genkeypair -keystore "$DKS" -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
@@ -67,4 +67,4 @@ open(p, "w").write(s)
 PY
 
 MEWD_KEYSTORE="$KS" MEWD_KEY_ALIAS="${MEWD_KEY_ALIAS:-mewd}" MEWD_KEY_PASS="${MEWD_KEY_PASS:-}" \
-  sh tools/build-android.sh "${1:-build/android/mewd.apk}"
+  sh tools/build-android.sh "${1:-build/android/fenrir.apk}"

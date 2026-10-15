@@ -181,5 +181,37 @@
    "model": "grass_medium_01"
   }
  ],
- "licence": "rendered from CC0 Poly Haven models"
+ "licence": "rendered from CC0 Poly Haven models",
+ "means": {
+  "conifer": [
+   0.10266,
+   0.12739,
+   0.05279
+  ],
+  "broadleaf": [
+   0.14143,
+   0.15273,
+   0.06298
+  ],
+  "bush": [
+   0.30222,
+   0.33271,
+   0.13278
+  ],
+  "fern": [
+   0.17184,
+   0.25695,
+   0.0489
+  ],
+  "grass": [
+   0.27502,
+   0.28277,
+   0.12904
+  ],
+  "meadow": [
+   0.12864,
+   0.15025,
+   0.02692
+  ]
+ }
 }

@@ -1,4 +1,4 @@
-## MEWD, THE TERRAIN ENGINE: a place drawn by the chunked island system
+## FENRIR, THE TERRAIN ENGINE: a place drawn by the chunked island system
 ## (godot/island/) — a real one made out of open map data (tools/earth_fetch.py)
 ## or golf's procedural island — with its sky, its water, its plants and its
 ## light, the cinema over it, and a camera to fly round it. That is the app.
@@ -117,6 +117,7 @@ func load_place(key: String) -> void:
 					(cine.material_override as ShaderMaterial).set_shader_parameter(parts[0], float(parts[1]))
 	_place_eye()
 	hud.loading.text = "%s\nbuilding the place..." % spec.title
+	get_window().title = "FENRIR — %s" % spec.title
 	# (nothing drawn while it builds: the building is paced by the frame, and
 	# a frame with the whole place in it is many times one without)
 	lofi.world.render_target_update_mode = SubViewport.UPDATE_DISABLED
@@ -198,7 +199,7 @@ func _process(dt: float) -> void:
 		_look_at_sky()
 		_placed = true
 	var up := place_ready()
-	hud.loading.visible = not up
+	hud.set_loading(not up)
 	# THE METER (Lofi): nothing to read until the place is drawn; then its
 	# first readings taken whole, and after that eased to, as an eye adapts
 	# (a twentieth a frame at 60 frames a second: about a second)
@@ -213,7 +214,7 @@ func _process(dt: float) -> void:
 		var es := place.get_node_or_null("EarthSun")
 		if es != null and es.has_method("_rebake"):
 			es.call("_rebake")
-		print("MEWD: %s is up" % spec.title)
+		print("FENRIR: %s is up" % spec.title)
 	elif up:
 		_up_frames += 1
 	# (the eye kept at the sun while a shot waits on the place)
@@ -229,7 +230,7 @@ func _take_shot() -> void:
 	set_process(false)
 	await RenderingServer.frame_post_draw
 	get_tree().root.get_texture().get_image().save_png(_shot)
-	print("MEWD: %s at %.0f, %.0f, %.0f m up" % [_shot, cam.global_position.x, cam.global_position.z,
+	print("FENRIR: %s at %.0f, %.0f, %.0f m up" % [_shot, cam.global_position.x, cam.global_position.z,
 		cam.global_position.y - (_ground(cam.global_position.x, cam.global_position.z) if field else 0.0)])
 	get_tree().quit()
 
@@ -254,6 +255,9 @@ func _readout() -> String:
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	# (the eye is in the picture's world, which no input reaches by itself)
+	if cam != null:
+		cam.handle(e)
 	if not (e is InputEventKey and e.pressed and not e.echo):
 		return
 	var sky := _sky()
@@ -286,6 +290,6 @@ func _unhandled_input(e: InputEvent) -> void:
 				var w := WEATHERS.find(String(sky.get("weather")))
 				sky.call("set_weather", WEATHERS[(w + 1) % WEATHERS.size()])
 		KEY_F12:
-			var path := "user://mewd_%s.png" % Time.get_datetime_string_from_system().replace(":", "-")
+			var path := "user://fenrir_%s.png" % Time.get_datetime_string_from_system().replace(":", "-")
 			get_tree().root.get_texture().get_image().save_png(path)
-			print("MEWD: %s" % ProjectSettings.globalize_path(path))
+			print("FENRIR: %s" % ProjectSettings.globalize_path(path))

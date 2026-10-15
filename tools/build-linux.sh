@@ -1,6 +1,6 @@
 #!/bin/sh
 # =====================================================================
-# MEWD — the Linux build: one file, the terrain engine packed inside it
+# FENRIR — the Linux build: one file, the terrain engine packed inside it
 # (.github/workflows/linux.yml)
 # =====================================================================
 #
@@ -11,11 +11,11 @@
 # range request. The export is the "Linux" preset: the Mobile renderer on
 # Vulkan, with S3TC/BPTC textures. It runs on Ubuntu 20.04 or later with
 # a Vulkan driver (mesa's, or NVIDIA's):
-#   chmod +x mewd.x86_64 && ./mewd.x86_64
+#   chmod +x fenrir.x86_64 && ./fenrir.x86_64
 set -eu
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
-OUT="${1:-build/linux/mewd.x86_64}"
+OUT="${1:-build/linux/fenrir.x86_64}"
 T="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates/4.7.stable"
 if [ ! -f "$T/linux_release.x86_64" ]; then
   mkdir -p "$T"

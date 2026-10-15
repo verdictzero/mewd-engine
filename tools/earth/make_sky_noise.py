@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MEWD — the noise the sky's clouds are made of (EnviroSky,
+"""FENRIR — the noise the sky's clouds are made of (EnviroSky,
 godot/island/sky/enviro/), made once and kept.
 
     python3 tools/earth/make_sky_noise.py

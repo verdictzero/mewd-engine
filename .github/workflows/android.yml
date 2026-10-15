@@ -1,4 +1,4 @@
-# MEWD — the Android APK (tools/ci-android.sh), built on every push to
+# FENRIR — the Android APK (tools/ci-android.sh), built on every push to
 # main or the Godot branch (or by hand, from the Actions tab), and put
 # up as the one rolling release "android" — a page a phone or a
 # handheld (an Anbernic RG557) can download it from directly. The APK
@@ -65,15 +65,15 @@ jobs:
           MEWD_KEYSTORE_B64: ${{ secrets.MEWD_KEYSTORE_B64 }}
           MEWD_KEY_ALIAS: ${{ secrets.MEWD_KEY_ALIAS }}
           MEWD_KEY_PASS: ${{ secrets.MEWD_KEY_PASS }}
-        run: sh tools/ci-android.sh build/android/mewd.apk
+        run: sh tools/ci-android.sh build/android/fenrir.apk
       - name: the rolling release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHORT=$(git rev-parse --short HEAD)
-          cp build/android/mewd.apk "build/android/mewd-$SHORT.apk"
+          cp build/android/fenrir.apk "build/android/fenrir-$SHORT.apk"
           gh release delete android --yes --cleanup-tag || true
-          gh release create android "build/android/mewd-$SHORT.apk" \
+          gh release create android "build/android/fenrir-$SHORT.apk" \
             --target "$GITHUB_SHA" --prerelease \
-            --title "MEWD for Android ($SHORT, ${GITHUB_REF_NAME})" \
+            --title "FENRIR for Android ($SHORT, ${GITHUB_REF_NAME})" \
             --notes "The latest APK: arm64, the Mobile renderer on Vulkan, for an Anbernic RG557 or a phone. Built from ${GITHUB_REF_NAME} at $SHORT. Side-load it; if it will not install over an older one, uninstall that first (see .github/workflows/android.yml on signing)."

@@ -43,6 +43,21 @@ render_mode cull_disabled, unshaded, shadows_disabled;
 // over it, one side hanging, and not sunk by the worst case either, which
 // buried the thick bottom of every tuft on a steep meadow.
 //
+// THE GROUND'S COLOUR (at the user's request: "make sure grass etc (not
+// trees) matches the grass of the terrain splat it is on, for blending /
+// visual consistencies sake"): a low plant's material sets `ground_match`,
+// and its colour is taken toward the colour of the ground at its foot
+// (SHADERINC_earth_ground: the splat SHADER_terrain_earth paints there, its
+// layers, tints, variation and exposure): each texel takes the ground's
+// colour at its own brightness against the pictures' average
+// (`ground_reference`, tools/earth_pack.py `means`), so the plant keeps its
+// light and shade and wears the ground's hue (scaled channel by channel
+// instead, a green tuft went violet on a grey path), all the way at its
+// foot and `ground_match_top` of the way at its top: a tuft grows out of the
+// turf in the turf's own green, browner on soil, greyer on scree. The
+// ground's colour is found at the corners with the light, a texel's in one
+// dot product. The trees leave it at 0.
+//
 // What is left: the billboard, a sway in the wind, the RETRO picture's texel
 // grid (`lofi_texels_per_m`: a plant drawn at so many texels a metre, never
 // finer than its picture; 0 is the picture's own), the near and far fades
@@ -71,6 +86,17 @@ uniform float roundness = 0.7;
 // the sun through the leaves, seen against it, and its colour (0 none)
 uniform float translucency = 0.7;
 uniform vec3 translucent_color : source_color = vec3(1.0, 0.92, 0.5);
+
+group_uniforms ground;
+// how far toward the ground's colour (0 not at all: the trees), at the foot
+// and, of that, at the top; and how bright the ground's colour is taken (a
+// lit blade is brighter than a photograph of turf from above, gaps and all)
+uniform float ground_match : hint_range(0.0, 1.0) = 0.0;
+uniform float ground_match_top : hint_range(0.0, 1.0) = 0.6;
+uniform float ground_level = 1.0;
+// the average colour of this material's pictures, linear, as numbers
+// (sprites.json "means": its class's)
+uniform vec3 ground_reference = vec3(0.13, 0.15, 0.03);
 
 group_uniforms wind;
 uniform float wind_strength = 0.055;
@@ -113,8 +139,16 @@ varying flat float v_near;
 // through it (times the picture)
 varying vec3 v_lit;
 varying vec3 v_glow;
+// the ground's colour over the pictures' average brightness, and how far
+// toward it (SHADERINC_earth_ground; 0 none)
+varying flat vec3 v_ground;
+varying float v_match;
+
+const vec3 LUMA_LIN = vec3(0.2126, 0.7152, 0.0722);
 
 #include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_ground.gdshaderinc"
 
 const float BAYER[16] = float[](
 	0.0, 8.0, 2.0, 10.0,
@@ -178,6 +212,16 @@ void vertex() {
 	float through = pow(clamp(dot(eye_dir, tod_sun_dir), 0.0, 1.0), 3.0) * translucency;
 	vec3 sky = mix(tod_ground_color.rgb, tod_sky_color.rgb, 0.5 + 0.5 * n.y) * sky_strength;
 	vec3 sun = tod_sun_color.rgb * open * sun_strength;
+	// THE GROUND'S COLOUR at the foot (see the header)
+	v_ground = vec3(0.0);
+	v_match = 0.0;
+	if (ground_match > 0.0) {
+		vec3 g = earth_ground(anchor.xz);
+		if (g.x >= 0.0) {
+			v_ground = g * ground_level / max(dot(ground_reference, LUMA_LIN), 1e-4);
+			v_match = ground_match * mix(ground_match_top, 1.0, UV.y);
+		}
+	}
 	v_lit = tint * baked * (sky + sun * diffuse);
 	v_glow = translucent_color * sun * through * baked;
 }
@@ -201,7 +245,11 @@ void fragment() {
 	if (bayer4(FRAGCOORD.xy) >= vis) {
 		discard;
 	}
-	vec3 col = tex.rgb * (v_lit + v_glow);
+	vec3 alb = tex.rgb;
+	if (v_match > 0.0) {
+		alb = mix(alb, v_ground * dot(alb, LUMA_LIN), v_match);
+	}
+	vec3 col = alb * (v_lit + v_glow);
 	if (fog_enabled) {
 		float fd = max(d - fog_distance_start * tod_fog_near, 0.0) * fog_distance_density * tod_fog_density;
 		col = mix(col, fog_color * tod_haze_tint.rgb, 1.0 - exp(-pow(fd, fog_distance_power)));

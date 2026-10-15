@@ -1,8 +1,9 @@
-MEWD — THE TERRAIN ENGINE
-=========================
+FENRIR — THE TERRAIN ENGINE
+===========================
 
 The changelog, at the user's request: what each change did and why, in the
-order they were made. MEWD began as a Doom-style engine (Made Entirely
+order they were made. FENRIR (Fusion-Enabled Networked Real-time
+Interactive Rendering) began as MEWD, a Doom-style engine (Made Entirely
 Without Doom), became a Godot 4 game on golf's procedural islands, and is
 now the islands' terrain engine alone: a place — a real one out of open map
 data, or golf's — and a camera to fly round it. The game's own entries, up
@@ -583,6 +584,68 @@ card as if the plant were round, and the sun through the leaves against it
 meadow draws many layers deep, is now the picture times two colours
 carried from them. The sun's share at the plant (the baked mountains' and
 clouds' shadows) was read at the corners already.
+
+
+FENRIR: THE NAME, THE BADGE, THE MOUSE, THE GROUND'S GREEN (0000041)
+
+At the user's request ("so this needs to be called FENRIR, not MEWD, here
+is some branding, mouse look does not work", and then "make sure grass etc
+(not trees) matches the grass of the terrain splat it is on, for blending
+/ visual consistencies sake"):
+
+THE NAME: FENRIR — Fusion-Enabled Networked Real-time Interactive
+Rendering — wherever the engine is seen or named: the window ("FENRIR —
+OESCHINENSEE"), the app, its log lines, its pictures
+(user://fenrir_*.png), the builds (fenrir-*.x86_64, fenrir-*.apk) and
+their releases, and the notes. What a rename would break keeps the old
+name: the repository (mewd-engine), the signing secrets the Android build
+reads (MEWD_KEY*), the Android package's id (a new one would be another
+app), and the tag the region grids open with (MEWDGRD1). The three islands
+left over from the game (CANDY LAND, MAZE LAND, DEBUG LAND), which nothing
+loaded, are gone.
+
+THE BADGE: tools/brand/FENRIR_logo.svg, the user's, drawn at every size it
+is shown by tools/brand_icons.gd (Godot's own SVG rasteriser, clear
+outside its disc): the window's and the project's icon, the boot splash
+(on black), Android's launcher icon and its adaptive foreground (inside
+the mask's safe circle, on black), and the loading screen, which is now
+black with the badge as big as it fits and the place and what is happening
+under it, fading off as the place comes up.
+
+THE MOUSE: the eye is in the picture's world (Lofi.world), a viewport of
+its own, and the window's input never reaches into one by itself — so the
+mouse never turned the eye, though the keys, which it reads straight off
+the keyboard, moved it. The viewer hands it every event now
+(FlyCamera.handle). A click takes the mouse unless it came from a finger
+(a touchscreen laptop's mouse was never taken before, since any
+touchscreen at all ruled it out), and the right button held down looks as
+well, without taking the mouse.
+
+THE LOW PLANTS IN THE GROUND'S COLOURS: the grass (both layers), the ferns
+and the bushes — not the trees — take their colour toward the colour of
+the ground at their foot (SHADER_veg_billboard `ground_match`, at the
+corners with the light): the splat SHADER_terrain_earth paints there,
+worked out the same way (SHADERINC_earth_ground: the twelve layers weighed
+off the control pictures, the four tints, the broad variation in
+brightness, the exposure) from each layer's average colour, which
+tools/earth_pack.py means works out from its texels once
+(textures/layers.json) and SCRIPT_earth_dress.gd publishes, with the rest,
+as globals. Each texel of a plant takes the ground's colour at its own
+brightness against its class's average (sprites/sprites.json means, set on
+the material as `ground_reference`), so the plant keeps its light and
+shade and wears the ground's hue — scaled channel by channel instead, a
+green tuft went violet on a grey path — all the way at the foot (grass 0.9
+of it, ferns 0.7, bushes 0.55) and a little over half that at the top, a
+lit blade taken a third brighter than the turf's photograph from above,
+gaps and shadows and all (`ground_level`; a fifth for ferns and bushes): a
+tuft grows out of the turf in the turf's own green, browner on soil and
+greyer on scree. Numbers rather than a texture's last mip, because the
+sprites carry no mips and a renderer may or may not decode a colour
+texture read through a global. The ground takes its four tints off the
+same globals, as plain numbers, which neither renderer touches on their
+way in (a colour uniform is decoded to linear by one and not the other),
+so the ground and its plants agree and the turf is the same under both —
+the green of these notes' pictures.
 
 
 TESTS

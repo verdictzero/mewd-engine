@@ -1,10 +1,10 @@
 #!/bin/sh
 # =====================================================================
-# MEWD — the Godot build for Android, as an APK (arm64: an Anbernic
+# FENRIR — the Godot build for Android, as an APK (arm64: an Anbernic
 # RG557, a phone), signed and ready to side-load
 # =====================================================================
 #
-#   tools/build-android.sh [out.apk]      (default build/android/mewd.apk)
+#   tools/build-android.sh [out.apk]      (default build/android/fenrir.apk)
 #
 # export_presets.cfg's "Android" preset: the Mobile renderer on Vulkan,
 # landscape either way round, immersive, the network permission for a
@@ -16,7 +16,7 @@
 # debug build with the editor's debug key.
 set -eu
 cd "$(dirname "$0")/.."
-OUT="${1:-build/android/mewd.apk}"
+OUT="${1:-build/android/fenrir.apk}"
 GODOT="${GODOT:-godot}"
 mkdir -p build "$(dirname "$OUT")"
 [ -f build/.gdignore ] || : > build/.gdignore

@@ -1,6 +1,6 @@
 extends SceneTree
 
-## MEWD — a real place as an island (EarthField, tools/earth_fetch.py): the field
+## FENRIR — a real place as an island (EarthField, tools/earth_fetch.py): the field
 ## reads its region, answers the island system's questions out of it, and the
 ## island built on it stands where the data says.
 ##

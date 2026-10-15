@@ -1,4 +1,4 @@
-## MEWD — PRE-BUILD AN ISLAND, at the user's request (every place ships
+## FENRIR — PRE-BUILD AN ISLAND, at the user's request (every place ships
 ## baked: godot/scripts/level/islands.gd). golf's tools/TOOL_bake_world.gd,
 ## cut down to what the engine needs.
 ##

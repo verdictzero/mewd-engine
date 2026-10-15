@@ -61,6 +61,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	U.gset("tod_ground_rect", Vector4.ZERO)
 	if _r != null:
 		U.gset("tod_water_on", 0.0)
 		U.gset("tod_underwater", Vector4(0, 0, 0, 0))
@@ -116,6 +117,65 @@ func _paint(mat: ShaderMaterial, r: EarthField.Region, isl: IslandField.Island) 
 	mat.set_shader_parameter("region_origin", isl.center - Vector2(r.half, r.half))
 	mat.set_shader_parameter("control_texel", r.cres)
 	mat.set_shader_parameter("control_n", float(r.cn))
+	# THE GROUND'S COLOUR FOR THE LOW PLANTS (at the user's request: "make
+	# sure grass etc (not trees) matches the grass of the terrain splat it is
+	# on"; SHADER_veg_billboard `ground_match`): the same control pictures
+	# and layers as globals, with the four layers' tints and the ground's
+	# brightness variation and exposure, so a plant can work out the colour
+	# of the ground at its foot as this material paints it
+	var origin := isl.center - Vector2(r.half, r.half)
+	U.gset("tod_ground_a", tex[0])
+	U.gset("tod_ground_b", tex[1])
+	U.gset("tod_ground_c", tex[2])
+	var means := _layer_means()
+	U.gset("tod_ground_means_a", Projection(means[0], means[1], means[2], means[3]))
+	U.gset("tod_ground_means_b", Projection(means[4], means[5], means[6], means[7]))
+	U.gset("tod_ground_means_c", Projection(means[8], means[9], means[10], means[11]))
+	U.gset("tod_ground_rect", Vector4(origin.x, origin.y, r.cres, float(r.cn)))
+	U.gset("tod_ground_tints", Projection(
+		_tint(mat, "grass_tint", _param(mat, "macro_strength")),
+		_tint(mat, "forest_tint", _param(mat, "macro_scale")),
+		_tint(mat, "rock_tint", _param(mat, "exposure")),
+		_tint(mat, "scree_tint", 0.0)))
+
+
+# the twelve layers' average colours, linear (tools/earth_pack.py `means`)
+func _layer_means() -> Array:
+	var out := []
+	var j: Variant = JSON.parse_string(FileAccess.get_file_as_string(LAYERS_JSON))
+	var m: Array = (j as Dictionary).get("means", []) if j is Dictionary else []
+	for i in range(12):
+		var c: Array = m[i] if i < m.size() else [0.15, 0.15, 0.15]
+		out.append(Vector4(float(c[0]), float(c[1]), float(c[2]), 0.0))
+	return out
+
+
+## SHADER_terrain_earth's own defaults for what its material leaves unset
+## (a shader's defaults cannot be read back reliably at run time)
+const GROUND_DEFAULTS := {"grass_tint": Color(0.66, 0.72, 0.52), "forest_tint": Color(0.8, 0.8, 0.72),
+	"rock_tint": Vector3(1.4, 1.44, 1.58), "scree_tint": Vector3(0.95, 0.98, 1.06),
+	"macro_strength": 0.22, "macro_scale": 70.0, "exposure": 0.85}
+const LAYERS_JSON := "res://godot/island/earth/textures/layers.json"
+
+
+# a parameter of the ground's material, or its shader's default
+func _param(mat: ShaderMaterial, n: String) -> Variant:
+	var v: Variant = mat.get_shader_parameter(n)
+	return GROUND_DEFAULTS.get(n) if v == null else v
+
+
+# a layer's tint, its numbers as they are — the ground takes it from here
+# (SHADERINC_earth_ground) as well as its plants, as plain numbers, which
+# neither renderer touches on their way in, so the two see the same and the
+# turf is the same under both — and `w` in the fourth place
+func _tint(mat: ShaderMaterial, n: String, w: Variant) -> Vector4:
+	var v: Variant = _param(mat, n)
+	var c := Vector3.ONE
+	if v is Color:
+		c = Vector3((v as Color).r, (v as Color).g, (v as Color).b)
+	elif v is Vector3:
+		c = v
+	return Vector4(c.x, c.y, c.z, float(w) if w != null else 0.0)
 
 
 func _build_water(r: EarthField.Region, pivot: Vector3) -> void:

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""MEWD — the look of a real place: high-resolution PBR ground and plants.
+"""FENRIR — the look of a real place: high-resolution PBR ground and plants.
 
     python3 tools/earth_pack.py textures     # the twelve ground layers
     python3 tools/earth_pack.py models       # the plants' 3D models (cache only)
     python3 tools/earth_pack.py billboards   # render them (Godot, xvfb) and finish
     python3 tools/earth_pack.py meadow       # the thick grass, from the tufts
+    python3 tools/earth_pack.py means        # the layers' and plants' colours
     python3 tools/earth_pack.py all
 
 At the user's request: "high res pbr textures on the map, but still use
@@ -53,7 +54,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(HERE, ".earth-cache")
 OUT = os.path.join(ROOT, "godot", "island", "earth")
-UA = {"User-Agent": "mewd-engine-earth/1.0 (+https://github.com/verdictzero/mewd-engine)"}
+UA = {"User-Agent": "fenrir-earth/1.0 (+https://github.com/verdictzero/mewd-engine)"}
 
 # (layer, source, asset, metres a tile covers on the ground)
 LAYERS = [
@@ -209,6 +210,51 @@ def textures(res):
         json.dump({"layers": [l[0] for l in LAYERS], "sources": ["%s:%s" % (l[1], l[2]) for l in LAYERS],
                    "metres": scales, "px": px, "licence": "CC0 (Poly Haven, ambientCG)"}, f, indent=1)
     log("textures done: %s" % os.path.relpath(tdir, ROOT))
+    means()
+
+
+# ---------------------------------------------------------------- the means
+
+def _lin(c):
+    """sRGB 0..1 to linear (the exact curve)."""
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+
+
+def means():
+    """THE AVERAGE COLOUR OF EVERY GROUND LAYER AND EVERY CLASS OF PLANT,
+    linear, as numbers (at the user's request: "make sure grass etc (not
+    trees) matches the grass of the terrain splat it is on"): each layer's
+    texels decoded and averaged into textures/layers.json "means" (which
+    SCRIPT_earth_dress.gd publishes for SHADER_veg_billboard to work out
+    the ground's colour under a plant), and each class of plant's opaque
+    texels into sprites/sprites.json "means" (a low plant's material's
+    `ground_reference`: the colour its pictures are taken from). Numbers,
+    not a texture's last mip, so no renderer's handling of a colour
+    texture can change them."""
+    tdir = os.path.join(OUT, "textures")
+    a = np.asarray(Image.open(os.path.join(tdir, "TEX_earth_albedo.webp")).convert("RGB")).astype(np.float32) / 255.0
+    th, tw = a.shape[0] // 3, a.shape[1] // 4
+    out = []
+    for k in range(12):
+        t = a[(k // 4) * th:(k // 4 + 1) * th, (k % 4) * tw:(k % 4 + 1) * tw]
+        out.append([round(float(v), 5) for v in _lin(t).reshape(-1, 3).mean(axis=0)])
+    with open(os.path.join(tdir, "layers.json")) as f:
+        lj = json.load(f)
+    lj["means"] = out
+    with open(os.path.join(tdir, "layers.json"), "w") as f:
+        json.dump(lj, f, indent=1)
+    sdir = os.path.join(OUT, "sprites")
+    with open(os.path.join(sdir, "sprites.json")) as f:
+        sj = json.load(f)
+    acc = {}
+    for m in sj["sprites"]:
+        im = np.asarray(Image.open(os.path.join(sdir, m["name"] + ".png")).convert("RGBA")).astype(np.float32) / 255.0
+        px = _lin(im[im[..., 3] > 0.5][:, :3])
+        acc.setdefault(m["class"], []).append(px.mean(axis=0))
+    sj["means"] = {c: [round(float(v), 5) for v in np.mean(v, axis=0)] for c, v in acc.items()}
+    with open(os.path.join(sdir, "sprites.json"), "w") as f:
+        json.dump(sj, f, indent=1)
+    log("means: %d layers, %d classes of plant" % (len(out), len(acc)))
 
 
 LAYERED_IMPORT = """[remap]
@@ -450,6 +496,8 @@ def meadow():
         log("%s: %.0f%% of the card" % (full, 100.0 * solid.mean()))
     with open(os.path.join(sdir, "sprites.json"), "w") as f:
         json.dump({"sprites": made, "licence": "rendered from CC0 Poly Haven models"}, f, indent=1)
+    if os.path.exists(os.path.join(OUT, "textures", "TEX_earth_albedo.webp")):
+        means()
 
 
 def _clip(y0, x0, h, w, H, W):
@@ -476,7 +524,7 @@ def bleed(rgb, solid, steps=12):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=["textures", "models", "billboards", "sprites", "meadow", "all"])
+    ap.add_argument("what", choices=["textures", "models", "billboards", "sprites", "meadow", "means", "all"])
     ap.add_argument("--res", choices=["1k", "2k"], default="2k")
     a = ap.parse_args()
     if a.what in ("textures", "all"):
@@ -489,6 +537,8 @@ def main():
         finish_sprites(os.path.join(CACHE, "sprites"))
     if a.what == "meadow":
         meadow()
+    if a.what == "means":
+        means()
 
 
 if __name__ == "__main__":

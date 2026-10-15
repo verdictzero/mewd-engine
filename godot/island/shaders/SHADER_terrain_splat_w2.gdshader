@@ -168,7 +168,7 @@ group_uniforms path;
 uniform sampler2D path_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
 uniform float path_scale = 5.0;
 uniform vec3 path_tint = vec3(1.0);
-// MEWD — PAVED SQUARES, at the user's request for CANDY LAND: how far a
+// FENRIR — PAVED SQUARES, at the user's request for CANDY LAND: how far a
 // build pad's ground is `build_albedo` instead of bare earth. 0 (every
 // island before it) leaves the pads soil, as golf drew them.
 uniform float build_paving : hint_range(0.0, 1.0) = 0.0;
@@ -176,7 +176,7 @@ uniform sampler2D build_albedo : source_color, hint_default_white, filter_neares
 uniform float build_scale = 4.0;
 
 group_uniforms roads;
-// MEWD — THE ROADS AND THE TOWNS DRAWN FROM THEIR OWN LINES (at the user's
+// FENRIR — THE ROADS AND THE TOWNS DRAWN FROM THEIR OWN LINES (at the user's
 // request, CANDY LAND: "make road textures follow the axis of the road, make
 // splats tighter", "give roads grass padding on each side", "grass padding
 // between town and cliffs"). The game hands the island's roads over as

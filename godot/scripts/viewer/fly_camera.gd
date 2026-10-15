@@ -3,7 +3,8 @@ extends Camera3D
 
 ## THE VIEWER'S EYE: flown round the place freely, or walked over its ground.
 ##
-##   mouse      click to take the mouse, then look; Esc lets it go
+##   mouse      click to take the mouse, then look (or hold the right
+##              button and drag); Esc lets it go
 ##   W A S D    forward, left, back, right (and the arrow keys)
 ##   E / Q      up / down (Space / C too)
 ##   Shift      four times as fast; Ctrl a quarter
@@ -50,16 +51,22 @@ func _apply() -> void:
 	rotation = Vector3(pitch, yaw, 0.0)
 
 
-func _unhandled_input(e: InputEvent) -> void:
+## AN EVENT FOR THE EYE, handed on by the viewer (main.gd): the eye is in
+## the picture's world (Lofi.world), a viewport of its own that the window's
+## input never reaches by itself — so the mouse never turned it, though the
+## keys, read straight off the keyboard, moved it.
+func handle(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed:
+		# (a real mouse's click: a finger's arrives as an emulated one too)
 		if e.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
-				and DisplayServer.is_touchscreen_available() == false:
+				and e.device != InputEvent.DEVICE_ID_EMULATION:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		elif e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			speed = minf(speed * 1.25, 2000.0)
 		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			speed = maxf(speed / 1.25, 1.0)
-	elif e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	elif e is InputEventMouseMotion and e.device != InputEvent.DEVICE_ID_EMULATION \
+			and (Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or (e.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0):
 		yaw -= deg_to_rad(e.relative.x * mouse_turn)
 		pitch = clampf(pitch - deg_to_rad(e.relative.y * mouse_turn), -1.55, 1.55)
 		_apply()
