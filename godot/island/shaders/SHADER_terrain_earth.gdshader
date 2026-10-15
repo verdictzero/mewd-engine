@@ -4,6 +4,7 @@ render_mode cull_disabled, unshaded;
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
 
 // THE GROUND OF A REAL PLACE, in high-resolution PBR (at the user's request:
 // "high res pbr textures on the map"). The terrain golf's islands are drawn with
@@ -31,10 +32,16 @@ render_mode cull_disabled, unshaded;
 //     pixels pay for one to three.
 //   * HEIGHT BLENDING: where two layers meet, the taller texels of each win, so
 //     grass gives way to scree between the stones rather than fading through it.
-//   * ON STEEP GROUND the layers are projected from the side as well as from
-//     above, blended by the normal (biplanar), so a cliff is not a smear.
+//   * TRIPLANAR: every layer is projected along all three axes and blended by
+//     the normal, its normal map reoriented into the world (UDN, mirrored
+//     axes fixed), so a cliff is rock square-on, not a smear; flat ground
+//     samples only the projection from above.
 //   * TILING is broken by a second sample at a quarter of the frequency further
-//     off, and by a low macro variation in brightness.
+//     off, and by a low macro variation in brightness (triplanar too).
+//   * THE CLIFFS: steep rock carries what a limestone wall in the Alps does —
+//     strata, bands of lighter and darker beds lying near flat and bent by
+//     broad folds, and the dark streaks water leaves running down the face
+//     (SHADERINC_earth_cliff, which the cut face round the square shares).
 //   * THE LIGHT is the island's own (SHADERINC_island_light: the sky's ambient,
 //     the sun, the rim), unbanded, on the normal-mapped normal, with the
 //     occlusion on the ambient and a GGX highlight from the roughness.
@@ -60,12 +67,13 @@ uniform sampler2DArray normal_rough_ao : hint_default_white, filter_linear_mipma
 // since a uniform array takes no defaults; `texture_scale` scales them all)
 const float LAYER_METRES[12] = float[](3.0, 3.5, 8.0, 4.0, 4.0, 3.5, 5.0, 3.5, 4.0, 3.5, 4.0, 2.5);
 uniform float texture_scale : hint_range(0.25, 4.0) = 1.0;
-// three of the scans moved to sit together: the turf duller than the
-// ambientCG meadow, the forest floor darker, the rock (a dark slate) lighter,
-// nearer the limestone of the Alps
+// four of the scans moved to sit together: the turf duller than the
+// ambientCG meadow, the forest floor darker, the rock (a dark, warm slate)
+// lighter and greyer, nearer the limestone of the Alps, and the scree with it
 uniform vec3 grass_tint : source_color = vec3(0.66, 0.72, 0.52);
 uniform vec3 forest_tint : source_color = vec3(0.8, 0.8, 0.72);
-uniform vec3 rock_tint = vec3(1.55, 1.52, 1.48);
+uniform vec3 rock_tint = vec3(1.4, 1.44, 1.58);
+uniform vec3 scree_tint = vec3(0.95, 0.98, 1.06);
 uniform float height_blend : hint_range(0.0, 1.0) = 0.35;
 uniform float normal_strength : hint_range(0.0, 3.0) = 1.0;
 // where the second, quarter-frequency sample takes over, metres from the eye
@@ -73,12 +81,17 @@ uniform float far_start = 25.0;
 uniform float far_end = 90.0;
 uniform float macro_strength : hint_range(0.0, 1.0) = 0.22;
 uniform float macro_scale = 70.0;
-// how steep (1 - n.y) the ground is before it is projected from the side too
-uniform float side_from : hint_range(0.0, 1.0) = 0.22;
-uniform float side_full : hint_range(0.0, 1.0) = 0.5;
+// how hard the triplanar blend picks an axis: 1 a soft mix of all three,
+// higher a sharper hand-over where the ground turns from one to the next
+uniform float triplanar_sharpness : hint_range(1.0, 12.0) = 5.0;
 // steep ground the data called something else shows its rock anyway
 uniform float steep_rock_lo : hint_range(0.0, 1.0) = 0.42;
 uniform float steep_rock_hi : hint_range(0.0, 1.0) = 0.62;
+// on that steep rock: its beds (how strongly they show, metres apart) and its
+// water streaks
+uniform float strata_strength : hint_range(0.0, 1.0) = 0.3;
+uniform float strata_metres = 9.0;
+uniform float streak_strength : hint_range(0.0, 1.0) = 0.35;
 
 // ---------------------------------------------------------------- the light
 group_uniforms island_light;
@@ -111,21 +124,6 @@ global uniform float tod_fog_near;
 group_uniforms;
 
 
-float earth_hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float earth_vnoise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = earth_hash(i);
-	float b = earth_hash(i + vec2(1.0, 0.0));
-	float c = earth_hash(i + vec2(0.0, 1.0));
-	float d = earth_hash(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
 // One layer at one projection: colour+height and normal+rough+ao, near and far
 // blended. `uv` is in tiles.
 void earth_tap(int layer, vec2 uv, float far_t, out vec4 ah, out vec4 nra) {
@@ -141,44 +139,73 @@ void earth_tap(int layer, vec2 uv, float far_t, out vec4 ah, out vec4 nra) {
 	}
 }
 
-// The layer on the ground at `p`, projected from above and, where it is steep,
-// from the side: its colour (rgb) and height (a), and its normal as a
-// world-space offset from the surface's own, roughness and occlusion.
-void earth_layer(int layer, vec3 p, vec3 n, float side_t, float far_t,
-		out vec4 ah, out vec3 dn, out vec2 ra) {
+// The layer on the ground at `p`, TRIPLANAR (at the user's request: "triplanar
+// cliffs"): projected along all three axes and blended by how squarely the
+// ground faces each, `tri_w`, so a cliff face takes the texture square-on from
+// the side instead of stretched down it from above, and no seam runs where the
+// face turns from facing east to facing south. A projection with next to no
+// weight is not sampled, so flat ground pays for one, as before.
+//
+// Its normal map in each projection is turned into the world by the UDN blend
+// with the mirrored-axis fix (Ben Golus, "Normal Mapping for a Triplanar
+// Shader"): each projection's tangent x and y add to the two world axes it
+// spans, the surface's own component along its axis carries the rest, and a
+// face looking down an axis's negative side has its picture and its tangent x
+// mirrored so the lighting on it is not inside out. The pictures' up is the
+// world's up on the sides (rock strata lie flat) and north on top.
+//
+// Out: colour (rgb) and height (a), the world normal, roughness and occlusion.
+void earth_layer(int layer, vec3 p, vec3 n, vec3 tw, float far_t,
+		out vec4 ah, out vec3 nrm, out vec2 ra) {
 	float s = 1.0 / max(LAYER_METRES[layer] * texture_scale, 0.1);
-	vec4 a0;
-	vec4 m0;
-	earth_tap(layer, p.xz * s, far_t, a0, m0);
-	vec2 t0 = m0.xy * 2.0 - 1.0;
-	// the top projection's tangent space: +u east, the picture's up north
-	vec3 d0 = vec3(t0.x, 0.0, -t0.y);
-	ah = a0;
-	dn = d0;
-	ra = m0.zw;
-	if (side_t > 0.0) {
-		vec4 a1;
-		vec4 m1;
-		vec3 d1;
-		if (abs(n.x) > abs(n.z)) {
-			earth_tap(layer, vec2(p.z * sign(n.x), -p.y) * s, far_t, a1, m1);
-			vec2 t1 = m1.xy * 2.0 - 1.0;
-			d1 = vec3(0.0, t1.y, t1.x * sign(n.x));
-		} else {
-			earth_tap(layer, vec2(-p.x * sign(n.z), -p.y) * s, far_t, a1, m1);
-			vec2 t1 = m1.xy * 2.0 - 1.0;
-			d1 = vec3(-t1.x * sign(n.z), t1.y, 0.0);
-		}
-		ah = mix(a0, a1, side_t);
-		dn = mix(d0, d1, side_t);
-		ra = mix(m0.zw, m1.zw, side_t);
+	ah = vec4(0.0);
+	nrm = vec3(0.0);
+	ra = vec2(0.0);
+	vec3 sg = vec3(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0, n.z >= 0.0 ? 1.0 : -1.0);
+	if (tw.y > 0.02) {
+		vec4 a;
+		vec4 m;
+		earth_tap(layer, vec2(p.x * sg.y, p.z) * s, far_t, a, m);
+		vec2 t = (m.xy * 2.0 - 1.0) * normal_strength;
+		// (the picture's up is north, -z: its green is turned to +z)
+		t = vec2(t.x * sg.y, -t.y);
+		nrm += vec3(t.x + n.x, n.y, t.y + n.z) * tw.y;
+		ah += a * tw.y;
+		ra += m.zw * tw.y;
 	}
+	if (tw.x > 0.02) {
+		vec4 a;
+		vec4 m;
+		earth_tap(layer, vec2(p.z * sg.x, -p.y) * s, far_t, a, m);
+		vec2 t = (m.xy * 2.0 - 1.0) * normal_strength;
+		t.x *= sg.x;
+		nrm += vec3(n.x, t.y + n.y, t.x + n.z) * tw.x;
+		ah += a * tw.x;
+		ra += m.zw * tw.x;
+	}
+	if (tw.z > 0.02) {
+		vec4 a;
+		vec4 m;
+		earth_tap(layer, vec2(-p.x * sg.z, -p.y) * s, far_t, a, m);
+		vec2 t = (m.xy * 2.0 - 1.0) * normal_strength;
+		t.x *= -sg.z;
+		nrm += vec3(t.x + n.x, t.y + n.y, n.z) * tw.z;
+		ah += a * tw.z;
+		ra += m.zw * tw.z;
+	}
+	// (the weights that were skipped are missing from the sums: put them back)
+	float kept = (tw.y > 0.02 ? tw.y : 0.0) + (tw.x > 0.02 ? tw.x : 0.0) + (tw.z > 0.02 ? tw.z : 0.0);
+	ah /= max(kept, 1e-4);
+	ra /= max(kept, 1e-4);
+	nrm = normalize(nrm);
 	if (layer == 0) {
 		ah.rgb *= grass_tint;
 	} else if (layer == 1) {
 		ah.rgb *= forest_tint;
 	} else if (layer == 2) {
 		ah.rgb *= rock_tint;
+	} else if (layer == 3) {
+		ah.rgb *= scree_tint;
 	}
 }
 
@@ -212,7 +239,8 @@ void fragment() {
 		w[i] /= max(total, 1e-4);
 	}
 
-	float side_t = smoothstep(side_from, side_full, slope);
+	vec3 tw = pow(abs(world_normal), vec3(triplanar_sharpness));
+	tw /= max(tw.x + tw.y + tw.z, 1e-5);
 	float far_t = smoothstep(far_start, far_end, dist);
 
 	// every layer worth a sample, its height-blend weight from its weight
@@ -227,7 +255,7 @@ void fragment() {
 	vec2 ras[12];
 	for (int i = 0; i < 12; i++) {
 		if (w[i] > 0.015) {
-			earth_layer(i, world_pos, world_normal, side_t, far_t, ahs[i], dns[i], ras[i]);
+			earth_layer(i, world_pos, world_normal, tw, far_t, ahs[i], dns[i], ras[i]);
 			best = max(best, w[i] + ahs[i].a * height_blend);
 		}
 	}
@@ -250,12 +278,16 @@ void fragment() {
 	}
 
 	// low, broad variation in brightness and hue, the way a real slope is
-	// never one colour
-	float mac = earth_vnoise(world_pos.xz / macro_scale) * 0.65
-			+ earth_vnoise(world_pos.xz / (macro_scale * 0.31) + 17.0) * 0.35;
+	// never one colour (triplanar, SHADERINC_earth_cliff)
+	float mac = earth_macro3(world_pos, tw, macro_scale);
 	col *= 1.0 + (mac - 0.5) * 2.0 * macro_strength;
 
-	vec3 n = normalize(world_normal + dn * normal_strength);
+	// THE CLIFFS: steep rock's beds and streaks (SHADERINC_earth_cliff)
+	float cliff = smoothstep(steep_rock_lo, steep_rock_hi, slope) * clamp(w[2] + w[3] * 0.5, 0.0, 1.0);
+	col = earth_cliff(col, world_pos, tw, cliff, strata_strength, strata_metres, streak_strength);
+
+	// (each layer's own world normal, blended as the layers are)
+	vec3 n = wsum > 0.0 ? normalize(dn) : world_normal;
 	float rough = clamp(ra.x, 0.04, 1.0);
 	float ao = mix(1.0, ra.y, ao_strength);
 

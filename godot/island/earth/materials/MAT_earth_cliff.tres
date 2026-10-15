@@ -1,11 +1,14 @@
-[gd_resource type="ShaderMaterial" load_steps=6 format=3]
+[gd_resource type="ShaderMaterial" load_steps=7 format=3]
 
 ; THE CUT FACE all round a real place's square, falling into the cloud: the
-; golf wall's shader with the earth pack's own rock (the terrain's rock layer),
-; lit smooth like the ground above it.
+; golf wall's shader (triplanar) with the earth pack's own rock, colour and
+; normal map (the terrain's rock layer) filtered smooth, at the terrain's rock
+; scale and tone, with the same beds and water streaks as the cliffs inside the
+; square (SHADERINC_earth_cliff), lit smooth like the ground above it.
 
 [ext_resource type="Shader" path="res://godot/island/shaders/SHADER_cliff_wall.gdshader" id="1_wall"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/textures/TEX_earth_rock_albedo.webp" id="2_rock"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/textures/TEX_earth_rock_normal.webp" id="6_rockn"]
 [ext_resource type="Texture2D" path="res://godot/island/candy/textures/TEXTURE_ground_grass.png" id="3_turf"]
 [ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2.png" id="4_envball"]
 [ext_resource type="Texture2D" path="res://godot/island/textures/TEX_env_ball_w2_night.png" id="5_envballn"]
@@ -13,16 +16,23 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_wall")
-shader_parameter/rock_albedo = ExtResource("2_rock")
+shader_parameter/rock_smooth = true
+shader_parameter/rock_albedo_smooth = ExtResource("2_rock")
+shader_parameter/rock_normal_smooth = ExtResource("6_rockn")
 shader_parameter/rock_scale = 8.0
-shader_parameter/rock_tint = Color(1.4, 1.38, 1.34, 1)
+shader_parameter/rock_tint = Color(1.2, 1.23, 1.35, 1)
+shader_parameter/macro_strength = 0.22
+shader_parameter/macro_scale = 70.0
+shader_parameter/strata_strength = 0.4
+shader_parameter/strata_metres = 9.0
+shader_parameter/streak_strength = 0.35
 shader_parameter/turf_albedo = ExtResource("3_turf")
 shader_parameter/turf_scale = 4.0
 shader_parameter/turf_tint = Color(1, 1, 1, 1)
 shader_parameter/turf_depth = 0.0
 shader_parameter/turf_wobble = 0.8
 shader_parameter/triplanar_sharpness = 4.0
-shader_parameter/normal_strength = 0.6
+shader_parameter/normal_strength = 1.0
 shader_parameter/slope_shade = 0.0
 shader_parameter/sun_bands = 0.0
 shader_parameter/sun_wrap = 0.2

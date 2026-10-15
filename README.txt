@@ -167,7 +167,8 @@ scene and its entry in NEW GAME; bake it with tools/bake_island.gd
 out of those grids, so the chunks, LODs, bakes and plants are golf's
 own. The ground is twelve CC0 photo-scanned PBR materials at 2048 px
 (colour, height, normal, roughness, occlusion), height-blended off the
-data; the plants are billboards rendered from CC0 3D models at up to
+data and projected triplanar, so a cliff is rock square-on, with the
+beds and water streaks of a limestone wall; the plants are billboards rendered from CC0 3D models at up to
 1024 px, firs and broadleaves mixed by altitude, latitude and OSM's
 leaf type (tools/earth_pack.py makes both; GODOT.txt, "A REAL PLACE ON
 EARTH", has the whole of it).

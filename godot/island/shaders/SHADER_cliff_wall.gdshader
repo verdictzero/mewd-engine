@@ -4,6 +4,7 @@ render_mode cull_disabled, unshaded;
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
 
 // The sheer wall under an island's shoulder — the bands `chunk_mesher._build_rim`
 // sweeps from the handoff ring down to the tip.
@@ -44,6 +45,21 @@ group_uniforms rock;
 // back into the photograph they came from.
 uniform sampler2D rock_albedo : source_color, hint_default_white, filter_nearest_mipmap, repeat_enable;
 uniform sampler2D rock_normal : hint_normal, filter_nearest_mipmap, repeat_enable;
+/// A PHOTO-SCANNED ROCK instead (a real place's cut face: the earth pack's 2048 px
+/// scan, MAT_earth_cliff.tres): a photograph, not a quantised bake, which nearest
+/// filtering turns to glitter a few metres off. With `rock_smooth` these are
+/// sampled in place of the two above, filtered smooth.
+uniform bool rock_smooth = false;
+uniform sampler2D rock_albedo_smooth : source_color, hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D rock_normal_smooth : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+/// The beds and water streaks of a real place's cliffs (SHADERINC_earth_cliff),
+/// for its cut face, and a low variation in brightness across it: all 0, as on
+/// every golf island, is none.
+uniform float macro_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float macro_scale = 70.0;
+uniform float strata_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float strata_metres = 9.0;
+uniform float streak_strength : hint_range(0.0, 1.0) = 0.0;
 /// Metres per tile. Matches `MAT_terrain_splat_w2.tres`'s `rock_scale`, and has
 /// to: the texture runs continuously from the shoulder into the wall under it,
 /// and two different scales make that join a visible seam.
@@ -241,6 +257,21 @@ void vertex() {
 	v_depth = max(-VERTEX.y, 0.0);
 }
 
+vec3 wall_rock(vec2 uv) {
+	if (rock_smooth) {
+		// with a second sample, rotated and at a quarter of the frequency, so
+		// the tiles never line up across a face this size (the earth
+		// terrain's far sample)
+		vec2 uv2 = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * uv * 0.27;
+		return mix(texture(rock_albedo_smooth, uv).rgb, texture(rock_albedo_smooth, uv2).rgb, 0.5);
+	}
+	return texture(rock_albedo, uv).rgb;
+}
+
+vec3 wall_rock_n(vec2 uv) {
+	return (rock_smooth ? texture(rock_normal_smooth, uv).xyz : texture(rock_normal, uv).xyz) * 2.0 - 1.0;
+}
+
 void fragment() {
 	// Render-space world position, exactly as `SHADER_terrain_splat_w2.gdshader` derives
 	// it, so the two sample the same texture at the same coordinates.
@@ -263,10 +294,16 @@ void fragment() {
 	vec3 bw = pow(abs(world_normal), vec3(triplanar_sharpness));
 	bw /= max(bw.x + bw.y + bw.z, 1e-5);
 	float rs = max(rock_scale, 1e-4);
-	vec3 rock = texture(rock_albedo, world_pos.zy / rs).rgb * bw.x
-			+ texture(rock_albedo, world_pos.xz / rs).rgb * bw.y
-			+ texture(rock_albedo, world_pos.xy / rs).rgb * bw.z;
+	vec3 rock = wall_rock(world_pos.zy / rs) * bw.x
+			+ wall_rock(world_pos.xz / rs) * bw.y
+			+ wall_rock(world_pos.xy / rs) * bw.z;
 	vec3 albedo = mix(rock_mean, rock, rock_contrast) * rock_tint;
+	if (macro_strength > 0.0) {
+		albedo *= 1.0 + (earth_macro3(world_pos, bw, macro_scale) - 0.5) * 2.0 * macro_strength;
+	}
+	if (strata_strength > 0.0 || streak_strength > 0.0) {
+		albedo = earth_cliff(albedo, world_pos, bw, 1.0, strata_strength, strata_metres, streak_strength);
+	}
 
 	// ---- the turf over the lip: grass down to a scalloped hem ---------------
 	if (turf_depth > 0.0) {
@@ -284,9 +321,9 @@ void fragment() {
 
 	// UDN-style perturbation: each projection's tangent xy drives the two world
 	// axes that projection spans.
-	vec3 rnx = texture(rock_normal, world_pos.zy / rs).xyz * 2.0 - 1.0;
-	vec3 rny = texture(rock_normal, world_pos.xz / rs).xyz * 2.0 - 1.0;
-	vec3 rnz = texture(rock_normal, world_pos.xy / rs).xyz * 2.0 - 1.0;
+	vec3 rnx = wall_rock_n(world_pos.zy / rs);
+	vec3 rny = wall_rock_n(world_pos.xz / rs);
+	vec3 rnz = wall_rock_n(world_pos.xy / rs);
 	vec3 npert = vec3(0.0, rnx.y, rnx.x) * bw.x
 			+ vec3(rny.x, 0.0, rny.y) * bw.y
 			+ vec3(rnz.x, rnz.y, 0.0) * bw.z;

@@ -73,7 +73,8 @@ LAYERS = [
 # (Left out, having been tried: shrub_01 and shrub_04, a row of small
 # plants in one mesh that cannot be drawn one at a time; wild_rooibos_bush,
 # whose leaves render black; grass_bermuda_01, whose first part is a flat
-# card of dead grass.)
+# card of dead grass; the third tuft of grass_medium_01, whose curled
+# leaf tips render black and stood out in the meadows as black tufts.)
 #
 # The plants: (Poly Haven model, class, the yaws it is drawn from, sprite
 # size, how far the camera looks down in degrees, how many of the plants
@@ -96,7 +97,7 @@ PLANTS = [
     ("fern_02", "fern", (0,), (512, 512), 10, 3),
     ("nettle_plant", "fern", (0,), (512, 512), 10, 1),
     ("celandine_01", "fern", (0,), (512, 512), 10, 1),
-    ("grass_medium_01", "grass", (0,), (512, 256), 8, 3),
+    ("grass_medium_01", "grass", (0,), (512, 256), 8, 2),
     ("grass_medium_02", "grass", (0,), (512, 256), 8, 2),
     ("dandelion_01", "grass", (0,), (512, 256), 8, 1),
 ]
@@ -198,6 +199,11 @@ def textures(res):
     for name, srgb in (("TEX_earth_albedo.webp", True), ("TEX_earth_nra.webp", False)):
         with open(os.path.join(tdir, name + ".import"), "w") as f:
             f.write(LAYERED_IMPORT % {"name": name, "pack": 0 if srgb else 1})
+    # and the rock on its own, for the cut face: compressed and mipmapped, or
+    # a wall seen from any distance glitters
+    for name in ("TEX_earth_rock_albedo.webp", "TEX_earth_rock_normal.webp"):
+        with open(os.path.join(tdir, name + ".import"), "w") as f:
+            f.write(TEXTURE_IMPORT % {"name": name})
     with open(os.path.join(tdir, "layers.json"), "w") as f:
         json.dump({"layers": [l[0] for l in LAYERS], "sources": ["%s:%s" % (l[1], l[2]) for l in LAYERS],
                    "metres": scales, "px": px, "licence": "CC0 (Poly Haven, ambientCG)"}, f, indent=1)
@@ -224,6 +230,29 @@ mipmaps/generate=true
 mipmaps/limit=-1
 slices/horizontal=4
 slices/vertical=3
+"""
+
+
+TEXTURE_IMPORT = """[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+
+[deps]
+
+source_file="res://godot/island/earth/textures/%(name)s"
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=2
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+detect_3d/compress_to=0
 """
 
 

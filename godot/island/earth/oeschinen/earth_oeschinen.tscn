@@ -47,10 +47,9 @@
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_celandine_01_0_0.png" id="s_fern_4"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_0_0.png" id="s_grass_0"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_1_0.png" id="s_grass_1"]
-[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_2_0.png" id="s_grass_2"]
-[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_0_0.png" id="s_grass_3"]
-[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_1_0.png" id="s_grass_4"]
-[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_dandelion_01_0_0.png" id="s_grass_5"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_0_0.png" id="s_grass_2"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_1_0.png" id="s_grass_3"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_dandelion_01_0_0.png" id="s_grass_4"]
 
 [sub_resource type="Sky" id="Sky_earth"]
 sky_material = ExtResource("5_sky")
@@ -116,7 +115,7 @@ sink_most = 0.2
 [node name="GrassScatter" type="Node3D" parent="."]
 script = ExtResource("9_grass")
 island_world_path = NodePath("../IslandWorld")
-sprites = [ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4"), ExtResource("s_grass_5")]
+sprites = [ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4")]
 material = ExtResource("20_gmat")
 grass_grid = 0.6
 tuft_size = Vector2(1.1, 0.55)

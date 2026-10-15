@@ -151,11 +151,6 @@
    "model": "grass_medium_01"
   },
   {
-   "name": "SPRITE_earth_grass_grass_medium_01_2_0",
-   "class": "grass",
-   "model": "grass_medium_01"
-  },
-  {
    "name": "SPRITE_earth_grass_grass_medium_02_0_0",
    "class": "grass",
    "model": "grass_medium_02"

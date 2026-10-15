@@ -4045,6 +4045,52 @@ SHADER_sky_enviro.gdshader). OESCHINENSEE has it.
   --look=sun|moon.
 
 
+TRIPLANAR CLIFFS (0000037)
+
+At the user's request ("triplanar cliffs too"): a real place's cliffs
+are rock seen square-on, whichever way they face, and look like the
+limestone walls of the Alps rather than the ground's texture hung on
+a wall.
+
+  THE GROUND (SHADER_terrain_earth.gdshader): every layer is now
+  projected along all three axes and blended by how squarely the ground
+  faces each (`triplanar_sharpness`, 5), not only the steep ground from
+  the side as before. Each projection's normal map is turned into the
+  world by the UDN blend with the mirrored-axis fix (Ben Golus's), so a
+  face looking west or north is not lit inside out; the side pictures'
+  up is the world's up. A projection with next to no weight is not
+  sampled, so flat ground still pays for one.
+
+  THE CLIFFS (SHADERINC_earth_cliff.gdshaderinc, new): steep rock
+  carries strata — beds of lighter and darker stone about 9 m apart,
+  lying near flat and bent by folds a few hundred metres across, showing
+  more in some stretches of a wall than others (`strata_strength`,
+  `strata_metres`) — and the dark streaks water leaves running down a
+  face, long, narrow and in patches (`streak_strength`). The broad
+  variation in brightness is triplanar too: it used to be off the
+  ground's plan alone, which on a wall drew it in vertical stripes. Each
+  side plane's pattern is blended by its weight, never the coordinates,
+  so nothing folds where a face turns from looking east to looking
+  south. The rock is a lighter, greyer limestone than the warm slate it
+  was (rock_tint), the scree a little cooler with it.
+
+  THE CUT FACE round the square (MAT_earth_cliff.tres, still golf's
+  SHADER_cliff_wall) wears the same: the earth pack's rock and its
+  normal map, now through a smooth-filtered pair (`rock_smooth`: golf's
+  quantised 128 px bakes stay nearest-filtered, a 2048 px photograph
+  glittered), with a second rotated sample at a quarter of the frequency
+  so the tiles never line up across a face that size, the broad
+  variation, and the same beds and streaks in the same world
+  coordinates, so a bed running along a cliff inside the square runs on
+  round the cut face. All four are off on golf's islands. The two rock
+  textures are imported compressed and mipmapped now (earth_pack.py
+  writes their .import); they had been neither.
+
+  And a black tuft gone from the meadows: the third grass of
+  grass_medium_01 has curled leaf tips that draw black, and stood out
+  across the turf. earth_pack.py draws its first two; 33 sprites.
+
+
 TESTS
 
     tools/godot-test.sh
