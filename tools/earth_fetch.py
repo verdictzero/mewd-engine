@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MEWD — a real place on Earth, cut out as a square and made an island.
+"""A real place on Earth, cut out as a square and made an island.
 
     python3 tools/earth_fetch.py oeschinen --lat 46.4986 --lon 7.7270 \
         --size 3000 --title "OESCHINENSEE" --register
@@ -8,8 +8,8 @@ At the user's request: "take coordinates on earth and within defined
 boundaries (a square) render terrain faithfully using the chunk based
 terrain system ... using open source map data to define height, water level
 and vegetation / biomes". This is the half of that which runs once, off the
-game: it fetches the open data for a square `--size` metres on a side round
-`--lat`/`--lon`, works it into the grids the game's EarthField reads
+engine: it fetches the open data for a square `--size` metres on a side round
+`--lat`/`--lon`, works it into the grids the engine's EarthField reads
 (godot/island/scripts/world/SCRIPT_earth_field.gd), and writes them to
 godot/island/earth/<name>/. The island system does the rest the way it does
 for golf's islands: the chunk mesher, the bakes, the plants and the cliff
@@ -57,8 +57,8 @@ centimetres):
   preview/      pictures of each, for people (Godot ignores the folder)
 
 and with --register, the field (ISLANDFIELD_earth_<name>.tres), the scene
-(earth_<name>.tscn, from the template) and an entry in Islands.LIST, so NEW
-GAME lists it. Bake it after (tools/bake_island.gd --map=earth_<name>).
+(earth_<name>.tscn, from the template) and an entry in Islands.LIST, so the
+viewer lists it. Bake it after (tools/bake_island.gd --map=earth_<name>).
 
 The downloads are kept in tools/.earth-cache/ (gitignored), so running it
 again, or for an overlapping square, costs nothing.
@@ -282,6 +282,18 @@ def box_blur(a, r):
         else:
             a = (c[:, 2 * r + 1:] - c[:, :-2 * r - 1]) / (2 * r + 1)
     return a
+
+
+def shift(a, sh, fill):
+    """`a` moved by sh = (rows, columns), `fill` brought in at the edge it
+    leaves — np.roll would wrap the far edge round onto it, and a tarn on the
+    square's east edge came back on its west edge, three hundred metres up."""
+    dy, dx = sh
+    h, w = a.shape[:2]
+    out = np.full_like(a, fill)
+    out[max(dy, 0):h + min(dy, 0), max(dx, 0):w + min(dx, 0)] = \
+        a[max(-dy, 0):h + min(-dy, 0), max(-dx, 0):w + min(-dx, 0)]
+    return out
 
 
 def blur(a, sigma_px):
@@ -976,7 +988,7 @@ def build(args):
     for _ in range(3):
         grow = ring_lab.copy()
         for sh in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            moved = np.roll(ring_lab, sh, axis=(0, 1))
+            moved = shift(ring_lab, sh, 0)
             take = (grow == 0) & (moved > 0)
             grow[take] = moved[take]
         ring_lab = grow
@@ -1109,7 +1121,7 @@ def build(args):
     for _ in range(4):
         grow = kind_ext.copy()
         for sh in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            mv = np.roll(kind_ext, sh, axis=(0, 1))
+            mv = shift(kind_ext, sh, 0)
             take = (grow == 0) & (mv > 0)
             grow[take] = mv[take]
         kind_ext = grow
@@ -1232,13 +1244,13 @@ def build(args):
     w4 = at4(w2).copy()
     for dy in (-1, 0, 1):
         for dx in (-1, 0, 1):
-            sh = np.roll(w2, (dy, dx), axis=(0, 1))[::2, ::2]
+            sh = shift(w2, (dy, dx), np.nan)[::2, ::2]
             take = np.isnan(w4) & np.isfinite(sh)
             w4[take] = sh[take]
     k4 = at4(kind_ext).copy()
     for dy in (-1, 0, 1):
         for dx in (-1, 0, 1):
-            sh = np.roll(kind_ext, (dy, dx), axis=(0, 1))[::2, ::2]
+            sh = shift(kind_ext, (dy, dx), 0)[::2, ::2]
             take = (k4 == 0) & (sh > 0)
             k4[take] = sh[take]
     k4[np.isnan(w4)] = 0
@@ -1338,7 +1350,7 @@ def _no_uid(text):
 
 
 def register(args, region):
-    """The field, the scene and the Islands entry, so NEW GAME lists it.
+    """The field, the scene and the Islands entry, so the viewer lists it.
     The field and the scene are the sample region's (Oeschinensee) with
     the paths and the size changed."""
     name = args.name
@@ -1375,12 +1387,14 @@ def register(args, region):
         log("islands.gd already lists %s" % key)
         return
     entry = ('\t# %s, from tools/earth_fetch.py: %.5f, %.5f, a %.0f m square\n'
-             '\t{"key": "%s", "title": "%s", "scene": "%s", "people": %d,\n'
+             '\t{"key": "%s", "title": "%s", "scene": "%s",\n'
              '\t\t"blurb": "a real place: %.5f, %.5f", "palette": false,\n'
-             '\t\t"air": Color(0.62, 0.72, 0.84), "pickups": {"country": 10},\n'
-             '\t\t"sky": {"hour": 10.5, "day": 196, "weather": "fair"}},\n'
+             '\t\t"sky": {"hour": 18.75, "day": 196, "weather": "fair"},\n'
+             '\t\t"knee": 0.6,\n'
+             '\t\t"grade": {"filmic": 1.0, "warmth": 0.2, "contrast": 0.14, "saturation": 1.05,\n'
+             '\t\t\t"vibrance": 0.2, "split": 0.6, "lift": 0.04, "vignette": 0.32, "grain": 0.035}},\n'
              % (region["title"], region["lat"], region["lon"], region["size"], key, region["title"],
-                scene_path, args.people, region["lat"], region["lon"]))
+                scene_path, region["lat"], region["lon"]))
     i = src.index("const LIST := [")
     j = src.index("\n]", i)
     # the entry before ours needs its comma
@@ -1403,14 +1417,13 @@ def main():
     ap.add_argument("--lon", type=float, required=True, help="the square's centre, degrees east")
     ap.add_argument("--size", type=float, default=2500.0,
                     help="its side in metres, a multiple of 4, at most 6000 (2500)")
-    ap.add_argument("--title", help="what the level select calls it (NAME)")
+    ap.add_argument("--title", help="what the viewer calls it (NAME)")
     ap.add_argument("--dem", choices=["terrarium", "copernicus"], default="terrarium")
     ap.add_argument("--zoom", type=int, default=14, help="Terrarium zoom, 10-15 (14)")
     ap.add_argument("--smooth", type=float, default=8.0,
                     help="metres of blur on the DEM against its 30 m checker; 0 none (8)")
     ap.add_argument("--no-osm", action="store_true", help="WorldCover only, no OpenStreetMap")
     ap.add_argument("--overpass", action="append", help="an Overpass endpoint to ask first (repeatable)")
-    ap.add_argument("--people", type=int, default=360, help="the crowd, with --register (360)")
     ap.add_argument("--register", action="store_true",
                     help="also write the field, the scene and the Islands.LIST entry")
     args = ap.parse_args()

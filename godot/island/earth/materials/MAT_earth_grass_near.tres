@@ -1,0 +1,27 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; A REAL PLACE'S GRASS AT YOUR FEET (GrassNear: the thick carpet a few tens of metres
+; round the eye, over the ordinary tufts), the same as MAT_earth_grass.tres but
+; faded out by its edge so the carpet ends without a line
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_veg_billboard.gdshader" id="1_veg"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_veg")
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/lofi_texels_per_m = 0.0
+shader_parameter/tint = Color(0.97, 0.97, 0.97, 1)
+shader_parameter/flip_variants = true
+shader_parameter/wind_strength = 0.055
+shader_parameter/wind_speed = 0.9
+shader_parameter/wind_scale = 11.0
+shader_parameter/near_gone = 0.0
+shader_parameter/near_solid = 0.0
+shader_parameter/far_start = 13.0
+shader_parameter/far_end = 21.0
+shader_parameter/fog_enabled = true
+shader_parameter/fog_color = Color(0.62, 0.72, 0.84, 1)
+shader_parameter/fog_distance_start = 1800.0
+shader_parameter/fog_distance_density = 0.0004
+shader_parameter/fog_distance_power = 2.0

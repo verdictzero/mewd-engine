@@ -4,6 +4,7 @@
     python3 tools/earth_pack.py textures     # the twelve ground layers
     python3 tools/earth_pack.py models       # the plants' 3D models (cache only)
     python3 tools/earth_pack.py billboards   # render them (Godot, xvfb) and finish
+    python3 tools/earth_pack.py meadow       # the thick grass, from the tufts
     python3 tools/earth_pack.py all
 
 At the user's request: "high res pbr textures on the map, but still use
@@ -20,9 +21,9 @@ godot/island/earth/:
   textures/TEX_earth_rock_*.webp   the rock layer on its own, for the cliff
   textures/TEX_earth_water_normal.png  a tiling wave normal map, made here
   sprites/SPRITE_earth_*.png       the plants, rendered side-on from the
-                                   models at 1024 px (trees) and 512 px, with
-                                   a `_burn.png` beside each for the
-                                   billboard shader's fire
+                                   models at 1024 px (trees) and 512 px;
+                                   the meadow's, several green tufts drawn
+                                   into one (`meadow`)
 
 The layer order is tools/earth_fetch.py's LAYERS and EarthField's L_*.
 `--res 1k` halves every texture, for a lighter build.
@@ -323,7 +324,7 @@ def billboards():
 
 def finish_sprites(raw):
     """Trim each render to its plant, down from twice the size (Lanczos),
-    hard alpha with the fringe's colour pulled in, a burn map beside it."""
+    hard alpha with the fringe's colour pulled in."""
     sdir = os.path.join(OUT, "sprites")
     os.makedirs(sdir, exist_ok=True)
     with open(os.path.join(CACHE, "models", "manifest.json")) as f:
@@ -358,11 +359,103 @@ def finish_sprites(raw):
             out = np.concatenate([np.clip(rgb, 0, 1), (al > 0.45)[..., None].astype(np.float32)], axis=-1)
             name = "SPRITE_earth_%s_%s" % (m["class"], fname[:-4])
             Image.fromarray((out * 255).astype(np.uint8)).save(os.path.join(sdir, name + ".png"))
-            burn_map(out).save(os.path.join(sdir, name + "_burn.png"))
             made.append({"name": name, "class": m["class"], "model": m["id"]})
     with open(os.path.join(sdir, "sprites.json"), "w") as f:
         json.dump({"sprites": made, "licence": "rendered from CC0 Poly Haven models"}, f, indent=1)
     log("%d sprites in %s" % (len(made), os.path.relpath(sdir, ROOT)))
+    meadow()
+
+
+# ---------------------------------------------------------------- the meadow
+
+# THE THICK GRASS (at the user's request: "max out grass thickness near
+# player"): one tuft of Poly Haven's grass is a few blades, a twentieth of
+# its card, so a carpet of them is mostly the ground between. A meadow
+# sprite is a dozen of the GREEN tufts (grass_medium_01's two) drawn into
+# one card, smaller and larger, each a little yellower or bluer than the
+# next, the furthest back highest and darkest, with now and then a
+# dandelion's leaves — out of the finished sprites, so it needs nothing
+# but them. (name, seed, tufts)
+MEADOWS = [("meadow_0", 11, 13), ("meadow_1", 23, 15), ("meadow_2", 37, 12)]
+
+
+def meadow():
+    sdir = os.path.join(OUT, "sprites")
+    srcs = []
+    for name in ("SPRITE_earth_grass_grass_medium_01_0_0", "SPRITE_earth_grass_grass_medium_01_1_0",
+                 "SPRITE_earth_grass_dandelion_01_0_0"):
+        a = np.asarray(Image.open(os.path.join(sdir, name + ".png")).convert("RGBA")).astype(np.float32) / 255.0
+        rows = np.nonzero((a[..., 3] > 0.5).any(axis=1))[0]
+        cols = np.nonzero((a[..., 3] > 0.5).any(axis=0))[0]
+        # (cut to the plant, its foot the card's last row; of the dandelion,
+        # its rosette of leaves alone — the flowers on their stalks would put
+        # a dandelion in every meadow card)
+        a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
+        if "dandelion" in name:
+            a = a[int(a.shape[0] * 0.64):]
+        srcs.append(a)
+    W, H = 512, 256
+    with open(os.path.join(sdir, "sprites.json")) as f:
+        made = [m for m in json.load(f)["sprites"] if m["class"] != "meadow"]
+    for name, seed, count in MEADOWS:
+        rng = np.random.default_rng(seed)
+        rgb = np.zeros((H, W, 3), np.float32)
+        al = np.zeros((H, W), np.float32)
+        # (spread evenly across the card, in no order: each tuft a slot)
+        slots = rng.permutation(count)
+        # back (high on the card, small, dark) to front
+        for i in range(count):
+            t = i / max(count - 1, 1)
+            k = 0 if rng.random() < 0.5 else 1
+            if i % 6 == 3:
+                k = 2
+            src = srcs[k]
+            sc = (0.42 + 0.5 * t) * rng.uniform(0.85, 1.15) * (0.6 if k == 2 else 1.0)
+            h = max(4, int(src.shape[0] * sc))
+            w = max(4, int(src.shape[1] * sc * rng.uniform(0.85, 1.2)))
+            pre = src.copy()
+            pre[..., :3] *= pre[..., 3:4]
+            small = np.stack([np.asarray(Image.fromarray((pre[..., c] * 255).astype(np.uint8)).resize(
+                (w, h), Image.LANCZOS)).astype(np.float32) / 255.0 for c in range(4)], axis=-1)
+            if rng.random() < 0.5:
+                small = small[:, ::-1]
+            a = small[..., 3] > 0.45
+            c = small[..., :3] / np.maximum(small[..., 3:4], 1e-4)
+            c = c * np.array([rng.uniform(0.92, 1.12), rng.uniform(0.95, 1.08), rng.uniform(0.85, 1.05)])
+            c = c * (0.78 + 0.22 * t)
+            foot = H - 2 - int((1.0 - t) * 14 * rng.uniform(0.5, 1.0))
+            w = min(w, W)
+            mid = (slots[i] + rng.uniform(0.2, 0.8)) / count * W
+            # (wholly on the card: a tuft cut by its edge would stand in the
+            # meadow with a straight side)
+            x0 = int(np.clip(mid - w / 2, 0, W - w))
+            y0 = foot - h
+            for (ya, yb, xa, xb, sy, sx) in [_clip(y0, x0, h, w, H, W)]:
+                if yb <= ya or xb <= xa:
+                    continue
+                m = a[sy:sy + yb - ya, sx:sx + xb - xa]
+                rgb[ya:yb, xa:xb][m] = c[sy:sy + yb - ya, sx:sx + xb - xa][m]
+                al[ya:yb, xa:xb][m] = 1.0
+        solid = al > 0.5
+        rgb = bleed(rgb, solid)
+        if solid.any():
+            mean = rgb[solid].mean(axis=0)
+            far = ~np.asarray(Image.fromarray((solid * 255).astype(np.uint8)).filter(
+                ImageFilter.MaxFilter(25))).astype(bool)
+            rgb[far] = mean
+        out = np.concatenate([np.clip(rgb, 0, 1), solid[..., None].astype(np.float32)], axis=-1)
+        full = "SPRITE_earth_meadow_" + name
+        Image.fromarray((out * 255).astype(np.uint8)).save(os.path.join(sdir, full + ".png"))
+        made.append({"name": full, "class": "meadow", "model": "grass_medium_01"})
+        log("%s: %.0f%% of the card" % (full, 100.0 * solid.mean()))
+    with open(os.path.join(sdir, "sprites.json"), "w") as f:
+        json.dump({"sprites": made, "licence": "rendered from CC0 Poly Haven models"}, f, indent=1)
+
+
+def _clip(y0, x0, h, w, H, W):
+    ya, xa = max(y0, 0), max(x0, 0)
+    yb, xb = min(y0 + h, H), min(x0 + w, W)
+    return (ya, yb, xa, xb, ya - y0, xa - x0)
 
 
 def bleed(rgb, solid, steps=12):
@@ -381,31 +474,9 @@ def bleed(rgb, solid, steps=12):
     return rgb
 
 
-def burn_map(sprite):
-    """The billboard shader's burn description (SHADER_veg_billboard.gdshader):
-    R ember, G char, B order (base first, fringe early, ragged), A foliage."""
-    h, w = sprite.shape[:2]
-    rgb, al = sprite[..., :3], sprite[..., 3]
-    rng = np.random.default_rng(h * 131 + w)
-    noise = np.asarray(Image.fromarray((rng.random((h // 8 + 2, w // 8 + 2)) * 255).astype(np.uint8)).resize(
-        (w, h), Image.BICUBIC)).astype(np.float32) / 255.0
-    rows = np.where(al.any(axis=1))[0]
-    top, bot = (rows.min(), rows.max()) if rows.size else (0, h - 1)
-    y = np.arange(h, dtype=np.float32)[:, None]
-    order = np.clip((bot - y) / max(bot - top, 1), 0, 1) * np.ones((1, w), np.float32)
-    inner = np.asarray(Image.fromarray((al * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(9))).astype(np.float32) / 255.0
-    order = np.clip(order * 0.8 + 0.2 * noise - 0.12 * (1.0 - inner), 0, 1)
-    green = np.clip((rgb[..., 1] - 0.5 * (rgb[..., 0] + rgb[..., 2])) * 4.0 + 0.3, 0, 1)
-    dark = 1.0 - rgb.mean(axis=-1)
-    ember = np.clip((noise - 0.62) * 4.0, 0, 1) * (1.0 - green * 0.6)
-    char = np.clip(0.7 + 0.3 * dark, 0, 1)
-    out = np.stack([ember, char, order, green], axis=-1) * al[..., None]
-    return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8), "RGBA")
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=["textures", "models", "billboards", "sprites", "all"])
+    ap.add_argument("what", choices=["textures", "models", "billboards", "sprites", "meadow", "all"])
     ap.add_argument("--res", choices=["1k", "2k"], default="2k")
     a = ap.parse_args()
     if a.what in ("textures", "all"):
@@ -416,6 +487,8 @@ def main():
         billboards()
     if a.what == "sprites":
         finish_sprites(os.path.join(CACHE, "sprites"))
+    if a.what == "meadow":
+        meadow()
 
 
 if __name__ == "__main__":

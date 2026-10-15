@@ -37,7 +37,6 @@ def main():
     dress = res("Script", "res://godot/island/scripts/world/SCRIPT_earth_dress.gd", "7_dress")
     veg = res("Script", "res://godot/island/scripts/world/SCRIPT_veg_scatter.gd", "8_veg")
     grass = res("Script", "res://godot/island/scripts/world/SCRIPT_grass_scatter.gd", "9_grass")
-    burn = res("Script", "res://godot/island/scripts/world/SCRIPT_veg_burn.gd", "10_burn")
     tod = res("Script", "res://godot/island/scripts/SCRIPT_enviro_sky.gd", "11_tod")
     sea = res("Script", "res://godot/island/scripts/world/SCRIPT_cloud_sea.gd", "13_sea")
     seamat = res("Material", "res://godot/island/candy/materials/MAT_candy_cloud_sea.tres", "14_seamat")
@@ -45,6 +44,7 @@ def main():
     umat = res("Material", "res://godot/island/earth/materials/MAT_earth_understory.tres", "18_umat")
     fmat = res("Material", "res://godot/island/earth/materials/MAT_earth_fern.tres", "19_fmat")
     gmat = res("Material", "res://godot/island/earth/materials/MAT_earth_grass.tres", "20_gmat")
+    gnmat = res("Material", "res://godot/island/earth/materials/MAT_earth_grass_near.tres", "24_gnmat")
     cine = res("Script", "res://godot/island/scripts/world/SCRIPT_cinema_post.gd", "21_cine")
     cmat = res("Material", "res://godot/island/earth/materials/MAT_earth_cinema.tres", "22_cmat")
     esun = res("Script", "res://godot/island/scripts/world/SCRIPT_earth_sun.gd", "23_esun")
@@ -56,7 +56,9 @@ def main():
         return "[" + ", ".join(out) + "]"
 
     conifer, broad = tex_list("conifer"), tex_list("broadleaf")
-    bush, fern, grs = tex_list("bush"), tex_list("fern"), tex_list("grass")
+    bush, fern = tex_list("bush"), tex_list("fern")
+    # the grass: the thick meadow cards first, then the single tufts
+    grs = "[" + ", ".join(x for x in (tex_list("meadow")[1:-1], tex_list("grass")[1:-1]) if x) + "]"
 
     body = '''[gd_scene format=3]
 
@@ -129,18 +131,36 @@ island_world_path = NodePath("../IslandWorld")
 sprites = %(grs)s
 material = %(gmat)s
 grass_grid = 0.6
+density = 1.0
 tuft_size = Vector2(1.1, 0.55)
+sink = 0.04
+sprite_weights = PackedFloat32Array(1.4, 1.4, 1.4, 0.9, 0.9, 0.4, 0.4, 0.2)
 max_slope = 0.4
 view_distance = 80.0
+max_in_flight = 6
+sample_cells = 4
 
-[node name="VegBurn" type="Node3D" parent="."]
-script = %(burn)s
-burn = 0.0
-advance = false
-burn_rate = 0.02
-stump = 0.0
-stump_rate = 0.0
-front_radius = 0.0
+[node name="GrassNear" type="Node3D" parent="."]
+script = %(grass)s
+island_world_path = NodePath("../IslandWorld")
+sprites = %(grs)s
+material = %(gnmat)s
+grass_grid = 0.25
+density = 1.0
+boost = 4.0
+tuft_size = Vector2(0.95, 0.5)
+sink = 0.04
+sprite_weights = PackedFloat32Array(2.0, 2.0, 2.0, 0.7, 0.7, 0.2, 0.2, 0.12)
+min_scale = 0.7
+max_scale = 1.35
+max_slope = 0.45
+view_distance = 21.0
+keep_margin = 6.0
+scan_cell = 3.0
+tile_cells = 24
+max_in_flight = 6
+max_eval_per_scan = 4000
+sample_cells = 4
 
 [node name="EnviroSky" type="Node3D" parent="."]
 script = %(tod)s

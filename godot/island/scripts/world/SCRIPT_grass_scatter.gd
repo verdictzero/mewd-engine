@@ -21,8 +21,8 @@ extends Node3D
 # with the lit shader that consumed it: the billboards are `unshaded` now and
 # `SCRIPT_measure_art.gd`'s four layer means have no consumer here any more. A tuft is the
 # colour its sprite is painted, times the material's flat `tint`. The per-instance
-# custom-data vec4 the stride still carries (see `_STRIDE`) is a different channel —
-# a scalar CRATER BURN, not a colour — and it feeds the burn stage, not the albedo.
+# custom-data vec4 the stride still carries (see `_STRIDE`) is the tuft's BAKED
+# LIGHT (VegLight), a scalar the shader multiplies its light by.
 #
 # WHY THE CELLS ARE GROUPED INTO TILES. The natural way to write this is one
 # dictionary entry per grid cell, and that is how it was written; it does not
@@ -99,6 +99,11 @@ extends Node3D
 @export var grass_grid := 1.0
 ## Fraction of eligible cells that grow a tuft, before the clumping noise.
 @export_range(0.0, 1.0) var density := 0.85
+## The field's own grass cover, times this (a real place's "veg"), before the
+## density: over 1, every cell with any real cover grows a tuft (GrassNear's
+## carpet round the eye, at the user's request: "max out grass thickness near
+## player"); the turf still decides where, so rock and paths stay bare.
+@export var boost := 1.0
 ## Tufts avoid ground steeper than this (0 flat .. 1 vertical).
 @export_range(0.0, 1.0) var max_slope := 0.42
 ## Tufts stay out of any zone whose grooming influence exceeds this. Looser than
@@ -156,6 +161,9 @@ extends Node3D
 @export_range(0.02, 0.8) var ruin_grass_band := 0.03
 ## Tuft size in metres (width, height) before the per-instance scale jitter.
 @export var tuft_size := Vector2(1.25, 1.15)
+## How often a tuft draws each of `sprites`, one weight apiece (relative to
+## the others; a sprite past the end of this list weighs 1). Empty: all alike.
+@export var sprite_weights := PackedFloat32Array()
 @export var min_scale := 0.75
 @export var max_scale := 1.5
 ## Tufts are sunk this far into the ground so their sprite's soil base is buried
@@ -191,6 +199,15 @@ extends Node3D
 ## `tile_cells` squared. With threads on nothing draws on it: the scan itself
 ## samples the field zero times.
 @export var max_eval_per_scan := 1200
+## THE FIELD ASKED ONCE EVERY THIS MANY CELLS EACH WAY, not at every tuft (at
+## the user's request: the grass near the eye maxed out, and filled in as
+## fast as the eye moves): a tile's ground is sampled on that coarser lattice,
+## and every tuft takes its nearest lattice sample's ground (turf, slope, the
+## light) and the lattice's height there, interpolated. The sample is the
+## whole cost of a tuft, and a quarter-metre carpet asks sixteen a square
+## metre; at 4 it asks one, and a tile is down in a twelfth of the time. 1:
+## every cell its own sample.
+@export_range(1, 8) var sample_cells := 1
 ## Side of the SCAN CELL, in metres. The eye is quantised to this lattice and a
 ## scan is skipped entirely while it stays in the same cell — see the header.
 ##
@@ -231,11 +248,9 @@ extends Node3D
 
 # Godot's 3D MultiMesh instance stride: the transform as three rows of four (each
 # basis row, then that row's origin component) = 12, plus one custom-data vec4 = 16.
-# The custom vec4's .x carries a tuft's crater burn into `SHADER_veg_billboard.gdshader`
-# (`INSTANCE_CUSTOM.x`), so a meadow chars along with the trees where a crash site
-# reaches it instead of staying a green lawn under a fire — the same channel
-# `SCRIPT_veg_scatter.gd` uses, and for the same reason: burn is per-INSTANCE and the
-# per-sprite material cannot hold it. .yzw are unwritten (0) and reserved.
+# The custom vec4's .x carries a tuft's baked light (VegLight) into
+# `SHADER_veg_billboard.gdshader` (`INSTANCE_CUSTOM.x`), the channel
+# `SCRIPT_veg_scatter.gd` uses; .yz the ground's gradient and .w 1 (`_pack_tile`).
 const _STRIDE := 16
 # Offset of the custom-data vec4 within the stride — after the 12 transform floats.
 const _CUSTOM_OFF := 12
@@ -286,26 +301,11 @@ var _field_pool: Array = []
 var _pool_mutex := Mutex.new()
 
 var _meshes: Array[MultiMesh] = []
+# `sprite_weights` summed up the variants, for `_variant`
+var _cum := PackedFloat32Array()
 var _instances: Array[MultiMeshInstance3D] = []
 var _ready_ok := false
 
-# MOWN (at the user's request, the game's weapons shred the grass —
-# godot/scripts/game/veg_damage.gd): circles of LOGICAL ground, Vector3(x, z,
-# radius), where every tuft is gone. Kept as circles rather than per-row marks
-# because a tile is pruned and rebuilt as the camera moves, and a rebuilt tile
-# has to come back mown: `_install_tile` cuts every new tile by them.
-var _mown: Array[Vector3] = []
-## HOW MUCH GRASS GROWS WHERE, if anything says (GUILBAULT ARENA, at the user's
-## request: "make grass extra thick in and around maze ... try to not
-## plant grass under the maze walls"): a Callable (island metres x, z) ->
-## float, asked of every cell before the field is (on the worker threads:
-## it must only read). 0, none; under 1, that share of what would grow
-## (rolled before the field is sampled, so a thinned cell costs nothing);
-## 1, as the field says; over 1, THICK — every cell the density roll
-## keeps grows a tuft, whatever the turf. Unset, 1 everywhere. Set before
-## the scatter is in the tree (Game.start_map).
-var mask: Callable
-const MOWN_MOST := 4000
 
 
 func _ready() -> void:
@@ -334,6 +334,10 @@ func _ready() -> void:
 	_tile_size = maxf(grass_grid, 0.01) * float(maxi(tile_cells, 1))
 	_build_multimeshes()
 	_ready_ok = not _meshes.is_empty()
+	var t := 0.0
+	for i in range(_meshes.size()):
+		t += maxf(sprite_weights[i] if i < sprite_weights.size() else 1.0, 0.0)
+		_cum.append(t)
 
 
 # One MultiMesh per sprite. Each gets its own DUPLICATE of the shared material so
@@ -366,15 +370,10 @@ func _build_multimeshes() -> void:
 		# (and the same picture for the filtered fetch where a tuft is minified:
 		# SHADER_veg_billboard `albedo_smooth`)
 		mat.set_shader_parameter("albedo_smooth", tex)
-		# And the burn map beside it — see `VegBurn.bind_map`. Grass burns like grass
-		# rather than like a tree: it is the only sprite of the ten with no woody
-		# pixels in it, so it chars all over and holds its coals at the base.
-		VegBurn.bind_map(mat, tex)
 
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		# Per-tuft crater burn rides in the custom-data vec4 — see `_STRIDE`. 0 on every
-		# tuft away from a crash site, which the shader reads as "follow the bus".
+		# The tuft's baked light rides in the custom-data vec4 — see `_STRIDE`.
 		mm.use_custom_data = true
 		mm.mesh = quad
 
@@ -670,9 +669,10 @@ func _build_tile(key: Vector2i, f: IslandField, off: Vector3, band: Vector2) -> 
 	var y1 := -INF
 	var side := maxi(tile_cells, 1)
 	var base := key * side
+	var lat := _lattice(key, f) if sample_cells > 1 else {}
 	for dz in range(side):
 		for dx in range(side):
-			var r := _evaluate_cell(Vector2i(base.x + dx, base.y + dz), f)
+			var r := _evaluate_cell(Vector2i(base.x + dx, base.y + dz), f, lat)
 			if not r["valid"]:
 				continue
 			var v: int = r["variant"]
@@ -692,6 +692,36 @@ func _build_tile(key: Vector2i, f: IslandField, off: Vector3, band: Vector2) -> 
 		y0 = band.x
 		y1 = band.y
 	return {"key": key, "bufs": bufs, "y0": y0, "y1": y1, "off": off}
+
+
+# THE TILE'S GROUND ON THE COARSE LATTICE (`sample_cells`): the field's sample
+# at every lattice point from the tile's corner to its far edge, and their
+# heights on their own for the interpolation (`_evaluate_cell`).
+func _lattice(key: Vector2i, f: IslandField) -> Dictionary:
+	var step := float(sample_cells) * grass_grid
+	var n := ceili(float(maxi(tile_cells, 1)) / float(sample_cells)) + 1
+	var x0 := float(key.x) * _tile_size
+	var z0 := float(key.y) * _tile_size
+	var at: Array = []
+	var hs := PackedFloat32Array()
+	hs.resize(n * n)
+	for j in range(n):
+		for i in range(n):
+			var smp := f.sample(x0 + float(i) * step, z0 + float(j) * step)
+			at.append(smp)
+			hs[j * n + i] = float(smp.get("height", 0.0))
+	return {"x0": x0, "z0": z0, "step": step, "n": n, "at": at, "h": hs}
+
+
+# Which sprite a tuft draws, off a roll 0..1 and `sprite_weights`.
+func _variant(u: float) -> int:
+	if _cum.is_empty():
+		return 0
+	var want := u * _cum[_cum.size() - 1]
+	for i in range(_cum.size()):
+		if want < _cum[i]:
+			return i
+	return _cum.size() - 1
 
 
 # Move finished tiles from the worker list into the tile table. Called at the top
@@ -721,65 +751,7 @@ func _install_tile(r: Dictionary) -> void:
 	var drift: Vector3 = (r["off"] as Vector3) - _origin_offset
 	if drift != Vector3.ZERO:
 		_shift_bufs(bufs, drift)
-	if not _mown.is_empty():
-		_cut(key, bufs, _mown, null)
 	rec["bufs"] = bufs
-
-
-## MOW the tufts within `r` metres of (x, z), LOGICAL metres: their rows scaled
-## to nothing, the tiles they were in owed a re-fill, and the circle kept so a
-## rebuilt tile comes back as cut. Returns what was cut, [Vector3 logical base,
-## sprite index] each, for the game to throw the pieces of.
-func mow(x: float, z: float, r: float) -> Array:
-	var c := Vector3(x, z, r)
-	if _mown.size() >= MOWN_MOST:
-		_mown.remove_at(0)
-	_mown.append(c)
-	var out := []
-	var lo := Vector2i(floori((x - r) / _tile_size), floori((z - r) / _tile_size))
-	var hi := Vector2i(floori((x + r) / _tile_size), floori((z + r) / _tile_size))
-	for tx in range(lo.x, hi.x + 1):
-		for tz in range(lo.y, hi.y + 1):
-			var rec: Dictionary = _tiles.get(Vector2i(tx, tz), {})
-			if rec.has("bufs"):
-				_cut(Vector2i(tx, tz), rec["bufs"], [c], out)
-	if not out.is_empty():
-		_force_rescan = true
-	return out
-
-
-# Scale away every tuft of the tile `key` inside any of `circles`; `out`, when
-# given, collects what was cut.
-func _cut(key: Vector2i, bufs: Array, circles: Array, out) -> void:
-	var t0 := Vector2(key.x, key.y) * _tile_size
-	var t1 := t0 + Vector2.ONE * _tile_size
-	var near: Array = []
-	for c in circles:
-		if c.x + c.z >= t0.x and c.x - c.z <= t1.x and c.y + c.z >= t0.y and c.y - c.z <= t1.y:
-			near.append(c)
-	if near.is_empty():
-		return
-	for i in range(bufs.size()):
-		var b: PackedFloat32Array = bufs[i]
-		var hit := false
-		var k := 0
-		while k < b.size():
-			if b[k + 5] != 0.0 or b[k] != 0.0:
-				var px := b[k + 3] + _origin_offset.x
-				var pz := b[k + 11] + _origin_offset.z
-				for c in near:
-					var dx: float = px - c.x
-					var dz: float = pz - c.y
-					if dx * dx + dz * dz <= c.z * c.z:
-						if out != null:
-							out.append([Vector3(px, b[k + 7] + _origin_offset.y, pz), i])
-						for j in [0, 1, 2, 4, 5, 6, 8, 9, 10]:
-							b[k + j] = 0.0
-						hit = true
-						break
-			k += _STRIDE
-		if hit:
-			bufs[i] = b
 
 
 # Pack one variant's tufts into a MultiMesh instance buffer. The array is a local
@@ -804,9 +776,14 @@ func _pack_tile(items: Array, off: Vector3) -> PackedFloat32Array:
 		buf[k + 9] = b.y.z
 		buf[k + 10] = b.z.z
 		buf[k + 11] = o.z
-		# Custom-data vec4: .x is the tuft's crater burn, .yzw reserved (0, already
-		# zero-filled by `resize`). .x always needs a write or a tuft inherits the last.
-		buf[k + _CUSTOM_OFF] = float(r.get("burn", 0.0))
+		# Custom-data vec4: .x is the tuft's baked light (VegLight), .yz the
+		# ground's gradient (0.5 + a quarter of it, so it fits any format the
+		# renderer keeps custom data in) and .w 1 to say it is there.
+		buf[k + _CUSTOM_OFF] = float(r.get("light", 1.0))
+		var g: Vector2 = r.get("grad", Vector2.ZERO)
+		buf[k + _CUSTOM_OFF + 1] = 0.5 + g.x * 0.25
+		buf[k + _CUSTOM_OFF + 2] = 0.5 + g.y * 0.25
+		buf[k + _CUSTOM_OFF + 3] = 1.0
 		k += _STRIDE
 	return buf
 
@@ -876,6 +853,13 @@ func tile_counts() -> Vector2i:
 		if (_tiles[key] as Dictionary).has("bufs"):
 			built += 1
 	return Vector2i(_tiles.size(), built)
+
+
+## The ground cover round the eye is all down: a scan has run and no tile
+## in view still owes work (or this scatter is off). The viewer holds its
+## picture back for it (main.gd `place_ready`).
+func filled() -> bool:
+	return not _ready_ok or (_box_valid and _todo <= 0 and _pending.is_empty())
 
 
 ## Tiles in view that still owe work — 0 once the field around the camera is
@@ -950,7 +934,7 @@ static func _thousands(n: int) -> String:
 # and the field, so it is stable across visits and across a rebase — and so it can
 # run on a worker thread, which is why the field is a parameter rather than the
 # node's own: a worker gets its own clone.
-func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
+func _evaluate_cell(cell: Vector2i, f: IslandField, lat := {}) -> Dictionary:
 	var hx := _hash(cell.x, cell.y, f.world_seed ^ 0x62A551)
 	var keep := _rand(hx, 1)
 
@@ -971,13 +955,25 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	var jz := (_rand(hx, 3) - 0.5) * 0.9 * grass_grid
 	var wx := (float(cell.x) + 0.5) * grass_grid + jx
 	var wz := (float(cell.y) + 0.5) * grass_grid + jz
-	var share := 1.0
-	if mask.is_valid():
-		share = float(mask.call(wx, wz))
-		if share <= 0.0 or (share < 1.0 and _rand(hx, 8) > share):
-			return {"valid": false}
 
-	var s := f.sample(wx, wz)
+	var s: Dictionary
+	var h: float
+	if lat.is_empty():
+		s = f.sample(wx, wz)
+		h = float(s.get("height", 0.0))
+	else:
+		# (the nearest lattice sample's ground, the lattice's height)
+		var n: int = lat["n"]
+		var u := clampf((wx - float(lat["x0"])) / float(lat["step"]), 0.0, float(n) - 1.001)
+		var v := clampf((wz - float(lat["z0"])) / float(lat["step"]), 0.0, float(n) - 1.001)
+		var i := int(u)
+		var j := int(v)
+		var fu := u - float(i)
+		var fv := v - float(j)
+		var hs: PackedFloat32Array = lat["h"]
+		h = lerpf(lerpf(hs[j * n + i], hs[j * n + i + 1], fu),
+				lerpf(hs[(j + 1) * n + i], hs[(j + 1) * n + i + 1], fu), fv)
+		s = (lat["at"] as Array)[(j + roundi(fv)) * n + i + roundi(fu)]
 	if not s.get("on_land", false):
 		return {"valid": false}
 	# Nothing grows out of scree or a bunker.
@@ -1000,47 +996,39 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	var w: Color = s.get("weights", Color(0, 0, 0, 0))
 	# Weighted by how much of the ground is actually turf, so tufts thin out into
 	# soil and litter rather than stopping at a line.
-	var want := density * clampf(w.r * 1.4, 0.0, 1.0)
+	var want := density * clampf(w.r * 1.4 * boost, 0.0, 1.0)
 	want *= lerpf(1.0, 1.0 - clampf(s.get("forest", 0.0), 0.0, 1.0), forest_falloff)
 	# A FIELD THAT KNOWS ITS OWN GRASS says so (a real place's, `EarthField`:
 	# "veg" off its open map data), and that is the density, whatever the turf
 	var veg: Variant = s.get("veg")
 	if veg is Dictionary:
-		want = density * clampf(float((veg as Dictionary).get("grass", 0.0)), 0.0, 1.0)
-	# (thick: whatever the ground)
-	if share > 1.0:
-		want = density
+		want = density * clampf(float((veg as Dictionary).get("grass", 0.0)) * boost, 0.0, 1.0)
 	if keep > want:
 		return {"valid": false}
 
 	var scale := lerpf(min_scale, max_scale, _rand(hx, 4))
 	var wj := lerpf(0.85, 1.15, _rand(hx, 6))
-	# AND DOWN BY HOWEVER FAR THE GROUND FALLS AWAY under the tuft's edges (at
-	# the user's request: grass always in the ground): the billboard turns to
-	# the eye, so its bottom edge can run straight down the slope, and half its
-	# width times the gradient is how far a corner would hang — up to a third
-	# of the tuft. (`sink` is in the quad, and scales with it.)
+	# THE GROUND'S GRADIENT under the tuft, for the billboard to shear its foot
+	# along whichever way it turns (SHADER_veg_billboard, "the foot on the
+	# slope"; at the user's request: grass always in the ground). It used to
+	# be sunk instead by the worst case — half its width times the gradient,
+	# up to a third of the tuft — which on a steep meadow seen up the slope
+	# buried the thick bottom of every one. (`sink` is in the quad.)
 	var n3: Vector3 = s.get("normal", Vector3.UP)
-	var grad := 0.0
+	var grad := Vector2.ZERO
 	if absf(n3.y) > 1e-3:
-		grad = Vector2(n3.x, n3.z).length() / absf(n3.y)
-	var down := minf(0.5 * tuft_size.x * scale * wj * grad, tuft_size.y * scale * 0.33)
+		grad = (Vector2(-n3.x, -n3.z) / absf(n3.y)).limit_length(1.9)
 	return {
 		"valid": true,
-		"pos": Vector3(wx, s["height"] - down, wz),
+		"pos": Vector3(wx, h, wz),
 		# Y-billboards ignore yaw, so scale is the whole basis. Width is jittered
 		# independently of height so a field does not read as one sprite resized.
 		"basis": Basis.IDENTITY.scaled(Vector3(scale * wj, scale, scale)),
-		"variant": int(_rand(hx, 5) * float(maxi(_meshes.size(), 1))) % maxi(_meshes.size(), 1),
-		# How burnt this tuft looks, off the same remap and the same weight as the ground
-		# under it, scaled by `crater_burn_peak` for the same reason `veg_scatter` scales
-		# it: 1.0 in the shader is FINISHED, not "most burnt", and a tuft pinned there is
-		# cold stubble in a fire. 0 off a crash site. `splat_weights` has already thinned
-		# the grass channel across the crater, so what survives to carry this is the
-		# sparse tuft in the collar — and it burns with the trees rather than staying a
-		# green lawn under them. Into `INSTANCE_CUSTOM.x` via `_pack_tile`.
-		"burn": f.crater_burn(clampf(float(s.get("crater", 0.0)), 0.0, 1.0))
-				* crater_burn_peak,
+		"variant": _variant(_rand(hx, 5)),
+		# Its baked light (VegLight), off the sample and its own hash. Into
+		# `INSTANCE_CUSTOM.x` via `_pack_tile`.
+		"light": VegLight.of(s, _rand(hx, 8)),
+		"grad": grad,
 	}
 
 

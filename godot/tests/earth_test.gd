@@ -10,9 +10,10 @@ extends SceneTree
 ## region.json, the ground is the data's to the centimetre, the square's edge
 ## is the coast and its height the ground's, the water is where and how deep the
 ## data says, the plants and the twelve layers are weights, `height_at` is no
-## ground in deep water, the bake digest moves with the data. Then the LEVEL,
-## through the game like island_test: the crowd's ground off the bake (or built),
-## nobody dropped in the lake, the island built and the plants standing.
+## ground in deep water, the bake digest moves with the data. Then the PLACE,
+## through the viewer: the eye at the island's start over its ground, the water
+## laid, the ground painted, the sky's sun and moon and weather, the cinema, the
+## mountains' shadows, the grade, the island built and the plants standing.
 
 var fails := 0
 
@@ -140,48 +141,31 @@ func _run() -> void:
 	check(sig != "", "the field signs")
 	island.free()
 
-	# THE LEVEL, through the game
-	U.p_seed()
-	var game = preload("res://godot/scripts/game/game.gd").new()
-	game.map_name = key
-	root.add_child(game)
+	# THE PLACE, through the viewer (godot/scripts/main.gd)
+	var main: Node = (load("res://godot/scenes/main.tscn") as PackedScene).instantiate()
+	root.add_child(main)
 	await process_frame
-	var lv: IslandLevel = game.level
-	var iw: Node = game.island.get_node("IslandWorld")
+	await process_frame
+	var iw: Node = main.place.get_node("IslandWorld")
 	var gf := iw.get("field") as EarthField
-	check(gf != null, "the game's island is the region")
+	check(gf != null, "the viewer's place is the region")
 	if gf == null:
 		quit(1)
 		return
-	check(IslandGround.load_for(IslandGround.signature_for(gf, iw.chunk_size)) != null,
-			"the crowd's ground comes off the bake")
-	var p = game.player
-	var px: float = p.x / IslandLevel.U_PER_M
-	var pz: float = -p.y / IslandLevel.U_PER_M
-	var want: Vector2 = spec.get("start", Vector2(px, pz))
-	check(Vector2(px, pz).distance_to(want) < 120.0,
-			"you are put down at the island's start (%.0f, %.0f m; asked %.0f, %.0f)" % [px, pz, want.x, want.y])
-	var pw := gf.water_y(px, pz)
-	check(is_nan(pw) or pw - gf.ground(px, pz) <= gf.wade_depth, "and not in the lake")
-	var people := 0
-	var wet_people := 0
-	for a in game.actors:
-		if a.monster:
-			people += 1
-			var ax: float = a.x / IslandLevel.U_PER_M
-			var az: float = -a.y / IslandLevel.U_PER_M
-			var aw := gf.water_y(ax, az)
-			if not is_nan(aw) and aw - gf.ground(ax, az) > gf.wade_depth:
-				wet_people += 1
-	check(people >= 300, "a crowd on the island (%d)" % people)
-	check(wet_people == 0, "nobody dropped in deep water (%d were)" % wet_people)
-	var dress: Node = game.island.get_node_or_null("EarthDress")
+	var cp: Vector3 = main.cam.global_position
+	var want: Vector2 = spec.get("start", Vector2(cp.x, cp.z))
+	check(Vector2(cp.x, cp.z).distance_to(want) < 1.0,
+			"the eye starts at the island's start (%.0f, %.0f m; asked %.0f, %.0f)" % [cp.x, cp.z, want.x, want.y])
+	var g0: float = main._ground(cp.x, cp.z)
+	check(not is_nan(g0) and cp.y > g0 and cp.y < g0 + 20.0,
+			"over the ground there, not in it (%.1f m over)" % (cp.y - g0))
+	var dress: Node = main.place.get_node_or_null("EarthDress")
 	check(dress != null and dress.get_child_count() > 0, "the water is laid (%d meshes)" % (dress.get_child_count() if dress else 0))
 	var tm := iw.get("terrain_material") as ShaderMaterial
 	check(tm != null and tm.get_shader_parameter("control_a") is Texture2D, "the ground's paint is bound")
 	# THE SKY (EnviroSky): the sun where it really is, the moon's real phase,
 	# the weather reaching the sky and the light
-	var sky: Node = game.island.get_node_or_null("EnviroSky")
+	var sky: Node = main.place.get_node_or_null("EnviroSky")
 	check(sky != null, "the island has its own sky (EnviroSky)")
 	if sky != null:
 		# (the island's own hour is its evening; these are of a morning)
@@ -194,30 +178,29 @@ func _run() -> void:
 				"at 10:30 on the 15th of July the sun is high in the south-east (%.0f degrees up, %s)" % [el, str(sun)])
 		check(float(sky.moon_phase()) < 0.12,
 				"and the moon is a day past new (the new moon of 14 July 2026): %.2f lit" % sky.moon_phase())
-		var fair: Dictionary = sky.world_light()
+		var fair: float = sky.light_level()
 		sky.set_weather("storm", true)
 		sky._update(0.0, true)
 		var mat: ShaderMaterial = sky.sky_material
 		check(is_equal_approx(float(mat.get_shader_parameter("coverage")), 1.0),
 				"a storm covers the sky (coverage %.2f)" % float(mat.get_shader_parameter("coverage")))
-		var dark: Dictionary = sky.world_light()
-		check(float(dark.sky_light) < float(fair.sky_light) * 0.8,
-				"and darkens the crowd's light (%.2f from %.2f)" % [dark.sky_light, fair.sky_light])
+		var dark: float = sky.light_level()
+		check(dark < fair * 0.8, "and darkens the island's light (%.2f from %.2f)" % [dark, fair])
 		sky.hour = 23.0
 		sky.set_weather("clear", true)
 		sky._update(0.0, true)
-		check(sky.sun_direction().y < 0.0 and float(sky.world_light().sky_light) < float(fair.sky_light) * 0.5,
-				"at 23:00 the sun is down and the island dark (%.2f)" % float(sky.world_light().sky_light))
+		check(sky.sun_direction().y < 0.0 and sky.light_level() < fair * 0.5,
+				"at 23:00 the sun is down and the island dark (%.2f)" % sky.light_level())
 		sky.hour = 10.5
 		sky.set_weather("fair", true)
 		sky._update(0.0, true)
 		# THE CINEMA (at the user's request: "make it look fucking cinematic as
 		# hell"): the light's pass over the picture, the mountains' shadows
 		# baked for where the sun is and again when it moves, the grade
-		var cine := game.island.get_node_or_null("Cinema") as CinemaPost
+		var cine := main.place.get_node_or_null("Cinema") as CinemaPost
 		check(cine != null and cine.mesh != null and cine.material_override is ShaderMaterial,
 				"the island has its cinema pass (god rays, flare, bloom, the lit haze)")
-		var esun := game.island.get_node_or_null("EarthSun") as EarthSun
+		var esun := main.place.get_node_or_null("EarthSun") as EarthSun
 		check(esun != null and esun.bakes >= 1 and float(U.G.get("tod_sun_shadow_on", 0.0)) == 1.0,
 				"the mountains' shadows are baked and on (%d bakes)" % (esun.bakes if esun else 0))
 		if esun != null:
@@ -230,21 +213,20 @@ func _run() -> void:
 			sky.hour = hour0
 			sky._update(0.0, true)
 		var grade: Dictionary = spec.get("grade", {})
-		var lf := Lofi.new()
-		lf.set_grade(grade)
-		check(not grade.is_empty() and float(lf.mat.get_shader_parameter("grade")) == 1.0
-				and float(lf.mat.get_shader_parameter("grade_filmic")) == float(grade.get("filmic", 0.0)),
+		var lm: ShaderMaterial = main.lofi.mat
+		check(not grade.is_empty() and float(lm.get_shader_parameter("grade")) == 1.0
+				and float(lm.get_shader_parameter("grade_filmic")) == float(grade.get("filmic", 0.0)),
 				"the island has its grade, and the picture takes it")
-		lf.set_grade({})
-		check(float(lf.mat.get_shader_parameter("grade")) == 0.0
-				and float(lf.mat.get_shader_parameter("grain")) == 0.0,
-				"and every other island none, its grain gone with it")
-		lf.free()
+		main.lofi.set_grade({})
+		check(float(lm.get_shader_parameter("grade")) == 0.0
+				and float(lm.get_shader_parameter("grain")) == 0.0,
+				"and an island without one none, its grain gone with it")
+		main.lofi.for_island(spec)
 	var waited := 0
-	while not game.island_ready() and waited < 6000:
+	while not main.place_ready() and waited < 6000:
 		await process_frame
 		waited += 1
-	check(game.island_ready(), "the island is up (terrain and plants) after %d frames" % waited)
+	check(main.place_ready(), "the place is up (terrain and plants) after %d frames" % waited)
 
 	print("earth: %s" % ("OK" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails else 0)

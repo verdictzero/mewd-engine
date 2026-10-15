@@ -1,11 +1,10 @@
 shader_type spatial;
 render_mode cull_disabled, unshaded;
-#include "res://godot/shaders/thermal_base.gdshaderinc"
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
-#include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_water.gdshaderinc"
 
 // THE GROUND OF A REAL PLACE, in high-resolution PBR (at the user's request:
 // "high res pbr textures on the map"). The terrain golf's islands are drawn with
@@ -49,8 +48,10 @@ render_mode cull_disabled, unshaded;
 //     sun's share of it, and the highlight, only as far as the sun reaches
 //     the ground (SHADERINC_earth_sun: the mountains' shadows and the
 //     clouds').
-//   * Then the island's fog, the golf wall's drain and the thermal sight, as
-//     every island surface does.
+//   * UNDER THE WATER, the caustics (SHADERINC_earth_water): the sun the
+//     waves focus into a shifting net of light on the bed, fading with the
+//     depth, only where the sun reaches.
+//   * Then the island's fog.
 
 // ---------------------------------------------------------------- the region
 group_uniforms region;
@@ -89,6 +90,9 @@ uniform float macro_scale = 70.0;
 // higher a sharper hand-over where the ground turns from one to the next
 uniform float triplanar_sharpness : hint_range(1.0, 12.0) = 5.0;
 // steep ground the data called something else shows its rock anyway
+// the caustics on the bed: how bright, how wide their net (metres)
+uniform float caustic_strength : hint_range(0.0, 4.0) = 1.4;
+uniform float caustic_scale = 6.0;
 uniform float steep_rock_lo : hint_range(0.0, 1.0) = 0.42;
 uniform float steep_rock_hi : hint_range(0.0, 1.0) = 0.62;
 // on that steep rock: its beds (how strongly they show, metres apart) and its
@@ -307,6 +311,19 @@ void fragment() {
 	lit -= amb * (1.0 - ao);
 	vec3 albedo = col * lit * exposure;
 
+	// UNDER THE WATER: the caustics, the sun focused by the waves onto the bed
+	float wy = earth_water_y(world_pos.xz);
+	if (world_pos.y < wy && caustic_strength > 0.0) {
+		float under = wy - world_pos.y;
+		float k = caustic_strength * exp(-under * 0.2) * smoothstep(0.0, 0.5, under)
+				* sun_open * smoothstep(0.0, 0.15, tod_sun_dir.y);
+		if (k > 0.01) {
+			// (turned off the grid's axes, so the net's tiling never lines up)
+			vec2 cxz = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * world_pos.xz;
+			albedo += col * tod_sun_color.rgb * earth_caustics(cxz, TIME * 0.6, caustic_scale) * k * exposure;
+		}
+	}
+
 	// the sun's highlight, GGX, off the roughness the scan carries
 	float ndl = max(dot(n, tod_sun_dir), 0.0);
 	if (specular > 0.0 && ndl > 0.0 && sun_open > 0.01) {
@@ -329,8 +346,5 @@ void fragment() {
 		albedo = mix(albedo, fog_color * tod_haze_tint.rgb, fog);
 	}
 
-	albedo = golf_wall_drain(albedo, world_pos.xz, SCREEN_UV, TIME);
-
 	ALBEDO = albedo;
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(ALBEDO, clamp((length(VERTEX) - 700.0) / 2500.0, 0.0, 1.0)));
 }

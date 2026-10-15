@@ -1,9 +1,7 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded,
 		shadows_disabled, specular_disabled, fog_disabled;
-#include "res://godot/shaders/thermal_base.gdshaderinc"
 
-#include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 
 // RAYMARCHED VOLUMETRIC CLOUD SEA. A bounded horizontal slab of cloud the islands
 // float in — the thing the flat height fog was standing in for. One enormous quad
@@ -195,7 +193,7 @@ void fragment() {
 	// `wp.xz` and NOT `wp.xz + world_offset`: the wall is published in render space
 	// and `world_offset` is what takes a point to the LOGICAL frame, which is the
 	// frame the noise wants and the mask does not.
-	float wall_clock = golf_wall_time(TIME, wp.xz);
+	float wall_clock = TIME;
 
 	// Ray vs slab [sea_bottom, sea_top]. Guard the near-horizontal ray (rd.y ~ 0):
 	// it is inside the slab only if the camera itself is, and then it runs the full
@@ -295,9 +293,6 @@ void fragment() {
 	if (alpha < 0.004) {
 		discard;
 	}
-	ALBEDO = golf_wall_drain(col, wp.xz, SCREEN_UV, TIME);
+	ALBEDO = col;
 	ALPHA = alpha;
-	// THE THERMAL SIGHT's feed (godot/shaders/thermal_base.gdshaderinc):
-	// only people are hot, and this is not one
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(ALBEDO, clamp((length(VERTEX) - 700.0) / 2500.0, 0.0, 1.0)));
 }

@@ -1,9 +1,7 @@
 shader_type spatial;
 render_mode cull_disabled, unshaded;
-#include "res://godot/shaders/thermal_base.gdshaderinc"
 
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
-#include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 
 // NINE-SURFACE textured terrain for SCENE_test_zone_W2, from the `textures/`
 // photo set plus the two crater layers baked from it.
@@ -1032,10 +1030,6 @@ void fragment() {
 	// AFTER THE FOG, AND SO AFTER EVERYTHING. The wall is a grade on the finished
 	// picture, not a term in the lighting — draining before the haze would leave
 	// coloured fog hanging over a grey landscape. Unshaded, so this is the pixel.
-	albedo = golf_wall_drain(albedo, world_pos.xz, SCREEN_UV, TIME);
 
 	ALBEDO = albedo;
-	// THE THERMAL SIGHT's feed (godot/shaders/thermal_base.gdshaderinc):
-	// only people are hot, and this is not one
-	if (thermal_on(VIEWPORT_SIZE)) ALBEDO = thermal_out(thermal_cold(ALBEDO, clamp((length(VERTEX) - 700.0) / 2500.0, 0.0, 1.0)));
 }

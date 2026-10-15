@@ -1,449 +1,172 @@
-MEWD
-====
+MEWD — A TERRAIN ENGINE
+=======================
 
-MEWD stands for MADE ENTIRELY WITHOUT DOOM. It was a Doom-style engine
-built from scratch; at the user's request it is now a game on
-procedurally generated islands (golf's island system, pre-baked), with
-the player, the crowd and the guns kept.
+MEWD draws places: real ones, cut out of the world as a square and made
+out of open map data (heights, water, land cover, OpenStreetMap), and
+golf's procedural island. Each is a scene of the chunked island system
+(godot/island/): terrain meshed in chunks at five levels of detail and
+streamed round the eye, pre-baked so it loads at once, with high-
+resolution PBR ground, billboard plants rendered from CC0 3D models, real
+water, a physical sky with raymarched clouds and weather, the sun and the
+moon where they really are, and a camera to fly round it. Nothing else:
+the game it used to be (MEWD, Made Entirely Without Doom) is gone, at the
+user's request ("i just wanted the terrain engine, you can strip all
+gameplay elements"), and lives in the git history.
 
-The game: you are dropped on an island with a few hundred people
-wandering its hills and woods. You burn, freeze, bore, shred, lance,
-rocket, electrocute or potato whatever is in front of you, and the
-picture is chunky pixels snapped to an earth-tone palette the whole
-time. The trees, bushes, ferns and grass are cover for the eye only:
-nothing in the vegetation stops a body or a round.
+It is built for ANDROID (arm64) and LINUX x86_64, on Godot 4.7's Mobile
+renderer.
 
-It is built for two targets only: ANDROID (arm64, an Anbernic RG557 or
-a phone) and LINUX x86_64. There is no web build.
-
-  godot/            the game: Godot 4.7, GDScript
-  godot/island/     the island system, from golf
-
-(The original JavaScript build the Godot one was ported from has been
-deleted; it is in the git history before the island.)
+  godot/            the engine: Godot 4.7, GDScript
+  godot/island/     the island system (from golf), the real places, the sky
+  tools/            making a place (earth_fetch.py), its look
+                    (earth_pack.py), baking (bake_island.gd), the builds
 
 
 GET IT
 ------
 
   https://github.com/verdictzero/mewd-engine/releases/tag/android
-                                                        the Android APK
   https://github.com/verdictzero/mewd-engine/releases/tag/linux
-                                                        Linux x86_64 (Ubuntu)
 
-Both are rebuilt on every push to main or claude/godot-rewrite. NEW
-GAME on the title lists the islands: NOT PENNSYLVANIA, CANDY LAND,
-DEBUG LAND, GUILBAULT ARENA (a square kilometre: a maze of rusted
-steel walls 4.5 m tall in the four arms of a plus, round a park of
-wood and meadow in the middle) and OESCHINENSEE (a real place: see A
-REAL PLACE ON EARTH).
+Both are rebuilt on every push to main.
 
 
-RUN IT LOCALLY
---------------
+RUN IT
+------
 
-Godot 4.7 (the standard editor binary). The project is the repository
-root. Once, and again whenever an island or its code changes, bake the
-islands (a couple of minutes; the builds do this themselves):
+Godot 4.7. The project is the repository root. Once, and again whenever a
+place or its code changes, bake the places (the builds do it themselves):
 
     godot --headless --editor --quit
     godot --headless --script res://tools/bake_island.gd -- --all --if-missing
 
-Then:
+Then `godot --path .` (or F5 in the editor). After `--`:
 
-    godot                        # opens the editor; F5 runs the game
-    godot --path . -- --play     # straight into the game
-
-Arguments after `--`:
-
-    --play                skip the title
-    --map=NAME            which island: island0 (NOT PENNSYLVANIA), candyland
-    --seed=N              where the crowd is dropped
-    --weapon=NAME         start holding FLAMER, EXTINGUISHER, BORE,
-                          MINIGUN, LANCE, LAUNCHER, ARC or POTATO
-    --at=X,Y,DEG          start somewhere else
-    --terminal            the terminal first
-    --touch               the phone's controls, without a touch screen
-    --pause               open the pause menu
-    --prof                print where each frame's time goes
-    --shot=out.png        render --shot-frames=N frames, save, quit
-    --server[=PORT]       host a match (see NETWORK PLAY)
-    --join=HOST[:PORT]    join one; --name=NAME
-
-The Android APK is `sh tools/build-android.sh`, with the Android
-templates, the SDK's build tools and Java; see GODOT.txt. The Linux
-build is `sh tools/build-linux.sh`: one x86_64 file with the game
-packed inside, needs Vulkan, runs on Ubuntu 20.04 or later (chmod +x
-mewd.x86_64 and run it). Both fetch their templates and bake the
-islands if they need to.
+    --map=KEY              the place: earth_oeschinen (the first), island0
+    --at=X,Z --high=M      where the eye starts: metres east and south of
+                           the middle, and over the ground
+    --y=Y                  or at a height in the world (under a lake, say)
+    --face=X,Z | --turn=DEG | --look=sun|moon [--look-off=DEG,DEG]
+    --pitch=DEG            looking up (+) or down
+    --walk                 on the ground, not flying
+    --retro                the old picture: 360 rows of chunky pixels,
+                           dithered
+    --sky-hour=H --sky-day=D --sky-weather=NAME --sky-minutes=M
+                           the clock, the day of the year, the weather
+                           (clear, fair, partly_cloudy, cloudy, overcast,
+                           foggy, light_rain, rain, storm, light_snow,
+                           snow), a day in M real minutes
+    --cine=NAME:VALUE,... | --cine=off
+                           the cinema pass's numbers, or none
+    --shot=out.png [--frames=N]
+                           a picture once the place is up, then quit
 
 
 CONTROLS
 --------
 
-KEYBOARD AND MOUSE
-
-    WASD / arrows   move (Q, E strafe)      mouse           look
-    Shift           run                     Space           jump
-    F               use                     Ctrl / left     fire
-    Z, C / right    scope up, step its zoom (lance, launcher, potato)
-    1-8 / wheel     weapons                 Esc / P         pause
-    Tab             match score
-
-Click the picture to capture the mouse; Esc gives it back.
-
-PAD. Any pad on any port: a handheld's built-in controller (the
-Anbernic RG557 and its kind), a USB or Bluetooth controller, or both at
-once. Every binding answers to every device. In a browser, a pad the
-engine has no mapping for is given the standard layout when it
-connects. On Android each pad's mapping is taken off as it connects:
-Godot already reports the buttons in order there, and its fallback
-layout threw away the L2 and R2 buttons (an RG557's triggers). The
-triggers fire and jump on whichever form they arrive in: buttons 16
-and 15, or axes 5 and 4, or the mirrored axes 6 and 7.
-
-    left stick / D-pad   move               right stick     look
-    R2                   fire               L2 / X          jump
-    A                    use                B               scope, zoom
-    L1 / R1              previous / next weapon (Y: next)
-    L3 / R3              run                Start / Select  pause
-
-In the menus the D-pad or either stick moves, A takes, B goes back,
-and L1/R1 turn the pause menu's pages; at the terminal A is Enter and
-B is Backspace. In a browser the game learns of a pad on its first
-press, so press something. Android's Back button (often a handheld's
-Select) pauses the game; it never quits.
-
-SET UP PAD, on the title or in the pause menu's footer, is a guided
-wizard for a pad whose buttons land wrong. It asks for each action in
-turn (move, look, fire, jump, use, scope, the guns, run, pause), and
-keeps whatever the pad sends: a button, a stick or a trigger, or a
-key. Waiting 10 seconds or pressing SKIP leaves a step as it was.
-DEFAULTS puts the standard layout back. The menus follow the new map
-too, so the button that is USE is also OK. Along the bottom the wizard
-shows what the pad is sending, raw, which helps tell what a strange
-pad is doing. The map is kept in user://pad_map.cfg.
-
-TOUCH (a phone, or a handheld's glass). A stick appears where the left
-thumb lands; the rest of the glass is look. FIRE, JUMP, USE and SWAP
-sit under the right thumb, AIM and ZOOM further out when the gun has a
-sight, PAUSE in the corner. A pad in use takes the thumb controls off the picture; a finger brings
-them back. A phone held upright is told to ROTATE.
+  mouse          click to look (Esc lets the mouse go)
+  W A S D        fly (and the arrow keys)     E / Q   up / down
+  Shift / Ctrl   four times as fast / a quarter     wheel  flying speed
+  G              walk on the ground or fly
+  [ ]            the hour back or on (Shift: by the hour)
+  T              run the clock or hold it      F   the next weather
+  K              the cinema on or off          P   native or retro picture
+  N              the next place                I   the words on or off
+  F12            a picture to user://          H   these keys
+  pad            left stick flies, right looks, triggers climb, A walks
+  touch          one finger looks, two move (and spread or pinch to climb)
 
 
-THE GAME
---------
-
-THE ISLANDS (godot/scripts/level/islands.gd). Every level is one of
-golf's procedural islands, generated ahead of time and baked into the
-build; NEW GAME lists them.
-
-    ISLAND 0     golf's island_0 without its golf, ruins or crash site:
-                 2.5 km of hills, firs, bushes, ferns and grass, a cliff
-                 all round dropping into a sea of cloud, and 360 people
-                 dropped on it with you (--seed=N moves them)
-    ISLAND -1    ISLAND 0 at half the size (1.25 km across), the same
-                 360 people
-    ISLAND -2    ISLAND 0 at a quarter of the size (625 m across), the
-                 same 360 people, so a crowd wherever you look
-
-A REAL PLACE ON EARTH. Any square of the real world can be an island:
-its ground, its water and its woods out of open map data, a cliff all
-round into the cloud. The first is OESCHINENSEE, 3 km of the Bernese
-Oberland round the lake under the Bluemlisalp (46.4986 N, 7.7270 E).
-
-    python3 tools/earth_fetch.py NAME --lat 46.4986 --lon 7.7270 \
-        --size 3000 --title "TITLE" --register
-
-fetches the height (the AWS Terrain Tiles, or --dem copernicus), what
-is on the ground (ESA WorldCover 10 m) and OpenStreetMap's water,
-roads, rock, scree and forests for a square --size metres on a side,
-and writes godot/island/earth/NAME/: the ground every 2 m, the water's
-level (a lake flat, the sea at 0, a river falling with its valley) and
-its carved bed, twelve surface layers and the plants' densities every
-4 m, and pictures of each in preview/. --register adds its field, its
-scene and its entry in NEW GAME; bake it with tools/bake_island.gd
---map=earth_NAME. The field (EarthField) answers the island system
-out of those grids, so the chunks, LODs, bakes and plants are golf's
-own. The ground is twelve CC0 photo-scanned PBR materials at 2048 px
-(colour, height, normal, roughness, occlusion), height-blended off the
-data and projected triplanar, so a cliff is rock square-on, with the
-beds and water streaks of a limestone wall; the plants are billboards rendered from CC0 3D models at up to
-1024 px, firs and broadleaves mixed by altitude, latitude and OSM's
-leaf type (tools/earth_pack.py makes both; GODOT.txt, "A REAL PLACE ON
-EARTH", has the whole of it).
-
-A real place has its own sky (EnviroSky, after Unity's Enviro): the
-air's scattering for its colours, raymarched volumetric cumulus and
-cirrus that the wind carries, the sun and the moon where they really
-are over the place at its hour and date (the moon's phase the real
-one), stars, and eleven weathers from CLEAR to STORM and SNOW that the
-sky moves between: rain, snow and lightning, fog that thickens, a night
-lit by the moon. The pause menu's WEATHER picks one; --sky-hour=H,
---sky-day=D (of the year), --sky-weather=NAME and --sky-minutes=M (a
-day in M real minutes) set the rest (GODOT.txt, "A REAL PLACE'S SKY").
-
-And it is shot like a film: god rays fanning past its ridges and
-through the gaps in its clouds, the sun's lens flare (a starburst, the
-long blue anamorphic streak, a halo, the iris's ghosts) as far as the
-sun can be seen, bloom, the haze glowing gold when you look into the
-evening light, its mountains' shadows and its clouds' shadows across it,
-and a colour grade (a film's shoulder, teal shadows and amber
-highlights, a vignette, grain). OESCHINENSEE starts on a July evening
-(GODOT.txt, "THE CINEMA").
-
-THE VEGETATION IS VISUAL COVER, and stays that way: you, the crowd and
-every round go through trees, bushes, ferns and grass. A tree you walk
-into dissolves as you reach it. What stops a body is the ground: a crag
-too steep to step up, or the cliff at the coast.
-
-THE WEAPONS, in slots 1 to 8:
-
-    1  FLAMER               a stream that lights people and cars
-    2  EXTINGUISHER         freezes them solid; a frozen one shatters
-    3  CEREBRAL BORE        a seeker that drills in and holds; blood
-                            pours out the whole time, then the head
-                            goes, absurdly: the body torn apart twice
-                            over, brains, eyes and teeth flung up, a
-                            spray like a burst main, pools, and the neck
-                            pumping for three seconds after. Every part
-                            that lands lies about for a minute (meat, a
-                            hand, a foot, an eye, guts, ribs, a heart, a
-                            brain), and one in three of a rocket's do too
-    4  MINIGUN              spins up, eats a belt, leaves holes
-    5  POSITRON LANCE       a charged column with a scope; sears walls
-    6  QUAD LAUNCHER        four heat-seeking rockets, a thermal sight
-    7  ARC MAW              a charge, then lightning that chains; while
-                            it charges a ball of blue energy grows in
-                            the maw with motes streaming into it
-    8  IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
-                            a colour-cycling nuke at the end of it
-                            (OFF FOR NOW: not in the loadout, slot 8
-                            picks nothing; player.gd `owned`)
-
-WHAT THE BIG GUNS LEAVE (godot/shaders/blast_decal.gdshader):
-  - A rocket leaves a pitted crater. Its rim glows molten and cools,
-    and a shockwave ring races out from it in the first half second.
-    Long soot rays spread out from the crater, the shrapnel pocks are
-    hot for a few seconds, and embers stay in the cracks for a while.
-    Soot is thrown up every wall near the blast.
-  - A potato leaves a crater of fused rainbow glass. Its colours cycle
-    for as long as it is there, it glints, and rainbow petals and a
-    white flash ring spread round it.
-  - The arc maw burns Lichtenberg figures, the branching scars real
-    lightning leaves. One goes under everybody a bolt goes through,
-    smaller ones under those its field catches, and one where a branch
-    earths itself or a bolt hits a wall. They crackle blue-white, then
-    fade to char with a ghost of blue in it.
-
-Every gun is loaded when a level is built, and the loading screen's
-warm-up draws them all once, along with every other effect the level
-has built (rockets, sparks, the scopes' feeds), so the first swap or the
-first shot never stops to compile a shader. There are no street lamps
-in the Godot build any more; a lamp in an older map is left out when
-it is built.
-
-PICKUPS, FINITE AMMO AND ARMOUR. The tanks run dry: only the flamer's
-pilot light and the extinguisher fill themselves, and the rest is
-picked up off the ground, walked over — medkits and trauma kits, light
-and heavy armour, boxes and crates of rounds, plasma batteries and cell
-crates, rockets, alien pods for the arc maw, bore crates for the bore, and
-a rare mini nuke that hands you the potato cannon. Armour sits on top of
-health and takes a share of every blow (a third light, half heavy). The
-readout shows health and armour top left and the gun's count top right.
-IDDQD typed, or L1 R1 L2 R2 L3 R3 squeezed on a pad, is invincible and
-infinite ammo (alone, not in a match). The pause menu's DEBUG page has
-INFINITE AMMO and INVINCIBLE, both off by default.
-
-THE PEOPLE. Shoppers and townies watch, flee and panic contagiously;
-they burn, freeze, thaw and come apart. The police and the army (the
-responders) are off for now. A rocket takes people apart; every impact
-is a mark on the ground. The dead do not stay: a shopper goes at once,
-and the blood is what is left.
-
-THE RENDERER is Mobile on Vulkan, on Android and on Linux. On the
-island the marks are quads laid on the ground.
-
-THE PICTURE. The world is drawn at the chunky grid's own size (320
-rows of 2:3 pixels by default), Bayer-dithered one step and snapped to
-an earth palette, then blown up nearest-neighbour, so a 4K window costs
-what a small one does. Every surface is unlit and lit by its own
-shader: depth diminishing, the sky's lift, Doom's 32 light steps, then
-the air. The gun is drawn in a world of its own over the room.
-
-THE LOOK OF THE MENUS AND THE HUD is golf's (github.com/verdictzero/
-golf, docs/DOC_ui_style.md; UiStyle, CutBox): no hue, only greys,
-brightness the only meaning; panels and rows of translucent glass with
-their corners cut at 45 degrees, never rounded; words in Zalando Sans
-Condensed, numbers in digital-7, zero-padded; one white cursor that
-the pad and the mouse both move. The title's logo keeps its size
-and its place whatever the menu under it shows: the logo over the
-menu, the two one group in the middle of the screen. Behind them the
-forest in black and white, dark, with heavy film grain under the
-pixel filter.
-
-THE PAUSE MENU keeps its settings in user://prefs.cfg:
-
-    CONTROLS   look speed, invert look, music
-    PICTURE    render size, pixel rows, pixel aspect, palette snap
-    LEVELS     brightness, contrast, gamma
-    WORLD      time of night (22:00 to 08:00), weather
-    DEBUG      infinite ammo, invincible, and the performance overlay
-               (frame rate and time, draw calls, where the time goes,
-               and the device's renderer, GPU, CPU and OS), on by default
-
-
-NETWORK PLAY
+A REAL PLACE
 ------------
 
-LAN play, a Godot host and Godot clients:
+tools/earth_fetch.py takes a latitude, a longitude and a size and makes a
+square of the real world an island, out of open data fetched over HTTPS
+with no key: the AWS Terrain Tiles (or Copernicus GLO-30) for the height,
+ESA WorldCover for what is on the ground, OpenStreetMap through Overpass
+for the water, the roads, the rock and scree and the woods' leaf type:
 
-    godot --headless --path . -- --server[=PORT] [--map=island0]
-          [--seed=N] [--max=16] [--frags=N] [--minutes=N] [--infinite-ammo]
-    godot --path . -- --join=HOST[:PORT] [--name=NAME]
+    python3 tools/earth_fetch.py NAME --lat .. --lon .. --size METRES \
+        --title "TITLE" --register
+    godot --headless --editor --quit
+    godot --headless --script res://tools/bake_island.gd -- --map=earth_NAME
 
-Or JOIN host:port at the terminal. Deathmatch on an island: the minigun
-and the plasma rifle, pickups in rings round the island's start on
-fixed timers, first to 12 or ten minutes (a tie at the clock goes to
-sudden death), dropped in by pod near the others, a spawn guard that
-ends when you shoot. The simulation is
-35 tics a second; a client predicts and reconciles, the host rewinds
-to where you saw the others when it judges a shot. TAB shows the table.
-Every machine has the island baked; the host draws none of it.
+It writes godot/island/earth/NAME/ (the grids and region.json), the
+place's field and scene and its entry in godot/scripts/level/islands.gd.
+EarthField answers the island system out of the grids, so the chunks,
+LODs, bakes and plants are the island system's own.
+
+THE LOOK:
+  THE GROUND  twelve CC0 photo-scanned PBR materials at 2048 px (colour,
+    height, normal, roughness, occlusion), height-blended off the data and
+    projected triplanar, so a cliff is rock square-on, with the beds and
+    water streaks of a limestone wall; its mountains' shadows and its
+    clouds' shadows across it; caustics on the bed under the water.
+  THE WATER   double-sided: from above, the bed through it bent by the
+    waves and taken by the depth, the cliffs mirrored in it (screen-space
+    reflections), the sun's glint, foam on the shore; from below, Snell's
+    window onto the world above and the water's own colour round it, and
+    everything under the surface fogged.
+  THE PLANTS  billboards rendered from CC0 models at up to 1024 px, lit
+    by the place's ambient light alone and a light baked into each one
+    where it stands (under a canopy, on a slope); they cast no shadows.
+    The grass is as thick as it goes round the eye.
+  THE SKY     EnviroSky, after Unity's Enviro: the air's scattering,
+    raymarched cumulus and cirrus on the wind, the sun and the moon where
+    they are over the place at its hour and date, stars, eleven weathers
+    with rain, snow and lightning.
+  THE CINEMA  god rays past the ridges and through the clouds, the sun's
+    lens flare (a starburst, the blue anamorphic streak, a halo, the
+    iris's ghosts), bloom, the haze glowing gold into the light, and a
+    colour grade (a film's shoulder, teal shadows and amber highlights, a
+    vignette, grain).
+
+OESCHINENSEE is the first: 3 km of the Bernese Oberland round the lake
+under the Bluemlisalp, on a July evening.
+
+The PBR textures and the plant sprites are the earth pack, shared by every
+place (tools/earth_pack.py: textures, models, billboards, meadow).
 
 
 THE REPOSITORY
 --------------
 
-    project.godot, export_presets.cfg   the Godot project (the root)
-    godot/scenes/main.tscn              the one scene
-    godot/scripts/main.gd               boot, title, game, pause
-    godot/scripts/pad.gd                the pad: any device, the menus
-    godot/scripts/core/                 U: maths, fonts, helpers
-    godot/scripts/level/                the Level, and the island as one:
-                                        its ground, collision, sight
-    godot/island/                       golf's island system: field,
-                                        mesher, world, bakes, plants, sky
-    godot/scripts/game/                 the simulation: actors, states,
-                                        weapons, effects, vehicles,
-                                        weather
-    godot/scripts/render/               the picture: lofi, standees,
-                                        decals, particles, tracers,
-                                        the gun, scopes, HUD
-    godot/scripts/net/                  the wire, host, client, match
-    godot/scripts/title/, ui/           title, pause, terminal, touch
-    godot/scripts/audio/                sound and music
-    godot/shaders/                      the shaders
-    godot/data/                         palette, LUT, texture list
-    godot/tests/                        the headless suites
-    assets/                             the game's art: people, models,
-                                        textures, skies, fonts, music,
-                                        sfx, logo
-    tools/                              build, bake and test scripts
-    GODOT.txt                           the Godot build in detail
-    HISTORY.txt                         the old README: the design diary
-                                        of the JavaScript build, kept
-    TOWN.txt, SIGHT.txt                 design notes for the town and
-                                        for fog, sky and occlusion
+  godot/scenes/main.tscn, godot/scripts/main.gd   the viewer: a place,
+                         the camera, the keys, --shot
+  godot/scripts/viewer/  the camera (fly_camera.gd), the words (hud.gd)
+  godot/scripts/render/lofi.gd, godot/shaders/lofi.gdshader
+                         the picture: the grade, grain, the retro pixels
+  godot/scripts/level/islands.gd   the places
+  godot/island/scripts/world/      the island system: the field
+                         (SCRIPT_island_field.gd, SCRIPT_earth_field.gd),
+                         the mesher, the world's streaming, the plants,
+                         the bakes, the water (SCRIPT_earth_dress.gd), the
+                         sun's shadows (SCRIPT_earth_sun.gd), the cinema
+                         (SCRIPT_cinema_post.gd)
+  godot/island/scripts/SCRIPT_enviro_sky.gd   the sky, the clock, the
+                         weather
+  godot/island/shaders/  every surface's shader
+  godot/island/earth/    the real places and the earth pack
+  godot/tests/           the headless suites (tools/godot-test.sh)
+  tools/                 earth_fetch.py, earth_pack.py, earth_billboards.gd,
+                         earth/ (the scene and the sky's noise),
+                         bake_island.gd, the builds
 
-
-
-TOOLS
------
-
-    tools/godot-test.sh        the test suites
-    tools/bake_island.gd       bake the islands (terrain, plants, ground)
-    tools/build-android.sh     export the Android APK
-    tools/ci-android.sh        the same on a clean machine (the android
-                               workflow, which puts it up as a release)
-    tools/build-linux.sh       export the Linux x86_64 build (the linux
-                               workflow puts it up as a release)
-    tools/earth_fetch.py       a real place as an island, out of open map
-                               data (height, land cover, OpenStreetMap)
-    tools/earth_pack.py        the real places' PBR ground textures and
-                               billboard plants (CC0), with
-                               tools/earth_billboards.gd
-    tools/make-icons.py        every icon from the MEWD logo
-    tools/prep-*.mjs, .py      crunch outside art into assets/ (people,
-                               troops, models)
-
-
-TESTS
------
-
-    sh tools/godot-test.sh
-
-runs every headless suite in turn (bake the islands first) and exits
-non-zero if any fails:
-
-    weapons    every gun against real people on the island
-    island     the ground off the bake, you and the crowd on it, the
-               coast, the hills, rounds and blasts into the ground
-    net        the wire's bytes, a match over loopback, a real socket
-               host with two clients
-    death      the dead removed, and their sprites with them
-    pad        the pad's bindings on every device, the menus' reading,
-               a map set up by hand, the SET UP PAD wizard driven
-    ui         the house style: no hue, cut corners, the title's logo
-               the same size and place on every page of its menu,
-               logo and menu centred as a group, the title's picture
-               black and white and grained
-
-With xvfb, `--shot=out.png` renders a picture of anything for checking
-by eye; godot/tests/island_shot.gd pictures a gun held on a crowd,
-godot/tests/ui_shot.gd any screen of the menus.
-
-
-RELEASES
---------
-
-.github/workflows/android.yml and linux.yml build on every push to main
-or claude/godot-rewrite, bake the islands (kept between runs in the
-Actions cache), and replace the rolling releases "android" and "linux".
+GODOT.txt is the changelog: what each change did and why.
 
 
 CREDITS AND LICENCES
 --------------------
 
-The logo, the SWAT and army sheets, the minigun, the vans, the APC,
-the potato cannon, the ground and plant textures (github.com/
-verdictzero/vandre) and the crowd's drawings (github.com/verdictzero/
-galvarius) are the user's own. The fire extinguisher rifle and the
-cerebral bore are Vaportrash's, off Sketchfab, CC-BY-4.0; the
-flamethrower is Vaportrash's too and carries no licence. Michroma
-and Zalando Sans (the menus' words) are SIL OFL, as is PromptFont;
-digital-7 (the numbers) is Style-7's freeware; those three came with
-golf. The matcaps (assets/matcaps) are nidorx's. three.js r160 is MIT. Godot is MIT. The
-night-sky photograph in assets/sky is Polyhaven's, CC0, and no longer
-shipped.
-
-The real places' ground textures are Poly Haven's and ambientCG's, CC0,
-and their plants are rendered from Poly Haven's CC0 models
-(godot/island/earth/textures/layers.json and sprites/sprites.json say
-which). OESCHINENSEE's data: heights from the Mapzen Terrain Tiles on
-AWS (SRTM and others); land cover © ESA WorldCover project 2021 /
-contains modified Copernicus Sentinel data (2021) processed by the ESA
-WorldCover consortium, CC BY 4.0; map data © OpenStreetMap
-contributors, ODbL. Each region's region.json carries its own
-attribution.
-
-
-WHAT IS NOT DONE
-----------------
-
-  the fire that spread — fuel grid, haze, the wood catching, the
-    brigade — was taken out of the Godot build at the user's request;
-    people and cars still burn
-  no save, no second level, no level flow; CONTINUE and LOAD GAME on
-    the title shake their heads
-  only the SWAT and the army fight back
-  a match shares the players and nothing else: crates and cars are
-    each machine's own
-  a real decal is lit by the light where it is, not per pixel, and the
-    thermal sight does not see them; past eight on one tile's mesh the
-    rest are flat quads
-  the pad's standard-layout fallback (in a browser) is a guess for a
-    controller the engine does not know; SET UP PAD fixes a strange one
-
-Everything else the Godot build leaves out is listed at the end of
-GODOT.txt.
+The island system and golf's island, its ground and plant textures, come
+from golf (the user's own). The real places' ground textures are Poly
+Haven's and ambientCG's, CC0, and their plants are rendered from Poly
+Haven's CC0 models (godot/island/earth/textures/layers.json and
+sprites/sprites.json say which). OESCHINENSEE's data: heights from the
+Mapzen Terrain Tiles on AWS (SRTM and others); land cover © ESA
+WorldCover project 2021 / contains modified Copernicus Sentinel data
+(2021) processed by the ESA WorldCover consortium, CC BY 4.0; map data ©
+OpenStreetMap contributors, ODbL. Each region's region.json carries its
+own attribution. DejaVu (the words) is under its own licence
+(assets/fonts/dejavu/LICENSE.txt). Godot is MIT.

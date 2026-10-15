@@ -15,9 +15,8 @@ extends Node3D
 #   THE WEATHER: presets (EnviroWeather, godot/island/sky/enviro/weather/) from
 #     CLEAR through FAIR, PARTLY CLOUDY, CLOUDY and OVERCAST to FOGGY, RAIN,
 #     STORM and SNOW, the sky always on its way from where it was to the one
-#     asked for, over `transition_seconds`. The pause menu's WEATHER chooses
-#     (clear the island's own, overcast, rain, mist as foggy); an island's
-#     Islands entry ("sky") or --sky-weather= picks the island's own.
+#     asked for, over `transition_seconds`. An island's Islands entry ("sky",
+#     handed over as `options`), --sky-weather= or the viewer's F key picks.
 #   THE SKY ITSELF: SHADER_sky_enviro.gdshader, every number of which is set
 #     here — the air's scattering, the clouds raymarched and lit, the stars,
 #     the moon, lightning.
@@ -25,15 +24,12 @@ extends Node3D
 #     second, gives the sunlight reaching the ground, the sky's light, the
 #     bounce and the horizon's colour, and those become the tod_* globals every
 #     island surface is lit by (SHADERINC_island_light), the fog's tint
-#     (tod_haze_tint) and density (tod_fog_density, tod_fog_near), the plants'
-#     tint (tod_art_tint) and the crowd's light (`world_light`, which
-#     Game._island_light asks for).
+#     (tod_haze_tint) and density (tod_fog_density, tod_fog_near) and the
+#     plants' tint (tod_art_tint).
 #   WHAT FALLS: rain and snow round the eye, and lightning in a storm — a flash
 #     over the whole sky and the bolt in it.
 
 const WEATHER_DIR := "res://godot/island/sky/enviro/weather"
-## The pause menu's WEATHER, as presets ("clear" is the island's own).
-const FROM_MENU := {"overcast": "overcast", "rain": "rain", "mist": "foggy"}
 
 @export var sky_material: ShaderMaterial
 @export var world_environment: NodePath = ^"../WorldEnvironment"
@@ -58,8 +54,9 @@ const FROM_MENU := {"overcast": "overcast", "rain": "rain", "mist": "foggy"}
 @export_group("Weather")
 @export var weather := "fair"
 @export var transition_seconds := 30.0
-## Follow the pause menu's WEATHER.
-@export var follow_menu := true
+## The island's own sky, as its Islands entry has it ({hour, day, weather,
+## day_minutes}): set before the node enters the tree (the viewer does).
+var options := {}
 
 @export_group("Island")
 ## The island materials' own fog colour, which tod_haze_tint multiplies.
@@ -80,7 +77,6 @@ var _light := {}
 var _flash := 0.0
 var _bolt := 0.0
 var _next_strike := 8.0
-var _game: Node = null
 var _rain: GPUParticles3D = null
 var _snow: GPUParticles3D = null
 var _forced_weather := ""
@@ -101,7 +97,6 @@ func _ready() -> void:
 	_now = _values(weather)
 	_target = _now.duplicate()
 	_target_id = weather
-	_game = _find_game()
 	_make_falls()
 	var we := get_node_or_null(world_environment) as WorldEnvironment
 	if we != null and sky_material != null and we.environment != null and we.environment.sky != null:
@@ -142,18 +137,14 @@ func _take_place() -> void:
 		utc_offset = roundf(longitude / 15.0)
 
 
-## --sky-hour=H, --sky-day=D, --sky-weather=ID, --sky-minutes=M; and the
-## island's own "sky" in its Islands entry.
+## The island's own "sky" (`options`); then --sky-hour=H, --sky-day=D,
+## --sky-weather=ID and --sky-minutes=M over it.
 func _take_options() -> void:
-	var g := _find_game()
-	if g != null:
-		var spec: Variant = g.get("island_spec")
-		if spec is Dictionary and (spec as Dictionary).has("sky"):
-			var s: Dictionary = spec.sky
-			hour = float(s.get("hour", hour))
-			day_of_year = int(s.get("day", day_of_year))
-			weather = String(s.get("weather", weather))
-			day_minutes = float(s.get("day_minutes", day_minutes))
+	if not options.is_empty():
+		hour = float(options.get("hour", hour))
+		day_of_year = int(options.get("day", day_of_year))
+		weather = String(options.get("weather", weather))
+		day_minutes = float(options.get("day_minutes", day_minutes))
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sky-hour="):
 			hour = float(a.substr(11))
@@ -164,15 +155,6 @@ func _take_options() -> void:
 			_forced_weather = weather
 		elif a.begins_with("--sky-minutes="):
 			day_minutes = float(a.substr(14))
-
-
-func _find_game() -> Node:
-	var n := get_parent()
-	while n != null:
-		if "weather" in n and "island_spec" in n:
-			return n
-		n = n.get_parent()
-	return null
 
 
 func _values(id: String) -> Dictionary:
@@ -211,12 +193,7 @@ func _update(dt: float, force: bool) -> void:
 		if hour >= 24.0:
 			hour -= 24.0
 			day_of_year = day_of_year % 365 + 1
-	# the pause menu's choice, when it has made one
 	var want := weather
-	if follow_menu and _forced_weather == "" and _game != null:
-		var gw: Variant = _game.get("weather")
-		if gw != null and "kind" in gw:
-			want = FROM_MENU.get(String(gw.kind), weather)
 	if want != _target_id:
 		_target_id = want
 		_target = _values(want)
@@ -548,18 +525,14 @@ func _push_globals() -> void:
 		we.environment.ambient_light_energy = 1.0
 
 
-## For the crowd, the gore and the sparks (Game._island_light): how lit the
-## world is, the floor under that, and the colour the air goes far off.
-func world_light() -> Dictionary:
+## How lit the island is now, 0 to 1 (a clear noon about 1): the sun on the
+## ground and the sky's light, through the clouds.
+func light_level() -> float:
 	if _light.is_empty():
-		return {}
+		return 1.0
 	var L := _light
 	var lv: Vector3 = L.sun * maxf(L.sun_dir.y, 0.0) * 0.6 + L.sky
-	var level := clampf(lv.dot(Vector3(0.3, 0.5, 0.2)) / 0.8, 0.06, 1.0)
-	var hz: Vector3 = L.horizon
-	return {"sky_light": level, "min_light": clampf(level * 0.85, 0.05, 0.85),
-		"air_color": Color(hz.x, hz.y, hz.z), "air_near": 700.0 / maxf(float(_now.fog_density), 0.2),
-		"air_far": 3200.0 / maxf(float(_now.fog_density), 0.2)}
+	return clampf(lv.dot(Vector3(0.3, 0.5, 0.2)) / 0.8, 0.06, 1.0)
 
 
 func _push_sky() -> void:

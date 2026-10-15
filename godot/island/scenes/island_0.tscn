@@ -28,7 +28,6 @@
 
 [ext_resource type="Material" path="res://godot/island/materials/MAT_grass_billboard.tres" id="19_grassmat"]
 
-[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_burn.gd" id="20_vegburn"]
 
 [ext_resource type="Material" path="res://godot/island/materials/MAT_veg_billboard_w3.tres" id="27_vegmat"]
 
@@ -114,16 +113,6 @@ script = ExtResource("18_grass")
 island_world_path = NodePath("../IslandWorld")
 sprites = [ExtResource("39_grass")]
 material = ExtResource("19_grassmat")
-
-[node name="VegBurn" type="Node3D" parent="."]
-script = ExtResource("20_vegburn")
-burn = 0.0
-advance = false
-burn_rate = 0.02
-stump = 0.0
-stump_rate = 0.0
-front_radius = 0.0
-front_speed = 0.0
 
 [node name="TimeOfDay" type="Node3D" parent="." node_paths=PackedStringArray("sun_pivot", "world_environment")]
 script = ExtResource("14_todbus")

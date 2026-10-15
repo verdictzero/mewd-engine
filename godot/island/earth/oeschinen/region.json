@@ -132,8 +132,8 @@
   {
    "id": 15,
    "kind": "lake",
-   "level": 1534.71,
-   "area_m2": 728,
+   "level": 1534.51,
+   "area_m2": 704,
    "half_width_m": 13.3
   },
   {
@@ -164,7 +164,7 @@
   "osm": "OpenStreetMap contributors (ODbL), via Overpass"
  },
  "attribution": "Height: Mapzen Terrain Tiles. Land cover: \u00a9 ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium. Map data: \u00a9 OpenStreetMap contributors.",
- "digest": "6323fbd36129318ddb1e8efe",
+ "digest": "91062372dca581678550652a",
  "made": "2026-10-15",
  "tool": "tools/earth_fetch.py"
 }

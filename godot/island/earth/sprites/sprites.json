@@ -164,6 +164,21 @@
    "name": "SPRITE_earth_grass_dandelion_01_0_0",
    "class": "grass",
    "model": "dandelion_01"
+  },
+  {
+   "name": "SPRITE_earth_meadow_meadow_0",
+   "class": "meadow",
+   "model": "grass_medium_01"
+  },
+  {
+   "name": "SPRITE_earth_meadow_meadow_1",
+   "class": "meadow",
+   "model": "grass_medium_01"
+  },
+  {
+   "name": "SPRITE_earth_meadow_meadow_2",
+   "class": "meadow",
+   "model": "grass_medium_01"
   }
  ],
  "licence": "rendered from CC0 Poly Haven models"

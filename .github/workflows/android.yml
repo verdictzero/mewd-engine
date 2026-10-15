@@ -59,7 +59,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: godot/island/data/bake
-          key: island-bake-${{ hashFiles('godot/island/**', 'godot/scripts/level/island_ground.gd', 'godot/scripts/level/islands.gd', 'tools/bake_island.gd') }}
+          key: island-bake-${{ hashFiles('godot/island/**', 'godot/scripts/level/islands.gd', 'tools/bake_island.gd') }}
       - name: build the APK
         env:
           MEWD_KEYSTORE_B64: ${{ secrets.MEWD_KEYSTORE_B64 }}

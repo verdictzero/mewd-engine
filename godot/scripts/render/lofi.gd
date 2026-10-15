@@ -1,60 +1,49 @@
-## MEWD — the lo-fi picture (js/lofi.js, LofiPipeline, and its settings
-## in js/main.js).
+## THE PICTURE: the world drawn into a buffer of its own (`world`, a
+## SubViewport the place is added under), then filtered onto the screen
+## (lofi.gdshader): the island's exposure and tonemap shoulder, the meter's
+## (THE METER, below), its colour grade (Islands "grade"), film grain, and —
+## in the RETRO picture — a
+## chunky grid of square pixels, the Bayer dither and the earth palette.
 ##
-## The world drawn into a buffer of its own (360 rows by default); the
-## finished frame put onto a chunky grid of PIXELS, 360 rows of square
-## pixels by default, whole screen pixels each (_resize); the Bayer DITHER, one
-## step; and every pixel SNAPPED to the earth palette (lofi.gdshader).
-## The buffer is `world`, a SubViewport the game is added under.
-##
-## FOR SPEED, at the user's request, and NEAREST EVERYWHERE: by default
-## (RENDER_GRID) the world is drawn exactly as many pixels across as the
-## grid has columns, the filter runs ONCE PER CHUNKY PIXEL into a
-## grid-sized buffer of its own (`filter`), and that is blown up to the
-## window nearest-neighbour. A 4K window costs what a 320-row one does.
-## The HUD goes on a layer over this one and is not filtered — the
-## readout is not part of the picture, as in the web build.
+## NATIVE (the default): the world drawn at the screen's own resolution and
+## the filter run once a pixel, only the grade on it. RETRO: the world drawn
+## `render_rows` high, the filter run once per chunky pixel into a grid-sized
+## buffer (`filter`), blown up to the window nearest-neighbour in whole screen
+## pixels, under an LCD grid where the chunky pixels are big enough.
 class_name Lofi
 extends CanvasLayer
 
-## the world's buffer as wide as the chunky grid (the default)
+## the world's buffer as wide as the chunky grid
 const RENDER_GRID := -1
-## the defaults, at the user's request: square pixels, 360 rows, the
-## world drawn at 360, under the LCD grid (pause.gd DEFAULTS, at the
-## user's request)
-const RENDER := 360
-const PIXELS := 360
-const PIXEL_ASPECT := 1.0
 
 var world: SubViewport
-## the gun: a world of its own, drawn over the room and under the filter
-var gun: SubViewport
-## the filtered frame, one texel per chunky pixel
+## the filtered frame
 var filter: SubViewport
 var filter_rect: ColorRect
 var rect: TextureRect
 var mat: ShaderMaterial
-## THE GUN OVER THE ROOM, UNDER MOBILE: the room's picture is drawn in
-## the gun's own world first, behind everything (gun_room.gdshader), and
-## the gun straight onto it, so the filter reads one picture.
-## Compatibility composites the two by the gun's alpha instead — which
-## Mobile does not keep: its 3D targets hold two bits of alpha, and on a
-## phone's GPU (an Adreno) whole pieces of a solid gun came out as holes
-## with the room showing through.
-var gun_on_room := false
-var render_rows := RENDER
-var pixel_rows := PIXELS
-var pixel_aspect := PIXEL_ASPECT
-## THE PIXEL GRID (pixel_grid.gdshader, at the user's request: "the
-## ability to choose either pixel grid lines, LCD grid lines, or
-## neither"): "lcd" (the panel: gaps and red, green and blue stripes),
-## "lines" (the gaps alone, a plain grid) or "off". Either is drawn only
-## where a chunky pixel is three screen pixels or more (the lower PIXELS
-## settings); a line would eat too much of anything smaller.
+## rows the world is drawn at (0: the screen's), rows of chunky pixels
+## (0: none, the screen's own pixels), and their shape
+var render_rows := 0
+var pixel_rows := 0
+var pixel_aspect := 1.0
+## THE PIXEL GRID (pixel_grid.gdshader): "lcd", "lines" or "off"
 var grid_mode := "lcd"
 var grid_mat: ShaderMaterial
-## what the grid is drawing now (0 off, 1 gaps, 2 LCD), for the tests
 var grid_strength := 0.0
+var _snap := 0.0
+var _palette := true
+var _grade_grain := false
+## THE METER (lofi_meter.gdshader): the picture's brightness, read as a
+## camera's meter reads it and eased toward a frame at a time, into one pixel
+## (`meter`; `meter_hold` keeps last frame's for the easing), and the
+## exposure opened or stopped down toward the island's key by it
+## (lofi.gdshader `metered`; Islands "meter").
+var meter: SubViewport
+var meter_hold: SubViewport
+var meter_mat: ShaderMaterial
+const METER_REST := {"key": 0.4, "strength": 0.6, "least": 0.7, "most": 2.5}
+
 
 func _init() -> void:
 	layer = 0
@@ -65,38 +54,6 @@ func _init() -> void:
 	world.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	world.msaa_3d = Viewport.MSAA_DISABLED
 	add_child(world)
-	gun = SubViewport.new()
-	U.raw_out(gun)
-	gun.name = "Gun"
-	gun.own_world_3d = true
-	gun.transparent_bg = true
-	gun.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	gun.msaa_3d = Viewport.MSAA_DISABLED
-	add_child(gun)
-	gun_on_room = RenderingServer.get_rendering_device() != null
-	if gun_on_room:
-		gun.transparent_bg = false
-		# the room: a quad over the whole view, put at the far plane by its
-		# own vertex shader, in the gun's world — so the gun, nearer, is
-		# drawn over it by the depth test, and its glass blends onto it
-		var q := QuadMesh.new()
-		q.size = Vector2(2, 2)
-		var rm := ShaderMaterial.new()
-		rm.shader = preload("res://godot/shaders/gun_room.gdshader")
-		q.material = rm
-		var room := MeshInstance3D.new()
-		room.name = "Room"
-		room.mesh = q
-		room.extra_cull_margin = 16384.0
-		room.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gun.add_child(room)
-		# an eye that is always there: with no camera (the title, the
-		# editor — no gun yet) the viewport draws nothing, and the room
-		# with it came out black. The gun's own camera takes over while
-		# it is held, and this one again when it goes.
-		var eye := Camera3D.new()
-		eye.name = "RoomEye"
-		gun.add_child(eye)
 	filter = SubViewport.new()
 	filter.name = "Filter"
 	filter.disable_3d = true
@@ -109,6 +66,13 @@ func _init() -> void:
 	mat.set_shader_parameter("lut", U.col(preload("res://godot/data/palette_lut.png")))
 	filter_rect.material = mat
 	filter.add_child(filter_rect)
+	meter_mat = ShaderMaterial.new()
+	meter_mat.shader = preload("res://godot/shaders/lofi_meter.gdshader")
+	meter = _pixel("Meter", meter_mat)
+	var hold_mat := ShaderMaterial.new()
+	hold_mat.shader = meter_mat.shader
+	hold_mat.set_shader_parameter("hold", true)
+	meter_hold = _pixel("MeterHold", hold_mat)
 	# (black round the picture, where the screen is not a whole number of
 	# chunky pixels: _resize)
 	var border := ColorRect.new()
@@ -117,7 +81,6 @@ func _init() -> void:
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(border)
 	rect = TextureRect.new()
-	# (placed and sized by _resize, in whole screen pixels)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -126,54 +89,71 @@ func _init() -> void:
 	grid_mat.shader = preload("res://godot/shaders/pixel_grid.gdshader")
 	rect.material = grid_mat
 	add_child(rect)
-	# the picture a third brighter, at the user's request (js/main.js
-	# DEFAULT_PREFS bright 1.35), before the dither and the snap
-	set_picture(1.35, 1.0, 1.0)
+	set_picture(1.0, 1.0, 1.0)
+	set_filtered(false)
+
+
+# a one-pixel buffer drawn by `m`, every frame
+func _pixel(n: String, m: ShaderMaterial) -> SubViewport:
+	var v := SubViewport.new()
+	v.name = n
+	v.disable_3d = true
+	v.size = Vector2i(1, 1)
+	v.transparent_bg = true
+	v.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var r := ColorRect.new()
+	r.size = Vector2(1, 1)
+	r.material = m
+	v.add_child(r)
+	add_child(v)
+	return v
+
 
 func _ready() -> void:
 	rect.texture = filter.get_texture()
 	mat.set_shader_parameter("world_tex", U.col(world.get_texture()))
-	mat.set_shader_parameter("gun_tex", U.col(gun.get_texture()))
-	mat.set_shader_parameter("gun_on_room", gun_on_room)
-	if gun_on_room:
-		((gun.get_node("Room") as MeshInstance3D).mesh.material as ShaderMaterial).set_shader_parameter("room", world.get_texture())
+	meter_mat.set_shader_parameter("world_tex", world.get_texture())
+	meter_mat.set_shader_parameter("held", meter_hold.get_texture())
+	(meter_hold.get_child(0).material as ShaderMaterial).set_shader_parameter("held", meter.get_texture())
+	mat.set_shader_parameter("meter_tex", meter.get_texture())
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 
-## THE PICTURE NEVER STRETCHES BY A FRACTION, at the user's request
-## ("only mathematically acceptable ratios that won't result in
-## distortion"): every chunky pixel is a whole number of the SCREEN's
-## own pixels across and down, so no column or row comes out wider than
-## its neighbours. The scale is picked in physical pixels (the window is
-## stretched as canvas items, so the canvas's units are not the screen's):
-## the whole number that brings the grid's rows nearest PIXELS — 360 rows
-## asked for is 360 on a 1080 screen (x3), 360 on a 720 one (x2), 360 on
-## a 1440 one (x4). The columns are as many whole pixels as fit at that
-## scale; what is left over (less than one chunky pixel each way) is a
-## black border, centred. A non-square PIXEL ASPECT is a whole number of
-## screen pixels across too, the nearest to the asked ratio. The world is
-## then drawn RENDER rows (360 by default, never more than the screen's
-## own) at exactly the grid's aspect, and the filter boxes it down.
+
+## NATIVE (false) or RETRO (true): the screen's own pixels and nothing but
+## the grade, or 360 rows of square chunky pixels, dithered.
+func set_retro(on: bool) -> void:
+	render_rows = 360 if on else 0
+	pixel_rows = 360 if on else 0
+	set_filtered(on)
+	_resize()
+
+
+func is_retro() -> bool:
+	return pixel_rows > 0
+
+
+## THE PICTURE NEVER STRETCHES BY A FRACTION: every chunky pixel is a whole
+## number of the SCREEN's own pixels across and down; what is left over is a
+## black border, centred. The world is drawn `render_rows` rows (never more
+## than the screen's own) at the grid's aspect, and the filter boxes it down.
 func _resize() -> void:
+	if not is_inside_tree():
+		return
 	var vp := get_viewport()
 	var win := Vector2(vp.get_visible_rect().size)
 	if win.y <= 0.0:
 		return
-	# canvas units to screen pixels
 	var k := vp.get_final_transform().get_scale().x
 	if k <= 0.0:
 		k = 1.0
 	var phys := (win * k).floor()
-	# the rows wanted: PIXELS, or (pixels off) the render's rows, or the screen's
 	var want := float(pixel_rows) if pixel_rows > 0 else (float(render_rows) if render_rows > 0 else phys.y)
-	# the whole-number scale whose rows come nearest it
 	var sy := maxi(1, floori(phys.y / want))
 	if sy + 1 <= int(phys.y) and absf(phys.y / (sy + 1) - want) < absf(phys.y / sy - want):
 		sy += 1
 	var sx := maxi(1, roundi(sy * pixel_aspect)) if pixel_rows > 0 else sy
 	var grid := Vector2i(maxi(1, floori(phys.x / sx)), maxi(1, floori(phys.y / sy)))
-	# the buffer: the grid's own (RENDER_GRID), RENDER rows, or the
-	# screen's, at the grid's shape exactly — never more rows than it has
 	var shape := float(grid.x * sx) / float(grid.y * sy)
 	var buf_rows: float
 	if render_rows == RENDER_GRID:
@@ -186,30 +166,28 @@ func _resize() -> void:
 	if render_rows == RENDER_GRID:
 		buf = grid
 	world.size = buf
-	gun.size = buf
 	filter.size = grid
 	filter_rect.size = Vector2(grid)
 	mat.set_shader_parameter("grid_size", U.col(Vector2(grid)))
-	# how many buffer pixels one chunky pixel covers, 1..4 each way
 	var tx := clampf(roundf(buf.x / float(grid.x)), 1.0, 4.0)
 	var ty := clampf(roundf(buf.y / float(grid.y)), 1.0, 4.0)
 	mat.set_shader_parameter("taps", U.col(Vector2(tx, ty)))
-	# and the picture on the screen: whole pixels, centred, in canvas units
 	var shown := Vector2(grid.x * sx, grid.y * sy)
 	var at := ((phys - shown) * 0.5).floor()
 	rect.position = at / k
 	rect.size = shown / k
 	_grid(Vector2(sx, sy), grid)
 
-## The grid for this many screen pixels a chunky pixel: 0 off, 1 the
-## gaps alone, 2 the LCD panel.
+
+## The grid for this many screen pixels a chunky pixel: 0 off, 1 the gaps
+## alone, 2 the LCD panel.
 func _grid(cell: Vector2, grid: Vector2i) -> void:
 	var small := minf(cell.x, cell.y)
 	var m := 0
 	match grid_mode:
 		"off": m = 0
-		"lines", "soft": m = 1 if small >= 3.0 else 0
-		_: m = 2 if small >= 3.0 else 0     # "lcd" (and an old "auto")
+		"lines": m = 1 if small >= 3.0 else 0
+		_: m = 2 if small >= 3.0 else 0
 	if pixel_rows <= 0:
 		m = 0
 	grid_strength = float(m)
@@ -217,38 +195,50 @@ func _grid(cell: Vector2, grid: Vector2i) -> void:
 	grid_mat.set_shader_parameter("cell_px", cell)
 	grid_mat.set_shader_parameter("mode", m)
 
-## brightness, contrast, gamma — applied before the dither and the snap,
-## so a brighter picture is still made of the palette's colours
+
+## brightness, contrast, gamma — before the dither and the snap
 func set_picture(bright: float, contrast: float, gamma: float) -> void:
 	mat.set_shader_parameter("picture", U.col(Vector3(bright, contrast, gamma)))
 
-## THE PALETTE GIVES WAY, by k (0..1): the potato cannon's nuke is too
-## bright for it, and every colour it burns through gets onto the glass
-## (game/potatoes.gd). 0 puts the snap back as it was.
-func set_unsnap(k: float) -> void:
-	mat.set_shader_parameter("snap", U.col(_snap * (1.0 - clampf(k, 0.0, 1.0))))
 
-## AN ISLAND'S OWN PICTURE (Islands.LIST): its exposure and the
-## tonemap's shoulder (lofi.gdshader), and whether it is snapped to the
-## earth palette — `snap_pref`, the player's FILTER setting, and the
-## island's "palette". Every island that asks nothing is drawn as before.
-func for_island(spec: Dictionary, snap_pref: bool) -> void:
+## AN ISLAND'S OWN PICTURE (Islands.LIST): its exposure and the tonemap's
+## shoulder, its meter, whether the retro picture snaps it to the earth
+## palette (its "palette"), and its grade.
+func for_island(spec: Dictionary) -> void:
 	mat.set_shader_parameter("exposure", U.col(float(spec.get("exposure", 1.0))))
+	set_meter_spec(spec.get("meter", {}))
 	mat.set_shader_parameter("knee", U.col(float(spec.get("knee", 0.0))))
-	_snap = 1.0 if (snap_pref and bool(spec.get("palette", true))) else 0.0
-	mat.set_shader_parameter("snap", U.col(_snap))
-	mat.set_shader_parameter("dither", U.col(1.0 if snap_pref else 0.0))
+	_palette = bool(spec.get("palette", true))
+	set_filtered(pixel_rows > 0)
 	set_grade(spec.get("grade", {}))
 
-## THE GRADE (lofi.gdshader, at the user's request: "colorgrading"): an
-## island's Islands "grade", a dictionary of the shader's grade_* numbers
-## without the prefix ("filmic", "warmth", "tint", "contrast", "saturation",
-## "vibrance", "shadows", "highlights" (colours), "split", "vignette") and
-## "grain" (film grain, as the title's). Empty: none, every number back to
-## nothing.
+
+## THE METER'S NUMBERS: an island's Islands "meter" — "key" (the picture's
+## brightness it opens or stops down toward, 0..1 as the screen shows it),
+## "strength" (how far toward it: 1 all the way, 0 not at all), "least" and
+## "most" (the bounds on what it does to the exposure). Empty: METER_REST.
+## {"off": true}: none.
+func set_meter_spec(m: Dictionary) -> void:
+	mat.set_shader_parameter("meter_on", U.col(0.0 if bool(m.get("off", false)) else 1.0))
+	mat.set_shader_parameter("meter_key", U.col(float(m.get("key", METER_REST.key))))
+	mat.set_shader_parameter("meter_strength", U.col(float(m.get("strength", METER_REST.strength))))
+	mat.set_shader_parameter("meter_range", U.col(Vector2(float(m.get("least", METER_REST.least)),
+			float(m.get("most", METER_REST.most)))))
+
+
+## How fast the meter follows the picture, a share a frame: under 0 it
+## forgets (nothing worth reading), 1 takes each frame's reading as it is.
+func set_meter_rate(k: float) -> void:
+	meter_mat.set_shader_parameter("rate", k)
+
+
+## THE GRADE (lofi.gdshader): an island's Islands "grade", a dictionary of
+## the shader's grade_* numbers without the prefix ("filmic", "warmth",
+## "tint", "contrast", "saturation", "vibrance", "shadows", "highlights"
+## (colours), "split", "vignette", "lift") and "grain" (film grain). Empty: none.
 const GRADE_REST := {"filmic": 0.0, "warmth": 0.0, "tint": 0.0, "contrast": 0.0,
 	"saturation": 1.0, "vibrance": 0.0, "shadows": Color(0.0, 0.5, 0.55),
-	"highlights": Color(1.0, 0.62, 0.3), "split": 0.0, "vignette": 0.0}
+	"highlights": Color(1.0, 0.62, 0.3), "split": 0.0, "vignette": 0.0, "lift": 0.0}
 func set_grade(g: Dictionary) -> void:
 	mat.set_shader_parameter("grade", U.col(0.0 if g.is_empty() else 1.0))
 	for k in GRADE_REST:
@@ -256,41 +246,22 @@ func set_grade(g: Dictionary) -> void:
 		if v is Color:
 			v = Vector3(v.r, v.g, v.b)
 		mat.set_shader_parameter("grade_" + k, U.col(v))
-	# (the grain is the grade's only while a grade gave it: the title's own
-	# is the title's, set by Main)
+	# (the grain is the grade's only while a grade gave it)
 	if g.has("grain"):
 		set_grain(float(g.grain))
 		_grade_grain = true
 	elif _grade_grain:
 		set_grain(0.0)
 		_grade_grain = false
-var _grade_grain := false
 
-## the screen swimming and the colours spinning, 0..1 (lofi.gdshader
-## `wobble`: a unicorn's beam in the eye)
-var _wob := 0.0
-func set_wobble(k: float) -> void:
-	if k <= 0.0 and _wob <= 0.0:
-		return
-	_wob = k
-	mat.set_shader_parameter("wobble", U.col(k))
-	mat.set_shader_parameter("now", U.col(fmod(Time.get_ticks_msec() / 1000.0, 1000.0)))
 
-func set_tint(c: Color) -> void:
-	mat.set_shader_parameter("tint", U.col(Vector3(c.r, c.g, c.b)))
-
-## THE TITLE'S LOOK (lofi.gdshader, at the user's request): the picture in
-## black and white, 0..1 ...
-func set_mono(k: float) -> void:
-	mat.set_shader_parameter("mono", U.col(clampf(k, 0.0, 1.0)))
-
-## ... and film grain under the filter, how strong (0 none)
+## film grain under the filter, how strong (0 none)
 func set_grain(k: float) -> void:
 	mat.set_shader_parameter("grain", U.col(maxf(k, 0.0)))
 
-## the filter on or off: off, the buffer is shown as it is
-var _snap := 1.0
+
+## the dither and the palette on (the retro picture) or off
 func set_filtered(on: bool) -> void:
-	_snap = 1.0 if on else 0.0
+	_snap = 1.0 if (on and _palette) else 0.0
 	mat.set_shader_parameter("snap", U.col(_snap))
 	mat.set_shader_parameter("dither", U.col(1.0 if on else 0.0))

@@ -6,6 +6,10 @@ extends Node3D
 #   * THE GROUND'S PAINT. SHADER_terrain_earth.gdshader blends twelve PBR layers
 #     off three control pictures; they are the field's cover grid, and they are
 #     handed to the terrain material here, with where the grid lies in the world.
+#   * THE WATER'S GRID for what is under it: published as the global
+#     tod_water_level (SHADERINC_earth_water: the caustics on the bed), and the
+#     eye watched — under a surface, tod_underwater says so and the underwater
+#     pass (SHADER_underwater.gdshader) fogs the picture.
 #   * THE WATER. Every sea, lake and river the field's water grid holds, as flat
 #     (or, on a river, falling) sheets at their own levels over the beds the
 #     field carved: meshes of the 4 m grid, cut into squares so the far ones can
@@ -23,6 +27,8 @@ extends Node3D
 @export var water_chunk := 256.0
 
 var _field: EarthField = null
+var _r: EarthField.Region = null
+var _under := false
 
 
 func _ready() -> void:
@@ -42,6 +48,60 @@ func _ready() -> void:
 	_paint(iw.get("terrain_material") as ShaderMaterial, r, isl)
 	position = pivot
 	_build_water(r, pivot)
+	_r = r
+	# the grid, for the caustics and the eye
+	if r.wn > 1 and r.water.size() == r.wn * r.wn:
+		var img := Image.create_from_data(r.wn, r.wn, false, Image.FORMAT_RF, r.water.to_byte_array())
+		var origin := isl.center - Vector2(r.half, r.half)
+		U.gset("tod_water_level", ImageTexture.create_from_image(img))
+		U.gset("tod_water_info", Vector4(origin.x, origin.y, r.wres, r.datum))
+		U.gset("tod_water_on", 1.0)
+		_underwater_pass()
+	U.gset("tod_underwater", Vector4(0, 0, 0, 0))
+
+
+func _exit_tree() -> void:
+	if _r != null:
+		U.gset("tod_water_on", 0.0)
+		U.gset("tod_underwater", Vector4(0, 0, 0, 0))
+
+
+## The pass over the whole picture that fogs it while the eye is under water.
+func _underwater_pass() -> void:
+	var q := QuadMesh.new()
+	q.size = Vector2(2.0, 2.0)
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://godot/island/shaders/SHADER_underwater.gdshader")
+	# (after the water, before the cinema's light)
+	m.render_priority = 126
+	var mi := MeshInstance3D.new()
+	mi.name = "Underwater"
+	mi.mesh = q
+	mi.material_override = m
+	mi.custom_aabb = AABB(Vector3(-1e6, -1e6, -1e6), Vector3(2e6, 2e6, 2e6))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
+## Is the eye under a surface? (tod_underwater: the surface's height, and 1)
+func _process(_dt: float) -> void:
+	if _r == null:
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var p := cam.global_position
+	var i := int(floor((p.x - (position.x - _r.half)) / _r.wres + 0.5))
+	var j := int(floor((p.z - (position.z - _r.half)) / _r.wres + 0.5))
+	var wy := NAN
+	if i >= 0 and j >= 0 and i < _r.wn and j < _r.wn:
+		wy = _sy(_r, i, j) + position.y
+	var under := not is_nan(wy) and p.y < wy
+	if under:
+		U.gset("tod_underwater", Vector4(wy, 1.0, 0.0, 0.0))
+	elif _under:
+		U.gset("tod_underwater", Vector4(0, 0, 0, 0))
+	_under = under
 
 
 func _paint(mat: ShaderMaterial, r: EarthField.Region, isl: IslandField.Island) -> void:

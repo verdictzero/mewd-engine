@@ -9,7 +9,6 @@
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_dress.gd" id="7_dress"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_scatter.gd" id="8_veg"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_grass_scatter.gd" id="9_grass"]
-[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_veg_burn.gd" id="10_burn"]
 [ext_resource type="Script" path="res://godot/island/scripts/SCRIPT_enviro_sky.gd" id="11_tod"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cloud_sea.gd" id="13_sea"]
 [ext_resource type="Material" path="res://godot/island/candy/materials/MAT_candy_cloud_sea.tres" id="14_seamat"]
@@ -17,6 +16,7 @@
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_understory.tres" id="18_umat"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_fern.tres" id="19_fmat"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_grass.tres" id="20_gmat"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_grass_near.tres" id="24_gnmat"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cinema_post.gd" id="21_cine"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_cinema.tres" id="22_cmat"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_sun.gd" id="23_esun"]
@@ -48,6 +48,9 @@
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_fern_02_2_0.png" id="s_fern_2"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_nettle_plant_0_0.png" id="s_fern_3"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_fern_celandine_01_0_0.png" id="s_fern_4"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_meadow_meadow_0.png" id="s_meadow_0"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_meadow_meadow_1.png" id="s_meadow_1"]
+[ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_meadow_meadow_2.png" id="s_meadow_2"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_0_0.png" id="s_grass_0"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_01_1_0.png" id="s_grass_1"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_grass_grass_medium_02_0_0.png" id="s_grass_2"]
@@ -118,21 +121,39 @@ sink_most = 0.2
 [node name="GrassScatter" type="Node3D" parent="."]
 script = ExtResource("9_grass")
 island_world_path = NodePath("../IslandWorld")
-sprites = [ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4")]
+sprites = [ExtResource("s_meadow_0"), ExtResource("s_meadow_1"), ExtResource("s_meadow_2"), ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4")]
 material = ExtResource("20_gmat")
 grass_grid = 0.6
+density = 1.0
 tuft_size = Vector2(1.1, 0.55)
+sink = 0.04
+sprite_weights = PackedFloat32Array(1.4, 1.4, 1.4, 0.9, 0.9, 0.4, 0.4, 0.2)
 max_slope = 0.4
 view_distance = 80.0
+max_in_flight = 6
+sample_cells = 4
 
-[node name="VegBurn" type="Node3D" parent="."]
-script = ExtResource("10_burn")
-burn = 0.0
-advance = false
-burn_rate = 0.02
-stump = 0.0
-stump_rate = 0.0
-front_radius = 0.0
+[node name="GrassNear" type="Node3D" parent="."]
+script = ExtResource("9_grass")
+island_world_path = NodePath("../IslandWorld")
+sprites = [ExtResource("s_meadow_0"), ExtResource("s_meadow_1"), ExtResource("s_meadow_2"), ExtResource("s_grass_0"), ExtResource("s_grass_1"), ExtResource("s_grass_2"), ExtResource("s_grass_3"), ExtResource("s_grass_4")]
+material = ExtResource("24_gnmat")
+grass_grid = 0.25
+density = 1.0
+boost = 4.0
+tuft_size = Vector2(0.95, 0.5)
+sink = 0.04
+sprite_weights = PackedFloat32Array(2.0, 2.0, 2.0, 0.7, 0.7, 0.2, 0.2, 0.12)
+min_scale = 0.7
+max_scale = 1.35
+max_slope = 0.45
+view_distance = 21.0
+keep_margin = 6.0
+scan_cell = 3.0
+tile_cells = 24
+max_in_flight = 6
+max_eval_per_scan = 4000
+sample_cells = 4
 
 [node name="EnviroSky" type="Node3D" parent="."]
 script = ExtResource("11_tod")

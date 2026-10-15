@@ -2,7 +2,7 @@
 
 This is `CONTINUE.md` at the root of mewd-engine. A new chat should read it first.
 
-Written 2026-10-03. It describes the island version on `claude/godot-rewrite`. `main` still holds the Doom-style version (`435efa9`) until the user says "push to main".
+MEWD is now **a terrain engine**: real places made out of open map data, and golf's procedural island, drawn by the chunked island system, with a camera to fly round them. The game it used to be (weapons, crowd, networking, editor, title, maze) was deleted at the user's request in 0000039 and lives in the git history (before that commit). `README.txt` says how to run it; `GODOT.txt` is the changelog.
 
 ---
 
@@ -10,121 +10,39 @@ Written 2026-10-03. It describes the island version on `claude/godot-rewrite`. `
 
 | | |
 |---|---|
-| **Repo to work in** | `verdictzero/mewd-engine` (GitHub) |
-| **Working branch** | `claude/godot-rewrite`: the island version |
-| **main** | `435efa9`: the last Doom-style version, with the editor and the maps. Updated only on "push it" / "push to main" |
+| **Repo** | `verdictzero/mewd-engine` (GitHub) |
+| **Branches** | work on the session's branch; `main` is updated only when the user says "push to main" (fast-forward: `git push origin <branch>:main`) |
 | **Island source** | `verdictzero/golf` (the user's other project). Its island system was copied into `godot/island/`. Read it, but don't change it without being asked. |
-| **Old repo** | `verdictzero/sellwrong`. **Do not touch it.** |
-| **Engine** | Godot **4.7-stable** (it was 4.3). Mobile renderer on Vulkan, for Android and Linux. |
-| **Target hardware** | **Anbernic RG557**, an arm64 Android handheld. Linux x86_64 is second. **Android and Linux x86_64 only: no web build** (the user's decision; the web export, Pages and GitLab CI were removed, and the old JavaScript build in js/ was deleted). |
+| **Engine** | Godot **4.7-stable**, Mobile renderer, for Android (arm64) and Linux x86_64. Screenshots in a container fall back to GL Compatibility under xvfb. |
 
-Builds are rolling GitHub releases on mewd-engine, replaced on each push to `main` or `claude/godot-rewrite`:
-- **`android`**: `.github/workflows/android.yml`. A signed apk; the key comes from the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS` and `MEWD_KEY_PASS`.
-- **`linux`**: `.github/workflows/linux.yml`. A `mewd-<sha>.x86_64` plus a `.tar.gz` that keeps the executable bit.
-
-Both workflows bake the islands before exporting. The bakes are cached in `actions/cache`, keyed on `godot/island/**` and the bake code.
+Builds are rolling GitHub releases replaced on each push to `main`: **`android`** (`.github/workflows/android.yml`, signed with the repo secrets `MEWD_KEYSTORE_B64`, `MEWD_KEY_ALIAS`, `MEWD_KEY_PASS`) and **`linux`** (`.github/workflows/linux.yml`). Both bake the places first (cached on `godot/island/**` and the bake code).
 
 ## 2. Standing rules from the user
 
-1. **Push to `main` only on an explicit "push it", "push" or "push to main".** Otherwise commit and push to `claude/godot-rewrite`. To update main, fast-forward it: `git push origin claude/godot-rewrite:main`.
-2. Don't open pull requests unless asked.
-3. Never put model names or IDs in code or docs. End commit messages with the attribution trailer the session's system prompt specifies.
-4. **Never run two `godot` processes at once.** They fight over `.godot/`.
-5. `GODOT.txt` is the design doc and changelog. Write each change up "at the user's request", in its plain prose style.
-6. The user is terse. "New apk" means making sure CI rebuilt the android release for the pushed commit, and saying so.
+1. **Push to `main` only on an explicit "push to main".** Don't open pull requests unless asked.
+2. Never put model names or IDs in code or docs. End commit messages with the attribution trailer the session's system prompt specifies; commit subjects start with the version, `00000NN: ...`.
+3. **The version** (`U.VERSION` in `godot/scripts/core/u.gd`, `project.godot` `config/version`, `export_presets.cfg` `version/name` and `version/code`) goes up by one on every change that ships.
+4. **Never run two `godot` processes at once.** They fight over `.godot/`. (Don't `pkill -f` a pattern your own shell's command line matches: it kills the shell.)
+5. `GODOT.txt` is the changelog. Write each change up "at the user's request", in its plain prose style.
+6. Before committing, revert the editor's `.import` noise: `git diff --name-only | grep '\.import$' | xargs git checkout --` (keep any `.import` you changed on purpose).
 
-## 3. The direction (the user's own words, paraphrased)
-
-- No more editor and no more Doom-like levels.
-- Keep the player, the NPCs, the weapons and the weapon effects.
-- Levels are golf's procedural islands, **pre-baked, as a set behind a level select** (the user chose this). The goal is levels generated from assets the user provides, to cut artist fatigue.
-- First island: golf's `island_0` without its ruins, crash site or golf areas. **No responders for now, just lots of NPCs.**
-
-## 4. Setting up a fresh container
+## 3. Setting up a fresh container
 
 ```sh
-git clone https://github.com/verdictzero/mewd-engine && cd mewd-engine
-git checkout claude/godot-rewrite
 curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_linux.x86_64.zip
 unzip -q /tmp/g.zip -d /tmp/g && install /tmp/g/Godot_v4.7-stable_linux.x86_64 /usr/local/bin/godot
-godot --headless --editor --quit                                                # import, register class names
-godot --headless --script res://tools/bake_island.gd -- --all --if-missing     # ~2 min: the island bakes
-sh tools/godot-test.sh                                                          # weapons, island, net, death, pad
+godot --headless --editor --quit                                              # import, register class names
+godot --headless --script res://tools/bake_island.gd -- --all --if-missing   # the places' bakes (a few minutes)
+sh tools/godot-test.sh                                                        # earth, terrain
 ```
 
-- **Pictures:**
-  - `xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 --path . -- --play --shot=out.png --shot-frames=60`
-  - `godot/tests/island_shot.gd` shows a gun held on a row of people: `... --script res://godot/tests/island_shot.gd -- out.png LAUNCHER 120 25`
-- **Builds:** `sh tools/build-linux.sh` and `tools/build-android.sh`. Both bake first when they need to; CI uses `tools/ci-android.sh`.
+- **Pictures:** `xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 --path . -- --map=earth_oeschinen --at=900,300 --high=2 --look=sun --look-off=28,10 --sky-hour=18.6 --shot=out.png` (all the viewer's options: `godot/scripts/main.gd`'s header).
+- **Builds:** `sh tools/build-linux.sh`, `sh tools/build-android.sh` (CI: `tools/ci-android.sh`).
 
-## 5. How the island version works (full write-up: GODOT.txt, "THE ISLAND")
+## 4. How it fits together
 
-- **`godot/island/`** holds golf's files with their own names, and every `res://` path moved under it:
-  - field: `SCRIPT_island_field.gd`
-  - mesher and streaming world
-  - bake stores, with the autoloads `TerrainBake` and `VegBake`
-  - forest and grass scatters, sky cycle, cloud sea, horizon clouds
-  - shaders, materials, textures and plant sprites
-- **The scene** is `godot/island/scenes/island_0.tscn`: golf's island_0 cut down to the world, plants, sky and clouds.
-- **The field** is `godot/island/data/ISLANDFIELD_island0.tres`: golf's hub_solid with these switches off: `zone_enabled`, `sand_enabled`, `crater_enabled`, `divot_enabled` and `ruin_enabled`.
-- **`godot/scripts/level/islands.gd`** is the island list, used by the title's NEW GAME, `--map=` and net play. **To add an island:** a scene plus a field `.tres`, and an entry in `Islands.LIST`.
-- **Scale:**
-  - The game counts 32 units to the metre; the island counts metres.
-  - The `Game` node is scaled to 1/32, and the island under it is scaled back up by 32.
-  - Shaders that size things in game units multiply by the global `game_unit`; `U.set_unit` sets it.
-  - Camera-vs-position code uses the camera's local transform.
-- **`IslandLevel`** (`godot/scripts/level/island_level.gd`) extends `Level`:
-  - Every point is a sector whose floor is the ground there.
-  - There are no lines or walls.
-  - A body can't step more than 24 units up, can't drop more than 96 (the crowd), and keeps 2 m back from the coast.
-  - It is `layered = true`, so rays, eyes and blasts ask the ground.
-  - `populate()` drops the player and 360 townsfolk.
-  - `flat_run()` is used by the tests.
-- **`IslandGround`** (`godot/scripts/level/island_ground.gd`) is a 2 m height grid sampled from the field. It is baked as `heights_<sig>.bake`. Lookups take about 1 µs, against 34 µs for the field.
-- **Bakes:**
-  - The terrain (93 MB), the plants (11 MB), the ground (5 MB), and `CODE_DIGESTS.json`, which exported builds need in order to match signatures.
-  - They go in `res://godot/island/data/bake/`, which is gitignored.
-  - Exports include `*.bake`.
-  - An exported Linux build was checked: it reads all three and builds nothing.
-
-## 6. What was removed
-
-- The map editor.
-- The maps: the maze, JESSE, THE SPRAWL, THE GRID and THE ANNEXE.
-- The block world, DocCompile, BlockCompile, MapGeo and Earcut.
-- The doors and the room-to-room nav.
-- The terminal's JESSE and EDIT, the title's MAP EDITOR, and F2.
-- Their tests.
-
-The old sections of GODOT.txt are kept as the record.
-
-## 7. Open threads / next steps
-
-- **Waiting on the user's RG557 test** of the island apk. Check the load time and the frame rate with 360 people.
-- **Islands so far:** ISLAND 0, ISLAND -1 (half size) and ISLAND -2 (quarter size), the same settings otherwise; and **CANDY LAND** (GODOT.txt, "CANDY LAND"), the first made from the user's own assets.
-- **CANDY LAND:**
-  - Its pack lives in `godot/island/candy/`; the original pictures are in `godot/island/candy/source/` (`.gdignore`).
-  - It is ISLAND 0's field with golf's build pads (the town squares) and paths (the roads) switched on.
-  - The crowd is candy girls (`CANDYGIRL`), nine flavours with a front and a back. They greet you until frightened, then they are wary for good.
-  - Herds of candy unicorns and foals graze the meadows (`UNICORN`, `FOAL`).
-  - The pack's GLB (a wall and corner turret) is not used yet: the user said to leave it for now.
-- **Display defaults:** square pixels, a 480-row grid, the world drawn at 720 rows. The screen only ever scales by whole numbers (`Lofi._resize`).
-- **More islands:** a field `.tres` per island; vary the seed and the settings. Then **user-provided assets**: a manifest of sprites, textures and props per island that the scatters read.
-- **Vegetation is visual cover only, by the user's decision. Keep it that way.** Trees, bushes, ferns and grass stop nothing; walking into a tree dissolves it, as in golf.
-- **Real places (EarthField).** `tools/earth_fetch.py NAME --lat --lon --size --register` makes a square of the real world an island out of open data (Terrarium DEM, ESA WorldCover, OSM via Overpass; only `overpass.osm.ch` answers from the cloud sandbox, and it covers Switzerland only). Data in `godot/island/earth/<name>/` (`*.grid`, exported by the presets' include filter). The field is `godot/island/scripts/world/SCRIPT_earth_field.gd`; the water and the ground's control textures are `SCRIPT_earth_dress.gd`; shaders `SHADER_terrain_earth` (full triplanar per layer; the cliffs' beds and streaks in `SHADERINC_earth_cliff`, shared with the cut face's `MAT_earth_cliff`) and `SHADER_water_earth`. The PBR textures and billboard sprites are the shared earth pack, `tools/earth_pack.py` (textures, models, billboards: Godot under xvfb with `--rendering-driver opengl3`). First region: OESCHINENSEE (`earth_oeschinen`). Suite: `godot/tests/earth_test.gd`. Write-up: GODOT.txt, "A REAL PLACE ON EARTH". Its sky is **EnviroSky** (`godot/island/scripts/SCRIPT_enviro_sky.gd`, `SHADER_sky_enviro.gdshader`, weather presets in `godot/island/sky/enviro/weather/`), after Unity's Enviro 3: physical scattering, raymarched clouds, astronomical sun and moon from the region's lat/lon, weather transitions, rain/snow/lightning, driving the `tod_*` globals plus `tod_fog_density`/`tod_fog_near`. GODOT.txt, "A REAL PLACE'S SKY". **The cinema** (GODOT.txt, "THE CINEMA"): `CinemaPost` (`SCRIPT_cinema_post.gd` + `SHADER_cinema_post.gdshader`, numbers in `MAT_earth_cinema.tres`) is an additive full-screen pass over the 3D world reading screen + depth (sky = depth 0, reversed Z in both renderers) for god rays, flare, bloom and backlit haze; the colour grade is `lofi.gdshader` `grade_*` via `Lofi.set_grade` from an Islands entry's `"grade"`; `EarthSun` (`SCRIPT_earth_sun.gd` + `SHADER_earth_sun_bake.gdshader`) bakes terrain sun shadows on the GPU into the global `tod_sun_shadow` (on while `tod_sun_shadow_on` = 1), and `SHADERINC_earth_sun.gdshaderinc` adds EnviroSky's cloud shadows (`tod_cloud_*` globals); terrain, water and the shared veg billboard shader read it. Earth chunk skirts hang along the ground normal. `earth_shot.gd` takes `--look-off=DEG,P`, `--cine=name:value,...|off`, `--noglow`.
-- **Marks are projected decals** (`godot/shaders/decal_project.gdshaderinc`). Each mark is a box that paints whatever surface is inside it, using the depth buffer. RealDecals and the quads are gone. `godot/tests/mark_shot.gd` takes a picture of every kind.
-- **Responders are off** (`world.noSquads`). Vans would need roads, or would need to drive on terrain.
-- `godot/tests/perf_bench.gd`, `decal_shot.gd`, `lance_shot.gd`, `potato_shot.gd` and `projectile_shot.gd` are older picture and benchmark tools. They still name the old maps; `--map` falls back to island0.
-
-## 8. Key files
-
-| File | What it does |
-|---|---|
-| `godot/scripts/game/game.gd` | `start_map` (the island), the frame loop, `hitscan`, `trace`, `explode`, `_island_light` |
-| `godot/scripts/main.gd` | Boot, title, loading screen (it waits for `game.island_ready()`), net join |
-| `godot/scripts/level/island_level.gd`, `island_ground.gd`, `islands.gd` | The island as a level |
-| `godot/scripts/level/level.gd` | The base Level; its Sector class is still what callers type against |
-| `tools/bake_island.gd` | The bakes |
-| `godot/tests/island_test.gd` | The island suite |
-| `godot/island/` | golf's island system |
-| `GODOT.txt` | Design doc and changelog |
+- **The viewer** (`godot/scenes/main.tscn`, `godot/scripts/main.gd`): loads a place (`godot/scripts/level/islands.gd`) into the picture's world (`Lofi`, `godot/scripts/render/lofi.gd`: native or retro picture, the grade, grain), adds `FlyCamera` (`godot/scripts/viewer/`), hands the place's `"sky"` to its EnviroSky, takes `--shot=`.
+- **The island system** (`godot/island/scripts/world/`): `IslandField` (golf's procedural field) and `EarthField` (a real place's grids) answer every question; `chunk_mesher`, `island_world` (streaming, LODs, prewarm), `veg_scatter` / `grass_scatter` (billboards; per-plant baked light `VegLight` in the instance custom data), `bake_store` + the `TerrainBake` / `VegBake` autoloads (bakes in `godot/island/data/bake/`, gitignored; signatures include code digests, so changing the field, mesher or scatter code means rebaking).
+- **A real place** (`tools/earth_fetch.py` → `godot/island/earth/<name>/`): `EarthDress` (control textures, the water meshes, `tod_water_level`, the underwater pass), `EarthSun` (GPU-baked terrain shadows → `tod_sun_shadow`), `CinemaPost` (god rays, flare, bloom, haze: `SHADER_cinema_post`, numbers in `MAT_earth_cinema.tres`), `EnviroSky` (`godot/island/scripts/SCRIPT_enviro_sky.gd`: sky, clock, weather, the `tod_*` globals, cloud shadows `tod_cloud_*`). Shaders: `SHADER_terrain_earth` (12 PBR layers, triplanar, cliffs `SHADERINC_earth_cliff`, sun/cloud shadows `SHADERINC_earth_sun`, caustics `SHADERINC_earth_water`), `SHADER_water_earth` (double-sided: refraction, absorption, SSR, Snell's window), `SHADER_underwater`, `SHADER_veg_billboard` (simple lit off the tod_* globals: sky + wrapped sun on a fake round normal + backlit translucency; no shadow maps, the EarthSun bake read once per plant), `SHADER_sky_enviro`. The earth pack (textures, plant sprites, the composited meadow cards) is `tools/earth_pack.py`; grass is two `GrassScatter` layers (`GrassNear` 25 cm/21 m, the far one 60 cm/80 m) sampling the field on a lattice (`sample_cells`), and the viewer waits on their `filled()`; the picture is metered on the GPU (`Lofi` `meter`/`meter_hold`, `lofi_meter.gdshader`, Islands "meter"; the viewer sets its rate); the scene is written by `tools/earth/make_scene.py`.
+- **Depth in shaders:** both renderers here use reversed depth (sky = 0); view positions come from the documented `CURRENT_RENDERER` branch.
+- **Tests:** `godot/tests/earth_test.gd` (the field against its data, then the place through the viewer) and `terrain_test.gd` (every place up through the viewer).

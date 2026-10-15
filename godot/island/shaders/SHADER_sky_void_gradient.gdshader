@@ -1,6 +1,5 @@
 shader_type sky;
 
-#include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 
 // Flat two-tone gradient sky for the island void: dark grey below, light grey
 // above, with the transition sitting ABOVE the true horizon. Optionally the top
@@ -296,7 +295,7 @@ void sky() {
 		// On the golf wall's clock, so the vortex stops with everything else. The
 		// sky has no world position to mask against and needs none — it is outside
 		// every hole by construction. See `golf_wall_time_all`.
-		float sky_clock = golf_wall_time_all(TIME);
+		float sky_clock = TIME;
 		float spin_a = mod(vortex_spin_offset_rad + vortex_spin_rad_per_sec * sky_clock, TAU);
 		float spin_b = mod(vortex_spin_b_offset_rad + vortex_spin_b_rad_per_sec * sky_clock, TAU);
 		float cs_a = cos(spin_a);
@@ -394,5 +393,5 @@ void sky() {
 		col = mix(col, s.rgb * apex_sun_energy, s.a * inside);
 	}
 
-	COLOR = golf_wall_drain_all(col, SCREEN_UV, TIME);
+	COLOR = col;
 }

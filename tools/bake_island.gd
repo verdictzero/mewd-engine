@@ -1,32 +1,31 @@
-## MEWD — PRE-BUILD AN ISLAND, at the user's request (every level ships
+## MEWD — PRE-BUILD AN ISLAND, at the user's request (every place ships
 ## baked: godot/scripts/level/islands.gd). golf's tools/TOOL_bake_world.gd,
-## cut down to what this game needs, plus the ground's height grid.
+## cut down to what the engine needs.
 ##
 ##   godot --headless --script res://tools/bake_island.gd -- [--map=island0 | --all] [--if-missing] [--dir=res://godot/island/data/bake]
 ##
 ## --all bakes every island in Islands.LIST; --if-missing passes over an
-## island whose three bakes are already there under its CURRENT signatures
+## island whose bakes are already there under its CURRENT signatures
 ## (what the builds run: tools/build-linux.sh, tools/build-android.sh).
 ##
-## Builds the island the way the game would without a bake — every chunk
+## Builds the island the way the viewer would without a bake — every chunk
 ## of terrain at every LOD, every plant — with the stores recording, then
 ## writes:
 ##
 ##   terrain_<sig>.bake   the terrain's chunk meshes (TerrainBake)
 ##   veg_<sig>.bake       the plants' instance buffers (VegBake)
-##   heights_<sig>.bin    the ground the game walks on (IslandGround)
 ##   CODE_DIGESTS.json    the sources' digests, which an exported build
 ##                        (scripts as .gdc, no .gd) cannot work out for
 ##                        itself and needs to find its bakes by
 ##
-## into the directory the game looks in first, res://godot/island/data/
+## into the directory the engine looks in first, res://godot/island/data/
 ## bake (git ignores it: CI bakes before it builds). Without a bake the
-## game still runs — it builds all of this at load, which on the handheld
+## viewer still runs — it builds all of this at load, which on the handheld
 ## is minutes.
 extends SceneTree
 
 var _dir := "res://godot/island/data/bake"
-var _maps: Array = ["island0"]
+var _maps: Array = ["earth_oeschinen"]
 var _if_missing := false
 const TERRAIN_BAKE := preload("res://godot/island/scripts/autoload/AUTOLOAD_terrain_bake.gd")
 const VEG_BAKE := preload("res://godot/island/scripts/autoload/AUTOLOAD_veg_bake.gd")
@@ -58,7 +57,6 @@ func _files_for(spec: Dictionary) -> Array:
 	var chunk := float(world.get("chunk_size"))
 	var out := [
 		BakeStore.file_name("terrain", TERRAIN_BAKE.signature_of([field, {"chunk_size": chunk}])),
-		BakeStore.file_name(IslandGround.STORE, IslandGround.signature_for(field, chunk)),
 	]
 	var scatter: Node = scene.get_node_or_null("VegScatter")
 	if scatter != null:
@@ -90,11 +88,7 @@ func _bake(map: String) -> int:
 	field.prepare()
 	print("== %s (%s)" % [spec.title, spec.scene])
 	var t0 := Time.get_ticks_msec()
-	# THE GROUND first, on every core, before the world takes them
-	var gsig := IslandGround.signature_for(field, float(world.get("chunk_size")))
-	var ground := IslandGround.build(field)
-	print("   ground: %d x %d samples, %.1f s" % [ground.n, ground.n, (Time.get_ticks_msec() - t0) / 1000.0])
-	# THE WORLD, built as the game would build it, the stores recording
+	# THE WORLD, built as the viewer would build it, the stores recording
 	terrain.record_arrays = true
 	terrain.refuse_disk = true
 	veg.refuse_disk = true
@@ -128,11 +122,6 @@ func _bake(map: String) -> int:
 		var n: int = store.save_to(path)
 		print("   %s: %d entries -> %s (%.1f MB)" % [store.STORE_NAME, n, path, _size(path) / 1.0e6])
 		written += maxi(n, 0)
-	var gpath := "%s/%s" % [_dir, BakeStore.file_name(IslandGround.STORE, gsig)]
-	if not ground.save_to(gpath):
-		push_error("bake_island: could not write %s" % gpath)
-		return 2
-	print("   ground -> %s (%.1f MB)" % [gpath, _size(gpath) / 1.0e6])
 	# THE DIGESTS, for an exported build (BakeStore.DIGEST_TABLE): every
 	# source the signatures above hashed, as this machine reads it
 	# (MERGED into what is there: one island to a process, and an island

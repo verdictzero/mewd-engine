@@ -540,12 +540,10 @@ extends Node3D
 @export var prescatter_in_flight := 0
 
 # Godot's 3D MultiMesh instance stride: the transform as three rows of four (12),
-# plus one custom-data vec4 (16). The custom vec4's .x carries this plant's crater
-# burn into `SHADER_veg_billboard.gdshader` (`INSTANCE_CUSTOM.x`) so a ring of forest can
-# burn around a crash site while the rest of the island stays green — a per-INSTANCE
-# quantity the shared, per-sprite material cannot hold. .yzw are unwritten (0) and
-# reserved. There is no per-instance colour: the ground tint the grass used to carry
-# is gone with the lit shader that consumed it.
+# plus one custom-data vec4 (16). The custom vec4's .x carries this plant's BAKED
+# LIGHT (VegLight) into `SHADER_veg_billboard.gdshader` (`INSTANCE_CUSTOM.x`) — a
+# per-INSTANCE quantity the shared, per-sprite material cannot hold. .yzw are
+# unwritten (0) and reserved.
 const _STRIDE := 16
 # Offset of the custom-data vec4 within the stride — straight after the 12 transform
 # floats, matching `MultiMesh.use_custom_data` for TRANSFORM_3D.
@@ -820,20 +818,17 @@ func _build_multimeshes() -> void:
 
 			var mat: ShaderMaterial = (mats[cls] as ShaderMaterial).duplicate()
 			mat.set_shader_parameter("albedo_tex", tex)
+			# (and the same picture for the filtered fetch where the plant is drawn
+			# smaller than its texels: SHADER_veg_billboard `albedo_smooth`)
+			mat.set_shader_parameter("albedo_smooth", tex)
 			# (the quad's size in the instance's metres, for the lo-fi texel
 			# grid: SHADER_veg_billboard `lofi_texels_per_m`)
 			mat.set_shader_parameter("quad_size", quad.size)
-			# And the burn map that goes with it, found by name beside the sprite —
-			# see `VegBurn.bind_map`. The duplicate is the only place this can be set:
-			# the map is per-SPRITE and the shared material is per-class.
-			VegBurn.bind_map(mat, tex)
 
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
-			# Per-plant crater burn rides in the custom-data vec4 — see `_STRIDE` and
-			# `_pack_tile`. On every plant off a crash site it is 0, which the shader
-			# reads as "follow the bus", so this costs the ordinary island nothing but
-			# four floats an instance it never has to look at.
+			# The plant's baked light rides in the custom-data vec4 — see `_STRIDE`
+			# and `_pack_tile`.
 			mm.use_custom_data = true
 			mm.mesh = quad
 
@@ -1343,10 +1338,9 @@ func _pack_tile(items: Array, off: Vector3) -> PackedFloat32Array:
 		buf[k + 9] = b.y.z
 		buf[k + 10] = b.z.z
 		buf[k + 11] = o.z
-		# Custom-data vec4: .x is this plant's crater burn, .yzw reserved (0). The
-		# PackedFloat32Array came zero-filled from `resize`, so the three spares need no
-		# write — but .x always does, or a plant would inherit the last one's burn.
-		buf[k + _CUSTOM_OFF] = float(r.get("burn", 0.0))
+		# Custom-data vec4: .x is this plant's baked light (VegLight), .yzw reserved
+		# (0, zero-filled by `resize`). .x always needs a write.
+		buf[k + _CUSTOM_OFF] = float(r.get("light", 1.0))
 		k += _STRIDE
 	return buf
 
@@ -2103,14 +2097,6 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 	# into one gradient: bare, then thinly scattered plants well alight, then a burning
 	# stand, then green.
 	var cw := clampf(float(s.get("crater", 0.0)), 0.0, 1.0)
-	# How burnt the plant LOOKS — the same remap, on the same weight, as the charred
-	# ground under it, so the two can never disagree about WHERE the fire is; scaled by
-	# `crater_burn_peak` so they are allowed to disagree about HOW FAR THROUGH it the
-	# two are, which is the whole of the difference between soil the impact finished
-	# instantly and a wood that is still going. Carried into the instance's custom data
-	# below and read by `SHADER_veg_billboard.gdshader` as `INSTANCE_CUSTOM.x`. 0 off the
-	# crash site, which the shader reads as "follow the bus".
-	var burn := f.crater_burn(cw) * crater_burn_peak
 	if cw > 0.0:
 		var clear := smoothstep(maxf(crater_veg_keep - crater_veg_band, 0.0),
 				crater_veg_keep, cw)
@@ -2318,10 +2304,9 @@ func _evaluate_cell(cell: Vector2i, f: IslandField) -> Dictionary:
 			# additionally takes the width jitter.
 			"basis": Basis.IDENTITY.scaled(Vector3(
 					h * wj, h, h)),
-			# Every sub-plant of a cell shares the cell's crater burn — it is a property
-			# of the ground the clump stands on. 0 off a crash site. Into
-			# `INSTANCE_CUSTOM.x` via `_pack_tile`.
-			"burn": burn,
+			# The plant's baked light (VegLight), off the cell's sample and its own
+			# hash. Into `INSTANCE_CUSTOM.x` via `_pack_tile`.
+			"light": VegLight.of(s, _rand(hx, 11 + lane)),
 		})
 
 	# THE RUIN DOOR'S LANE — see `ruin_lane_clear`. After the clump is laid out, so
