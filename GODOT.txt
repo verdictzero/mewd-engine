@@ -572,6 +572,19 @@ wanted the terrain engine, you can strip all gameplay elements", then
   test.sh runs two suites (TESTS).
 
 
+VERTEX-LIT PLANTS (0000040)
+
+At the user's request ("vertex only?"): the plants' light is worked out at
+each card's four corners and blended across it, not at every pixel
+(SHADER_veg_billboard.gdshader). The light was already of the simplest
+kind — the sky's, and the sun's on a normal that runs straight across the
+card as if the plant were round, and the sun through the leaves against it
+— so it hardly bends between the corners, and the pixel, which a thick
+meadow draws many layers deep, is now the picture times two colours
+carried from them. The sun's share at the plant (the baked mountains' and
+clouds' shadows) was read at the corners already.
+
+
 TESTS
 
     tools/godot-test.sh

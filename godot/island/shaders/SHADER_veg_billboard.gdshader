@@ -21,10 +21,15 @@ render_mode cull_disabled, unshaded, shadows_disabled;
 //     round the sun reaches) — and THE SUN THROUGH THE LEAVES when the eye
 //     looks toward it (`translucency`): grass against a low sun glows.
 //     Off the same tod_* globals as the ground (SHADERINC_island_light).
+//     ALL OF IT AT THE CARD'S FOUR CORNERS (at the user's request: "vertex
+//     only?"), and blended across it by the rasteriser: the round normal
+//     runs straight across the card, so its light hardly bends between
+//     them, and a pixel of a plant — of which a meadow draws many deep —
+//     is the picture times two colours and nothing more.
 //   * NO SHADOW MAPS: none cast (the scatters switch the instances' casting
 //     off, and `shadows_disabled`) and none received. Where a real place has
 //     its mountains' shadows baked (EarthSun) and its clouds', the sun's share
-//     at the plant is read ONCE A CORNER at its middle (SHADERINC_earth_sun),
+//     at the plant is read at its corners, at its middle (SHADERINC_earth_sun),
 //     so a meadow in a mountain's evening shadow stays in it; elsewhere 1.
 //   * A BAKED LIGHT of its own, worked out once where the scatter places it
 //     (how open the sky is over it: under a canopy, down in a hollow or on a
@@ -104,10 +109,10 @@ global uniform float tod_fog_near;
 varying flat vec2 v_cells;
 varying flat float v_flip;
 varying flat float v_near;
-varying flat float v_light;
-varying flat float v_sun;
-varying flat vec3 v_right;
-varying flat vec3 v_fwd;
+// the light at this corner (times the plant's tint), and the sun shining
+// through it (times the picture)
+varying vec3 v_lit;
+varying vec3 v_glow;
 
 #include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
 
@@ -159,11 +164,22 @@ void vertex() {
 	MODELVIEW_MATRIX = VIEW_MATRIX * m;
 	v_near = length((VIEW_MATRIX * vec4(anchor, 1.0)).xyz);
 	v_flip = flip_variants ? flip_of(anchor.xz) : 0.0;
-	v_light = INSTANCE_CUSTOM.x > 0.0 ? INSTANCE_CUSTOM.x : 1.0;
+	// THE LIGHT, here at the corner (see the header): a round plant's normal
+	// off the flat card, the sun on it and the sky's light, and the sun
+	// through the leaves when the eye looks toward it
+	float baked = INSTANCE_CUSTOM.x > 0.0 ? INSTANCE_CUSTOM.x : 1.0;
 	// (the sun's share at the plant's middle, the same at all four corners)
-	v_sun = earth_sun_open(anchor + up * (sy * quad_size.y * 0.5));
-	v_right = right;
-	v_fwd = fwd;
+	float open = earth_sun_open(anchor + up * (sy * quad_size.y * 0.5));
+	vec3 n = normalize(right * ((UV.x * 2.0 - 1.0) * roundness)
+			+ up * (0.25 + 0.5 * (1.0 - UV.y)) + fwd * (1.0 - 0.5 * roundness));
+	float diffuse = clamp((dot(n, tod_sun_dir) + sun_wrap) / (1.0 + sun_wrap), 0.0, 1.0);
+	vec3 corner = (m * vec4(VERTEX, 1.0)).xyz;
+	vec3 eye_dir = normalize(corner - INV_VIEW_MATRIX[3].xyz);
+	float through = pow(clamp(dot(eye_dir, tod_sun_dir), 0.0, 1.0), 3.0) * translucency;
+	vec3 sky = mix(tod_ground_color.rgb, tod_sky_color.rgb, 0.5 + 0.5 * n.y) * sky_strength;
+	vec3 sun = tod_sun_color.rgb * open * sun_strength;
+	v_lit = tint * baked * (sky + sun * diffuse);
+	v_glow = translucent_color * sun * through * baked;
 }
 
 void fragment() {
@@ -185,17 +201,7 @@ void fragment() {
 	if (bayer4(FRAGCOORD.xy) >= vis) {
 		discard;
 	}
-	// THE LIGHT: a round plant's normal off the flat card (see the header)
-	vec3 n = normalize(v_right * ((UV.x * 2.0 - 1.0) * roundness)
-			+ vec3(0.0, 0.25 + 0.5 * (1.0 - UV.y), 0.0) + v_fwd * (1.0 - 0.5 * roundness));
-	float diffuse = clamp((dot(n, tod_sun_dir) + sun_wrap) / (1.0 + sun_wrap), 0.0, 1.0);
-	// (the eye looking toward the sun: it shines through from behind)
-	vec3 eye_dir = -normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
-	float through = pow(clamp(dot(eye_dir, tod_sun_dir), 0.0, 1.0), 3.0) * translucency;
-	vec3 sky = mix(tod_ground_color.rgb, tod_sky_color.rgb, 0.5 + 0.5 * n.y) * sky_strength;
-	vec3 sun = tod_sun_color.rgb * v_sun * sun_strength;
-	vec3 col = tex.rgb * tint * v_light * (sky + sun * diffuse)
-			+ tex.rgb * translucent_color * sun * through * v_light;
+	vec3 col = tex.rgb * (v_lit + v_glow);
 	if (fog_enabled) {
 		float fd = max(d - fog_distance_start * tod_fog_near, 0.0) * fog_distance_density * tod_fog_density;
 		col = mix(col, fog_color * tod_haze_tint.rgb, 1.0 - exp(-pow(fd, fog_distance_power)));
