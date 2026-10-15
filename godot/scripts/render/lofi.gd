@@ -238,6 +238,33 @@ func for_island(spec: Dictionary, snap_pref: bool) -> void:
 	_snap = 1.0 if (snap_pref and bool(spec.get("palette", true))) else 0.0
 	mat.set_shader_parameter("snap", U.col(_snap))
 	mat.set_shader_parameter("dither", U.col(1.0 if snap_pref else 0.0))
+	set_grade(spec.get("grade", {}))
+
+## THE GRADE (lofi.gdshader, at the user's request: "colorgrading"): an
+## island's Islands "grade", a dictionary of the shader's grade_* numbers
+## without the prefix ("filmic", "warmth", "tint", "contrast", "saturation",
+## "vibrance", "shadows", "highlights" (colours), "split", "vignette") and
+## "grain" (film grain, as the title's). Empty: none, every number back to
+## nothing.
+const GRADE_REST := {"filmic": 0.0, "warmth": 0.0, "tint": 0.0, "contrast": 0.0,
+	"saturation": 1.0, "vibrance": 0.0, "shadows": Color(0.0, 0.5, 0.55),
+	"highlights": Color(1.0, 0.62, 0.3), "split": 0.0, "vignette": 0.0}
+func set_grade(g: Dictionary) -> void:
+	mat.set_shader_parameter("grade", U.col(0.0 if g.is_empty() else 1.0))
+	for k in GRADE_REST:
+		var v = g.get(k, GRADE_REST[k])
+		if v is Color:
+			v = Vector3(v.r, v.g, v.b)
+		mat.set_shader_parameter("grade_" + k, U.col(v))
+	# (the grain is the grade's only while a grade gave it: the title's own
+	# is the title's, set by Main)
+	if g.has("grain"):
+		set_grain(float(g.grain))
+		_grade_grain = true
+	elif _grade_grain:
+		set_grain(0.0)
+		_grade_grain = false
+var _grade_grain := false
 
 ## the screen swimming and the colours spinning, 0..1 (lofi.gdshader
 ## `wobble`: a unicorn's beam in the eye)

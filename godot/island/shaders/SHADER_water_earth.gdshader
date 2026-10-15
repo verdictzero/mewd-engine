@@ -45,6 +45,7 @@ uniform float fog_distance_power = 2.0;
 
 global uniform vec3 tod_sun_dir;
 global uniform vec4 tod_sun_color;
+#include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
 global uniform vec4 tod_sky_color;
 global uniform vec4 tod_ground_color;
 global uniform vec4 tod_haze_tint;
@@ -93,7 +94,9 @@ void fragment() {
 	// the water's own colour is lit by the sky and the sun like anything else
 	vec3 sky = tod_sky_color.rgb;
 	float ndl = clamp(dot(n, tod_sun_dir), 0.0, 1.0);
-	body *= sky * 0.9 + tod_sun_color.rgb * (0.35 + 0.65 * ndl);
+	// (as far as the sun reaches it: SHADERINC_earth_sun)
+	float sun_open = earth_sun_open(v_world);
+	body *= sky * 0.9 + tod_sun_color.rgb * (0.35 + 0.65 * ndl) * sun_open;
 
 	// the sky in it: zenith overhead, the haze at the horizon
 	vec3 r = reflect(-world_v, n);
@@ -105,7 +108,7 @@ void fragment() {
 	vec3 col = mix(body, refl, clamp(fres * reflect_strength, 0.0, 1.0));
 	// the sun's glint
 	float sp = pow(max(dot(r, tod_sun_dir), 0.0), glint_power);
-	col += tod_sun_color.rgb * sp * glint;
+	col += tod_sun_color.rgb * sp * glint * sun_open;
 
 	float alpha = mix(alpha_deep, alpha_shallow, through);
 	alpha = max(alpha, fres * reflect_strength);

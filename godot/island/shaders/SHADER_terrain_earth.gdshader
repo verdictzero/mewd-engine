@@ -5,6 +5,7 @@ render_mode cull_disabled, unshaded;
 #include "res://godot/island/shaders/SHADERINC_island_light.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_golf_wall.gdshaderinc"
 #include "res://godot/island/shaders/SHADERINC_earth_cliff.gdshaderinc"
+#include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
 
 // THE GROUND OF A REAL PLACE, in high-resolution PBR (at the user's request:
 // "high res pbr textures on the map"). The terrain golf's islands are drawn with
@@ -44,7 +45,10 @@ render_mode cull_disabled, unshaded;
 //     (SHADERINC_earth_cliff, which the cut face round the square shares).
 //   * THE LIGHT is the island's own (SHADERINC_island_light: the sky's ambient,
 //     the sun, the rim), unbanded, on the normal-mapped normal, with the
-//     occlusion on the ambient and a GGX highlight from the roughness.
+//     occlusion on the ambient and a GGX highlight from the roughness; the
+//     sun's share of it, and the highlight, only as far as the sun reaches
+//     the ground (SHADERINC_earth_sun: the mountains' shadows and the
+//     clouds').
 //   * Then the island's fog, the golf wall's drain and the thermal sight, as
 //     every island surface does.
 
@@ -292,6 +296,12 @@ void fragment() {
 	float ao = mix(1.0, ra.y, ao_strength);
 
 	vec3 lit = island_light(n, world_v, sun_bands, sun_wrap, rim_power, rim_strength);
+	// the sun only as far as it reaches here (its share of the light above,
+	// unbanded, taken off where a ridge or a cloud is in the way — and a
+	// little put on in a gap in the clouds)
+	float sun_open = earth_sun_open(world_pos);
+	float sun_w = clamp((dot(n, tod_sun_dir) + sun_wrap) / (1.0 + sun_wrap), 0.0, 1.0);
+	lit -= tod_sun_color.rgb * sun_w * (1.0 - sun_open);
 	// the occlusion darkens what the sky lights, most of all
 	vec3 amb = island_ambient(n);
 	lit -= amb * (1.0 - ao);
@@ -299,7 +309,7 @@ void fragment() {
 
 	// the sun's highlight, GGX, off the roughness the scan carries
 	float ndl = max(dot(n, tod_sun_dir), 0.0);
-	if (specular > 0.0 && ndl > 0.0) {
+	if (specular > 0.0 && ndl > 0.0 && sun_open > 0.01) {
 		vec3 h = normalize(tod_sun_dir + world_v);
 		float a = rough * rough;
 		float a2 = a * a;
@@ -307,7 +317,7 @@ void fragment() {
 		float dd = ndh * ndh * (a2 - 1.0) + 1.0;
 		float D = a2 / (3.14159 * dd * dd);
 		float F = 0.04 + 0.96 * pow(1.0 - max(dot(h, world_v), 0.0), 5.0);
-		albedo += tod_sun_color.rgb * (D * F * ndl * 0.25 * specular);
+		albedo += tod_sun_color.rgb * (D * F * ndl * 0.25 * specular * sun_open);
 	}
 
 	if (fog_enabled) {

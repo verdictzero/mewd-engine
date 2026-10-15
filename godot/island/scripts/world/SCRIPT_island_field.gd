@@ -2085,7 +2085,9 @@ class Hole extends RefCounted:
 ## rather than the flat outward one. Off on golf's gentle islands, where a
 ## skirt is never seen; on for a real place's mountains (EarthField), where a
 ## coarse chunk beside a fine one leaves a step a skirt shows in, and a skirt
-## lit as a wall drew every LOD seam as a dark line across the slope.
+## lit as a wall drew every LOD seam as a dark line across the slope. On,
+## the skirt also hangs into the ground along that normal instead of straight
+## down (`chunk_mesher._build_skirt`), so a seam seen from below is closed too.
 @export var chunk_skirt_shaded := false
 
 @export_group("Cliffs")

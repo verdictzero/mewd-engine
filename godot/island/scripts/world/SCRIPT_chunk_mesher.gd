@@ -731,10 +731,21 @@ static func _build_skirt(field: IslandField, n: int, r: int, g: int,
 			var pa := Vector3(gx[ka % g] - pivot.x, gheight[ka] - pivot.y, gz[ka / g] - pivot.z)
 			var pb := Vector3(gx[kb % g] - pivot.x, gheight[kb] - pivot.y, gz[kb / g] - pivot.z)
 			var base := verts.size()
+			var da := Vector3(0.0, drop, 0.0)
+			var db := da
+			if field.chunk_skirt_shaded:
+				# (hung INTO the ground, along its normal, not straight down: a
+				# crack between a fine chunk and a coarse one seen from below,
+				# looking up a mountainside, runs into the hill, and a curtain
+				# straight down from the edge is under the eye's line through
+				# it — the far side of the hill showed through every seam as a
+				# row of lit dots. One hung along the normal is across it.)
+				da = gnormal[ka].normalized() * drop
+				db = gnormal[kb].normalized() * drop
 			verts.append(pa)
 			verts.append(pb)
-			verts.append(pb - Vector3(0.0, drop, 0.0))
-			verts.append(pa - Vector3(0.0, drop, 0.0))
+			verts.append(pb - db)
+			verts.append(pa - da)
 			if field.chunk_skirt_shaded:
 				# (lit as the ground it hangs from: `IslandField.chunk_skirt_shaded`)
 				norms.append(gnormal[ka])

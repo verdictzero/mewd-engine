@@ -17,6 +17,9 @@
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_understory.tres" id="18_umat"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_fern.tres" id="19_fmat"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_grass.tres" id="20_gmat"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cinema_post.gd" id="21_cine"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_cinema.tres" id="22_cmat"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_sun.gd" id="23_esun"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_0.png" id="s_conifer_0"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_120.png" id="s_conifer_1"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_240.png" id="s_conifer_2"]
@@ -137,11 +140,20 @@ sky_material = ExtResource("5_sky")
 world_environment = NodePath("../WorldEnvironment")
 island_world_path = NodePath("../IslandWorld")
 day_of_year = 196
-hour = 10.5
+hour = 18.75
 weather = "fair"
 fog_base = Color(0.62, 0.72, 0.84, 1)
 
 [node name="CloudSea" type="Node3D" parent="."]
 script = ExtResource("13_sea")
 cloud_material = ExtResource("14_seamat")
+
+[node name="EarthSun" type="Node" parent="."]
+script = ExtResource("23_esun")
+island_world_path = NodePath("../IslandWorld")
+sky_path = NodePath("../EnviroSky")
+
+[node name="Cinema" type="MeshInstance3D" parent="."]
+script = ExtResource("21_cine")
+post_material = ExtResource("22_cmat")
 

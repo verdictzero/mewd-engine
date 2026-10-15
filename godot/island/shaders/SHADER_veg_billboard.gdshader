@@ -313,6 +313,15 @@ global uniform float shake_clock;
 // WHITE BY DEFAULT, in project.godot and at all three phases, so this multiply is
 // an identity in every scene that has not authored one.
 global uniform vec4 tod_art_tint;
+// THE SUN'S REACH, on a real place (SHADERINC_earth_sun: its mountains' and
+// clouds' shadows; nothing anywhere else): a plant in a ridge's shadow keeps
+// only the sky's share of `tod_art_tint`, one in a gap in the clouds a little
+// more than the whole. Per plant, off its anchor, like everything per plant.
+global uniform vec3 tod_sun_dir;
+global uniform vec4 tod_sun_color;
+global uniform vec4 tod_sky_color;
+#include "res://godot/island/shaders/SHADERINC_earth_sun.gdshaderinc"
+varying flat float v_sun;
 
 group_uniforms burn;
 // The four burn fields for whichever sprite this material carries. `veg_scatter`
@@ -757,6 +766,16 @@ void vertex() {
 	// above already does, and what it would cost is a `v_near` left undefined on
 	// the other path — a trap for the next thing that wants this number.
 	v_near = length((VIEW_MATRIX * vec4(anchor, 1.0)).xyz);
+	v_sun = 1.0;
+	if (tod_sun_shadow_on > 0.0) {
+		// (EnviroSky's art tint: the sun's part and the sky's)
+		vec3 lum = vec3(0.3, 0.5, 0.2);
+		float sky_part = dot(tod_sky_color.rgb, lum) * 1.2;
+		float all_part = sky_part + dot(tod_sun_color.rgb, lum) * 0.55 * max(tod_sun_dir.y, 0.15);
+		float r = sky_part / max(all_part, 1e-3);
+		float open = earth_sun_open(anchor + vec3(0.0, sy * quad_size.y * 0.5, 0.0));
+		v_sun = clamp(r + (1.0 - r) * open, 0.0, 1.6);
+	}
 	v_flip = flip_variants ? flip_of(anchor.xz) : 0.0;
 	// Off the ANCHOR, like everything else that has to be one value for the whole
 	// quad — not off `m[3]`, which the sway above has already made per-vertex.
@@ -979,7 +998,7 @@ void fragment() {
 	// the haze, deliberately and for the same reason the fog mix is after the light
 	// on the terrain: the tint is the light falling ON the leaf, the haze is the air
 	// between the leaf and the eye, and they compose in that order.
-	ALBEDO = col * tint * tod_art_tint.rgb;
+	ALBEDO = col * tint * tod_art_tint.rgb * v_sun;
 
 	float haze = 0.0;
 	if (fog_enabled) {

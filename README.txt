@@ -183,6 +183,15 @@ lit by the moon. The pause menu's WEATHER picks one; --sky-hour=H,
 --sky-day=D (of the year), --sky-weather=NAME and --sky-minutes=M (a
 day in M real minutes) set the rest (GODOT.txt, "A REAL PLACE'S SKY").
 
+And it is shot like a film: god rays fanning past its ridges and
+through the gaps in its clouds, the sun's lens flare (a starburst, the
+long blue anamorphic streak, a halo, the iris's ghosts) as far as the
+sun can be seen, bloom, the haze glowing gold when you look into the
+evening light, its mountains' shadows and its clouds' shadows across it,
+and a colour grade (a film's shoulder, teal shadows and amber
+highlights, a vignette, grain). OESCHINENSEE starts on a July evening
+(GODOT.txt, "THE CINEMA").
+
 THE VEGETATION IS VISUAL COVER, and stays that way: you, the crowd and
 every round go through trees, bushes, ferns and grass. A tree you walk
 into dissolves as you reach it. What stops a body is the ground: a crag

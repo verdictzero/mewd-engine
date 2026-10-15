@@ -52,6 +52,32 @@ uniform float now = 0.0;
 // the filter's own pixels are made of it.
 uniform float mono = 0.0;
 uniform float grain = 0.0;
+// THE GRADE, at the user's request ("make it look fucking cinematic as hell —
+// colorgrading"): an island's own colour grade (Islands "grade", Lofi.
+// for_island), on the picture before the dither and the snap, the way a
+// colourist grades a film. `grade` 0 is none (every island that asks
+// nothing). In order:
+//   FILMIC     a film's toe and shoulder (`filmic` 0..1 of it): the blacks
+//              lifted a hair and the highlights rolled off to white, not
+//              clipped, so a sky round the sun keeps its gradient
+//   BALANCE    the white balance, `warmth` (+ amber, - blue) and `tint`
+//              (+ magenta, - green)
+//   CONTRAST   an S-curve round the middle grey
+//   SATURATION and VIBRANCE (more on the duller colours than the rich)
+//   SPLIT      split toning: `shadows` and `highlights` colours pushed into
+//              each end (the blockbuster's teal and orange), `split` of it
+//   VIGNETTE   the corners darkened, as a lens does
+uniform float grade = 0.0;
+uniform float grade_filmic = 0.0;
+uniform float grade_warmth = 0.0;
+uniform float grade_tint = 0.0;
+uniform float grade_contrast = 0.0;
+uniform float grade_saturation = 1.0;
+uniform float grade_vibrance = 0.0;
+uniform vec3 grade_shadows = vec3(0.0, 0.5, 0.55);
+uniform vec3 grade_highlights = vec3(1.0, 0.62, 0.3);
+uniform float grade_split = 0.0;
+uniform float grade_vignette = 0.0;
 
 const vec3 LUMA = vec3(0.299, 0.587, 0.114);
 
@@ -83,6 +109,45 @@ vec3 shoulder(vec3 c) {
 	float w = 1.0 - knee;
 	float r = knee + w * (1.0 - exp(-(m - knee) / w));
 	return c * (r / m);
+}
+
+// a film's response, normalised so 1 still comes out as 1 (Hable's curve)
+vec3 hable(vec3 x) {
+	const float HA = 0.22, HB = 0.30, HC = 0.10, HD = 0.20, HE = 0.01, HF = 0.30;
+	return ((x * (HA * x + HC * HB) + HD * HE) / (x * (HA * x + HB) + HD * HF)) - HE / HF;
+}
+
+vec3 graded(vec3 c, vec2 uv) {
+	float l;
+	if (grade_filmic > 0.0) {
+		// (the picture is already the display's; brought back toward light,
+		// through the film, and out again)
+		vec3 lin = pow(max(c, 0.0), vec3(2.2)) * 2.2;
+		vec3 f = hable(lin) / hable(vec3(11.2 * 0.45));
+		c = mix(c, pow(max(f, 0.0), vec3(1.0 / 2.2)), grade_filmic);
+	}
+	c *= vec3(1.0 + grade_warmth * 0.12, 1.0 - grade_tint * 0.06, 1.0 - grade_warmth * 0.12);
+	if (grade_contrast != 0.0) {
+		vec3 k = clamp(c, 0.0, 1.0);
+		c += (k * k * (3.0 - 2.0 * k) - k) * grade_contrast;
+	}
+	l = dot(c, LUMA);
+	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+	c = mix(vec3(l), c, grade_saturation + grade_vibrance * (1.0 - clamp(sat * 2.0, 0.0, 1.0)));
+	if (grade_split > 0.0) {
+		l = clamp(dot(c, LUMA), 0.0, 1.0);
+		// (each colour as a push away from grey, so it moves the hue and not
+		// the brightness)
+		vec3 sh = grade_shadows - dot(grade_shadows, LUMA);
+		vec3 hi = grade_highlights - dot(grade_highlights, LUMA);
+		c += (sh * (1.0 - smoothstep(0.0, 0.55, l)) + hi * smoothstep(0.35, 1.0, l)) * grade_split * 0.35;
+	}
+	if (grade_vignette > 0.0) {
+		vec2 q = (uv - 0.5) * vec2(grid_size.x / max(grid_size.y, 1.0), 1.0);
+		float v = smoothstep(0.35, 1.05, length(q));
+		c *= 1.0 - v * grade_vignette;
+	}
+	return max(c, 0.0);
 }
 
 float bayer2(float x, float y) { return mod(2.0 * x + 3.0 * y, 4.0); }
@@ -136,6 +201,8 @@ void fragment() {
 	c = max(c * picture.x * exposure, 0.0);
 	c = pow(c, vec3(1.0 / max(picture.z, 0.05)));
 	c = shoulder(c);
+	if (grade > 0.0)
+		c = mix(c, graded(c, UV), grade);
 	if (wobble > 0.0)
 		c = max(mix(c, hue_turn(c, now * 75.0), clamp(wobble * 1.5, 0.0, 1.0)), 0.0);
 	if (mono > 0.0)

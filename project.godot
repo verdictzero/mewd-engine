@@ -8,7 +8,7 @@ config_version=5
 
 config/name="MEWD"
 config/description="MEWD — Made Entirely Without Doom"
-config/version="0000037"
+config/version="0000038"
 run/main_scene="res://godot/scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
@@ -128,6 +128,34 @@ sea_surface_color={
 sea_interior_color={
 "type": "color",
 "value": Color(0.089, 0.089, 0.089, 1)
+}
+tod_sun_shadow_on={
+"type": "float",
+"value": 0.0
+}
+tod_sun_shadow={
+"type": "sampler2D",
+"value": ""
+}
+tod_sun_shadow_rect={
+"type": "vec4",
+"value": Vector4(-1500, -1500, 4, 751)
+}
+tod_cloud_shadow={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 1)
+}
+tod_cloud_layer={
+"type": "vec4",
+"value": Vector4(2600, 5200, 1500, 0.85)
+}
+tod_cloud_weather={
+"type": "sampler2D",
+"value": ""
+}
+tod_cloud_shape={
+"type": "sampler3D",
+"value": ""
 }
 veg_burn={
 "type": "float",

@@ -112,6 +112,12 @@ func _ready() -> void:
 		sky_material.set_shader_parameter("clouds_in_main", compat)
 		sky_material.set_shader_parameter("steps", cloud_steps if not compat else maxi(cloud_steps * 3 / 4, 16))
 		sky_material.set_shader_parameter("light_steps", light_steps)
+		# (its weather map and cloud noise, for the shadows the clouds throw
+		# on a real place: SHADERINC_earth_sun)
+		for k in ["cloud_weather", "cloud_shape"]:
+			var t: Variant = sky_material.get_shader_parameter(k)
+			if t is Texture:
+				RenderingServer.global_shader_parameter_set("tod_" + k, t)
 	_update(0.0, true)
 
 
@@ -341,6 +347,12 @@ func moon_direction() -> Vector3:
 	return _moon
 
 
+## Where the island's light comes from: the sun, or the moon when the sun
+## is down and the moon up (as tod_sun_dir).
+func light_direction() -> Vector3:
+	return _light.get("sun_dir", _sun) if not _light.is_empty() else _sun
+
+
 ## How much of the moon is lit, 0 new to 1 full.
 func moon_phase() -> float:
 	return (1.0 - _sun.dot(_moon)) * 0.5
@@ -501,6 +513,16 @@ func _push_globals() -> void:
 	var L := _light
 	var fl := _flash
 	RenderingServer.global_shader_parameter_set("tod_sun_dir", L.sun_dir)
+	# the clouds, for the shadows they throw on a real place
+	# (SHADERINC_earth_sun): the wind's offset, the cover and the shade
+	# already taken off the sun below; the layer, the ground, a cloud's depth
+	var cover := float(_now.coverage)
+	var avg := 1.0 - float(_now.shade) * smoothstep(0.1, 0.9, cover)
+	RenderingServer.global_shader_parameter_set("tod_cloud_shadow",
+			Vector4(_wind_off.x, _wind_off.y, cover, avg))
+	var base := ground_top + float(_now.base)
+	RenderingServer.global_shader_parameter_set("tod_cloud_layer",
+			Vector4(base, base + float(_now.thickness), ground_altitude, 0.85))
 	RenderingServer.global_shader_parameter_set("tod_sun_color", _col(L.sun + Vector3.ONE * fl * 0.6))
 	RenderingServer.global_shader_parameter_set("tod_sky_color", _col(L.sky + Vector3(0.8, 0.85, 1.0) * fl))
 	RenderingServer.global_shader_parameter_set("tod_ground_color", _col(L.ground))

@@ -1,0 +1,26 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; THE CINEMA's light on a real place (CinemaPost, SHADER_cinema_post.gdshader):
+; god rays, the sun's lens flare, bloom and the air lit from behind. Its numbers
+; are the look.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_cinema_post.gdshader" id="1_post"]
+
+[resource]
+render_priority = 127
+shader = ExtResource("1_post")
+shader_parameter/rays_strength = 0.7
+shader_parameter/rays_length = 0.9
+shader_parameter/rays_decay = 0.965
+shader_parameter/rays_focus = 14.0
+shader_parameter/rays_samples = 40
+shader_parameter/flare_strength = 1.0
+shader_parameter/glow_strength = 1.0
+shader_parameter/streak_strength = 0.8
+shader_parameter/streak_color = Vector3(0.45, 0.62, 1)
+shader_parameter/ghost_strength = 1.0
+shader_parameter/bloom_strength = 0.35
+shader_parameter/bloom_threshold = 0.72
+shader_parameter/haze_strength = 0.45
+shader_parameter/haze_density = 0.00045
+shader_parameter/haze_g = 0.7

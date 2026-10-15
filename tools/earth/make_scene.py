@@ -45,6 +45,9 @@ def main():
     umat = res("Material", "res://godot/island/earth/materials/MAT_earth_understory.tres", "18_umat")
     fmat = res("Material", "res://godot/island/earth/materials/MAT_earth_fern.tres", "19_fmat")
     gmat = res("Material", "res://godot/island/earth/materials/MAT_earth_grass.tres", "20_gmat")
+    cine = res("Script", "res://godot/island/scripts/world/SCRIPT_cinema_post.gd", "21_cine")
+    cmat = res("Material", "res://godot/island/earth/materials/MAT_earth_cinema.tres", "22_cmat")
+    esun = res("Script", "res://godot/island/scripts/world/SCRIPT_earth_sun.gd", "23_esun")
 
     def tex_list(cls):
         out = []
@@ -145,13 +148,22 @@ sky_material = %(sky)s
 world_environment = NodePath("../WorldEnvironment")
 island_world_path = NodePath("../IslandWorld")
 day_of_year = 196
-hour = 10.5
+hour = 18.75
 weather = "fair"
 fog_base = Color(0.62, 0.72, 0.84, 1)
 
 [node name="CloudSea" type="Node3D" parent="."]
 script = %(sea)s
 cloud_material = %(seamat)s
+
+[node name="EarthSun" type="Node" parent="."]
+script = %(esun)s
+island_world_path = NodePath("../IslandWorld")
+sky_path = NodePath("../EnviroSky")
+
+[node name="Cinema" type="MeshInstance3D" parent="."]
+script = %(cine)s
+post_material = %(cmat)s
 
 ''' % dict(ext="\n".join(ext), **{k: v for k, v in locals().items() if isinstance(v, str)})
     out = os.path.join(EARTH, "oeschinen", "earth_oeschinen.tscn")

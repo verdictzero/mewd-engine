@@ -4091,6 +4091,81 @@ a wall.
   across the turf. earth_pack.py draws its first two; 33 sprites.
 
 
+THE CINEMA: GOD RAYS, THE SUN'S FLARE, THE GRADE, THE SHADOWS (0000038)
+
+At the user's request ("make it look fucking cinematic as hell —
+colorgrading, sun flare, god rays"): a real place is now shot like a
+film. OESCHINENSEE has all of it; golf's islands none of it.
+
+  THE LIGHT IN THE LENS AND THE AIR (CinemaPost, godot/island/scripts/
+  world/SCRIPT_cinema_post.gd, and SHADER_cinema_post.gdshader; its
+  numbers in MAT_earth_cinema.tres): one pass over the whole of the 3D
+  picture, after everything else in it, reading the picture and its
+  depth, ADDING light (the water is drawn see-through after the copy the
+  pass reads, so painting the picture back would rub it out):
+    - GOD RAYS: from each pixel a march toward the sun on the screen
+      (after Mitchell, GPU Gems 3), adding up the open sky near the sun
+      it crosses by that sky's own colour, so a ridge, a tree or a cloud
+      between cuts the light into shafts, and they take the sun's gold
+      when it is low.
+    - THE SUN'S FLARE: the glow and a six-bladed starburst, the long
+      blue anamorphic streak across the frame, a halo with its colours
+      split, and six ghosts of the iris down the line from the sun
+      through the middle of the frame and past it — all as much as the
+      sun can be seen (the sky and its brightness at a dozen points over
+      its disc), so they go as it drops behind a peak and dim in cloud,
+      and fade as it leaves the frame.
+    - BLOOM off the picture's own mips, over a threshold.
+    - THE AIR LIT FROM BEHIND: the haze between the eye and the far
+      ground, by distance, scattered forward by the same Mie lobe the
+      sky uses, so a valley seen into the evening sun goes soft and gold.
+  The sky is told from the ground by its depth: the far plane, which in
+  this Godot is 0 under both renderers (reversed depth).
+
+  THE GRADE (lofi.gdshader, Lofi.set_grade; an Islands entry's "grade"):
+  the picture filter grades the frame before its dither and snap: a
+  film's response (Hable's curve, so the sky round the sun rolls off to
+  white instead of clipping), the white balance (warmth, tint), an
+  S-curve of contrast, saturation and vibrance, split toning (the
+  shadows pushed toward teal and the highlights toward amber), a lens's
+  vignette, and film grain. Nothing, as before, on an island that asks
+  for none.
+
+  THE SUN'S SHADOWS (EarthSun, SCRIPT_earth_sun.gd, and
+  SHADER_earth_sun_bake.gdshader): the region's own heights march toward
+  the sun on the GPU, a 4 m grid over the square, with a penumbra that
+  widens with the distance to the ridge that casts it; baked again
+  whenever the sun has moved a quarter of a degree. And the clouds'
+  shadows: from each point up the ray toward the sun to EnviroSky's
+  cloud layer, reading the sky's own weather map and cloud noise there,
+  so the shadow on the ground is the cloud's over it and crosses the
+  valley with the wind (SHADERINC_earth_sun.gdshaderinc; EnviroSky
+  publishes its layer, wind and shade as globals). The ground keeps only
+  the sky's light where the sun is cut off (and its highlight goes), the
+  water loses its glint, the plants their share of the sun.
+
+  The island's chunks' skirts now hang into the hill along its normal
+  instead of straight down (EarthField's chunk_skirt_shaded): seen from
+  below, looking up a mountainside, a crack between a fine chunk and a
+  coarse one runs into the hill, and the far side showed through every
+  seam as a row of lit dots.
+
+  OESCHINENSEE now starts on an evening (Islands "sky": 18:45 on the
+  15th of July, fair weather): the sun about 14 degrees up in the west
+  over the Kandersteg side, the pasture and the woods on the west
+  shore already in the ridge's shadow, the cliffs at the lake's far end
+  in the gold. And its grade (Islands "grade"): the film's shoulder,
+  a little warm, more contrast, vibrance, the split toning at 0.6, a
+  vignette, grain.
+
+  godot/tests/earth_test.gd checks the pass is there, the shadows are
+  baked and on and bake again when the sun moves, and the grade reaches
+  the picture (and leaves with its grain on an island without one).
+  godot/tests/earth_shot.gd takes --look-off=DEG,P (the sun off the
+  middle of the frame), --cine=NAME:VALUE,... (the pass's numbers, or
+  off) and --noglow.
+
+
 TESTS
 
     tools/godot-test.sh

@@ -114,9 +114,16 @@ const LIST := [
 		# (on the open pasture by the lake's west shore, where the path up from
 		# Kandersteg comes out of the trees)
 		"start": Vector2(-1050, 150),
-		# its sky (EnviroSky): a mid-July morning, fair-weather cumulus; the
-		# pause menu's WEATHER moves it, --sky-hour/-day/-weather too
-		"sky": {"hour": 10.5, "day": 196, "weather": "fair"},
+		# its sky (EnviroSky): a mid-July evening, the sun low in the west
+		# over the Kandersteg side and the cliffs at the lake's end in the
+		# gold (at the user's request: "cinematic as hell"), fair-weather
+		# cumulus; the pause menu's WEATHER moves it, --sky-hour/-day/-weather too
+		"sky": {"hour": 18.75, "day": 196, "weather": "fair"},
+		# its grade (Lofi.set_grade, at the user's request: "make it look
+		# fucking cinematic as hell"): a film's shoulder, warm, the shadows
+		# toward teal and the highlights toward amber, a lens's vignette, grain
+		"grade": {"filmic": 1.0, "warmth": 0.2, "contrast": 0.16, "saturation": 1.05,
+			"vibrance": 0.2, "split": 0.6, "vignette": 0.38, "grain": 0.035},
 		"air": Color(0.62, 0.72, 0.84), "pickups": {"country": 10}},
 ]
 

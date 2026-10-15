@@ -3,7 +3,8 @@
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --resolution 1280x720 \
 ##   --script res://godot/tests/earth_shot.gd -- --map=earth_oeschinen out.png \
-##   [--at=X,Z] [--high=M] [--face=X,Z | --turn=DEG | --look=sun|moon] [--pitch=P]
+##   [--at=X,Z] [--high=M] [--face=X,Z | --turn=DEG | --look=sun|moon [--look-off=DEG,P]]
+##   [--pitch=P]
 ##   [--tics=N] [--clean] [--sky-hour=H --sky-day=D --sky-weather=ID]
 ##
 ## X and Z are metres east and south of the square's middle (where the island's
@@ -78,10 +79,25 @@ func _frame(clean: bool) -> void:
 			var we := game.island.get_node_or_null("WorldEnvironment") as WorldEnvironment
 			if we:
 				we.environment.fog_enabled = false
+		if "--noglow" in args:
+			var we2 := game.island.get_node_or_null("WorldEnvironment") as WorldEnvironment
+			if we2:
+				we2.environment.glow_enabled = false
 		if "--nosea" in args and game.island.get_node_or_null("CloudSea"):
 			game.island.get_node("CloudSea").visible = false
 		if "--noclouds" in args and game.island.get_node_or_null("HorizonClouds"):
 			game.island.get_node("HorizonClouds").visible = false
+		# (--cine=NAME:VALUE,...: the cinema pass's numbers, for tuning;
+		# --cine=off hides it)
+		for a in args:
+			if a.begins_with("--cine=") and game.island.get_node_or_null("Cinema"):
+				var cine := game.island.get_node("Cinema") as MeshInstance3D
+				if a == "--cine=off":
+					cine.visible = false
+					continue
+				for kv in a.substr(7).split(","):
+					var parts: PackedStringArray = kv.split(":")
+					(cine.material_override as ShaderMaterial).set_shader_parameter(parts[0], float(parts[1]))
 		# nobody in the way of the picture
 		for a in game.actors:
 			if a.monster:
@@ -108,6 +124,13 @@ func _frame(clean: bool) -> void:
 		var v: Vector3 = sky.sun_direction() if look_at == "sun" else sky.moon_direction()
 		p.angle = atan2(-v.z, v.x)
 		_pitch = clampf(asin(clampf(v.y, -1.0, 1.0)) * 0.9, -0.7, 0.7)
+		# (--look-off=DEG,P: turned that many degrees left of it and that much
+		# pitch below it, so it sits off the middle of the frame)
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--look-off="):
+				var o := _vec(a.substr(11))
+				p.angle += deg_to_rad(o.x)
+				_pitch = clampf(_pitch - o.y, -0.7, 0.7)
 	elif _face != null:
 		var d: Vector2 = (_face as Vector2) - here
 		p.angle = atan2(-d.y, d.x)

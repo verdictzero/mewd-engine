@@ -184,6 +184,10 @@ func _run() -> void:
 	var sky: Node = game.island.get_node_or_null("EnviroSky")
 	check(sky != null, "the island has its own sky (EnviroSky)")
 	if sky != null:
+		# (the island's own hour is its evening; these are of a morning)
+		var hour0: float = sky.hour
+		sky.hour = 10.5
+		sky._update(0.0, true)
 		var sun: Vector3 = sky.sun_direction()
 		var el := rad_to_deg(asin(sun.y))
 		check(el > 40.0 and el < 66.0 and sun.x > 0.0 and sun.z > 0.0,
@@ -206,6 +210,36 @@ func _run() -> void:
 				"at 23:00 the sun is down and the island dark (%.2f)" % float(sky.world_light().sky_light))
 		sky.hour = 10.5
 		sky.set_weather("fair", true)
+		sky._update(0.0, true)
+		# THE CINEMA (at the user's request: "make it look fucking cinematic as
+		# hell"): the light's pass over the picture, the mountains' shadows
+		# baked for where the sun is and again when it moves, the grade
+		var cine := game.island.get_node_or_null("Cinema") as CinemaPost
+		check(cine != null and cine.mesh != null and cine.material_override is ShaderMaterial,
+				"the island has its cinema pass (god rays, flare, bloom, the lit haze)")
+		var esun := game.island.get_node_or_null("EarthSun") as EarthSun
+		check(esun != null and esun.bakes >= 1 and float(U.G.get("tod_sun_shadow_on", 0.0)) == 1.0,
+				"the mountains' shadows are baked and on (%d bakes)" % (esun.bakes if esun else 0))
+		if esun != null:
+			esun._process(0.0)
+			var b0 := esun.bakes
+			sky.hour = hour0 - 1.0
+			sky._update(0.0, true)
+			esun._process(0.0)
+			check(esun.bakes > b0, "and baked again when the sun moves (to %.2f h)" % (hour0 - 1.0))
+			sky.hour = hour0
+			sky._update(0.0, true)
+		var grade: Dictionary = spec.get("grade", {})
+		var lf := Lofi.new()
+		lf.set_grade(grade)
+		check(not grade.is_empty() and float(lf.mat.get_shader_parameter("grade")) == 1.0
+				and float(lf.mat.get_shader_parameter("grade_filmic")) == float(grade.get("filmic", 0.0)),
+				"the island has its grade, and the picture takes it")
+		lf.set_grade({})
+		check(float(lf.mat.get_shader_parameter("grade")) == 0.0
+				and float(lf.mat.get_shader_parameter("grain")) == 0.0,
+				"and every other island none, its grain gone with it")
+		lf.free()
 	var waited := 0
 	while not game.island_ready() and waited < 6000:
 		await process_frame
