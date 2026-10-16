@@ -663,6 +663,57 @@ the trees and the ground do. EVERY PLACE (TESTS) now jumps the eye 150 m
 once it is up and holds that the picture stays up while the grass fills.
 
 
+THE WORLD MAP: ANY PLACE ON EARTH (0000043)
+
+At the user's request ("we need to have a planet-wide selector (2D) where
+you select the area you want to render in 3D, and then it renders it",
+then "keep it inside the app, linux only, separate windows if possible"):
+
+THE WORLD MAP (godot/scripts/world_map/): a window of its own on the
+desktop beside the 3D one (Godot's sub-windows no longer drawn inside the
+main one: display/window/subwindows/embed_subwindows), opened with the app
+and shown or hidden with M. The world as a shaded relief (MapView,
+map_relief.gdshader: the AWS Terrain Tiles' Terrarium PNGs decoded to
+heights in the shader, lit from the north-west and tinted by height, the
+sea by its depth), Web Mercator, zoom 2 to 14, dragged to pan, the wheel
+to zoom about the mouse; a square the size of the place to be built under
+the mouse (1 to 6 km a side), and a click to choose it; a search by a
+place's name (OpenStreetMap's Nominatim) or by "lat, lon"; BUILD & FLY;
+and the places built so far, on the map and in a list (double-click to fly
+there).
+
+THE PLACE, BUILT INSIDE THE APP (RegionBuilder, on a thread of its own,
+its stages on the map's bar): tools/earth_fetch.py's build ported to
+GDScript, without OpenStreetMap for now — the Terrarium heights bicubic
+onto a 2 m grid and smoothed, ESA WorldCover read straight out of its
+cloud-optimised GeoTIFFs by range request (Cog), the water's bodies found
+and told apart (the sea at 0, a lake at its lowest shore's level, a river
+falling with its banks: its nearest bank's height smoothed along it) and
+their beds carved, the twelve ground layers and the plants — into
+user://regions/<name>/, the same grids and region.json the Python tool
+writes. Over the Oeschinensee it matches the Python tool's own build
+without OpenStreetMap to 4 cm of height on average, 99.6% of the water and
+the same layers, in 26 s against its 45. Open sea, where WorldCover has no
+tile, is water under sea level. The downloads are kept in
+user://earth-cache (GeoFetch: HTTPS from any thread, retried, through the
+machine's proxy and its certificate when it names them).
+
+FLYING IT: a built place is a place like the others (Regions; Islands.find
+and N find them): the real-place template with its field pointed at the
+region's folder, so its sky stands at its own latitude and longitude and
+its water, plants, light and picture are OESCHINENSEE's. The first visit
+builds every chunk and plant of it (the loading screen counts the chunks:
+about three minutes on four cores, half that on eight) and saves its
+terrain's and plants' bakes to user://bake as it comes up; every visit
+after reads them and is up in seconds (8 s). Tried here on YOSEMITE VALLEY
+(4 km square, the western hemisphere, a WorldCover tile of its own): built
+in 54 s, up the first time in about two and a half minutes, its granite
+walls, its forested floor and the Merced in it — as a chain of ponds,
+until OpenStreetMap's rivers come into the builder.
+
+TESTS: a third suite, THE WORLD (godot/tests/world_test.gd).
+
+
 TESTS
 
     tools/godot-test.sh
@@ -683,3 +734,9 @@ runs the headless suites (the places baked first: README.txt):
   up through the viewer — built, off its bake, planted, the eye over its
   ground, its exposure and grade on the picture, and no script of a game
   in its scene, and the picture staying up when the eye moves on.
+  THE WORLD (godot/tests/world_test.gd): the map's sums (Web Mercator
+  there and back, metres a degree, a place's folder name, a grid file
+  written and read back as EarthField reads one), then a kilometre round
+  the Oeschinensee built from the open data inside the app and read back
+  as a place: its ground in the valley, its lake, its layers summing to
+  one, listed to fly to (skipped without the network).

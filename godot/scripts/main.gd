@@ -23,6 +23,8 @@ const WEATHERS := ["clear", "fair", "partly_cloudy", "cloudy", "overcast", "fogg
 
 var lofi: Lofi
 var hud: ViewerHud
+## the world map's window (WorldMap), or null
+var world_map: WorldMap = null
 var cam: FlyCamera
 var place: Node3D = null
 var spec: Dictionary = {}
@@ -34,6 +36,8 @@ var _up_frames := -1
 var _shot := ""
 var _frames := 30
 var _args := PackedStringArray()
+## a built place's bakes: 0 nothing to do, 1 to save once it is up, 2 saving
+var _save_bake := 0
 
 
 func _ready() -> void:
@@ -48,6 +52,21 @@ func _ready() -> void:
 	if _shot != "":
 		hud.set_clean(true)
 	load_place(_val("--map=", String(Islands.LIST[0].key)))
+	# THE WORLD MAP, a window of its own beside this one, on a desktop with a
+	# screen (not for a picture taken on the command line, or the tests)
+	if _shot == "" and not _has("--no-map") and DisplayServer.get_name() != "headless" \
+			and not OS.has_feature("android"):
+		world_map = WorldMap.new()
+		world_map.fly.connect(_on_fly)
+		add_child(world_map)
+		world_map.map.look_at_place(float(spec.get("lat", 46.5)), float(spec.get("lon", 7.7)), 5.0)
+		world_map.show()
+
+
+## A place picked or built on the world map: flown to here.
+func _on_fly(key: String) -> void:
+	load_place(key)
+	get_window().grab_focus()
 
 
 func _has(flag: String) -> bool:
@@ -89,12 +108,28 @@ func load_place(key: String) -> void:
 	cam.ground = _ground
 	cam.walking = _has("--walk")
 	var scene := (load(spec.scene) as PackedScene).instantiate() as Node3D
+	var iw0 := scene.get_node_or_null("IslandWorld")
+	_save_bake = 0
+	if spec.has("region") and iw0 != null:
+		# A PLACE BUILT HERE (the world map, Regions): the real-place template
+		# with its field pointed at the region's folder, and its meshes and
+		# plants kept as they are built, to be saved for the next visit
+		var fld := (iw0.get("field") as Resource).duplicate()
+		fld.set("region", String(spec.region))
+		iw0.set("field", fld)
+		TerrainBake.record_arrays = true
+		_save_bake = 1
 	var sky := scene.get_node_or_null("EnviroSky")
 	if sky != null:
 		sky.set("options", spec.get("sky", {}))
 	var iw := scene.get_node_or_null("IslandWorld")
 	if iw != null:
 		iw.connect("pregen_finished", func(): _built = true)
+		# (how far the building has got, under the badge: a place built here
+		# and seen for the first time builds every chunk of it, a minute or so)
+		iw.connect("pregen_progress", func(stage: String, done: int, total: int):
+			if total > 0 and _save_bake < 2:
+				hud.loading.text = "%s\nbuilding the place... %d%%" % [spec.title, roundi(100.0 * done / total)])
 	place = scene
 	lofi.world.add_child(scene)
 	field = iw.get("field") as IslandField if iw != null else null
@@ -123,6 +158,32 @@ func load_place(key: String) -> void:
 	lofi.world.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
+## A PLACE BUILT HERE, UP FOR THE FIRST TIME: its terrain's and its plants'
+## bakes written to user://bake (BakeStore.READ_DIRS), so the next visit reads
+## them instead of building it all again. True when done (the place may come
+## up); the first call only says so on the screen.
+func _save_bakes() -> bool:
+	var iw := place.get_node_or_null("IslandWorld")
+	if _save_bake == 1:
+		if iw != null and String(iw.get("bake_source")) != "":
+			_save_bake = 0
+			TerrainBake.record_arrays = false
+			return true
+		_save_bake = 2
+		hud.loading.text = "%s\nsaving the place for next time..." % spec.title
+		return false
+	_save_bake = 0
+	for store in [TerrainBake, VegBake]:
+		var st: Dictionary = store.stats()
+		if int(st.held) == 0 or String(st.signature) == "":
+			continue
+		var path := "user://bake/%s" % BakeStore.file_name(store.STORE_NAME, String(st.signature))
+		var n: int = store.save_to(path)
+		print("FENRIR: %s bake: %d entries -> %s" % [store.STORE_NAME, n, ProjectSettings.globalize_path(path)])
+	TerrainBake.record_arrays = false
+	return true
+
+
 ## The ground under (x, z), metres (under the water too), or NAN off the land.
 func _ground(x: float, z: float) -> float:
 	if field == null or _isl == null:
@@ -136,7 +197,7 @@ func _place_eye() -> void:
 	var at: Vector2 = spec.get("start", Vector2.ZERO)
 	if _val("--at=", "") != "":
 		at = _vec(_val("--at=", ""))
-	var high := float(_val("--high=", "1.7" if cam.walking else "6"))
+	var high := float(_val("--high=", "1.7" if cam.walking else str(spec.get("start_high", 6.0))))
 	var g := _ground(at.x, at.y)
 	if is_nan(g):
 		g = 0.0
@@ -201,6 +262,10 @@ func _process(dt: float) -> void:
 	# (up once, up for good: the grass streaming in round a moving eye is
 	# not a place being built — a new place, load_place, starts it over)
 	var up := _up_frames >= 0 or place_ready()
+	# (a place built here and come up without a bake: its bakes saved first,
+	# a frame after saying so, so the next visit starts at once)
+	if up and _up_frames < 0 and _save_bake > 0:
+		up = _save_bakes()
 	hud.set_loading(not up)
 	# THE METER (Lofi): nothing to read until the place is drawn; then its
 	# first readings taken whole, and after that eased to, as an eye adapts
@@ -266,6 +331,11 @@ func _unhandled_input(e: InputEvent) -> void:
 	match e.keycode:
 		KEY_H:
 			hud.help.visible = not hud.help.visible
+		KEY_M:
+			if world_map != null:
+				world_map.visible = not world_map.visible
+				if world_map.visible:
+					world_map.grab_focus()
 		KEY_I:
 			hud.set_clean(hud.show_info)
 		KEY_P:
@@ -276,10 +346,11 @@ func _unhandled_input(e: InputEvent) -> void:
 				cine.visible = not cine.visible
 		KEY_N:
 			var i := 0
-			for k in Islands.LIST.size():
-				if Islands.LIST[k].key == spec.key:
+			var places := Islands.all()
+			for k in places.size():
+				if places[k].key == spec.key:
 					i = k
-			load_place(String(Islands.LIST[(i + 1) % Islands.LIST.size()].key))
+			load_place(String(places[(i + 1) % places.size()].key))
 		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
 			if sky != null:
 				var step := (1.0 if e.shift_pressed else 0.25) * (1.0 if e.keycode == KEY_BRACKETRIGHT else -1.0)

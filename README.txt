@@ -76,9 +76,28 @@ CONTROLS
   T              run the clock or hold it      F   the next weather
   K              the cinema on or off          P   native or retro picture
   N              the next place                I   the words on or off
+  M              the world map (its own window): build any place on Earth
   F12            a picture to user://          H   these keys
   pad            left stick flies, right looks, triggers climb, A walks
   touch          one finger looks, two move (and spread or pinch to climb)
+
+
+ANY PLACE ON EARTH
+------------------
+
+The world map is a window of its own beside the 3D one (M shows or hides
+it). Drag to pan, the wheel to zoom; find a place by its name or by "lat,
+lon"; pick the square's size (1 to 6 km) and click its middle on the map;
+then BUILD & FLY. FENRIR fetches the open data for that square — its height
+(the AWS Terrain Tiles) and what covers it (ESA WorldCover 10 m) — works it
+into a place (its water, its ground's twelve layers, its plants) in a few
+seconds to half a minute, and flies you there. The first visit builds every
+chunk of it, a minute or three; it is saved as it comes up, and every visit
+after is up in seconds. The places built are listed on the map (double-click
+to fly to one) and kept in Godot's user folder (~/.local/share/godot/
+app_userdata/FENRIR/: regions/, bake/, and earth-cache/ for the downloads).
+It needs the network the first time; OpenStreetMap's lakes, rivers and
+roads are not in it yet. Linux.
 
 
 A REAL PLACE

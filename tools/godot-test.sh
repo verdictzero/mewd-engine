@@ -24,4 +24,8 @@ run earth   --script res://godot/tests/earth_test.gd -- --map=earth_oeschinen
 # EVERY PLACE through the viewer: up, off its bake, planted, the eye over its
 # ground, its picture, nothing of a game in it (godot/tests/terrain_test.gd)
 run terrain --script res://godot/tests/terrain_test.gd
+# THE WORLD MAP: its sums, then a real square built from the open data
+# inside the app and read back as a place (godot/tests/world_test.gd; the
+# build is skipped without the network)
+run world   --script res://godot/tests/world_test.gd
 exit $fail

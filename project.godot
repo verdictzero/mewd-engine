@@ -8,7 +8,7 @@ config_version=5
 
 config/name="FENRIR"
 config/description="FENRIR — a terrain engine: real places out of open map data"
-config/version="0000042"
+config/version="0000043"
 run/main_scene="res://godot/scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
@@ -33,6 +33,9 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 ; a handheld is held sideways, either way round
 window/handheld/orientation=4
+; the world map (WorldMap) is a window of its own on the desktop, not one
+; drawn inside the 3D one
+window/subwindows/embed_subwindows=false
 
 [rendering]
 

@@ -1,0 +1,44 @@
+shader_type canvas_item;
+
+// THE WORLD MAP'S RELIEF (WorldMap, MapView): the AWS Terrain Tiles drawn as
+// they come — each Terrarium PNG's colour is a height (red * 256 + green +
+// blue / 256 - 32768 metres) — shaded by the light from the north-west and
+// tinted by height: the sea in blues by its depth, the land from lowland
+// green through upland browns to grey rock and the snow of the high peaks.
+// Read texel for texel (the map draws it nearest), since a blend of two
+// encoded heights is not a height.
+
+// metres a texel spans at the view's latitude, for the slope
+uniform float metres_per_texel = 100.0;
+
+float height_at(sampler2D tex, vec2 uv) {
+	vec3 c = texture(tex, uv).rgb * 255.0;
+	return c.r * 256.0 + c.g + c.b / 256.0 - 32768.0;
+}
+
+vec3 tint(float h) {
+	if (h <= 0.0) {
+		float d = clamp(-h / 4000.0, 0.0, 1.0);
+		return mix(vec3(0.33, 0.55, 0.72), vec3(0.06, 0.16, 0.34), sqrt(d));
+	}
+	vec3 c = mix(vec3(0.33, 0.48, 0.30), vec3(0.52, 0.58, 0.36), smoothstep(0.0, 600.0, h));
+	c = mix(c, vec3(0.62, 0.53, 0.38), smoothstep(500.0, 1600.0, h));
+	c = mix(c, vec3(0.58, 0.55, 0.52), smoothstep(1500.0, 2700.0, h));
+	return mix(c, vec3(0.94, 0.95, 0.97), smoothstep(2900.0, 4200.0, h));
+}
+
+void fragment() {
+	vec2 px = TEXTURE_PIXEL_SIZE;
+	float h = height_at(TEXTURE, UV);
+	// (the slope across the texels either side, or the one side there is at
+	// a tile's edge: no line of flat light along every seam)
+	vec2 lo = clamp(UV - px, px * 0.5, 1.0 - px * 0.5);
+	vec2 hi = clamp(UV + px, px * 0.5, 1.0 - px * 0.5);
+	vec2 span = max((hi - lo) / px, vec2(1.0));
+	float dx = (height_at(TEXTURE, vec2(hi.x, UV.y)) - height_at(TEXTURE, vec2(lo.x, UV.y))) * 2.0 / span.x;
+	float dy = (height_at(TEXTURE, vec2(UV.x, hi.y)) - height_at(TEXTURE, vec2(UV.x, lo.y))) * 2.0 / span.y;
+	vec3 n = normalize(vec3(-dx, dy, 2.0 * max(metres_per_texel, 1.0)));
+	float lit = clamp(dot(n, normalize(vec3(-0.6, 0.6, 1.0))), 0.0, 1.0);
+	float shade = h > 0.0 ? 0.45 + 0.7 * lit : 0.9 + 0.15 * lit;
+	COLOR = vec4(tint(h) * shade, 1.0);
+}

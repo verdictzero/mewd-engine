@@ -60,4 +60,13 @@ static func find(key: String) -> Dictionary:
 	for i in LIST:
 		if i.key == key:
 			return i
+	# (a place built on this machine with the world map)
+	var built := Regions.spec(key)
+	if not built.is_empty():
+		return built
 	return LIST[0]
+
+
+## Every place: these, then the ones built on this machine (Regions).
+static func all() -> Array:
+	return LIST + Regions.list()
