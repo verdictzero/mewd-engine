@@ -198,7 +198,9 @@ func _process(dt: float) -> void:
 		_place_eye()
 		_look_at_sky()
 		_placed = true
-	var up := place_ready()
+	# (up once, up for good: the grass streaming in round a moving eye is
+	# not a place being built — a new place, load_place, starts it over)
+	var up := _up_frames >= 0 or place_ready()
 	hud.set_loading(not up)
 	# THE METER (Lofi): nothing to read until the place is drawn; then its
 	# first readings taken whole, and after that eased to, as an eye adapts

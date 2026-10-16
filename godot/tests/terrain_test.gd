@@ -61,5 +61,20 @@ func _run() -> void:
 			if sc != null and (sc.resource_path.contains("/game/") or sc.resource_path.contains("veg_burn")):
 				stray.append(n.name)
 		check(stray.is_empty(), "no gameplay in its scene %s" % str(stray))
+		# MOVING DOES NOT BRING THE LOADING SCREEN BACK (at the user's
+		# request: "we need to eliminate the constant loading screens when
+		# you move"): the eye jumped 150 m, so the grass round it has tiles
+		# to fill, and the picture stays up all the same
+		for i in range(3):
+			await process_frame
+		main.cam.global_position += Vector3(150.0, 0.0, 0.0)
+		var pending := false
+		var covered := false
+		for i in range(12):
+			await process_frame
+			pending = pending or not main.place_ready()
+			covered = covered or bool(main.hud.get("_covering")) \
+					or main.lofi.world.render_target_update_mode != SubViewport.UPDATE_ALWAYS
+		check(not covered, "moving the eye keeps the picture up (grass still filling: %s)" % str(pending))
 	print("terrain: %s" % ("OK" if fails == 0 else "%d FAILED" % fails))
 	quit(1 if fails else 0)

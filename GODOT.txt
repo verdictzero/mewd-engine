@@ -648,6 +648,21 @@ so the ground and its plants agree and the turf is the same under both —
 the green of these notes' pictures.
 
 
+NO LOADING SCREEN ON THE MOVE (0000042)
+
+At the user's request ("we need to eliminate the constant loading screens
+when you move"): the loading screen came back whenever the eye moved. The
+viewer asked every frame whether the place was up, and since 0000039 that
+included the grass round the eye being filled (`filled`) — so the moment
+the eye moved and the grass had tiles to grow, the place was "not up": the
+cover came back, the world's picture stopped drawing, and the meter forgot
+its reading. Up once is up for good now (main.gd): the cover, the paused
+picture and the meter's reset belong to building a place, and only loading
+another (N) starts them over; the grass streams in round a moving eye as
+the trees and the ground do. EVERY PLACE (TESTS) now jumps the eye 150 m
+once it is up and holds that the picture stays up while the grass fills.
+
+
 TESTS
 
     tools/godot-test.sh
@@ -667,4 +682,4 @@ runs the headless suites (the places baked first: README.txt):
   EVERY PLACE (godot/tests/terrain_test.gd): each in Islands.LIST brought
   up through the viewer — built, off its bake, planted, the eye over its
   ground, its exposure and grade on the picture, and no script of a game
-  in its scene.
+  in its scene, and the picture staying up when the eye moves on.
