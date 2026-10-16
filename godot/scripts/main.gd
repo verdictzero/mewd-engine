@@ -116,6 +116,8 @@ func load_place(key: String) -> void:
 		# plants kept as they are built, to be saved for the next visit
 		var fld := (iw0.get("field") as Resource).duplicate()
 		fld.set("region", String(spec.region))
+		# (the island is the square: as wide as the place, not the template's)
+		fld.set("hub_radius", float(spec.get("size", 3000.0)) * 0.5)
 		iw0.set("field", fld)
 		TerrainBake.record_arrays = true
 		_save_bake = 1
@@ -344,6 +346,10 @@ func _unhandled_input(e: InputEvent) -> void:
 			var cine := place.get_node_or_null("Cinema") as Node3D if place else null
 			if cine != null:
 				cine.visible = not cine.visible
+		KEY_B:
+			var edge := place.get_node_or_null("EdgeField") as Node3D if place else null
+			if edge != null:
+				edge.visible = not edge.visible
 		KEY_N:
 			var i := 0
 			var places := Islands.all()

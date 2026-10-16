@@ -714,6 +714,42 @@ until OpenStreetMap's rivers come into the builder.
 TESTS: a third suite, THE WORLD (godot/tests/world_test.gd).
 
 
+THE FIELD AT THE EDGE (0000044)
+
+At the user's request ("can we put an animated hexagonal grid forcefield
+effect at the edges where the land gets cut off"): a real place's square
+ends in a cut face falling into the cloud, and now a curtain of light
+hangs all round it (EdgeField, SCRIPT_earth_edge.gd, in the real-place
+template, so every place built on the world map has it too): two metres
+outside the face, clear of the rock, from the cloud deck to 700 m over the
+land, drawn by SHADER_earth_edge_field.gdshader as added light —
+
+  * hexes of cold light, 14 m across, in the plane of the curtain, their
+    size made to go round the square a whole number of times so no corner
+    has a seam; lines no thinner than a pixel, and where the hexes are
+    only a few pixels across, the share of each their lines cover rather
+    than a moire;
+  * a seam of brighter light where the land is cut, following the
+    ground's own profile along the edge (each column carries the land's
+    height there);
+  * brightest at the land and dying away over 150 m above it; fainter down
+    the cut face, to nothing at the cloud deck;
+  * moving: level bands of light rising up it, cells lighting by turns, a
+    slow tide running round the square, and, where the eye comes within a
+    few hundred metres, the field waking — brighter, ringed with ripples
+    out from the eye. The far walls are fainter.
+
+B shows or hides it.
+
+AND A BUILT PLACE IS AS WIDE AS IT WAS BUILT: the template's island is a
+3 km square, and a place built at any other size was drawn as one — a
+4 km square cut down to 3, a 1 km one held flat out to 3. The viewer sets
+the island's radius to the place's half side now (main.gd).
+
+TESTS: A REAL PLACE checks the field is hung round the square, its hexes
+going round it whole and its seam on the land at the edge.
+
+
 TESTS
 
     tools/godot-test.sh
@@ -725,7 +761,8 @@ runs the headless suites (the places baked first: README.txt):
   edge's height, the lake, deep water, the twelve layers summing to one,
   the woods and their firs, the bake digest), then the place through the
   viewer: the eye at the island's start over its ground, the water laid,
-  the ground painted, the sky (the sun high in the south-east at 10:30 in
+  the ground painted, the field at the edge hung round the square (its
+  hexes going round whole, its seam on the land), the sky (the sun high in the south-east at 10:30 in
   July, the moon's phase, a storm covering the sky and darkening the
   light, the island dark at 23:00), the cinema pass there, the mountains'
   shadows baked and baked again when the sun moves, the grade reaching the

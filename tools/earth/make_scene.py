@@ -48,6 +48,8 @@ def main():
     cine = res("Script", "res://godot/island/scripts/world/SCRIPT_cinema_post.gd", "21_cine")
     cmat = res("Material", "res://godot/island/earth/materials/MAT_earth_cinema.tres", "22_cmat")
     esun = res("Script", "res://godot/island/scripts/world/SCRIPT_earth_sun.gd", "23_esun")
+    edge = res("Script", "res://godot/island/scripts/world/SCRIPT_earth_edge.gd", "25_edge")
+    emat = res("Material", "res://godot/island/earth/materials/MAT_earth_edge_field.tres", "26_emat")
 
     def tex_list(cls):
         out = []
@@ -180,6 +182,12 @@ cloud_material = %(seamat)s
 script = %(esun)s
 island_world_path = NodePath("../IslandWorld")
 sky_path = NodePath("../EnviroSky")
+
+[node name="EdgeField" type="MeshInstance3D" parent="."]
+script = %(edge)s
+island_world_path = NodePath("../IslandWorld")
+cloud_sea_path = NodePath("../CloudSea")
+field_material = %(emat)s
 
 [node name="Cinema" type="MeshInstance3D" parent="."]
 script = %(cine)s

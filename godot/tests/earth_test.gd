@@ -163,6 +163,29 @@ func _run() -> void:
 	check(dress != null and dress.get_child_count() > 0, "the water is laid (%d meshes)" % (dress.get_child_count() if dress else 0))
 	var tm := iw.get("terrain_material") as ShaderMaterial
 	check(tm != null and tm.get_shader_parameter("control_a") is Texture2D, "the ground's paint is bound")
+	# THE FIELD AT THE EDGE (SCRIPT_earth_edge.gd): all round the square, just
+	# outside it, its hexes going round a whole number of times, its seam on
+	# the land at the edge
+	var curtain := main.place.get_node_or_null("EdgeField") as MeshInstance3D
+	var em: ShaderMaterial = curtain.material_override as ShaderMaterial if curtain != null else null
+	check(curtain != null and curtain.mesh != null and em != null, "the field hangs at the edge")
+	if curtain != null and curtain.mesh != null and em != null:
+		var gh := gf.half_size()
+		var box := curtain.get_aabb()
+		var hex := float(em.get_shader_parameter("hex_metres"))
+		var turns := 4.0 * box.size.x / hex
+		check(absf(box.size.x - box.size.z) < 0.01 and box.size.x > 2.0 * gh and box.size.x < 2.0 * gh + 10.0
+				and absf(turns - roundf(turns)) < 0.01,
+				"round the square, %.0f m a side, in %.0f hexes of %.2f m" % [box.size.x, turns, hex])
+		var arr := curtain.mesh.surface_get_arrays(0)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var u2: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV2]
+		var gisl: IslandField.Island = gf.island_in_cell(gf.hub_cell())
+		var off := 0.0
+		for k in range(0, vs.size(), 97):
+			var at := Vector2(vs[k].x, vs[k].z) * (gh / (box.size.x * 0.5))
+			off = maxf(off, absf(u2[k].x - (gf.coast_y(gisl, gisl.center.x + at.x, gisl.center.y + at.y) - gisl.base_y)))
+		check(off < 0.01, "its seam on the land at the edge (worst %.3f m)" % off)
 	# THE SKY (EnviroSky): the sun where it really is, the moon's real phase,
 	# the weather reaching the sky and the light
 	var sky: Node = main.place.get_node_or_null("EnviroSky")

@@ -77,6 +77,7 @@ CONTROLS
   K              the cinema on or off          P   native or retro picture
   N              the next place                I   the words on or off
   M              the world map (its own window): build any place on Earth
+  B              the field at the square's edge on or off
   F12            a picture to user://          H   these keys
   pad            left stick flies, right looks, triggers climb, A walks
   touch          one finger looks, two move (and spread or pinch to climb)

@@ -11,7 +11,8 @@ W A S D  fly     E / Q  up / down
 SHIFT  faster     CTRL  slower     WHEEL  flying speed     G  walk / fly
 [ ]  the hour (with SHIFT, by the hour)     T  run the clock / hold it
 F  the weather     K  the cinema on / off     P  native / retro picture
-N  the next place     M  the world map: build any place on Earth
+B  the field at the edge on / off     N  the next place
+M  the world map: build any place on Earth
 F12  a picture to user://     H  these keys"""
 
 var info: Label

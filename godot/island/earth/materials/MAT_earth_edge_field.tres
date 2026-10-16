@@ -1,0 +1,24 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; THE FIELD AT THE EDGE of a real place's square (SCRIPT_earth_edge.gd,
+; SHADER_earth_edge_field.gdshader): hexes of cold light hung all round the
+; cut face. After the water (render_priority 1), since it adds light over it.
+
+[ext_resource type="Shader" path="res://godot/island/shaders/SHADER_earth_edge_field.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 1
+shader = ExtResource("1_shader")
+shader_parameter/field_colour = Color(0.3, 0.8, 1, 1)
+shader_parameter/seam_colour = Color(0.7, 0.95, 1, 1)
+shader_parameter/strength = 0.8
+shader_parameter/hex_metres = 14.0
+shader_parameter/line_width = 0.04
+shader_parameter/rise = 150.0
+shader_parameter/reach = 700.0
+shader_parameter/deck_y = -45.0
+shader_parameter/scan_speed = 24.0
+shader_parameter/scan_spacing = 240.0
+shader_parameter/scan_width = 8.0
+shader_parameter/seam_width = 1.0
+shader_parameter/near_metres = 300.0

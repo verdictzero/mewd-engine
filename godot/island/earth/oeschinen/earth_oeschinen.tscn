@@ -20,6 +20,8 @@
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_cinema_post.gd" id="21_cine"]
 [ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_cinema.tres" id="22_cmat"]
 [ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_sun.gd" id="23_esun"]
+[ext_resource type="Script" path="res://godot/island/scripts/world/SCRIPT_earth_edge.gd" id="25_edge"]
+[ext_resource type="Material" path="res://godot/island/earth/materials/MAT_earth_edge_field.tres" id="26_emat"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_0.png" id="s_conifer_0"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_120.png" id="s_conifer_1"]
 [ext_resource type="Texture2D" path="res://godot/island/earth/sprites/SPRITE_earth_conifer_fir_tree_01_0_240.png" id="s_conifer_2"]
@@ -173,6 +175,12 @@ cloud_material = ExtResource("14_seamat")
 script = ExtResource("23_esun")
 island_world_path = NodePath("../IslandWorld")
 sky_path = NodePath("../EnviroSky")
+
+[node name="EdgeField" type="MeshInstance3D" parent="."]
+script = ExtResource("25_edge")
+island_world_path = NodePath("../IslandWorld")
+cloud_sea_path = NodePath("../CloudSea")
+field_material = ExtResource("26_emat")
 
 [node name="Cinema" type="MeshInstance3D" parent="."]
 script = ExtResource("21_cine")
