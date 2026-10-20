@@ -33,6 +33,15 @@ const SAMPLES := {
 	# the plasma rifle's own shot (at the user's request: "give the plasma
 	# rifle this sound effect", beam_rifle.mp3)
 	"plasma_fire": "res://assets/sfx/beam_rifle.mp3",
+	# the fetus launcher's (tools/fetus-sounds.py): the user's goop_12.wav
+	# as it leaves, one of the user's four cries as it flies, and a splat
+	# made here until the user's own
+	"fetus_launch": "res://assets/sfx/fetus_launch.wav",
+	"fetus_cry_1": "res://assets/sfx/fetus_cry_1.wav",
+	"fetus_cry_2": "res://assets/sfx/fetus_cry_2.wav",
+	"fetus_cry_3": "res://assets/sfx/fetus_cry_3.wav",
+	"fetus_cry_4": "res://assets/sfx/fetus_cry_4.wav",
+	"fetus_splat": "res://assets/sfx/fetus_splat.wav",
 }
 const SAMPLE_FOR := {
 	"spinup": "minigun_start", "minigunloop": "minigun_fire", "spindown": "minigun_stop",
@@ -42,6 +51,9 @@ const SAMPLE_FOR := {
 	"plasma": "plasma_fire",
 	# a pickup taken, a big one (and IDDQD), and a trigger on nothing (Pickups, Player)
 	"pickup": "pickup", "powerup": "powerup", "noammo": "noammo",
+	# the fetus launcher (FetusLauncher)
+	"fetuslaunch": "fetus_launch", "fetuscry1": "fetus_cry_1", "fetuscry2": "fetus_cry_2",
+	"fetuscry3": "fetus_cry_3", "fetuscry4": "fetus_cry_4", "fetussplat": "fetus_splat",
 }
 const SAMPLE_GAIN := {
 	"minigun_fire": 0.32, "minigun_start": 0.42, "minigun_stop": 0.42,
@@ -49,6 +61,8 @@ const SAMPLE_GAIN := {
 	"lance_prefire": 0.52, "lance_fire_a": 0.50, "lance_fire_b": 0.44,
 	"pickup": 0.40, "powerup": 0.42, "noammo": 0.50,
 	"plasma_fire": 0.45,
+	"fetus_launch": 0.55, "fetus_cry_1": 0.40, "fetus_cry_2": 0.40, "fetus_cry_3": 0.46, "fetus_cry_4": 0.40,
+	"fetus_splat": 0.60,
 }
 
 ## the ears: anything with an x and a y
@@ -112,6 +126,32 @@ func _start(name, from, loop: bool, rate := 1.0) -> AudioStreamPlayer:
 
 func play(name, from = null, opts := {}) -> void:
 	_start(name, from, false, float(opts.get("rate", 1.0)))
+
+## A SOUND THAT GOES WITH SOMETHING (a fetus crying as it flies): one
+## shot, as play is, with a handle — follow() keeps its loudness to where
+## the thing is now, stop() cuts it short. null when nothing plays.
+class Voice:
+	var player: AudioStreamPlayer
+	var sound
+	var key := ""
+	func follow(from) -> void:
+		if is_instance_valid(player):
+			var g: float = sound._gain_for(from) * float(SAMPLE_GAIN.get(key, 1.0)) * sound.volume
+			player.volume_db = linear_to_db(maxf(g, 1e-5))
+	func stop() -> void:
+		if is_instance_valid(player):
+			player.stop()
+			player.queue_free()
+
+func voice(name, from = null) -> Voice:
+	var p := _start(name, from, false)
+	if p == null:
+		return null
+	var v := Voice.new()
+	v.player = p
+	v.sound = self
+	v.key = SAMPLE_FOR[name]
+	return v
 
 func loop(name, from = null) -> Loop:
 	var p := _start(name, from, true)

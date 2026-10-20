@@ -28,6 +28,7 @@ const SLOW_MO := 4
 var slow_mo := false
 
 var potatoes: PotatoCannon = null
+var fetuses: FetusLauncher = null
 var level: IslandLevel
 var bank: TexBank
 var player: Player
@@ -313,6 +314,8 @@ func start_map(which: String) -> void:
 	add_child(missiles)
 	potatoes = PotatoCannon.new(self)
 	add_child(potatoes)
+	fetuses = FetusLauncher.new(self)
+	add_child(fetuses)
 	arc = ArcSystem.new(self)
 	add_child(arc)
 	rainbow = RainbowBeams.new(self)
@@ -792,6 +795,7 @@ func tic() -> void:
 	bore.tic()
 	missiles.tic()
 	potatoes.tic()
+	fetuses.tic()
 	arc.tic()
 	rainbow.tic()
 	death.tic()
@@ -862,6 +866,8 @@ func _place_camera(f: float) -> void:
 	# (and the potato's nuke shakes it harder than anything)
 	if potatoes != null:
 		sh = maxf(sh, potatoes.shake * 1.6)
+	if fetuses != null:
+		sh = maxf(sh, fetuses.shake)
 	if sh > 0.001:
 		var t := Time.get_ticks_msec() * 0.001
 		var k := sh * sh
@@ -1119,6 +1125,11 @@ func thing_in_way(who, nx: float, ny: float):
 func play_sound(name, at) -> void:
 	if sound != null:
 		sound.play(name, at)
+
+## A sound that goes with something (Sound.voice: a fetus crying as it
+## flies), or null
+func voice(name, at):
+	return sound.voice(name, at) if sound != null else null
 
 ## Everyone within `r` of (x, y) who can be frightened, frightened.
 func scare(x: float, y: float, r: float) -> void:
@@ -1425,7 +1436,8 @@ func muzzle_view(p, fallback: Vector3) -> Vector3:
 	return Vector3(at.x, -at.z, at.y)
 
 ## the weapons that do not run on frames tic themselves: kind is one of
-## "charge" (the lance), "seeker" (the launcher), "arc" (the maw)
+## "charge" (the lance), "seeker" (the launcher), "arc" (the maw),
+## "potato" (the potato cannon), "fetus" (the fetus launcher)
 func weapon_system(kind: String):
 	match kind:
 		"seeker":
@@ -1434,6 +1446,8 @@ func weapon_system(kind: String):
 			return arc
 		"potato":
 			return potatoes
+		"fetus":
+			return fetuses
 		"charge":
 			return beam
 	return null

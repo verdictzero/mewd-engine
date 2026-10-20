@@ -3927,6 +3927,104 @@ EVERY CORE, AND THE READOUT IN THE LOWER LEFT (0000038)
   version.
 
 
+THE FETUS LAUNCHER (0000039)
+
+  At the user's request: "make this weapon (model) fire the fetus +
+  placenta, with extra gore on impact; start here and we'll embellish
+  further" (the gun as organ_gun.7z, a pk3 holding the same
+  fetus_launcher.glb kept in 0000033, and a picture of a fetus in its
+  sac), then "make sure the glass jar in the model gets a glass shader",
+  "goop sound on launch, then screaming", "switch up the screaming
+  between shots", and "remove placenta and cord, i just want the fetus
+  sprite".
+
+  THE GUN (tools/blender/prep_fetus_launcher.py, assets/models/
+  fetus_launcher.glb): the caged barrel decimated 45,020 triangles to
+  9,000 and the body 25,959 to 11,000, the rest as they were (86k to
+  35k); each part's AO and its normal map's relief multiplied into its
+  colour (the gun shader reads a colour and nothing else), its metal and
+  roughness sheets down to one number each, the normal and AO-rough-metal
+  sheets dropped, the colours to 512 (the body's to 1024), JPEG: 47.6 MB
+  to 2.2. Slot 8, the potato cannon's (it is off); FETUS LAUNCHER, twelve
+  carried, six to start, one a FETUS_REFIRE (24 tics). Held (weapon3d
+  "FETUS") turned to show its right side so the jar reads; the JAR is
+  glass, the hopper's refracting gun_glass, pinkish, lit a little from
+  inside; and in it the flesh ball is THE NEXT ROUND (`chamber`): gone
+  as it fires, swelling back as the jar reloads, none with the tank dry,
+  beating at about seventy a minute when whole.
+
+  THE SHOT (game/fetuses.gd, FetusLauncher): the user's picture
+  (tools/art/fetus.png, tools/fetus-art.py: 128 x 153, 1-bit alpha) as a
+  card turned to the eye (fetus_card.gdshader), 32 x 38 units, spun in
+  the picture and rocked about its upright (never under 0.7 of its width:
+  edge-on a fetus is a line), out of the barrel small and its full size
+  six tics later (the barrel is a hand's breadth from the eye). Lofted,
+  it falls, and goes off on the first thing it touches: somebody, a wall,
+  the ground, a ceiling; never its shooter. Warm to the thermal sight.
+
+  THE SPLAT: whoever it hit takes 260, everyone within 80 units up to 70
+  falling away (the shooter a third of theirs), and everybody it kills is
+  blown apart as a rocket's are (eviscerate, one budget shared) — but
+  WET: marked so their own gib throws no fireball (Giblets.burst). The
+  first cut, at 110 units and 90, killed twelve of the crowd that greets
+  you with one fetus, a rocket's worth. The fetus itself: viscera off the
+  spot (Giblets.splatter, new: eviscerate's pieces and room painting from
+  a point instead of a body), its own picture torn into a dozen wet
+  pieces (SpriteChunks), 110 drops of blood both ways, a great spatter on
+  what it hit, a pool, a dozen spatters across the floor, fifteen rays of
+  blood up the walls, and a shake close by.
+
+  THE SOUNDS (tools/fetus-sounds.py): the launch is the user's
+  goop_12.wav as it came. The user's "cut this up into distinct SFX" is
+  four takes of one cry (a voice's harmonics bending over a hiss, a hard
+  band near 2.7 kHz), back to back with room noise between that never
+  falls to silence: cut where it is lowest (0.120-1.560, 1.565-3.700,
+  3.770-5.400, 5.435-6.900 s), mixed to mono, 4 ms in and 40 ms out, one
+  gain for all four. Each fetus screams one of them (Sound.voice: a
+  one-shot with a handle, its loudness kept to where the fetus is, cut
+  short when it lands), eight tics after the goop, never the one the
+  last shot screamed. The SPLAT is made in the tool for now (a falling
+  thump, a wet tearing, drops): the user's splat.wav came through as
+  half a second of zeros, every sample 0, and waits to be sent again.
+
+  THE PICKUP: FETUSES, four, the user's picture as the pickup strip's
+  thirteenth cell (tools/pickups-strip.py --cell=12, which now grows the
+  strip and takes a picture with its own alpha without keying it); laid
+  in the streets, along the roads and in the country, not in a match.
+
+  WHITE SQUARES: the parts left lying (Giblets' remains) and the heaps of
+  ash were white squares a few metres off. standee.gdshader fetches
+  `strip_smooth` wherever a card is drawn smaller than its pixels, and
+  those two batches never set it: a blank white texture. Both set it now
+  (it showed under the fetus launcher's aftermath first, and was the same
+  after any rocket).
+
+  BUILT AND TAKEN OUT: the placenta on its cord. The cord was a rope of
+  twelve points (Verlet, then follow-the-leader from the end that led, so
+  it never stretched: pulled from both ends at once it ran out to 92 units
+  of its 52 at speed), drawn as beads each turned a little further so the
+  vessels wound across them read as a twist; the placenta, drawn in the
+  art tool, at its end, flew on after the fetus landed and splatted on its
+  own. Out at the user's request, the drawings with it.
+
+  THE CORES TEST'S RUNNER (godot/tests/cores_test.gd, 0000038's): the full
+  run for this one failed "somebody running past" (0 of 200) and the same
+  suite alone passed. A_Watch asks the blockmap's nine 128-unit cells
+  round the watcher, and the test stood the runner 150 units off: two
+  cells over whenever the watcher stood near its own cell's edge, which
+  is wherever the player has drifted to by then. It stands 100 off now,
+  always in the nine.
+
+  Pictures: godot/tests/fetus_shot.gd (hold, empty, flight, side, splat,
+  after; --hud; --rocket for the same aftermath after a rocket; holds
+  --try= to find the hold). weapons_test: the slot, a fetus into a
+  shopper and they come apart with no fireball, nothing flying on, one a
+  reload and no faster, the arc and the tumble, the four screams never
+  twice running, the user's files, an empty jar, the pickup and its cell,
+  the gun's glass jar and the next round in it gone, whole and none, and
+  the parts left lying with their far-off picture.
+
+
 TESTS
 
     tools/godot-test.sh

@@ -238,8 +238,10 @@ func burst(a, pieces := -1) -> void:
 	game.play_sound("gib", a)
 	# The fireball, standing on the floor where they were. It is an actor
 	# and not a particle because a particle is square and this is twice
-	# as tall as it is wide.
-	game.spawn("BLAST", a.x, a.y)
+	# as tall as it is wide. (Not for a body a fetus burst — FetusLauncher
+	# marks it `wet` — which goes in blood, not in flames.)
+	if not a.has_meta("wet"):
+		game.spawn("BLAST", a.x, a.y)
 	# A pool under them straight away, so there is something there even
 	# if every piece flies off somewhere else.
 	splat(a.x, a.y, a.z)
@@ -371,6 +373,54 @@ func eviscerate(a, at = null, force := 1.0, share := 1.0) -> int:
 		var walls := maxi(ROOM_RAYS, roundi(GORE.walls * share))
 		for k in range(0, walls, ROOM_RAYS):
 			room.append([ROOM_WALLS, from, u, k, mini(ROOM_RAYS, walls - k)])
+		marks += walls
+	return marks
+
+## A SPLAT THAT IS NOT SOMEBODY: the fetus launcher's shot coming apart
+## where it lands (FetusLauncher). Viscera thrown off `at` in a cone round
+## `d` (or every way, zero), as eviscerate throws a body's — K_GORE pieces
+## that trail blood, a share of them left lying — `o.pieces` of them at
+## `o.force`, `o.size` times a warhead's size; and the room painted as a
+## body's is, through the same queue: a pool `o.pool` across on the floor
+## at `o.floor` (none at 0), `o.spatters` thrown out across it as far as
+## `o.reach`, and `o.walls` rays of blood up the walls round it.
+func splatter(at: Vector3, d: Vector3, o: Dictionary) -> int:
+	eviscerations += 1
+	var dl := Vector2(d.x, d.y).length()
+	var has_dir := dl > 0.05
+	var dir := atan2(d.y, d.x) if has_dir else 0.0
+	var force: float = o.get("force", 1.0)
+	var scale: float = o.get("size", 1.0)
+	for k in int(o.get("pieces", 20)):
+		var ang: float = dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone if has_dir else _r() * TAU
+		var sp: float = (GORE.speedMin + _r() * (GORE.speedMax - GORE.speedMin)) * force * (0.5 + 0.5 * minf(1.0, dl))
+		var size: float = (GORE.sizeMin + _r() * (GORE.sizeMax - GORE.sizeMin)) * scale
+		var vz: float = (GORE.riseMin + _r() * (GORE.riseMax - GORE.riseMin)) * 0.8 * force + maxf(0.0, d.z) * 4.0
+		var life: float = GORE.lifeMin + (U.p_random() % (GORE.lifeMax - GORE.lifeMin))
+		var c: Color = WET_GIB if (k & 1) == 0 else Color.WHITE
+		var i := chunks.put(at.x, at.y, at.z + 2.0, cos(ang) * sp, sin(ang) * sp, vz, life, size, size, c, c,
+			float(U.p_random() % GIBLETS), 0.0, GORE.drag, GORE.gravity)
+		if i >= 0:
+			chunk_kind[i] = K_GORE
+			chk_x[i] = at.x
+			chk_y[i] = at.y
+			chk_z[i] = at.z + 2.0
+			chunk_floor[i] = UNKNOWN
+	var marks := 0
+	if _decals() != null:
+		var floor: float = o.get("floor", at.z)
+		var pool: float = o.get("pool", 0.0)
+		if pool > 0.0:
+			splat(at.x, at.y, floor, pool * (0.85 + 0.3 * _r()))
+			marks += 1
+		for k in int(o.get("spatters", 0)):
+			var ang: float = _r() * TAU if (not has_dir or (k & 3) == 3) else dir + ((U.p_random() / 128.0) - 1.0) * GORE.cone
+			room.append([ROOM_FLOOR, at.x, at.y, floor, cos(ang), sin(ang), 16.0 + _r() * float(o.get("reach", 150.0)), 30.0 + _r() * 44.0])
+			marks += 1
+		var walls := int(o.get("walls", 0))
+		var u := Vector3(d.x / dl if has_dir else 1.0, d.y / dl if has_dir else 0.0, 0.05)
+		for k in range(0, walls, ROOM_RAYS):
+			room.append([ROOM_WALLS, at, u, k, mini(ROOM_RAYS, walls - k)])
 		marks += walls
 	return marks
 
@@ -710,7 +760,12 @@ func _make_remains_batch() -> void:
 	quad.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/standee.gdshader")
-	mat.set_shader_parameter("strip", U.col(load("res://assets/people/giblets.png")))
+	var strip: Texture2D = load("res://assets/people/giblets.png")
+	mat.set_shader_parameter("strip", U.col(strip))
+	# (and the same picture for where it is drawn small: standee.gdshader
+	# fetches `strip_smooth` there, and left unset it was a blank white
+	# texture — every part lying a few metres off was a white square)
+	mat.set_shader_parameter("strip_smooth", U.col(strip))
 	mat.set_shader_parameter("cells", U.col(float(GIBLETS)))
 	mat.set_shader_parameter("cell", U.col(Vector2(16, 16)))
 	quad.surface_set_material(0, mat)
@@ -764,7 +819,9 @@ func _make_ash_batch() -> void:
 	quad.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://godot/shaders/standee.gdshader")
-	mat.set_shader_parameter("strip", U.col(ImageTexture.create_from_image(bake_ash_strip())))
+	var ash := ImageTexture.create_from_image(bake_ash_strip())
+	mat.set_shader_parameter("strip", U.col(ash))
+	mat.set_shader_parameter("strip_smooth", U.col(ash))
 	mat.set_shader_parameter("cells", U.col(float(ASHES)))
 	mat.set_shader_parameter("cell", U.col(ASH_CELL))
 	quad.surface_set_material(0, mat)

@@ -191,7 +191,11 @@ func _crowd() -> void:
 	var sy: float = p.y - sin(p.angle) * 600.0
 	var calm: Actor = game.spawn("SHOPPER", sx, sy, 0.0)
 	var fire: Actor = game.spawn("SHOPPER", sx + 100.0, sy, 0.0)
-	var runner: Actor = game.spawn("SHOPPER", sx, sy + 150.0, 0.0)
+	# (the runner 100 units off, under a blockmap cell: A_Watch asks the nine
+	# cells round it, and 150 off — where it was — is two cells over when
+	# the watcher stands near its own cell's edge, which is wherever the
+	# player has drifted to by now: it failed one run in a few)
+	var runner: Actor = game.spawn("SHOPPER", sx, sy + 100.0, 0.0)
 	game.tics += 1
 	calm.A_Watch()
 	check(calm.panic == 0, "nobody alight, nobody running: no fright")

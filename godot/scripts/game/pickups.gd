@@ -7,7 +7,9 @@
 ## from their green screens by tools/pickups-strip.py): a medkit and a
 ## big one, light and heavy armour, a box of rounds and a crate, a
 ## battery and a crate of cells, a case of rockets, a mini nuke, the
-## the bore crate and the alien pod. Each stands on the ground as a card
+## the bore crate and the alien pod — and a thirteenth, the fetus
+## launcher's: the user's fetus in its sac (tools/pickups-strip.py
+## --cell=12). Each stands on the ground as a card
 ## turned to the eye, Doom's way (the standee shader: one draw for all
 ## of them), bobbing a little, lit by itself so it reads on a dark
 ## field; and a player who walks over one TAKES it — unless it would do
@@ -64,6 +66,7 @@ const KINDS := [
 	{"key": "mini_nuke_ammo", "say": "MINI NUKE", "size": 44.0, "ammo": {"potatoes": 2}, "weapon": "POTATO", "back": 0, "sp_back": 0, "mp": false},
 	{"key": "bio_gun_ammo", "say": "BORE CRATE", "size": 34.0, "ammo": {"bores": 2}, "back": 0, "sp_back": 6300, "mp": false},
 	{"key": "arc_maw_ammo", "say": "ALIEN POD", "size": 32.0, "ammo": {"volts": 2}, "back": 0, "sp_back": 6300, "mp": false},
+	{"key": "fetus_ammo", "say": "FETUSES", "size": 30.0, "ammo": {"fetuses": 4}, "back": 0, "sp_back": 6300, "mp": false},
 ]
 
 ## a kind's index by its key
@@ -75,14 +78,14 @@ static func kind_of(key: String) -> int:
 
 ## what the HUD calls a tank
 const TANK_SAY := {"fuel": "FUEL", "co2": "CO2", "bores": "BORES", "rounds": "ROUNDS", "cells": "CELLS",
-	"rockets": "ROCKETS", "volts": "VOLTS", "potatoes": "NUKES", "plasma": "PLASMA"}
+	"rockets": "ROCKETS", "volts": "VOLTS", "potatoes": "NUKES", "plasma": "PLASMA", "fetuses": "FETUSES"}
 
 static func tank_say(tank: String) -> String:
 	return TANK_SAY.get(tank, "AMMO")
 
 ## the pickup that is drawn for a tank on the HUD (its cell in the strip)
 const TANK_ICON := {"fuel": -1, "co2": -1, "bores": 10, "rounds": 4, "cells": 7, "rockets": 8, "volts": 11,
-	"potatoes": 9, "plasma": 6}
+	"potatoes": 9, "plasma": 6, "fetuses": 12}
 
 ## WHAT GOES WHERE alone (place). Each site draws its kinds by weight (a
 ## hundred to a table). SAFE is the country's on an island where nothing
@@ -90,11 +93,11 @@ const TANK_ICON := {"fuel": -1, "co2": -1, "bores": 10, "rounds": 4, "cells": 7,
 ## there. The mini nukes are in none of them — laid by rule, a few.
 const SITES := {
 	"start": [["health", 1], ["armor", 1], ["small_ammo", 1], ["energy_ammo", 1]],
-	"street": [["small_ammo", 30], ["health", 22], ["energy_ammo", 14], ["armor", 10], ["rocket_ammo", 8], ["bio_gun_ammo", 8], ["arc_maw_ammo", 8]],
+	"street": [["small_ammo", 30], ["health", 22], ["energy_ammo", 14], ["armor", 10], ["rocket_ammo", 8], ["bio_gun_ammo", 8], ["arc_maw_ammo", 8], ["fetus_ammo", 8]],
 	"square": [["large_ammo", 30], ["health_big", 25], ["large_energy_ammo", 25], ["armor_big", 20]],
-	"road": [["small_ammo", 34], ["health", 24], ["energy_ammo", 14], ["armor", 10], ["rocket_ammo", 6], ["bio_gun_ammo", 6], ["arc_maw_ammo", 6]],
-	"country": [["small_ammo", 30], ["health", 22], ["energy_ammo", 14], ["armor", 12], ["rocket_ammo", 8], ["bio_gun_ammo", 7], ["arc_maw_ammo", 7]],
-	"safe": [["small_ammo", 36], ["energy_ammo", 16], ["rocket_ammo", 12], ["bio_gun_ammo", 12], ["arc_maw_ammo", 10], ["large_ammo", 6], ["health", 4], ["armor", 4]],
+	"road": [["small_ammo", 34], ["health", 24], ["energy_ammo", 14], ["armor", 10], ["rocket_ammo", 6], ["bio_gun_ammo", 6], ["arc_maw_ammo", 6], ["fetus_ammo", 6]],
+	"country": [["small_ammo", 30], ["health", 22], ["energy_ammo", 14], ["armor", 12], ["rocket_ammo", 8], ["bio_gun_ammo", 7], ["arc_maw_ammo", 7], ["fetus_ammo", 7]],
+	"safe": [["small_ammo", 36], ["energy_ammo", 16], ["rocket_ammo", 12], ["bio_gun_ammo", 12], ["arc_maw_ammo", 10], ["fetus_ammo", 10], ["large_ammo", 6], ["health", 4], ["armor", 4]],
 	"meadow": [["health_big", 25], ["armor_big", 25], ["large_ammo", 20], ["large_energy_ammo", 15], ["arc_maw_ammo", 15]],
 }
 ## how many of each site, and how far apart (units)

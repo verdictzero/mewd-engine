@@ -43,6 +43,10 @@ const VOLTS := 12
 ## carried; its screen shows the next ten (PLASMA_CLIP)
 const PLASMA_CELLS := 40
 const PLASMA_CLIP := 10
+## THE FETUS LAUNCHER (game/fetuses.gd): the fetuses carried, and the tics
+## the canister takes to grow the next
+const FETUSES := 12
+const FETUS_REFIRE := 24
 
 ## HEALTH AND ARMOUR, at the user's request ("make finite ... health a
 ## thing, as well as armor on top of health"). Health heals to HEALTH;
@@ -63,7 +67,7 @@ const START_ARMOUR := 50
 const START_ARMOUR_CLASS := 1
 
 ## the order the slots and the cycle go in
-const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC", "POTATO", "PLASMA"]
+const ORDER := ["FLAMER", "EXTINGUISHER", "BORE", "MINIGUN", "LANCE", "LAUNCHER", "ARC", "POTATO", "FETUS", "PLASMA"]
 
 const WEAPONS := {
 	"FLAMER": {"slot": 1, "name": "FLAMER", "fireTics": [2, 2], "ammo": "fuel", "ammoPerShot": 0,
@@ -84,6 +88,10 @@ const WEAPONS := {
 	# pull of the trigger (`semi`: let go to fire again), no spread, at
 	# most about three a second (game/plasma.gd)
 	"PLASMA": {"slot": 9, "name": "SARAKAWA MK II", "fireTics": [6, 6], "ammo": "plasma", "ammoPerShot": 1, "semi": true, "plasma": true},
+	# THE FETUS LAUNCHER, at the user's request ("make this weapon (model)
+	# fire the fetus + placenta, with extra gore on impact"): the potato
+	# cannon's slot, which is off for now (game/fetuses.gd)
+	"FETUS": {"slot": 8, "name": "FETUS LAUNCHER", "fireTics": [FETUS_REFIRE], "ammo": "fetuses", "ammoPerShot": 1, "fetus": true},
 }
 
 ## the tanks: [the most you carry, refill one every n tics (0: never —
@@ -99,20 +107,21 @@ const TANKS := {
 	"volts": [VOLTS, 0, 0.0, 0],
 	"potatoes": [POTATOES, 0, 0.0, 0],
 	"plasma": [PLASMA_CELLS, 0, 0.0, 0],
+	"fetuses": [FETUSES, 0, 0.0, 0],
 }
 
 ## what a life in single player starts with in each (a match has its
 ## own: NetMatch.RULES spawnAmmo)
 const START := {
 	"fuel": TANK, "co2": BOTTLE, "bores": 3, "rounds": 600, "cells": 2,
-	"rockets": 4, "volts": 3, "potatoes": 0, "plasma": 10,
+	"rockets": 4, "volts": 3, "potatoes": 0, "plasma": 10, "fetuses": 6,
 }
 
 ## where the readout's count of a tank turns amber (Hud): what a fight
 ## or two of it is, not a fraction of what it holds
 const LOW := {
 	"rounds": 300, "plasma": 5, "cells": 1, "rockets": 4, "volts": 1, "bores": 1,
-	"potatoes": 1, "fuel": 140, "co2": 88,
+	"potatoes": 1, "fuel": 140, "co2": 88, "fetuses": 2,
 }
 
 ## what one shot of a gun needs in the tank (a volley takes its rounds

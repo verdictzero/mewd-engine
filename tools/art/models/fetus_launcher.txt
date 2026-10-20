@@ -1,8 +1,10 @@
 THE FETUS LAUNCHER — the user's own model, kept for later (at the user's
-request: "make this gun available for later"). Not in the game yet: it
-lives here, under tools/ (which Godot does not import), so it costs the
-builds nothing until it is made a weapon — then it goes to
-assets/models/ as the other guns did (weapon3d.gd GUNS).
+request: "make this gun available for later"), and IN THE GAME since
+0000039 (GODOT.txt, THE FETUS LAUNCHER): this file as it came stays here,
+under tools/ (which Godot does not import), and the game's copy is made
+from it by tools/blender/prep_fetus_launcher.py into
+assets/models/fetus_launcher.glb (weapon3d.gd GUNS "FETUS"): the cage and
+the body cut down, the AO baked into the colours, 2.2 MB.
 
     fetus_launcher.glb           as it came (Blender glTF I/O 5.2.40),
                                  47.6 MB; 7z'd in two volumes

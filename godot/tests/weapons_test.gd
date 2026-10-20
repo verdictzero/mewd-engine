@@ -11,7 +11,8 @@
 ## lets go, and its column kills whoever is down the run and sears
 ## where it stops; and the LAUNCHER's thermal sight comes up with it, takes the
 ## zoom and the phone's AIM, draws a bracket on its lock, and its screen
-## is the model's own panel. Prints OK or fails.
+## is the model's own panel; and the FETUS LAUNCHER's fetus flies, screams,
+## and splats whoever it meets — wet, no fireball. Prints OK or fails.
 extends SceneTree
 
 var game
@@ -41,6 +42,7 @@ func _init() -> void:
 	_arc(p, run)
 	_lance(p, run)
 	_potato(p, run)
+	_fetus(p, run)
 	_plasma(p, run)
 	print("weapons: %s" % ("OK" if failures == 0 else "%d FAILED" % failures))
 	quit(1 if failures else 0)
@@ -128,10 +130,11 @@ func _bore(p, run: Vector2) -> void:
 	check(game.giblets.bore_finishes >= 1, "BORE: the head went (bore_explode)")
 	_settle(150)
 	check(game.giblets.remains.size() >= 20, "BORE: and the parts lie about afterwards (%d)" % game.giblets.remains.size())
-	# THE POTATO CANNON is off for now: slot 8 picks nothing
+	# THE POTATO CANNON is off for now: slot 8 picks the fetus launcher
 	var was: String = p.weapon
 	p.select_slot(8)
-	check(not p.owned.get("POTATO", true) and p.pending_weapon != "POTATO" and p.weapon == was, "the potato cannon is not in the loadout")
+	check(not p.owned.get("POTATO", true) and p.pending_weapon == "FETUS" and p.weapon == was, "the potato cannon is not in the loadout: slot 8 is the fetus launcher's")
+	p.pending_weapon = ""
 	# THE BRAIN it pulled out lies where they stood; walking over it takes it
 	_settle(30)
 	check(game.trophies.count() == 1, "BORE: the brain it pulled out lies on the floor")
@@ -384,6 +387,131 @@ func _potato(p, run: Vector2) -> void:
 	for i in 200:
 		game.tic()
 	p.health = hp0
+
+
+# ---- the fetus launcher (game/fetuses.gd) ------------------------------------
+
+func _fetus(p, run: Vector2) -> void:
+	print("weapons: fetus launcher")
+	var F: FetusLauncher = game.fetuses
+	check(F != null and game.weapon_system("fetus") == F and Weapons.WEAPONS.FETUS.slot == 8 and p.owned.get("FETUS", false),
+		"the fetus launcher is slot 8 (the potato cannon's), carried, with a system of its own")
+	var hp0: float = p.health
+	p.health = 100000
+	var dbg: bool = p.debug
+	p.debug = false
+	p.ammo.fetuses = 3
+	# AT SOMEBODY: it lands in them, they come apart, wet
+	var v := _victim(p, run, 300.0)
+	p.pitch = 0.0
+	var f0: int = F.fired
+	var s0: int = F.splats
+	var ev0: int = game.giblets.eviscerations
+	var n := _hold("FETUS", 90, func(): return F.splats > s0)
+	var blasts := 0
+	for a in game.actors:
+		if a.type == "BLAST" and not a.removed:
+			blasts += 1
+	check(F.fired == f0 + 1 and p.ammo.fetuses == 2, "the trigger fires a fetus and spends one (%d fired, %d left)" % [F.fired - f0, p.ammo.fetuses])
+	check(F.splats == s0 + 1 and v.dead, "it flies to the shopper and splats them (%d tics, dead %s)" % [n, v.dead])
+	check(F.kills >= 1 and game.giblets.eviscerations >= ev0 + 2, "they are blown apart, and so is the fetus (eviscerations +%d)" % (game.giblets.eviscerations - ev0))
+	check(blasts == 0, "wet: nobody it killed went up in a fireball (%d)" % blasts)
+	check(F.shots.is_empty(), "and nothing of it flies on")
+	# THE JAR RELOADS: held down, one a FETUS_REFIRE tics and no faster
+	game._autofire = false
+	for i in 40:
+		game.tic()
+	p.angle = run.x
+	p.pitch = 0.35
+	f0 = F.fired
+	_hold("FETUS", Weapons.FETUS_REFIRE - 1)
+	check(F.fired == f0 + 1, "held, one fetus in %d tics" % (Weapons.FETUS_REFIRE - 1))
+	_hold("FETUS", 3)
+	check(F.fired == f0 + 2, "and the next once the jar has grown it (%d)" % (F.fired - f0))
+	# IN FLIGHT: lofted, then falling, tumbling, and screaming a beat out
+	p.ammo.fetuses = 3
+	for i in 60:
+		game.tic()
+	p.fire_index = -1
+	p.pitch = 0.3
+	var s: Dictionary = F.launch(p)
+	var spin0: float = s.spin
+	var top: float = s.z
+	var fell := false
+	for i in 30:
+		game.tic()
+		if not F.shots.has(s):
+			break
+		fell = fell or s.vz < 0.0
+		top = maxf(top, s.z)
+	check(top > s.z or fell, "in flight it rises and falls (to %.0f, falling %s)" % [top, fell])
+	check(float(s.spin) != spin0 and float(s.flip) > 0.0, "and tumbles as it goes")
+	# THE CRY: one of the four a fetus, never the last one again
+	var seen := {}
+	var twice := false
+	var last := -1
+	for i in 40:
+		F._cry({"x": p.x, "y": p.y, "z": p.z})
+		twice = twice or F.last_cry == last
+		last = F.last_cry
+		seen[last] = true
+	check(not twice and seen.size() == FetusLauncher.CRIES, "it cries one of the %d cries, never the same twice running" % FetusLauncher.CRIES)
+	for k in ["fetuslaunch", "fetuscry1", "fetuscry2", "fetuscry3", "fetuscry4", "fetussplat"]:
+		if not (Sound.SAMPLE_FOR.has(k) and ResourceLoader.exists(Sound.SAMPLES[Sound.SAMPLE_FOR[k]])):
+			check(false, "its sound %s is the user's file" % k)
+	# EMPTY: the trigger clicks and nothing goes
+	for i in 200:
+		game.tic()
+	p.ammo.fetuses = 0
+	f0 = F.fired
+	_hold("FETUS", 30)
+	check(F.fired == f0, "an empty jar fires nothing")
+	# THE PICKUP: the user's picture, the thirteenth cell
+	var k := Pickups.kind_of("fetus_ammo")
+	check(k == 12 and Pickups.TANK_ICON.fetuses == 12 and load(Pickups.STRIP).get_width() == Pickups.KINDS.size() * 128,
+		"its pickup is the strip's thirteenth cell")
+	check(game.pickups.give(p, k) and p.ammo.fetuses > 0, "and taken, it fills the jar (%d)" % p.ammo.fetuses)
+	# THE GUN: its jar glass, and the next round in it, gone as it fires
+	var w := Weapon3D.new()
+	root.add_child(w)
+	var G: Dictionary = w._load("FETUS")
+	var glass := [false]
+	var walk := func(nd: Node, me: Callable) -> void:
+		if nd is MeshInstance3D:
+			for i in (nd as MeshInstance3D).mesh.get_surface_count():
+				var m = (nd as MeshInstance3D).get_surface_override_material(i)
+				if m is ShaderMaterial and (m as ShaderMaterial).shader.resource_path.ends_with("gun_glass.gdshader"):
+					glass[0] = true
+		for c in nd.get_children():
+			me.call(c, me)
+	walk.call(G.group, walk)
+	check(glass[0], "the gun's jar wears the glass shader")
+	check(G.has("chamber"), "and the next round in the jar is found")
+	if G.has("chamber"):
+		w.current = "FETUS"
+		var node: Node3D = G.chamber.node
+		p.ammo.fetuses = 2
+		p.fire_index = 0
+		p.fire_tics = Weapons.FETUS_REFIRE
+		w._chamber_tic(G.chamber, p)
+		var gone := node.transform.basis.get_scale().x
+		p.fire_index = -1
+		w._chamber_tic(G.chamber, p)
+		var full := node.transform.basis.get_scale().x
+		p.ammo.fetuses = 0
+		w._chamber_tic(G.chamber, p)
+		var none := node.transform.basis.get_scale().x
+		check(gone < 0.01 and full > 0.9 and full < 1.1 and none < 0.01,
+			"gone as it fires (%.2f), whole when loaded (%.2f), none when dry (%.2f)" % [gone, full, none])
+	w.queue_free()
+	# (the parts left lying draw their own picture far off: not white squares)
+	var rm: ShaderMaterial = game.giblets._rem_mm.mesh.surface_get_material(0)
+	check(rm.get_shader_parameter("strip_smooth") != null, "the parts left lying have their picture for far off")
+	p.debug = dbg
+	p.health = hp0
+	p.ammo.fetuses = Weapons.START.fetuses
+	for i in 200:
+		game.tic()
 
 
 # ---- the plasma rifle, the Sarakawa Mk II (game/plasma.gd) -------------------

@@ -95,6 +95,19 @@ const GUNS := {
 		# spun round once on the way up; at the user's request, "stop the 360
 		# flip on the plasma rifle when zooming in")
 		"aim": {"solve": {"dist": 0.10, "yaw": 0.0, "pitch": 0.0}}},
+	# THE FETUS LAUNCHER (game/fetuses.gd), at the user's request: the
+	# user's own gun (tools/blender/prep_fetus_launcher.py: its cage cut
+	# down, its AO baked into its colours), in its own colours (`pbr`), its
+	# jar GLASS (the hopper's refracting glass, at the user's request: "make
+	# sure the glass jar in the model gets a glass shader"), tinted the pink
+	# of what is in it; and in the jar THE NEXT ONE (`chamber`, the part
+	# named so): gone when it fires, growing back while the gun reloads,
+	# none while there are none, and beating
+	# (turned a little to show its right side, so the jar reads; and the
+	# fluid in the jar a little lit, a specimen jar's pink, `glass_inner`)
+	"FETUS": {"url": "fetus_launcher.glb", "fit": GUN_LENGTH * 1.0, "out": 3.8, "pos": [0.26, -0.14, 0], "rot": [-0.10, 0.25, -0.04], "tint": [1, 1, 1],
+		"glass": "glass Baked", "glass_body": [1.0, 0.72, 0.72], "glass_clear": 0.6, "glass_bloom": 0.5, "glass_inner": [0.30, 0.07, 0.09], "pbr": true,
+		"muzzle": [0.0, -0.6, 17.7], "chamber": "flesh_ball"},
 }
 
 var camera: Camera3D
@@ -159,6 +172,13 @@ func _load(name: String) -> Dictionary:
 	if def.has("orb"):
 		var nz: Array = def.get("nozzle", [0, 0, 0])
 		out["orb"] = _make_orb(inner, root.transform * Vector3(nz[0], nz[1], nz[2]), def.orb)
+	# THE NEXT ROUND IN THE JAR (`chamber`): the part, its place, and its
+	# middle in its parent's space, which it grows and shrinks about
+	if def.has("chamber"):
+		var ch := root.find_child(String(def.chamber), true, false)
+		if ch is MeshInstance3D:
+			var mi: MeshInstance3D = ch
+			out["chamber"] = {"node": mi, "rest": mi.transform, "c": mi.transform * mi.get_aabb().get_center()}
 	# A SOLVED AIM: the screen straight ahead of the eye, `dist` off, the
 	# gun turned `yaw` (and `pitch`) — worked out from where the screen
 	# really is in the model, not nudged by hand
@@ -471,10 +491,26 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 		G.spinner.rotation.z = spin_angle
 	if G.has("orb"):
 		_orb_tic(G.orb, p, dt)
+	if G.has("chamber"):
+		_chamber_tic(G.chamber, p)
 	for m in G.mats:
 		m.set_shader_parameter("dim", U.col(light))
 		m.set_shader_parameter("glow", U.col(kick))
 		m.set_shader_parameter("heat", U.col(p.heat))
+
+## THE NEXT ROUND IN THE JAR: as full as the gun is loaded — nothing just
+## after it fires, back to whole as it reloads (eased, so it swells), none
+## with the tank dry — and, whole, beating a little, about seventy a minute
+func _chamber_tic(ch: Dictionary, p) -> void:
+	var w: Dictionary = Weapons.WEAPONS.get(current, {})
+	var fill := 1.0
+	if w.has("ammo") and int(p.ammo.get(w.ammo, 0)) <= 0:
+		fill = 0.0
+	elif p.fire_index >= 0:
+		fill = smoothstep(0.0, 1.0, 1.0 - float(p.fire_tics) / float(w.fireTics[0]))
+	var k := maxf(0.001, fill * (1.0 + 0.06 * fill * sin(Time.get_ticks_msec() * 0.0074)))
+	var c: Vector3 = ch.c
+	ch.node.transform = Transform3D(Basis.from_scale(Vector3.ONE * k), c - c * k) * (ch.rest as Transform3D)
 
 # ---------------------------------------------------------------------
 # THE ARC MAW'S CHARGE (js/weapon3d.js makeOrb, orbTic): while the

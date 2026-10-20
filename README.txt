@@ -170,10 +170,19 @@ THE WEAPONS, in slots 1 to 8:
     7  ARC MAW              a charge, then lightning that chains; while
                             it charges a ball of blue energy grows in
                             the maw with motes streaming into it
-    8  IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
+    8  FETUS LAUNCHER       a fetus lobbed out of the jar on top, goop
+                            as it goes and a scream (a different one
+                            each shot) as it flies; it splats whatever
+                            it meets: the fetus torn to wet pieces,
+                            viscera, blood both ways, a pool, blood up
+                            the walls, and anybody it kills blown apart
+                            as a rocket's are, in blood, no fireball.
+                            The flesh in the jar is the next one: gone
+                            as it fires, growing back as it reloads
+       IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
                             a colour-cycling nuke at the end of it
-                            (OFF FOR NOW: not in the loadout, slot 8
-                            picks nothing; player.gd `owned`)
+                            (OFF FOR NOW: not in the loadout;
+                            player.gd `owned`)
 
 WHAT THE BIG GUNS LEAVE (godot/shaders/blast_decal.gdshader):
   - A rocket leaves a pitted crater. Its rim glows molten and cools,
@@ -201,8 +210,9 @@ PICKUPS, FINITE AMMO AND ARMOUR. The tanks run dry: only the flamer's
 pilot light and the extinguisher fill themselves, and the rest is
 picked up off the ground, walked over — medkits and trauma kits, light
 and heavy armour, boxes and crates of rounds, plasma batteries and cell
-crates, rockets, alien pods for the arc maw, bore crates for the bore, and
-a rare mini nuke that hands you the potato cannon. Armour sits on top of
+crates, rockets, alien pods for the arc maw, bore crates for the bore,
+fetuses for the fetus launcher (four a pickup, twelve carried), and a
+rare mini nuke that hands you the potato cannon. Armour sits on top of
 health and takes a share of every blow (a third light, half heavy). The
 readout shows health and armour top left and the gun's count top right.
 IDDQD typed, or L1 R1 L2 R2 L3 R3 squeezed on a pad, is invincible and
@@ -335,7 +345,8 @@ TESTS
 runs every headless suite in turn (bake the islands first) and exits
 non-zero if any fails:
 
-    weapons    every gun against real people on the island
+    weapons    every gun against real people on the island (the fetus
+               launcher's flight, splat, reload, screams and jar too)
     island     the ground off the bake, you and the crowd on it, the
                coast, the hills, rounds and blasts into the ground
     net        the wire's bytes, a match over loopback, a real socket

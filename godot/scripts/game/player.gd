@@ -44,7 +44,7 @@ var guard_until := 0
 var respawn_in := 0
 ## the guns this player may pick up — every one alone; the match's
 ## loadout on a network (js/player.js `owned`)
-var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": false, "PLASMA": true}   # the potato cannon: off for now, at the user's request
+var owned := {"FLAMER": true, "EXTINGUISHER": true, "BORE": true, "MINIGUN": true, "LANCE": true, "LAUNCHER": true, "ARC": true, "POTATO": false, "FETUS": true, "PLASMA": true}   # the potato cannon: off for now, at the user's request
 var x := 0.0
 var y := 0.0
 var z := 0.0
@@ -403,9 +403,10 @@ func _empty_tic(attack: bool) -> void:
 	if firing() or charge > 0 or beam_tics > 0 or seeking or arc_charging:
 		return
 	_empty_press = true
-	# (the launcher, the arc maw and the potato cannon click for themselves)
+	# (the launcher, the arc maw, the potato cannon and the fetus launcher
+	# click for themselves)
 	var d := def()
-	if not (d.get("seeker", false) or d.get("arc", false) or d.get("potato", false)):
+	if not (d.get("seeker", false) or d.get("arc", false) or d.get("potato", false) or d.get("fetus", false)):
 		game.play_sound("noammo", self)
 	var w := best_weapon()
 	if w != "" and w != weapon:
@@ -423,7 +424,7 @@ func _weapon_tic(attack: bool) -> void:
 		lance_tic(attack)
 		return
 	# the other weapons that do not run on frames have their own tics
-	for special in ["seeker", "arc", "potato"]:
+	for special in ["seeker", "arc", "potato", "fetus"]:
 		if d.get(special, false):
 			var sys = game.weapon_system(special)
 			if sys != null:

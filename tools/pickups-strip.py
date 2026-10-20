@@ -14,7 +14,10 @@ out into the clear pixels, as the candy girls' strip is
     python3 -I tools/pickups-strip.py --cell=N <picture>   (one cell anew)
 
 Cell 10, the cerebral bore's ammo, is the user's later "BORE" crate
-(tools/art/pickup_bore_ammo.jpg), not the zip's bio vats.
+(tools/art/pickup_bore_ammo.jpg), not the zip's bio vats. Cell 12, the
+fetus launcher's, is the user's fetus in its sac (tools/art/fetus.png): a
+picture with its own alpha, so nothing is keyed; a cell past the end
+grows the strip.
 """
 import os
 import sys
@@ -69,6 +72,15 @@ def key(im):
     return out.crop((cols[0], rows[0], cols[-1] + 1, rows[-1] + 1))
 
 
+def own_alpha(im):
+    # a picture with an alpha of its own (the fetus): cut to what is solid
+    im = im.convert("RGBA")
+    al = np.asarray(im.getchannel("A")) > 127
+    rows = np.where(al.sum(1) > 0)[0]
+    cols = np.where(al.sum(0) > 0)[0]
+    return im.crop((cols[0], rows[0], cols[-1] + 1, rows[-1] + 1))
+
+
 def cut(im):
     w, h = im.size
     s = (CELL - 4) / max(w, h)
@@ -91,8 +103,14 @@ def cut(im):
 if sys.argv[1].startswith("--cell="):
     i = int(sys.argv[1][7:])
     strip = Image.open(OUT).convert("RGBA")
+    if strip.width < (i + 1) * CELL:
+        grown = Image.new("RGBA", ((i + 1) * CELL, CELL), (0, 0, 0, 0))
+        grown.paste(strip, (0, 0))
+        strip = grown
     strip.paste(Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0)), (i * CELL, 0))
-    strip.paste(cut(key(Image.open(sys.argv[2]))), (i * CELL, 0))
+    pic = Image.open(sys.argv[2])
+    has_alpha = pic.mode in ("RGBA", "LA") and pic.getchannel("A").getextrema()[0] < 128
+    strip.paste(cut(own_alpha(pic) if has_alpha else key(pic)), (i * CELL, 0))
     strip.save(OUT)
     print(OUT, strip.size, "cell", i)
     sys.exit(0)
