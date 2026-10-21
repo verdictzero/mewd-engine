@@ -18,8 +18,8 @@
 ##           the goop splurting
 ## --hud: the readout over it. --rocket (splat, after): a rocket's warhead
 ## in the candy girl instead, to compare.
-##   holds   the gun at rest held each way --try= lists ("out,x,y,rx,ry,rz;
-##           ..."), out_0.png, out_1.png ... (for finding its hold)
+##   holds   the gun at rest held each way --try= lists ("out,x,y,rx,ry,rz
+##           [,scale];..."), out_0.png, out_1.png ... (for finding its hold)
 extends SceneTree
 
 var lofi: Lofi
@@ -177,4 +177,6 @@ func _holds(t: int) -> void:
 	d.pos = [float(v[1]), float(v[2]), 0.0]
 	d.rot = [float(v[3]), float(v[4]), float(v[5])]
 	G.def = d
+	# (a seventh number: the gun that much bigger, as a bigger `fit` makes it)
+	(G.group as Node3D).scale = Vector3.ONE * (float(v[6]) if v.size() > 6 else 1.0)
 	print("fetus_shot: hold %d = %s" % [_try, tries[_try]])

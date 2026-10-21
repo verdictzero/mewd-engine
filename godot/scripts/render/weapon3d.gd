@@ -104,8 +104,10 @@ const GUNS := {
 	# named so): gone when it fires, growing back while the gun reloads,
 	# none while there are none, and beating
 	# (turned a little to show its right side, so the jar reads; and the
-	# fluid in the jar a little lit, a specimen jar's pink, `glass_inner`)
-	"FETUS": {"url": "fetus_launcher.glb", "fit": GUN_LENGTH * 1.0, "out": 3.8, "pos": [0.26, -0.14, 0], "rot": [-0.10, 0.25, -0.04], "tint": [1, 1, 1],
+	# fluid in the jar a little lit, a specimen jar's pink, `glass_inner`;
+	# and a size up and held higher, at the user's request: "make the fetus
+	# gun a bit larger from player perspective")
+	"FETUS": {"url": "fetus_launcher.glb", "fit": GUN_LENGTH * 1.3, "out": 3.8, "pos": [0.20, -0.06, 0], "rot": [-0.10, 0.25, -0.04], "tint": [1, 1, 1],
 		"glass": "glass Baked", "glass_body": [1.0, 0.72, 0.72], "glass_clear": 0.6, "glass_bloom": 0.5, "glass_inner": [0.30, 0.07, 0.09], "pbr": true,
 		"muzzle": [0.0, -0.6, 17.7], "chamber": "flesh_ball",
 		# and at the user's request ("can the end of the gun expand like its

@@ -4094,6 +4094,17 @@ THE FETUS LAUNCHER, FORCED OUT (0000040)
   shaders in the gun's world writing their own depth now.
 
 
+THE FETUS LAUNCHER A SIZE UP (0000041)
+
+  At the user's request ("make the fetus gun a bit larger from player
+  perspective"): held 1.3 times the size (weapon3d "FETUS" `fit`, GUN_LENGTH
+  1.0 to 1.3) and higher and further in (`pos` 0.26, -0.14 to 0.20, -0.06),
+  so the bigger gun keeps its jar and its barrel's cage in the picture
+  rather than sinking off the bottom right. Its muzzle, the goop and the
+  swelling go with it (they are the model's own, scaled with it). Found
+  with fetus_shot's holds, which now take a seventh number, a size.
+
+
 TESTS
 
     tools/godot-test.sh
