@@ -142,6 +142,9 @@ class Voice:
 		if is_instance_valid(player):
 			player.stop()
 			player.queue_free()
+	## still sounding (a one-shot frees itself when it ends)
+	func playing() -> bool:
+		return is_instance_valid(player) and player.playing
 
 func voice(name, from = null) -> Voice:
 	var p := _start(name, from, false)

@@ -43,10 +43,14 @@ const VOLTS := 12
 ## carried; its screen shows the next ten (PLASMA_CLIP)
 const PLASMA_CELLS := 40
 const PLASMA_CLIP := 10
-## THE FETUS LAUNCHER (game/fetuses.gd): the fetuses carried, and the tics
-## the canister takes to grow the next
+## THE FETUS LAUNCHER (game/fetuses.gd): the fetuses carried, the tics
+## from one pull of the trigger to the next, and of those the first few
+## the gun spends FORCING IT OUT (at the user's request: "can the end of
+## the gun expand like its forcing out the fetus") — it leaves at the end
+## of them
 const FETUSES := 12
 const FETUS_REFIRE := 24
+const FETUS_SQUEEZE := 9
 
 ## HEALTH AND ARMOUR, at the user's request ("make finite ... health a
 ## thing, as well as armor on top of health"). Health heals to HEALTH;

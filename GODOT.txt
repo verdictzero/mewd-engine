@@ -4025,6 +4025,75 @@ THE FETUS LAUNCHER (0000039)
   the parts left lying with their far-off picture.
 
 
+THE FETUS LAUNCHER, FORCED OUT (0000040)
+
+  At the user's request: "can the end of the gun expand like its forcing
+  out the fetus? can the baby screaming last longer / start earlier, can
+  there be a goop situation coming out of the end of the gun on fetus
+  extrusion, add recoil too", and "also big blood spatter splat impact
+  damage".
+
+  THE SQUEEZE (FetusLauncher.squeeze; Weapons.FETUS_SQUEEZE, 9 tics of
+  the 24 the gun takes a shot): the trigger no longer throws it at once.
+  It spends one, plays the user's goop and begins the scream, and the
+  fetus leaves at the end of the squeeze (player_tic: the cycle's ninth
+  tic). The held gun shows it frame by frame (Weapon3D._cycle, the fire
+  cycle smoothed between the game's tics):
+    - THE BARREL (gun.gdshader `bulge`, weapon3d `extrude`): a ring of
+      swelling run along the barrel's own axis from the breech to the
+      muzzle (z 5 to 17.7 in the model's units, faster as it goes), the
+      surface pushed out from the axis by up to 0.75 of its distance over
+      a stretch of 2.6 — the red cage balloons as it passes — and at the
+      muzzle the mouth stretched to 1.6 times that as it comes out, then
+      sagging back, wobbling, over a few tics. Zero on every other gun.
+    - THE JAR: the flesh in it drains into the barrel over the squeeze,
+      is gone as it leaves, and grows back over the rest of the cycle.
+    - THE GUN STRAINS: a shudder in the hands growing over the squeeze.
+    - THE GOOP (weapon3d `goop`, gun_goop.gdshader, in the gun's own
+      world): balls of slime, pink and blood oozing out of the mouth over
+      the squeeze's second half, 36 splurted out with it as it leaves, and
+      a drip off the lip for a second after; each falls, drawn out along
+      the way it is going, wet (a key light, a hard highlight, a rim), and
+      shrinks away. It writes its own depth (Lofi.GUN_SHADERS: the Adreno
+      squares), as everything opaque in the gun's world does.
+
+  THE KICK (at the user's request, "add recoil too"): as it leaves, the
+  gun is thrown back in the hands and its muzzle climbs and rolls
+  (weapon3d `recoil`: a spring, back 0.16 m, 0.2 and 0.06 radians,
+  settled in about a third of a second, a little past); the eye punched
+  up and settling (FetusLauncher.punch, Game's camera, the aim left
+  where it was, as the shake's is); and a shove back along the aim,
+  2.5 units a tic, on the ground.
+
+  THE SCREAM, EARLIER AND LONGER: begun on the trigger from the one
+  holding the gun, carried on from the fetus once it is out; one that
+  runs out in the air is followed by another (never the same one twice
+  running); and none is cut off when it lands: it screams on to its end
+  where it landed. (Sound.Voice.playing.)
+
+  THE SPLAT, BIGGER (at the user's request, "big blood spatter splat
+  impact damage"): a BURST of blood (GoreDecals.burst, a new kind, 7, in
+  gore_decal.gdshader: a wet body thrown every way at once, eighteen
+  spikes each ending in a drop, a ring of drops drawn long along the way
+  they flew, flecks over it all) 260 units across on the wall, ceiling or
+  ground it hit, and on the ground under it when that is near (under the
+  one it hit); and the damage up: 300 direct, 120 splash out to 128
+  units (it was 260, 70 and 80), more blood in the air (140) and up the
+  walls. Into the crowd that greets you at the start it kills fourteen
+  to eighteen now.
+
+  Pictures: fetus_shot squeeze, pop and ground (the game's clock slowed
+  for the first two: a frame under a software renderer runs several tics,
+  and the squeeze is nine). weapons_test: the squeeze (nine tics, the
+  scream already chosen, nothing out), then out with the kick (shoved
+  back, the eye punched), the next a whole cycle later; the jar draining,
+  gone, whole and dry; a burst where it lands; the barrel's three parts
+  told how to swell, a swelling mid-barrel, the mouth stretched, nothing
+  at rest; the gun thrown back as it leaves, 36 balls of goop splurted,
+  and both settled and gone three seconds on. gun_depth_test: seven
+  shaders in the gun's world writing their own depth now.
+
+
 TESTS
 
     tools/godot-test.sh

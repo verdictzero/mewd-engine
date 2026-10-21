@@ -71,7 +71,8 @@ var gun_on_room := false
 ##   wrong — for telling a colour-compression fault by its new shape).
 const GUN_SHADERS := ["res://godot/shaders/gun.gdshader", "res://godot/shaders/gun_matcap.gdshader",
 	"res://godot/shaders/scope_screen.gdshader", "res://godot/shaders/thermal_screen.gdshader",
-	"res://godot/shaders/scope_optic.gdshader", "res://godot/shaders/gun_room.gdshader"]
+	"res://godot/shaders/scope_optic.gdshader", "res://godot/shaders/gun_room.gdshader",
+	"res://godot/shaders/gun_goop.gdshader"]
 var gun_depth := "shader"
 var gun_tone := "auto"
 var gun_clear := "grey"

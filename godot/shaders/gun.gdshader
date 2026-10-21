@@ -42,6 +42,17 @@ uniform float matcap = 0.85;
 // a part that glows of itself (weapon3d `emit`, the plasma rifle's coil):
 // added over everything, half again more with the kick
 uniform vec3 emit = vec3(0.0);
+// THE BARREL FORCING ONE OUT (weapon3d `extrude`, the fetus launcher's;
+// at the user's request: "can the end of the gun expand like its forcing
+// out the fetus"): a ring of swelling at `bulge_z` along the barrel's
+// axis (the model's own z; the axis at x, y = `bulge_axis`), pushing the
+// surface out from the axis by `bulge` of its distance from it and
+// falling away over `bulge_width` either side. Run down to the muzzle, it
+// stretches the mouth open. Nothing at 0, every other gun.
+uniform float bulge = 0.0;
+uniform float bulge_z = 0.0;
+uniform float bulge_width = 1.0;
+uniform vec2 bulge_axis = vec2(0.0);
 
 varying vec3 n_view;
 
@@ -70,6 +81,10 @@ vec4 cap(vec3 n) {
 varying float reach;
 
 void vertex() {
+	if (bulge > 0.0) {
+		float d = (VERTEX.z - bulge_z) / bulge_width;
+		VERTEX.xy += (VERTEX.xy - bulge_axis) * bulge * exp(-d * d);
+	}
 	n_view = safe_n((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	// how far forward along the view this part of the gun is: the glow
 	// is the muzzle's, and it lights the front of the gun and not the grip

@@ -22,6 +22,7 @@ extends Node3D
 const CAP := 480
 const KIND_SPATTER := 5.0
 const KIND_POOL := 6.0
+const KIND_BURST := 7.0
 const BLOOD_SIZE := [20.0, 38.0]     # a spatter, across
 const POOL_SIZE := [44.0, 70.0]      # the pool under somebody, once it has spread
 const BLOOD_REACH := 260.0           # how far behind somebody a round throws them onto a wall
@@ -42,6 +43,7 @@ var mm: MultiMesh
 var mat: ShaderMaterial
 var next := 0
 var bloods := 0
+var bursts := 0
 var _count := 0
 ## a private stream of numbers for how decals look, apart from p_random
 ## (js/decals.js cosmetic), so the look does not move the game's dice
@@ -131,6 +133,13 @@ func _place(at: Vector3, n: Vector3, size: float, rot: float, kind: float) -> in
 func blood(at: Vector3, n: Vector3, d := Vector3.ZERO, size := 0.0) -> int:
 	var s: float = size if size > 0.0 else BLOOD_SIZE[0] + cosmetic() * (BLOOD_SIZE[1] - BLOOD_SIZE[0])
 	return _place(at, n, s, throw_angle(n, d), KIND_SPATTER)
+
+## A BURST OF BLOOD on a surface at `at` whose normal is `n`, `size`
+## across: thrown every way at once, spikes and drops all round (the fetus
+## launcher's splat, FetusLauncher)
+func burst(at: Vector3, n: Vector3, size: float) -> int:
+	bursts += 1
+	return _place(at, n, size, cosmetic() * TAU, KIND_BURST)
 
 ## A POOL of it on the floor at (x, y), under somebody who has come
 ## apart or gone down; it spreads over its first few seconds.

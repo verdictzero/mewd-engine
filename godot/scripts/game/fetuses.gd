@@ -4,18 +4,31 @@
 ## "FETUS"), the user's own picture of a fetus in its sac (tools/fetus-
 ## art.py), "goop sound on launch, then screaming", "switch up the
 ## screaming between shots"; and the fetus alone, nothing trailing it ("i
-## just want the fetus sprite").
+## just want the fetus sprite"); and then "can the end of the gun expand
+## like its forcing out the fetus? can the baby screaming last longer /
+## start earlier, can there be a goop situation coming out of the end of
+## the gun on fetus extrusion, add recoil too".
 ##
-## THE SHOT. A fetus leaves the muzzle down the sight, lofted a little,
-## and falls as anything falls, tumbling as it goes (a card turned to the
-## eye, spun in the picture and rocked about its upright: fetus_card.
-## gdshader). It leaves with the user's goop and, a beat after, SCREAMS —
-## one of the user's four cries, never the one the last shot cried — from
-## where it is, fading as it goes away (Sound.voice).
+## THE SQUEEZE. The trigger does not throw it at once: the gun spends
+## Weapons.FETUS_SQUEEZE tics FORCING IT OUT — the user's goop, the flesh
+## draining out of the jar, a swelling run down the barrel to the muzzle
+## and the muzzle stretched open, goop oozing out of it (Weapon3D
+## `extrude`, `goop`) — and it SCREAMS from the first of them.
+##
+## THE SHOT. Out of the muzzle down the sight, lofted a little, it falls
+## as anything falls, tumbling as it goes (a card turned to the eye, spun
+## in the picture and rocked about its upright: fetus_card.gdshader). It
+## comes out with a KICK (a shove back along the shot, the eye punched up
+## a moment — Game's camera, the aim left where it was — and the gun
+## thrown back in the hands, Weapon3D `recoil`). The SCREAM is one of the
+## user's four cries, never the one the last shot cried, from where the
+## fetus is, fading as it goes away (Sound.voice); a cry run out before it
+## lands is followed by another, and the last one is never cut off: where
+## it lands it screams on to the end.
 ##
 ## IT GOES OFF ON THE FIRST THING IT TOUCHES: somebody, a wall, the
 ## ground, a ceiling. The shooter is safe from their own. THE SPLAT
-## (splat): the scream stops; whoever it hit takes DIRECT and everyone
+## (splat): whoever it hit takes DIRECT and everyone
 ## round it SPLASH, falling away to nothing at RADIUS (a rocket's way,
 ## without the fire: nobody is set alight, no plant is blown up, nobody
 ## goes up in a fireball), and everybody it kills is BLOWN APART as a
@@ -33,22 +46,24 @@ const ART := "res://assets/things/fetus.png"
 
 ## speed and loft as the potato's; `w` x `h` the card, `radius` what it
 ## touches with; `grow` tics to come out of the barrel to its full size;
-## the spin in the picture and the rock about its upright, a tic, and the
-## tics before it screams
+## the spin in the picture and the rock about its upright, a tic; the
+## shove back on the one who fired it (units a tic) and how long the eye's
+## punch takes to settle (seconds)
 const SHOT := {"speed": 24.0, "loft": 0.07, "gravity": 0.5, "radius": 11.0, "w": 32.0, "h": 38.0,
-	"fuse": 6 * 35, "grow": 6, "spin": [0.06, 0.16], "tumble": [0.05, 0.11], "cry_after": 8}
+	"fuse": 6 * 35, "grow": 6, "spin": [0.06, 0.16], "tumble": [0.05, 0.11], "kick": 2.5, "punch": 0.22}
 ## the least a tumbling card is of its width (fetus_card.gdshader): turned
 ## edge-on it would be a line, and a fetus that is a line half the time is
 ## not a fetus
 const FLAT := 0.7
 ## THE SPLAT: direct, splash (falling away to nothing at radius) and the
-## shooter's share of a splash of their own; then the gore — viscera
-## pieces, picture pieces, blood drops, the spatter on what it hit, the
-## pool, the floor's spatters and how far, the rays up the walls — and the
-## shake
-const SPLAT := {"direct": 260, "splash": 70, "radius": 80.0, "self": 0.3,
-	"viscera": 26, "force": 1.15, "size": 0.75, "picture": 12, "spray": 110,
-	"spatter": 96.0, "pool": 120.0, "floor": 12, "reach": 170.0, "walls": 15, "shake": 0.35}
+## shooter's share of a splash of their own (more of all three at the
+## user's request: "big blood spatter splat impact damage"); then the gore
+## — viscera pieces, picture pieces, blood drops, the BURST on what it hit
+## and on the ground under it (GoreDecals.burst, across), the pool, the
+## floor's spatters and how far, the rays up the walls — and the shake
+const SPLAT := {"direct": 300, "splash": 120, "radius": 128.0, "self": 0.3,
+	"viscera": 26, "force": 1.15, "size": 0.75, "picture": 12, "spray": 140,
+	"burst": 260.0, "pool": 130.0, "floor": 14, "reach": 200.0, "walls": 18, "shake": 0.4}
 ## the four cries (Sound: fetuscry1..4)
 const CRIES := 4
 ## the most in the air at once (one a FETUS_REFIRE: plenty)
@@ -62,6 +77,11 @@ var fired := 0
 var splats := 0
 var kills := 0
 var shake := 0.0
+## the eye's punch from the last shot, 1 just out and 0 settled (Game's
+## camera reads it)
+var punch := 0.0
+## a scream begun on the trigger, waiting for its fetus (player: Voice)
+var _pending := {}
 var last_cry := -1
 var tex: Texture2D
 var mm: MultiMesh
@@ -102,6 +122,9 @@ static func _r() -> float:
 func player_tic(p, attack: bool) -> void:
 	if p.fire_index >= 0:
 		p.fire_tics -= 1
+		# the squeeze done: out it comes
+		if Weapons.FETUS_REFIRE - p.fire_tics == Weapons.FETUS_SQUEEZE:
+			launch(p)
 		if p.fire_tics <= 0:
 			p.fire_index = -1
 	if attack and p.fire_index < 0:
@@ -110,7 +133,7 @@ func player_tic(p, attack: bool) -> void:
 				p.clicked = true
 				game.play_sound("noammo", p)
 			return
-		launch(p)
+		squeeze(p)
 		return
 	if not attack:
 		p.clicked = false
@@ -118,12 +141,23 @@ func player_tic(p, attack: bool) -> void:
 		p.weapon = p.pending_weapon
 		p.pending_weapon = ""
 
-## One fetus out of the barrel, down the sight and lofted.
-func launch(p) -> Dictionary:
+## THE SQUEEZE begun: one spent, the gun busy for the whole of its
+## cycle, the goop, and the scream already going (from the one holding it,
+## until there is a fetus to scream from)
+func squeeze(p) -> void:
 	p.ammo.fetuses = maxi(0, int(p.ammo.get("fetuses", 0)) - 1)
-	p.shots_fired += 1
 	p.fire_index = 0
-	p.fire_tics = int(Weapons.WEAPONS.FETUS.fireTics[0])
+	p.fire_tics = Weapons.FETUS_REFIRE
+	game.play_sound("fetuslaunch", p)
+	var v = _scream(p)
+	if v != null:
+		_pending[p] = v
+	game.noise(p, 900.0)
+
+## One fetus out of the barrel, down the sight and lofted (the squeeze's
+## end; or at once, asked straight)
+func launch(p) -> Dictionary:
+	p.shots_fired += 1
 	var o: Vector3 = game.nozzle(p)
 	if not game.level.ray_hit_wall(p.x, p.y, p.eye_z(), o.x, o.y, o.z).is_empty():
 		o = Vector3(p.x, p.y, p.eye_z() - 6.0)
@@ -133,24 +167,34 @@ func launch(p) -> Dictionary:
 	var v := d.normalized() * float(SHOT.speed)
 	var s := {"x": o.x, "y": o.y, "z": o.z, "vx": v.x, "vy": v.y, "vz": v.z, "tics": 0, "owner": p,
 		"spin": _r() * TAU, "spin_v": lerpf(SHOT.spin[0], SHOT.spin[1], _r()) * (1.0 if (U.p_random() & 1) else -1.0),
-		"flip": 0.0, "flip_v": lerpf(SHOT.tumble[0], SHOT.tumble[1], _r()), "voice": null}
+		"flip": 0.0, "flip_v": lerpf(SHOT.tumble[0], SHOT.tumble[1], _r()), "voice": _pending.get(p)}
+	_pending.erase(p)
 	if shots.size() >= MOST:
 		shots.pop_front()
 	shots.append(s)
 	fired += 1
-	game.play_sound("fetuslaunch", p)
-	game.fx.blood_spray(o.x, o.y, o.z, d.x, d.y, d.z, 10, 0.8)
-	game.noise(p, 900.0)
+	# the goop it comes out in, in the world (the gun's own is Weapon3D's)
+	game.fx.blood_spray(o.x, o.y, o.z, d.x, d.y, d.z, 18, 0.9)
+	# THE KICK: a shove back along the shot, on the ground, and the eye's
+	# punch for whoever's eye this is
+	if p.on_ground:
+		p.momx -= cos(p.angle) * float(SHOT.kick)
+		p.momy -= sin(p.angle) * float(SHOT.kick)
+	if p == game.player:
+		punch = 1.0
 	return s
 
-## THE SCREAM: one of the four, never the last one again
-func _cry(s: Dictionary) -> void:
+## THE SCREAM: one of the four, never the last one again, from `from`
+func _scream(from):
 	var k := U.p_random() % CRIES
 	if k == last_cry:
 		k = (k + 1 + U.p_random() % (CRIES - 1)) % CRIES
 	last_cry = k
-	if game.has_method("voice"):
-		s.voice = game.voice("fetuscry%d" % (k + 1), s)
+	return game.voice("fetuscry%d" % (k + 1), from) if game.has_method("voice") else null
+
+## (a fetus's scream: begun if it has none, and another when one runs out)
+func _cry(s: Dictionary) -> void:
+	s.voice = _scream(s)
 
 # ---- the flight -------------------------------------------------------------
 
@@ -167,7 +211,7 @@ func tic() -> void:
 func _fly(s: Dictionary):
 	var lv: Level = game.level
 	s.tics += 1
-	if s.tics == SHOT.cry_after:
+	if s.voice == null or not s.voice.playing():
 		_cry(s)
 	s.vz -= SHOT.gravity
 	var steps := maxi(1, ceili(Vector3(s.vx, s.vy, s.vz).length() / 8.0))
@@ -229,11 +273,13 @@ func _body_at(owner, x: float, y: float, z: float, r: float):
 ## (n zero) — going along the shot's own way.
 func splat(s: Dictionary, at: Vector3, n: Vector3, who = null) -> void:
 	splats += 1
+	var here := {"x": at.x, "y": at.y, "z": at.z}
+	# (the scream is not cut off: it screams on to its end where it landed)
 	if s.voice != null:
-		s.voice.stop()
+		s.voice.follow(here)
 		s.voice = null
 	var d := Vector3(s.vx, s.vy, s.vz).normalized()
-	game.play_sound("fetussplat", {"x": at.x, "y": at.y, "z": at.z})
+	game.play_sound("fetussplat", here)
 	_hurt(at, who, s.owner, SPLAT)
 	_gore(at, n, d, who, SPLAT, Vector2(SHOT.w, SHOT.h))
 	game.scare(at.x, at.y, 700.0)
@@ -317,10 +363,14 @@ func _gore(at: Vector3, n: Vector3, d: Vector3, who, k: Dictionary, size: Vector
 		fx.blood_spray(at.x, at.y, at.z, 0.0, 0.0, 0.0, int(k.spray) >> 1, 1.1)
 	var D = game.gore_decals
 	if D != null:
+		# THE BURST: on the wall, the ceiling or the ground it hit; and on
+		# the ground under it, if that is near (a body hit: under them)
 		if who != null:
 			D.bleed(who, at, d)
 		elif n != Vector3.ZERO:
-			D.blood(at, n, d, k.spatter)
+			D.burst(at, n, float(k.burst))
+		if n.z < 0.99 and at.z - floor_z < 96.0 and sec != null:
+			D.burst(Vector3(at.x, at.y, floor_z), Vector3(0, 0, 1), float(k.burst) * (1.0 - 0.4 * (at.z - floor_z) / 96.0))
 
 # ---- the picture ------------------------------------------------------------
 
@@ -328,7 +378,8 @@ func _gore(at: Vector3, n: Vector3, d: Vector3, who, k: Dictionary, size: Vector
 ## middle, its size (out of the barrel small: the barrel is a hand's
 ## breadth from the eye, and a whole fetus there would be the whole
 ## picture), its spin and its rock
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
+	punch = maxf(0.0, punch - dt / float(SHOT.punch))
 	var n := mini(shots.size(), MOST)
 	if n == 0:
 		mm.visible_instance_count = 0

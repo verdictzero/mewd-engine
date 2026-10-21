@@ -868,6 +868,10 @@ func _place_camera(f: float) -> void:
 		sh = maxf(sh, potatoes.shake * 1.6)
 	if fetuses != null:
 		sh = maxf(sh, fetuses.shake)
+		# THE FETUS LAUNCHER'S KICK: the eye punched up as one leaves, and
+		# settling (the aim stays where it was, as the shake's does)
+		if fetuses.punch > 0.0:
+			camera.rotation.x += fetuses.punch * fetuses.punch * 0.06
 	if sh > 0.001:
 		var t := Time.get_ticks_msec() * 0.001
 		var k := sh * sh

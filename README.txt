@@ -170,15 +170,22 @@ THE WEAPONS, in slots 1 to 8:
     7  ARC MAW              a charge, then lightning that chains; while
                             it charges a ball of blue energy grows in
                             the maw with motes streaming into it
-    8  FETUS LAUNCHER       a fetus lobbed out of the jar on top, goop
-                            as it goes and a scream (a different one
-                            each shot) as it flies; it splats whatever
-                            it meets: the fetus torn to wet pieces,
-                            viscera, blood both ways, a pool, blood up
-                            the walls, and anybody it kills blown apart
-                            as a rocket's are, in blood, no fireball.
-                            The flesh in the jar is the next one: gone
-                            as it fires, growing back as it reloads
+    8  FETUS LAUNCHER       the trigger FORCES one out: the goop sound,
+                            the flesh draining out of the jar, a swelling
+                            run down the barrel and the mouth stretched
+                            open, goop oozing out of it — then out it
+                            comes with a splurt of goop, a kick (the gun
+                            thrown back, the eye punched up, a shove)
+                            and a scream that began with the trigger (a
+                            different one each shot, another if it runs
+                            out, never cut off when it lands). It splats
+                            whatever it meets: a great burst of blood on
+                            what it hit, the fetus torn to wet pieces,
+                            viscera, a pool, blood up the walls, and
+                            anybody near it blown apart as a rocket's
+                            are, in blood, no fireball. The flesh in the
+                            jar is the next one, growing back as it
+                            reloads
        IRISH POTATO CANNON  a bouncing potato with a rainbow trail and
                             a colour-cycling nuke at the end of it
                             (OFF FOR NOW: not in the loadout;

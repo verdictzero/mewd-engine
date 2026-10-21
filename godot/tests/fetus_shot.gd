@@ -10,6 +10,12 @@
 ##   side    the same, from 5 m beside its path, turned to it
 ##   splat   into a candy girl 7 m ahead, TICS tics after it lands (4)
 ##   after   the same, TICS tics after (70): what is left
+##   ground  into open ground 5 m ahead, nobody about, TICS tics after it
+##           lands (25): the burst of blood on its own
+##   squeeze the trigger pulled, TICS tics into forcing it out (5): the
+##           barrel swelling, the jar draining, goop at the mouth
+##   pop     TICS tics after it is out (2): the mouth stretched, the kick,
+##           the goop splurting
 ## --hud: the readout over it. --rocket (splat, after): a rocket's warhead
 ## in the candy girl instead, to compare.
 ##   holds   the gun at rest held each way --try= lists ("out,x,y,rx,ry,rz;
@@ -40,7 +46,12 @@ func _init() -> void:
 	if pos.size() > 2:
 		after = int(pos[2])
 	if after < 0:
-		after = {"flight": 6, "side": 7, "splat": 4, "after": 70, "empty": 8}.get(mode, 0)
+		after = {"flight": 6, "side": 7, "splat": 4, "after": 70, "empty": 8, "squeeze": 5, "pop": 2, "ground": 25}.get(mode, 0)
+	# (the squeeze and the pop are a few tics long, and a frame here under a
+	# software renderer runs several: the game's clock slowed to see them
+	# tic by tic)
+	if mode in ["squeeze", "pop"]:
+		Engine.time_scale = 0.12
 	lofi = Lofi.new()
 	root.add_child(lofi)
 	w3d = Weapon3D.new()
@@ -72,11 +83,11 @@ func _frame() -> void:
 		p.pitch = 0.02
 		lofi.for_island(game.island_spec, true)
 		# (the crowd that greets you cleared off, to see the shot fly)
-		if mode in ["flight", "side", "empty"]:
+		if mode in ["flight", "side", "empty", "squeeze", "pop", "ground"]:
 			for a in game.actors.duplicate():
 				if a.type == "CANDYGIRL" and not a.removed:
 					a.remove()
-			p.pitch = 0.12
+			p.pitch = -0.32 if mode == "ground" else 0.12
 		if mode in ["splat", "after"]:
 			girl = game.spawn("CANDYGIRL", p.x + cos(p.angle) * 7.0 * 32.0, p.y + sin(p.angle) * 7.0 * 32.0, p.angle + PI)
 			if girl != null:
@@ -97,7 +108,10 @@ func _frame() -> void:
 			var dz: float = girl.z + girl.height * 0.5 - p.eye_z()
 			p.pitch = atan2(dz, 7.0 * 32.0) + 0.02
 		p.fire_index = -1
-		if "--rocket" in OS.get_cmdline_user_args() and girl != null:
+		if mode in ["squeeze", "pop"]:
+			# (the trigger: the squeeze, and out at its end)
+			F.squeeze(p)
+		elif "--rocket" in OS.get_cmdline_user_args() and girl != null:
 			# (the same, a rocket's warhead in her instead: to compare)
 			game.missiles.detonate(Vector3(girl.x, girl.y, girl.z + 20.0), girl)
 			F.splats += 1
@@ -119,9 +133,11 @@ func _frame() -> void:
 	match mode:
 		"hold":
 			ready = t >= 40
-		"flight", "side", "empty":
+		"flight", "side", "empty", "squeeze":
 			ready = _fired >= 0 and game.tics - _fired >= after
-		"splat", "after":
+		"pop":
+			ready = _fired >= 0 and game.tics - _fired >= Weapons.FETUS_SQUEEZE + after
+		"splat", "after", "ground":
 			ready = _landed >= 0 and game.tics - _landed >= after
 	if ready:
 		_done = true

@@ -2,7 +2,8 @@
 // A box projected onto the surface it stands on (decal_project.
 // gdshaderinc), turned about its normal so that +x is the
 // way the blood was thrown. INSTANCE_CUSTOM carries
-//   x  the kind: 5 a spatter, 6 a pool (the JS's KIND numbers)
+//   x  the kind: 5 a spatter, 6 a pool (the JS's KIND numbers), 7 a
+//      BURST (the fetus launcher's: thrown every way at once)
 //   y  a seed, for the shape
 //   z  the time it landed, in seconds, for the pool to spread and dry
 //   w  the light of the surface under it
@@ -95,6 +96,45 @@ void fragment() {
 		float sheen = (1.0 - dry) * blob * smoothstep(0.55, 0.8, dfbm(p * 10.0 + seed * 7.0)) * 0.35;
 		col = (col + sheen) * lit;
 		a = m * 0.93;
+	} else if (kind > 6.5) {
+		// A BURST, at the user's request ("big blood spatter splat"): where
+		// a fetus landed, thrown EVERY way at once — a wet body of it in the
+		// middle, spikes flung out from it each ending in a drop, a ring of
+		// drops further out drawn long along the way they flew, and flecks
+		// over all of it; drying browner over half a minute as a spatter does
+		float R = rag(ang, seed, 0.5);
+		float m = 1.0 - smoothstep(0.20, 0.25, r / R);
+		for (int i = 0; i < 18; i++) {
+			vec2 h = dh2(vec2(float(i) * 2.17, seed * 5.3));
+			float th = (float(i) + h.x * 0.8) * 6.2831853 / 18.0;
+			vec2 dir = vec2(cos(th), sin(th));
+			float L = 0.42 + 0.5 * h.y;
+			float t = dot(p, dir);
+			float side = length(p - dir * t);
+			float w = mix(0.065, 0.010, clamp(t / L, 0.0, 1.0)) * (0.7 + 0.6 * dh1(h * 3.0));
+			float spike = (t > 0.0 && t < L) ? 1.0 - smoothstep(w * 0.75, w, side) : 0.0;
+			float tip = 1.0 - smoothstep(0.022, 0.034, length(p - dir * (L + 0.035)));
+			m = max(m, max(spike, tip));
+		}
+		for (int i = 0; i < 24; i++) {
+			vec2 h = dh2(vec2(float(i) * 1.91, seed * 8.7 + 3.0));
+			float th = h.x * 6.2831853;
+			float dist = 0.32 + 0.62 * h.y;
+			vec2 dir = vec2(cos(th), sin(th));
+			vec2 q = p - dir * dist;
+			// drawn out along the way it flew
+			vec2 lq = vec2(dot(q, dir) / (1.0 + dist * 1.8), dot(q, vec2(-dir.y, dir.x)));
+			float sz = mix(0.05, 0.014, dist) * (0.6 + 0.8 * dh1(h * 7.0));
+			m = max(m, 1.0 - smoothstep(sz * 0.75, sz, length(lq)));
+		}
+		float fleck = step(0.955, dh1(floor(p * 34.0) + seed * 5.0)) * (1.0 - smoothstep(0.5, 0.95, r));
+		m = max(m, fleck);
+		float dry = smoothstep(0.0, 30.0, age);
+		vec3 wet = mix(vec3(0.28, 0.01, 0.012), vec3(0.12, 0.004, 0.008), dfbm(p * 7.0 + seed));
+		col = mix(wet, vec3(0.10, 0.03, 0.022), dry);
+		float sheen = (1.0 - dry) * (1.0 - smoothstep(0.18, 0.3, r)) * smoothstep(0.5, 0.8, dfbm(p * 9.0 + seed * 3.0)) * 0.4;
+		col = (col + sheen) * lit;
+		a = m * 0.95;
 	} else {
 		// A POOL, under somebody: one smooth ragged puddle that spreads over
 		// the first few seconds, darker in the middle where it is deep, with

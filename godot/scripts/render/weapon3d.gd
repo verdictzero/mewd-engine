@@ -107,7 +107,19 @@ const GUNS := {
 	# fluid in the jar a little lit, a specimen jar's pink, `glass_inner`)
 	"FETUS": {"url": "fetus_launcher.glb", "fit": GUN_LENGTH * 1.0, "out": 3.8, "pos": [0.26, -0.14, 0], "rot": [-0.10, 0.25, -0.04], "tint": [1, 1, 1],
 		"glass": "glass Baked", "glass_body": [1.0, 0.72, 0.72], "glass_clear": 0.6, "glass_bloom": 0.5, "glass_inner": [0.30, 0.07, 0.09], "pbr": true,
-		"muzzle": [0.0, -0.6, 17.7], "chamber": "flesh_ball"},
+		"muzzle": [0.0, -0.6, 17.7], "chamber": "flesh_ball",
+		# and at the user's request ("can the end of the gun expand like its
+		# forcing out the fetus? ... a goop situation coming out of the end
+		# of the gun on fetus extrusion, add recoil too"): THE BARREL FORCING
+		# IT OUT (`extrude`: the parts that swell, the barrel's axis in the
+		# model's own x and y, the swelling run along z from the breech to
+		# the muzzle over the squeeze, how much and over how long a stretch),
+		# THE GOOP out of the muzzle (`goop`) and THE KICK (`recoil`: back in
+		# metres, the muzzle's climb and a roll in radians)
+		"extrude": {"parts": ["barrel_ext", "barrel_mid", "barrel_int"], "axis": [0.0, -0.6], "z": [5.0, 17.7],
+			"amount": 0.75, "width": 2.6, "squeeze": Weapons.FETUS_SQUEEZE},
+		"goop": true,
+		"recoil": {"back": 0.16, "climb": 0.20, "roll": 0.06}},
 }
 
 var camera: Camera3D
@@ -124,6 +136,29 @@ var scopes := {}
 ## how far the gun in hand is raised to the eye, 0..1, chasing its
 ## scope's aim()
 var aim := 0.0
+## THE KICK (`recoil`): 1 the moment it fires, sprung back to 0 (and a
+## little past); the shots counted to see one go; where the gun in hand is
+## in its fire cycle, in tics, smoothed between the game's (-1: idle)
+var _rec := 0.0
+var _rec_v := 0.0
+var _shots := -1
+var _cycle := -1.0
+## THE GOOP (`goop`): its balls, in this node's space (the eye's), and what
+## each is doing — place, velocity, life left and at the start, size, colour
+var _goop: MultiMesh
+var _goop_mat: ShaderMaterial
+var _gp := PackedVector3Array()
+var _gv := PackedVector3Array()
+var _gl := PackedFloat32Array()
+var _gl0 := PackedFloat32Array()
+var _gs := PackedFloat32Array()
+var _gc := PackedColorArray()
+var _drip := 0.0
+var _ooze := 0.0
+const GOOP_MOST := 192
+const GOOP_GRAVITY := 2.6
+## slime, the pink of it, and blood — and how often each
+const GOOP_COLOURS := [Color(0.80, 0.72, 0.42), Color(0.86, 0.50, 0.52), Color(0.48, 0.03, 0.04)]
 
 func _ready() -> void:
 	camera = Camera3D.new()
@@ -172,6 +207,24 @@ func _load(name: String) -> Dictionary:
 	if def.has("orb"):
 		var nz: Array = def.get("nozzle", [0, 0, 0])
 		out["orb"] = _make_orb(inner, root.transform * Vector3(nz[0], nz[1], nz[2]), def.orb)
+	# THE BARREL'S MATERIALS that swell (`extrude`), told where the barrel's
+	# axis is and how long a stretch of it swells at once
+	out["tip_dir"] = (inner.transform.basis * (root.transform.basis * Vector3(0, 0, 1))).normalized()
+	if def.has("extrude"):
+		var ex: Dictionary = def.extrude
+		var ms := []
+		for part in ex.parts:
+			var mi := root.find_child(String(part), true, false)
+			if mi is MeshInstance3D:
+				for i in (mi as MeshInstance3D).mesh.get_surface_count():
+					var m = (mi as MeshInstance3D).get_surface_override_material(i)
+					if m is ShaderMaterial:
+						m.set_shader_parameter("bulge_axis", Vector2(ex.axis[0], ex.axis[1]))
+						m.set_shader_parameter("bulge_width", float(ex.width))
+						ms.append(m)
+		out["extrude"] = ms
+	if def.get("goop", false):
+		_make_goop()
 	# THE NEXT ROUND IN THE JAR (`chamber`): the part, its place, and its
 	# middle in its parent's space, which it grows and shrinks about
 	if def.has("chamber"):
@@ -441,6 +494,11 @@ func set_weapon(name: String) -> void:
 	if guns.has(current):
 		guns[current].group.visible = false
 	current = name
+	_shots = -1
+	_rec = 0.0
+	_rec_v = 0.0
+	_cycle = -1.0
+	_goop_clear()
 	if not GUNS.has(name):
 		return
 	if not guns.has(name):
@@ -493,24 +551,224 @@ func update_for(p: Player, firing: bool, dt: float, light: float) -> void:
 		_orb_tic(G.orb, p, dt)
 	if G.has("chamber"):
 		_chamber_tic(G.chamber, p)
+	# THE FIRE CYCLE, smoothed between the game's tics (a gun that forces
+	# its round out, `extrude`, shows where it is in it frame by frame)
+	if p.fire_index >= 0 and Weapons.WEAPONS.has(current):
+		var el := float(Weapons.WEAPONS[current].fireTics[0]) - float(p.fire_tics)
+		_cycle = clampf(_cycle + dt * 35.0, el, el + 1.0) if _cycle >= 0.0 else el
+	else:
+		_cycle = -1.0
+	# ONE WENT: the kick, and the goop's splurt
+	var popped := false
+	if def.has("recoil") or def.get("goop", false):
+		if _shots >= 0 and p.shots_fired > _shots:
+			popped = true
+		_shots = p.shots_fired
+	if def.has("recoil"):
+		if popped:
+			_rec = 1.0
+			_rec_v = 0.0
+		var h := minf(dt, 0.05)
+		_rec_v += (-170.0 * _rec - 17.0 * _rec_v) * h
+		_rec += _rec_v * h
+		var rc: Dictionary = def.recoil
+		g.position.z += _rec * float(rc.back)
+		g.rotation.x += _rec * float(rc.climb)
+		g.rotation.z += _rec * float(rc.roll)
+	if G.has("extrude"):
+		_extrude_tic(G, def, p, dt)
+	if def.get("goop", false):
+		_goop_tic(G, def, p, dt, popped, light)
 	for m in G.mats:
 		m.set_shader_parameter("dim", U.col(light))
 		m.set_shader_parameter("glow", U.col(kick))
 		m.set_shader_parameter("heat", U.col(p.heat))
 
-## THE NEXT ROUND IN THE JAR: as full as the gun is loaded — nothing just
-## after it fires, back to whole as it reloads (eased, so it swells), none
-## with the tank dry — and, whole, beating a little, about seventy a minute
+## THE NEXT ROUND IN THE JAR: as full as the gun is loaded — drained into
+## the barrel over the squeeze (`extrude`'s), nothing as it leaves, back to
+## whole as it reloads (eased, so it swells), none with the tank dry — and,
+## whole, beating a little, about seventy a minute
 func _chamber_tic(ch: Dictionary, p) -> void:
 	var w: Dictionary = Weapons.WEAPONS.get(current, {})
+	var sq := float(GUNS[current].extrude.squeeze) if GUNS.has(current) and GUNS[current].has("extrude") else 0.0
 	var fill := 1.0
-	if w.has("ammo") and int(p.ammo.get(w.ammo, 0)) <= 0:
+	if w.has("ammo") and int(p.ammo.get(w.ammo, 0)) <= 0 and p.fire_index < 0:
 		fill = 0.0
 	elif p.fire_index >= 0:
-		fill = smoothstep(0.0, 1.0, 1.0 - float(p.fire_tics) / float(w.fireTics[0]))
+		var el := float(w.fireTics[0]) - float(p.fire_tics)
+		if el < sq:
+			fill = 1.0 - smoothstep(0.0, 1.0, el / sq)
+		elif w.has("ammo") and int(p.ammo.get(w.ammo, 0)) <= 0:
+			fill = 0.0
+		else:
+			fill = smoothstep(0.0, 1.0, (el - sq) / maxf(1.0, float(w.fireTics[0]) - sq))
 	var k := maxf(0.001, fill * (1.0 + 0.06 * fill * sin(Time.get_ticks_msec() * 0.0074)))
 	var c: Vector3 = ch.c
 	ch.node.transform = Transform3D(Basis.from_scale(Vector3.ONE * k), c - c * k) * (ch.rest as Transform3D)
+
+## THE BARREL FORCING IT OUT: over the squeeze a ring of swelling runs
+## from the breech to the muzzle, faster as it goes, and the gun strains in
+## the hands; as it leaves the mouth is stretched wide, then sags back,
+## wobbling (gun.gdshader `bulge`)
+func _extrude_tic(G: Dictionary, def: Dictionary, p, dt: float) -> void:
+	var ex: Dictionary = def.extrude
+	var sq: float = ex.squeeze
+	var z0: float = ex.z[0]
+	var z1: float = ex.z[1]
+	var amt := 0.0
+	var z := z0
+	var e := _cycle
+	if e >= 0.0 and e < sq:
+		var u := e / sq
+		z = lerpf(z0, z1, pow(u, 1.6))
+		amt = float(ex.amount) * smoothstep(0.0, 0.25, u)
+		# (straining: the gun shudders, more as it comes)
+		var t := Time.get_ticks_msec() * 0.001
+		var g: Node3D = G.group
+		g.position += Vector3(sin(t * 71.0), sin(t * 59.0 + 1.3), 0.0) * 0.004 * u
+		g.rotation.z += sin(t * 63.0 + 0.7) * 0.012 * u
+	elif e >= sq:
+		var t := e - sq
+		z = z1
+		amt = float(ex.amount) * 1.6 * exp(-t / 3.0) * (1.0 + 0.3 * sin(t * 2.1))
+	for m in G.extrude:
+		m.set_shader_parameter("bulge", maxf(0.0, amt))
+		m.set_shader_parameter("bulge_z", z)
+
+## THE GOOP: oozing out of the mouth over the second half of the squeeze,
+## splurting out with it as it leaves, and dripping off the lip for a while
+## after; each ball falls, drawn out along the way it is going, and shrinks
+## away at the end of its life
+func _goop_tic(G: Dictionary, def: Dictionary, p, dt: float, popped: bool, light: float) -> void:
+	if _goop == null:
+		return
+	var g: Node3D = G.group
+	var tip: Vector3 = g.transform * (G.tip as Vector3)
+	var dir: Vector3 = (g.transform.basis * (G.tip_dir as Vector3)).normalized()
+	var sq := float(def.extrude.squeeze) if def.has("extrude") else 0.0
+	var e := _cycle
+	if e >= sq * 0.45 and e < sq:
+		_ooze += dt * 30.0
+	while _ooze >= 1.0:
+		_ooze -= 1.0
+		_goop_add(tip, dir, dir * randf_range(0.1, 0.35) + _rand3() * 0.08, randf_range(0.010, 0.022), randf_range(0.5, 0.9), 0.6)
+	if popped:
+		for k in 36:
+			var v := dir * randf_range(1.0, 3.2) + _rand3() * 0.7 + Vector3(0, 0.35, 0)
+			_goop_add(tip, dir, v, randf_range(0.010, 0.040), randf_range(0.45, 1.1), 0.25)
+		_drip = 1.3
+	if _drip > 0.0:
+		_drip -= dt
+		_ooze += dt * 16.0 * clampf(_drip / 1.3, 0.0, 1.0)
+	if p.dead:
+		_goop_clear()
+	# the balls
+	var grav := Vector3(0, -GOOP_GRAVITY, 0) * dt
+	var i := _gp.size() - 1
+	while i >= 0:
+		_gl[i] -= dt
+		if _gl[i] <= 0.0:
+			_goop_remove(i)
+		else:
+			_gv[i] = (_gv[i] + grav) * (1.0 - 0.8 * dt)
+			_gp[i] += _gv[i] * dt
+		i -= 1
+	var n := _gp.size()
+	_goop.visible_instance_count = n
+	if n == 0:
+		return
+	var buf := PackedFloat32Array()
+	buf.resize(GOOP_MOST * 16)
+	for k in n:
+		var v: Vector3 = _gv[k]
+		var sp := v.length()
+		var f := v / sp if sp > 1e-4 else Vector3(0, -1, 0)
+		var a := f.cross(Vector3(0, 0, 1))
+		if a.length() < 1e-3:
+			a = f.cross(Vector3(1, 0, 0))
+		a = a.normalized()
+		var b := f.cross(a)
+		var s: float = _gs[k] * clampf(_gl[k] / (_gl0[k] * 0.3), 0.0, 1.0)
+		var long := s * (1.0 + minf(sp * 0.9, 2.5))
+		var bx := a * s
+		var by := b * s
+		var bz := f * long
+		var q: Vector3 = _gp[k]
+		var c: Color = _gc[k]
+		var o := k * 16
+		buf[o] = bx.x; buf[o + 1] = by.x; buf[o + 2] = bz.x; buf[o + 3] = q.x
+		buf[o + 4] = bx.y; buf[o + 5] = by.y; buf[o + 6] = bz.y; buf[o + 7] = q.y
+		buf[o + 8] = bx.z; buf[o + 9] = by.z; buf[o + 10] = bz.z; buf[o + 11] = q.z
+		buf[o + 12] = c.r; buf[o + 13] = c.g; buf[o + 14] = c.b; buf[o + 15] = 1.0
+	_goop.buffer = buf
+	_goop_mat.set_shader_parameter("dim", light)
+
+## one ball of goop at the mouth: from its middle, or off its lip (`lip`
+## of the mouth's width out from the middle, at random round it)
+func _goop_add(tip: Vector3, dir: Vector3, v: Vector3, size: float, life: float, lip: float) -> void:
+	if _gp.size() >= GOOP_MOST:
+		_goop_remove(0)
+	var side := dir.cross(Vector3(0, 1, 0))
+	if side.length() < 1e-3:
+		side = Vector3(1, 0, 0)
+	side = side.normalized()
+	var up := side.cross(dir).normalized()
+	var th := randf() * TAU
+	_gp.append(tip + (side * cos(th) + up * sin(th)) * 0.06 * lip * randf())
+	_gv.append(v)
+	_gl.append(life)
+	_gl0.append(life)
+	_gs.append(size)
+	var r := randf()
+	_gc.append(GOOP_COLOURS[0 if r < 0.45 else (1 if r < 0.75 else 2)])
+
+func _goop_remove(i: int) -> void:
+	_gp.remove_at(i)
+	_gv.remove_at(i)
+	_gl.remove_at(i)
+	_gl0.remove_at(i)
+	_gs.remove_at(i)
+	_gc.remove_at(i)
+
+func _goop_clear() -> void:
+	_gp.clear()
+	_gv.clear()
+	_gl.clear()
+	_gl0.clear()
+	_gs.clear()
+	_gc.clear()
+	_drip = 0.0
+	_ooze = 0.0
+	if _goop != null:
+		_goop.visible_instance_count = 0
+
+static func _rand3() -> Vector3:
+	return Vector3(randf() * 2.0 - 1.0, randf() * 2.0 - 1.0, randf() * 2.0 - 1.0)
+
+## (once, for the first gun with goop: a ball, drawn GOOP_MOST times)
+func _make_goop() -> void:
+	if _goop != null:
+		return
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 10
+	sm.rings = 6
+	_goop_mat = ShaderMaterial.new()
+	_goop_mat.shader = preload("res://godot/shaders/gun_goop.gdshader")
+	sm.material = _goop_mat
+	_goop = MultiMesh.new()
+	_goop.transform_format = MultiMesh.TRANSFORM_3D
+	_goop.use_colors = true
+	_goop.mesh = sm
+	_goop.instance_count = GOOP_MOST
+	_goop.visible_instance_count = 0
+	var mi := MultiMeshInstance3D.new()
+	mi.name = "Goop"
+	mi.multimesh = _goop
+	mi.custom_aabb = AABB(Vector3(-50, -50, -50), Vector3(100, 100, 100))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
 
 # ---------------------------------------------------------------------
 # THE ARC MAW'S CHARGE (js/weapon3d.js makeOrb, orbTic): while the

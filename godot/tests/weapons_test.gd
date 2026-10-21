@@ -407,6 +407,7 @@ func _fetus(p, run: Vector2) -> void:
 	var f0: int = F.fired
 	var s0: int = F.splats
 	var ev0: int = game.giblets.eviscerations
+	var bu0: int = game.gore_decals.bursts
 	var n := _hold("FETUS", 90, func(): return F.splats > s0)
 	var blasts := 0
 	for a in game.actors:
@@ -417,17 +418,28 @@ func _fetus(p, run: Vector2) -> void:
 	check(F.kills >= 1 and game.giblets.eviscerations >= ev0 + 2, "they are blown apart, and so is the fetus (eviscerations +%d)" % (game.giblets.eviscerations - ev0))
 	check(blasts == 0, "wet: nobody it killed went up in a fireball (%d)" % blasts)
 	check(F.shots.is_empty(), "and nothing of it flies on")
-	# THE JAR RELOADS: held down, one a FETUS_REFIRE tics and no faster
+	check(game.gore_decals.bursts > bu0, "a great burst of blood where they stood (%d)" % (game.gore_decals.bursts - bu0))
+	# THE SQUEEZE, THEN THE KICK; AND THE JAR RELOADS: held down, the gun
+	# forces it out for FETUS_SQUEEZE tics, out it comes with a kick, and
+	# the next a whole FETUS_REFIRE later and no sooner
 	game._autofire = false
 	for i in 40:
 		game.tic()
 	p.angle = run.x
 	p.pitch = 0.35
 	f0 = F.fired
+	var cry0: int = F.last_cry
+	_hold("FETUS", Weapons.FETUS_SQUEEZE)
+	check(F.fired == f0 and F.last_cry != cry0, "the trigger: %d tics forcing it out, screaming already, and nothing out yet" % Weapons.FETUS_SQUEEZE)
+	var mom := Vector2(p.momx, p.momy).dot(Vector2(cos(p.angle), sin(p.angle)))
+	_hold("FETUS", 1)
+	var kicked := Vector2(p.momx, p.momy).dot(Vector2(cos(p.angle), sin(p.angle)))
+	check(F.fired == f0 + 1, "then out it comes")
+	check(kicked < mom - 1.0 and F.punch > 0.9, "with a kick: shoved back (%.1f to %.1f along the aim) and the eye punched up" % [mom, kicked])
 	_hold("FETUS", Weapons.FETUS_REFIRE - 1)
-	check(F.fired == f0 + 1, "held, one fetus in %d tics" % (Weapons.FETUS_REFIRE - 1))
-	_hold("FETUS", 3)
-	check(F.fired == f0 + 2, "and the next once the jar has grown it (%d)" % (F.fired - f0))
+	check(F.fired == f0 + 1, "held, none more until the jar has grown the next")
+	_hold("FETUS", 1)
+	check(F.fired == f0 + 2, "and the next out a whole %d tics after the first" % Weapons.FETUS_REFIRE)
 	# IN FLIGHT: lofted, then falling, tumbling, and screaming a beat out
 	p.ammo.fetuses = 3
 	for i in 60:
@@ -492,7 +504,10 @@ func _fetus(p, run: Vector2) -> void:
 		var node: Node3D = G.chamber.node
 		p.ammo.fetuses = 2
 		p.fire_index = 0
-		p.fire_tics = Weapons.FETUS_REFIRE
+		p.fire_tics = Weapons.FETUS_REFIRE - Weapons.FETUS_SQUEEZE / 2
+		w._chamber_tic(G.chamber, p)
+		var draining := node.transform.basis.get_scale().x
+		p.fire_tics = Weapons.FETUS_REFIRE - Weapons.FETUS_SQUEEZE
 		w._chamber_tic(G.chamber, p)
 		var gone := node.transform.basis.get_scale().x
 		p.fire_index = -1
@@ -501,9 +516,46 @@ func _fetus(p, run: Vector2) -> void:
 		p.ammo.fetuses = 0
 		w._chamber_tic(G.chamber, p)
 		var none := node.transform.basis.get_scale().x
-		check(gone < 0.01 and full > 0.9 and full < 1.1 and none < 0.01,
-			"gone as it fires (%.2f), whole when loaded (%.2f), none when dry (%.2f)" % [gone, full, none])
+		check(draining > 0.15 and draining < 0.85 and gone < 0.01 and full > 0.9 and full < 1.1 and none < 0.01,
+			"draining into the barrel (%.2f), gone as it leaves (%.2f), whole when loaded (%.2f), none when dry (%.2f)" % [draining, gone, full, none])
 	w.queue_free()
+	# THE BARREL FORCING IT OUT, THE GOOP AND THE KICK, in the gun's own world
+	var w2 := Weapon3D.new()
+	root.add_child(w2)
+	p.weapon = "FETUS"
+	p.dead = false
+	p.ammo.fetuses = 2
+	w2.set_weapon("FETUS")
+	var G2: Dictionary = w2.guns["FETUS"]
+	var def2: Dictionary = Weapon3D.GUNS.FETUS
+	var swells: int = (G2.extrude as Array).size() if G2.has("extrude") else 0
+	check(swells >= 3, "the barrel's parts are told how to swell (%d)" % swells)
+	if G2.has("extrude"):
+		var m0: ShaderMaterial = G2.extrude[0]
+		w2._cycle = Weapons.FETUS_SQUEEZE * 0.5
+		w2._extrude_tic(G2, def2, p, 0.0)
+		var mid_b: float = m0.get_shader_parameter("bulge")
+		var mid_z: float = m0.get_shader_parameter("bulge_z")
+		w2._cycle = float(Weapons.FETUS_SQUEEZE) + 0.5
+		w2._extrude_tic(G2, def2, p, 0.0)
+		var lip_z: float = m0.get_shader_parameter("bulge_z")
+		w2._cycle = -1.0
+		w2._extrude_tic(G2, def2, p, 0.0)
+		var rest_b: float = m0.get_shader_parameter("bulge")
+		check(mid_b > 0.2 and mid_z > def2.extrude.z[0] and mid_z < def2.extrude.z[1] and absf(lip_z - def2.extrude.z[1]) < 0.01 and rest_b == 0.0,
+			"a swelling runs down the barrel (%.2f at %.1f), stretches the mouth (%.1f), and is gone at rest" % [mid_b, mid_z, lip_z])
+	w2._shots = p.shots_fired - 1
+	w2.update_for(p, false, 1.0 / 60.0, 1.0)
+	var rec: float = w2._rec
+	var goo: int = w2._gp.size()
+	check(rec > 0.9, "as it leaves the gun is thrown back in the hands (%.2f)" % rec)
+	check(goo >= 30 and w2._goop.visible_instance_count == goo, "and the goop splurts out of the mouth (%d)" % goo)
+	var most := goo
+	for i in 180:
+		w2.update_for(p, false, 1.0 / 60.0, 1.0)
+		most = maxi(most, w2._gp.size())
+	check(absf(w2._rec) < 0.05 and w2._gp.is_empty(), "then the gun settles, and the goop drips off and is gone (%.2f, %d)" % [w2._rec, w2._gp.size()])
+	w2.queue_free()
 	# (the parts left lying draw their own picture far off: not white squares)
 	var rm: ShaderMaterial = game.giblets._rem_mm.mesh.surface_get_material(0)
 	check(rm.get_shader_parameter("strip_smooth") != null, "the parts left lying have their picture for far off")
